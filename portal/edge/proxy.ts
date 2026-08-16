@@ -12,7 +12,13 @@
  */
 
 export interface ProxyEnv {
-  /** e.g. https://webtrees.example.org — scheme and host, no path. */
+  /**
+   * Where webtrees lives, e.g. https://webtrees.example.org
+   *
+   * May include a path when webtrees is installed in a subdirectory rather
+   * than at a domain root — https://example.org/webtrees — in which case that
+   * prefix is put back in front of every proxied request.
+   */
   WEBTREES_ORIGIN?: string
   /** Optional shared secret the PHP module checks. */
   PORTAL_PROXY_SECRET?: string
@@ -70,7 +76,20 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
   }
 
   const incoming = new URL(request.url)
-  const target = buildTargetUrl(incoming, origin, env)
+
+  let target: URL
+
+  try {
+    target = buildTargetUrl(incoming, origin, env)
+  } catch {
+    return json(
+      {
+        error: 'not_configured',
+        message: 'WEBTREES_ORIGIN is not a valid URL. Expected something like https://webtrees.example.org',
+      },
+      503,
+    )
+  }
 
   const headers = new Headers(request.headers)
 
@@ -128,13 +147,22 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
 }
 
 function buildTargetUrl(incoming: URL, origin: string, env: ProxyEnv): URL {
+  // Throws on a malformed origin, which the caller turns into a 503 that says
+  // so — rather than a confusing failure further downstream.
+  const base = new URL(origin)
+
+  // webtrees may be installed in a subdirectory. Without this the prefix is
+  // silently dropped, because an absolute path in `new URL(path, base)`
+  // replaces the base's path entirely.
+  const prefix = base.pathname.replace(/\/+$/, '')
+
   const ugly = env.WEBTREES_UGLY_URLS === 'true' || env.WEBTREES_UGLY_URLS === '1'
 
   if (!ugly) {
-    return new URL(incoming.pathname + incoming.search, origin)
+    return new URL(prefix + incoming.pathname + incoming.search, base)
   }
 
-  const target = new URL('/index.php', origin)
+  const target = new URL(prefix + '/index.php', base)
   target.searchParams.set('route', incoming.pathname)
 
   for (const [key, value] of incoming.searchParams) {

@@ -355,11 +355,23 @@ thing that fails quietly:
 
 ### Environment variables
 
-Both are secrets, so set them with wrangler rather than committing them:
+**A dashboard "Text" variable will not survive.** `wrangler.jsonc` is the
+source of truth for plaintext variables, so the next deploy — including an
+automatic Workers Build triggered by a push to this repository — removes
+anything not listed there. A `WEBTREES_ORIGIN` typed into the dashboard as
+Text therefore disappears on its own, seemingly at random.
+
+Two things that do persist:
+
+* **Non-secret settings in `wrangler.jsonc`.** `WEBTREES_ORIGIN` and
+  `WEBTREES_UGLY_URLS` are not sensitive — a hostname and a boolean — so
+  uncomment the `vars` block there and commit them.
+* **Encrypted secrets.** Set with `wrangler secret put`, or by choosing
+  *Secret* rather than *Text* in the dashboard. These are preserved across
+  deploys.
 
 ```bash
 cd portal
-npx wrangler secret put WEBTREES_ORIGIN       # https://webtrees.example.org
 npx wrangler secret put PORTAL_PROXY_SECRET   # same value as the module setting
 ```
 
@@ -543,6 +555,34 @@ mistyped tree name must not quietly serve a different family's records.
 If the body is HTML rather than JSON, the 503 is not from the portal at all —
 check webtrees' maintenance mode (`data/offline.txt` on the host) and the
 webserver.
+
+### Every endpoint returns 302
+
+webtrees does not answer an unmatched `GET` with a 404. Its `NoRouteFound`
+middleware **redirects to the home page**, so a 302 means *no route matched* —
+not that something is broken downstream.
+
+Two causes:
+
+1. **Pretty URLs are off** and `WEBTREES_UGLY_URLS` is not set. See below.
+2. **The module is not installed or not enabled**, so its routes were never
+   registered.
+
+Both look identical from outside. To tell them apart, ask the webtrees host
+directly for the ugly form:
+
+```bash
+curl -i 'https://your-webtrees-host/index.php?route=/api/v1/csrf'
+```
+
+| Result | Meaning |
+| --- | --- |
+| `200` with `{"csrf_token":…}` | The module is fine; pretty URLs are off. Set `WEBTREES_UGLY_URLS=true`. |
+| `403 proxy_secret_invalid` | Also fine — same conclusion, the module just wants its proxy secret. |
+| `302` to the home page | The module is not installed or not enabled. |
+
+(A `POST` to an unmatched route does return 404, which is why only the `GET`
+endpoints show this.)
 
 ### The API returns 404 for every endpoint
 

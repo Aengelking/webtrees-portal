@@ -293,12 +293,41 @@ understands without it: `WEBTREES_UGLY_URLS=true` sends
 default, because a correctly configured host does not need it and the pretty
 form is what the module's own tests exercise.
 
-Verified with `wrangler dev` against a stub: pretty mode forwards
-`/api/v1/members?q=anna&page=2` verbatim; ugly mode sends
-`/index.php?route=%2Fapi%2Fv1%2Fmembers&q=anna&page=2`; the SPA fallback is
-unaffected in both.
+The symptom is not a 404, which is what makes it hard to place: webtrees'
+`NoRouteFound` middleware **redirects an unmatched GET to the home page**, so
+every endpoint answers 302. A `POST` to an unmatched route does return 404, so
+the two behave differently and neither says "no such route".
 
-### 2.13 SFTP deployment swaps rather than overwrites
+`WEBTREES_ORIGIN` may also carry a path, for a webtrees installed in a
+subdirectory. Without that the prefix is silently dropped, because an absolute
+path in `new URL(path, base)` replaces the base's path entirely.
+
+Verified with `wrangler dev` against a stub, all four cases:
+
+| `WEBTREES_ORIGIN` | mode | webtrees receives |
+| --- | --- | --- |
+| `http://h:8099` | pretty | `/api/v1/csrf?x=1` |
+| `http://h:8099/webtrees` | pretty | `/webtrees/api/v1/csrf?x=1` |
+| `http://h:8099/webtrees/` | ugly | `/webtrees/index.php?route=%2Fapi%2Fv1%2Fcsrf&x=1` |
+| `not a url` | — | 503 naming the bad setting |
+
+The SPA fallback is unaffected in all of them.
+
+### 2.13 Non-secret Worker settings belong in wrangler.jsonc
+
+A variable typed into the Cloudflare dashboard as **Text** does not survive:
+`wrangler.jsonc` is the source of truth for plaintext vars, so the next deploy
+— including an automatic Workers Build from a push to this repository — drops
+anything not declared there. Set `WEBTREES_ORIGIN` in the dashboard as Text and
+it vanishes on its own, at what looks like a random moment: whenever someone
+next pushes.
+
+Encrypted secrets are preserved, so `PORTAL_PROXY_SECRET` is safe as a secret.
+`WEBTREES_ORIGIN` and `WEBTREES_UGLY_URLS` are a hostname and a boolean — not
+sensitive — so they belong in the config file, in version control, where a
+deploy reasserts them rather than removing them.
+
+### 2.14 SFTP deployment swaps rather than overwrites
 
 `module/tools/deploy-sftp.sh` uploads to `portal_api.upload/` beside the target
 and swaps it in with two renames, instead of mirroring over the live
@@ -350,7 +379,7 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
-### 2.14 Three navigation destinations, and no component library
+### 2.15 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
 `portal/src/components/`. No MUI, Chakra or Ant: the constraints that actually

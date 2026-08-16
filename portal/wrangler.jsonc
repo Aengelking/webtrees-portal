@@ -24,10 +24,26 @@
     "enabled": true
   }
 
-  // WEBTREES_ORIGIN and PORTAL_PROXY_SECRET are deliberately not here.
-  // Set them as secrets:
-  //   npx wrangler secret put WEBTREES_ORIGIN
+  // Settings.
+  //
+  // A plain "Text" variable added in the Cloudflare dashboard does NOT
+  // survive: this file is the source of truth for plaintext vars, so the next
+  // deploy — including an automatic Workers Build from a push to this repo —
+  // removes anything not listed here. That is why a dashboard-set
+  // WEBTREES_ORIGIN disappears on its own.
+  //
+  // So: non-secret settings belong here, in version control. Uncomment and
+  // fill in the host.
+  //
+  // "vars": {
+  //   "WEBTREES_ORIGIN": "https://webtrees.example.org",
+  //   // "true" if webtrees does not have rewrite_urls enabled — see README.
+  //   "WEBTREES_UGLY_URLS": "false"
+  // },
+  //
+  // PORTAL_PROXY_SECRET is a real secret and must never be committed. Encrypted
+  // secrets are preserved across deploys, so set it once:
   //   npx wrangler secret put PORTAL_PROXY_SECRET
-  // Committing the origin would be harmless; committing the secret would not,
-  // and keeping them together avoids the mistake.
+  // (Setting WEBTREES_ORIGIN as an encrypted secret rather than a var also
+  // works, and survives deploys for the same reason.)
 }
