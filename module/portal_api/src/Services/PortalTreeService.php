@@ -50,7 +50,10 @@ class PortalTreeService
 
             // Configured but missing: refuse rather than quietly serving a
             // different family's data.
-            throw ApiException::notConfigured(I18N::translate('The member portal is not configured correctly. Please contact an administrator.'));
+            throw $this->notConfigured(
+                'the configured tree "' . $configured . '" does not exist. Available: ' .
+                ($trees->isEmpty() ? '(none)' : $trees->keys()->implode(', '))
+            );
         }
 
         $default = Site::getPreference('DEFAULT_GEDCOM');
@@ -60,7 +63,29 @@ class PortalTreeService
             return $tree;
         }
 
-        throw ApiException::notConfigured(I18N::translate('The member portal is not configured correctly. Please contact an administrator.'));
+        throw $this->notConfigured(
+            $trees->isEmpty()
+                ? 'this webtrees installation has no family trees.'
+                : 'no tree is configured and the site default "' . $default . '" does not exist.'
+        );
+    }
+
+    /**
+     * Refuse, telling the member nothing and the administrator everything.
+     *
+     * The member-facing message stays generic — it is shown to whoever is
+     * signed in, and the shape of the installation is not their business. The
+     * real reason goes to the server's error log, which is where an
+     * administrator will look when the portal answers 503 and the message does
+     * not say why.
+     */
+    private function notConfigured(string $reason): ApiException
+    {
+        error_log('portal_api: cannot serve any tree — ' . $reason);
+
+        return ApiException::notConfigured(
+            I18N::translate('The member portal is not configured correctly. Please contact an administrator.')
+        );
     }
 
     /**

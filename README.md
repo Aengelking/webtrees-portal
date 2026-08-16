@@ -495,6 +495,41 @@ unsafe requests and retries once on a stale token; a 401 anywhere resets the
 app to the login screen; nothing but the language preference reaches browser
 storage.
 
+## Troubleshooting
+
+### The API returns 503
+
+Only two places in the stack produce one, and the `message` in the JSON body
+says which:
+
+```bash
+curl -i https://your-portal-host/api/v1/csrf
+```
+
+| `message` | Meaning | Fix |
+| --- | --- | --- |
+| `WEBTREES_ORIGIN is not set on this deployment.` | The Cloudflare Worker has no webtrees host to proxy to. | `cd portal && npx wrangler secret put WEBTREES_ORIGIN` |
+| `The member portal is not configured correctly…` | The module cannot resolve a family tree. | Control panel → Modules → *Member portal API* → **Family tree** |
+
+The second case deliberately tells the member nothing more, so the reason goes
+to the server's error log instead — look for a line beginning
+`portal_api: cannot serve any tree`. It names the configured tree and the trees
+that actually exist.
+
+The module refuses rather than falling back to another tree, on purpose: a
+mistyped tree name must not quietly serve a different family's records.
+
+If the body is HTML rather than JSON, the 503 is not from the portal at all —
+check webtrees' maintenance mode (`data/offline.txt` on the host) and the
+webserver.
+
+### The API returns 404 for every endpoint
+
+The module is not installed or not enabled. Check that the folder on the host
+is named exactly `portal_api`, then Control panel → Modules → All modules.
+
+---
+
 ## Open questions
 
 `NOTES.md` lists what was decided, what was assumed, and what still needs an
