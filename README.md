@@ -29,6 +29,8 @@ users; there is no second identity system.
 | `module/portal_api/` | The webtrees custom module. Copy this folder into `modules_v4/`. |
 | `module/tests/` | PHPUnit tests, including the privacy acceptance criteria. Not shipped to the server. |
 | `module/tools/setup-test-env.sh` | Creates a webtrees checkout for those tests to run against. |
+| `module/tools/deploy-sftp.sh` | Uploads a directory to the webtrees host over SFTP, atomically. |
+| `.github/workflows/deploy.yml` | Runs the tests, then that script. |
 | `portal/` | The React app, plus the Cloudflare Pages Function. |
 
 ## Scope
@@ -119,6 +121,109 @@ VALUES
 real name is used. **Only insert a row with `visible_in_directory = 1` for
 members who have actually agreed to be listed** — that column is a consent
 record, and `consent_recorded_at` is when they gave it.
+
+### Deploying the module over SFTP
+
+Step 1 above is a manual `rsync`. `.github/workflows/deploy.yml` does the same
+thing over SFTP, after running the tests.
+
+**Nothing is uploaded until the tests pass.** This deploys code that reads
+living people's data; the privacy assertions are the reason to trust a
+release, so there is no way to skip them.
+
+#### Repository secrets
+
+Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+| --- | --- |
+| `SFTP_HOST` | Hostname of the SFTP server. |
+| `SFTP_PORT` | Optional. Defaults to 22. |
+| `SFTP_USERNAME` | Login name. |
+| `SFTP_PRIVATE_KEY` | An OpenSSH private key, whole file including the header and footer lines. |
+| `SFTP_KNOWN_HOSTS` | The server's host key — see below. |
+| `SFTP_MODULE_PATH` | Absolute path to replace, e.g. `/var/www/webtrees/modules_v4/portal_api`. |
+| `SFTP_PORTAL_PATH` | Only if you also upload the SPA; see below. |
+
+Generate a key pair used for nothing else, and give the public half to the
+server:
+
+```bash
+ssh-keygen -t ed25519 -C "portal deploy" -f portal-deploy -N ''
+ssh-copy-id -i portal-deploy.pub -p 22 user@your.host   # or paste into the host's control panel
+```
+
+`portal-deploy` (no `.pub`) goes into `SFTP_PRIVATE_KEY`. Then record the
+server's host key:
+
+```bash
+ssh-keyscan -p 22 your.host
+```
+
+Paste the output into `SFTP_KNOWN_HOSTS`. This is required — the script will
+not connect without it and does not offer a way to turn host verification off.
+An intercepted SFTP session hands an attacker the code that reads your family's
+database.
+
+If the host only offers password authentication, set `SFTP_PASSWORD` instead of
+`SFTP_PRIVATE_KEY` and install `sshpass` in the workflow. Keys are better: a
+password that can write to `modules_v4/` can install any code it likes.
+
+#### Running it
+
+* **Automatically** — a push to `main` that touches `module/portal_api/**`.
+* **By hand** — Actions → Deploy → *Run workflow*, choosing what to upload and
+  whether to do a dry run. A dry run lists what would change and uploads
+  nothing.
+
+The `deploy` job runs in a GitHub environment called `production`. Add required
+reviewers to it in the repository settings if you want a human to approve each
+deployment.
+
+#### How the upload avoids a broken site
+
+The host is serving requests while the upload runs, so overwriting
+`modules_v4/portal_api/` in place would leave a window where half the module is
+new and half is old. Instead the script uploads to `portal_api.upload/` beside
+it and swaps it in with two renames.
+
+The staging and rollback directories have a dot in the name on purpose:
+webtrees' `ModuleService` skips any directory under `modules_v4/` whose name
+contains one, so a partial upload is never loaded as a module.
+
+If the swap fails — usually a permissions problem — the live module is left
+untouched and the site keeps serving the previous version. The upload stays in
+`portal_api.upload/` and the job's log says so.
+
+#### Running it locally
+
+```bash
+export SFTP_HOST=your.host SFTP_USERNAME=deploy
+export SFTP_REMOTE_PATH=/var/www/webtrees/modules_v4/portal_api
+export SFTP_KNOWN_HOSTS="$(ssh-keyscan -p 22 your.host)"
+export SFTP_PRIVATE_KEY="$(cat ~/.ssh/portal-deploy)"
+
+DRY_RUN=true module/tools/deploy-sftp.sh module/portal_api   # look first
+module/tools/deploy-sftp.sh module/portal_api                 # then upload
+```
+
+Needs `lftp` and `openssh-client`.
+
+#### Uploading the portal over SFTP instead of Cloudflare Pages
+
+Choosing `portal` or `both` in the manual run uploads `portal/dist` to
+`SFTP_PORTAL_PATH`. That suits an installation that serves the SPA from the
+same webspace as webtrees — one host, and `/api` is then already same-origin,
+so no proxy is involved at all.
+
+Two things to know if you go that way:
+
+* `portal/public/.htaccess` provides the SPA fallback for Apache, the job
+  `_redirects` does on Pages. On nginx you will need the equivalent
+  `try_files $uri /index.html;`.
+* The SPA expects to live at the domain root, because the API client asks for
+  `/api/v1/…`. To serve it from a subdirectory, set Vite's `base` and adjust
+  `BASE` in `portal/src/api/client.ts` to match.
 
 ### webtrees' own login is untouched
 

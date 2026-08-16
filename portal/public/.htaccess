@@ -1,0 +1,27 @@
+# SPA fallback for Apache.
+#
+# Only needed when the portal is served from an ordinary webserver — for
+# instance uploaded over SFTP to the same webspace as webtrees. On Cloudflare
+# Pages this file is ignored and `_redirects` does the same job.
+#
+# Without it, refreshing on /members returns a 404: the browser asks the
+# server for a path only the client-side router knows about.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Anything that exists on disk is served as-is.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # The API is not the SPA's to answer. Let it fall through to webtrees.
+    RewriteRule ^api/ - [L]
+
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # The portal is for members, not search engines.
+    Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>

@@ -239,7 +239,28 @@ German is the default, deliberately, rather than following the browser's
 language — the handoff asks for German default, and the switcher is one tap
 away on every screen including login.
 
-### 2.11 Three navigation destinations, and no component library
+### 2.11 SFTP deployment swaps rather than overwrites
+
+`module/tools/deploy-sftp.sh` uploads to `portal_api.upload/` beside the target
+and swaps it in with two renames, instead of mirroring over the live
+directory. The host serves requests throughout an upload, and webtrees loads
+`module.php` on every request — so an in-place overwrite has a window in which
+the module is half one version and half another.
+
+The staging and rollback directory names contain a dot, which is not
+cosmetic: `ModuleService::customModules()` skips any directory under
+`modules_v4/` whose name contains `.`, so neither is ever loaded as a module.
+
+Host key verification is required and cannot be turned off — there is no
+`StrictHostKeyChecking=no` escape hatch, deliberately. Password authentication
+works (via `sshpass`) but keys are the documented path; anything that can write
+to `modules_v4/` can install arbitrary code.
+
+The workflow runs the full test suite before it uploads anything, and there is
+no input to skip it. The privacy assertions are the reason to trust a release
+of this particular thing.
+
+### 2.12 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
 `portal/src/components/`. No MUI, Chakra or Ant: the constraints that actually
@@ -317,6 +338,16 @@ Written down rather than acted on, per §2 of the handoff.
   (1 in 20 failed logins). Under a sustained attack, the table could reach
   perhaps tens of thousands of rows before pruning catches up. Indexed and
   small, so not a problem — noted so it is not a surprise.
+* **There is no plain CI workflow.** `deploy.yml` runs the whole suite, but
+  only on a push to `main` that touches the module, or on a manual run —
+  nothing runs the tests on a pull request. Splitting the `test` job into its
+  own `ci.yml` and having `deploy.yml` depend on it is a ten-minute change,
+  left undone because it was not asked for.
+* **Serving the SPA over SFTP assumes the domain root.** The API client asks
+  for `/api/v1/…`, so a subdirectory install needs Vite's `base` and the
+  client's `BASE` changed together. Fine for Cloudflare Pages, which is the
+  intended path; noted because the SFTP option makes the other arrangement
+  possible.
 * **No structured audit log for portal reads.** webtrees logs authentication;
   nothing logs "member A viewed member B's record". Phase 3, with connections,
   is probably when that starts to matter.
