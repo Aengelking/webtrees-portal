@@ -290,10 +290,27 @@ The staging and rollback directory names contain a dot, which is not
 cosmetic: `ModuleService::customModules()` skips any directory under
 `modules_v4/` whose name contains `.`, so neither is ever loaded as a module.
 
+The host authenticates with a **username and password**, which is what the
+target host offers. That needs `sshpass`: `ssh` reads a password from a
+terminal and nowhere else, by design, so there is no way to script one without
+it. The password reaches sshpass through the `SSHPASS` environment variable
+rather than argv, so it is not in the process list, and the lftp command file
+(mode 0600, in a `mktemp -d` that is trapped for removal) contains the
+username but never the password.
+
 Host key verification is required and cannot be turned off — there is no
-`StrictHostKeyChecking=no` escape hatch, deliberately. Password authentication
-works (via `sshpass`) but keys are the documented path; anything that can write
-to `modules_v4/` can install arbitrary code.
+`StrictHostKeyChecking=no` escape hatch, deliberately. That matters more with a
+password than with a key: a machine-in-the-middle on a key-authenticated
+session gets that session, while on a password-authenticated one it gets the
+password, and with it the ability to write to `modules_v4/` whenever it likes.
+
+`SFTP_PRIVATE_KEY` is still supported and takes precedence when set, so moving
+to key authentication later is one secret, no code change. Worth doing.
+
+`PubkeyAuthentication=no` is set on the password path. Without it ssh offers
+agent and default keys first, which on a server with a low `MaxAuthTries` can
+exhaust the attempts before the password is ever tried — a failure that looks
+like a wrong password and is not one.
 
 The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release

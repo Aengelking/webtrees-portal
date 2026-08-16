@@ -4,7 +4,7 @@ name: Deploy
 #
 # The module has no other deployment path — it has to be copied into
 # modules_v4/ on the host — so that is what this deploys by default. The
-# portal normally goes to Cloudflare Pages from the repository, but it can be
+# portal normally goes to Cloudflare Workers from the repository, but it can be
 # uploaded here too for installations that serve the SPA from the same
 # webspace as webtrees.
 #
@@ -117,10 +117,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install lftp
+      - name: Install lftp and sshpass
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp openssh-client
+          # sshpass: ssh will not read a password from anywhere but a
+          # terminal, so a non-interactive password login needs it.
+          sudo apt-get install -y -qq lftp openssh-client sshpass
 
       - name: Upload the module
         if: github.event_name == 'push' || inputs.target == 'module' || inputs.target == 'both'
@@ -128,7 +130,7 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PORT: ${{ secrets.SFTP_PORT }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
-          SFTP_PRIVATE_KEY: ${{ secrets.SFTP_PRIVATE_KEY }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_KNOWN_HOSTS: ${{ secrets.SFTP_KNOWN_HOSTS }}
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_MODULE_PATH }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -147,7 +149,7 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PORT: ${{ secrets.SFTP_PORT }}
           SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
-          SFTP_PRIVATE_KEY: ${{ secrets.SFTP_PRIVATE_KEY }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_KNOWN_HOSTS: ${{ secrets.SFTP_KNOWN_HOSTS }}
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_PORTAL_PATH }}
           DRY_RUN: ${{ inputs.dry_run }}

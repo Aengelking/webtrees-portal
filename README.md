@@ -141,34 +141,32 @@ Settings → Secrets and variables → Actions:
 | `SFTP_HOST` | Hostname of the SFTP server. |
 | `SFTP_PORT` | Optional. Defaults to 22. |
 | `SFTP_USERNAME` | Login name. |
-| `SFTP_PRIVATE_KEY` | An OpenSSH private key, whole file including the header and footer lines. |
+| `SFTP_PASSWORD` | The account's password. |
 | `SFTP_KNOWN_HOSTS` | The server's host key — see below. |
 | `SFTP_MODULE_PATH` | Absolute path to replace, e.g. `/var/www/webtrees/modules_v4/portal_api`. |
 | `SFTP_PORTAL_PATH` | Only if you also upload the SPA; see below. |
 
-Generate a key pair used for nothing else, and give the public half to the
-server:
-
-```bash
-ssh-keygen -t ed25519 -C "portal deploy" -f portal-deploy -N ''
-ssh-copy-id -i portal-deploy.pub -p 22 user@your.host   # or paste into the host's control panel
-```
-
-`portal-deploy` (no `.pub`) goes into `SFTP_PRIVATE_KEY`. Then record the
-server's host key:
+Record the server's host key and paste the output into `SFTP_KNOWN_HOSTS`:
 
 ```bash
 ssh-keyscan -p 22 your.host
 ```
 
-Paste the output into `SFTP_KNOWN_HOSTS`. This is required — the script will
-not connect without it and does not offer a way to turn host verification off.
-An intercepted SFTP session hands an attacker the code that reads your family's
-database.
+**This is required.** The script will not connect without it and offers no way
+to turn host verification off. With password authentication that matters more
+than usual: an intercepted session gives away the password itself, not just
+that one connection.
 
-If the host only offers password authentication, set `SFTP_PASSWORD` instead of
-`SFTP_PRIVATE_KEY` and install `sshpass` in the workflow. Keys are better: a
-password that can write to `modules_v4/` can install any code it likes.
+The workflow installs `sshpass`, because `ssh` will not read a password from
+anywhere but a terminal. The password is passed to it through the `SSHPASS`
+environment variable, so it never appears in the process list or in the lftp
+command file.
+
+If you ever add key authentication, set `SFTP_PRIVATE_KEY` to the private key
+and the script will use it in preference to the password — nothing else needs
+to change. Worth doing eventually: an account that can write to `modules_v4/`
+can install any code it likes, and a key cannot be guessed or reused from
+another leak.
 
 #### Running it
 
@@ -202,13 +200,13 @@ untouched and the site keeps serving the previous version. The upload stays in
 export SFTP_HOST=your.host SFTP_USERNAME=deploy
 export SFTP_REMOTE_PATH=/var/www/webtrees/modules_v4/portal_api
 export SFTP_KNOWN_HOSTS="$(ssh-keyscan -p 22 your.host)"
-export SFTP_PRIVATE_KEY="$(cat ~/.ssh/portal-deploy)"
+read -rs SFTP_PASSWORD && export SFTP_PASSWORD   # typed, not in shell history
 
 DRY_RUN=true module/tools/deploy-sftp.sh module/portal_api   # look first
 module/tools/deploy-sftp.sh module/portal_api                 # then upload
 ```
 
-Needs `lftp` and `openssh-client`.
+Needs `lftp`, `openssh-client` and `sshpass`.
 
 #### Uploading the portal over SFTP instead of Cloudflare
 

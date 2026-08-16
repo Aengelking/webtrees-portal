@@ -21,14 +21,15 @@
 # Required environment:
 #   SFTP_HOST          hostname of the SFTP server
 #   SFTP_USERNAME      login name
-#   SFTP_REMOTE_PATH   absolute path of the directory to replace,
-#                      e.g. /var/www/webtrees/modules_v4/portal_api
+#   SFTP_REMOTE_PATH   path of the directory to replace, e.g.
+#                      /var/www/webtrees/modules_v4/portal_api
 #   SFTP_KNOWN_HOSTS   the server's public host key(s), as in a known_hosts
 #                      file. Get it with:  ssh-keyscan -p 22 your.host
 #
 # Authentication, one of:
-#   SFTP_PRIVATE_KEY   an OpenSSH private key (preferred)
-#   SFTP_PASSWORD      a password (requires sshpass; see below)
+#   SFTP_PASSWORD      the account password (needs sshpass installed)
+#   SFTP_PRIVATE_KEY   an OpenSSH private key; used in preference to the
+#                      password when both are set
 #
 # Optional:
 #   SFTP_PORT          default 22
@@ -60,37 +61,37 @@ require() {
 require SFTP_HOST
 require SFTP_USERNAME
 require SFTP_REMOTE_PATH
-# Host verification is not optional. An unverified SFTP connection can be
-# intercepted, and this one is being handed the code that reads a family's
-# genealogy database.
+# Host verification is not optional. An unverified connection can be
+# intercepted — and with password authentication, intercepting it hands over
+# the password itself, not just this session.
 require SFTP_KNOWN_HOSTS
+
+if [ -z "${SFTP_PASSWORD:-}" ] && [ -z "${SFTP_PRIVATE_KEY:-}" ]; then
+    echo "error: set SFTP_PASSWORD, or SFTP_PRIVATE_KEY" >&2
+    exit 78
+fi
 
 SFTP_PORT="${SFTP_PORT:-22}"
 DRY_RUN="${DRY_RUN:-false}"
 
-case "${SFTP_REMOTE_PATH}" in
-    /*) ;;
-    *)
-        echo "error: SFTP_REMOTE_PATH must be an absolute path" >&2
+# Strip any trailing slash, so dirname/basename below behave.
+REMOTE_PATH="${SFTP_REMOTE_PATH%/}"
+
+case "${REMOTE_PATH}" in
+    ''|'/'|'.'|'..')
+        echo "error: refusing to deploy to '${SFTP_REMOTE_PATH}' — give the path of the" >&2
+        echo "       module directory itself, e.g. /var/www/webtrees/modules_v4/portal_api" >&2
         exit 78
         ;;
 esac
 
-if [ "${SFTP_REMOTE_PATH}" = "/" ] || [ "$(dirname "${SFTP_REMOTE_PATH}")" = "/" ]; then
-    echo "error: refusing to deploy to ${SFTP_REMOTE_PATH}" >&2
-    exit 78
-fi
-
-for tool in lftp ssh; do
-    if ! command -v "${tool}" >/dev/null 2>&1; then
-        echo "error: ${tool} is not installed" >&2
-        echo "       Debian/Ubuntu: sudo apt-get install lftp openssh-client" >&2
-        exit 69
-    fi
-done
-
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
+
+REMOTE_PARENT="$(dirname "${REMOTE_PATH}")"
+REMOTE_NAME="$(basename "${REMOTE_PATH}")"
+STAGING_NAME="${REMOTE_NAME}.upload"
+PREVIOUS_NAME="${REMOTE_NAME}.previous"
 
 KNOWN_HOSTS="${WORK_DIR}/known_hosts"
 printf '%s\n' "${SFTP_KNOWN_HOSTS}" > "${KNOWN_HOSTS}"
@@ -105,6 +106,7 @@ SSH_OPTIONS=(
 )
 
 if [ -n "${SFTP_PRIVATE_KEY:-}" ]; then
+    AUTH_METHOD="private key"
     KEY_FILE="${WORK_DIR}/id_deploy"
     printf '%s\n' "${SFTP_PRIVATE_KEY}" > "${KEY_FILE}"
     chmod 600 "${KEY_FILE}"
@@ -117,94 +119,122 @@ if [ -n "${SFTP_PRIVATE_KEY:-}" ]; then
         -i "${KEY_FILE}"
     )
     CONNECT_PROGRAM="ssh ${SSH_OPTIONS[*]}"
-elif [ -n "${SFTP_PASSWORD:-}" ]; then
+else
+    AUTH_METHOD="password"
+
     if ! command -v sshpass >/dev/null 2>&1; then
-        echo "error: SFTP_PASSWORD is set but sshpass is not installed" >&2
-        echo "       Prefer SFTP_PRIVATE_KEY. If the host really only offers" >&2
-        echo "       password authentication: sudo apt-get install sshpass" >&2
+        echo "error: SFTP_PASSWORD is set but sshpass is not installed." >&2
+        echo "       ssh will not read a password from anywhere but a terminal," >&2
+        echo "       so a non-interactive password login needs it." >&2
+        echo "       Debian/Ubuntu: sudo apt-get install sshpass" >&2
         exit 69
     fi
 
     # No BatchMode here: it would suppress the very prompt sshpass exists to
-    # answer. sshpass reads the password from SSHPASS rather than the command
-    # line, so it never appears in the process list.
-    SSH_OPTIONS+=(-o "PreferredAuthentications=password,keyboard-interactive")
+    # answer. sshpass reads the password from the SSHPASS environment variable
+    # rather than the command line, so it never appears in the process list.
+    #
+    # PubkeyAuthentication=no stops ssh offering agent or default keys first,
+    # which on a server with a low MaxAuthTries can use up the attempts before
+    # the password is ever tried.
+    SSH_OPTIONS+=(
+        -o "PreferredAuthentications=password,keyboard-interactive"
+        -o "PubkeyAuthentication=no"
+    )
     export SSHPASS="${SFTP_PASSWORD}"
     CONNECT_PROGRAM="sshpass -e ssh ${SSH_OPTIONS[*]}"
-else
-    echo "error: set SFTP_PRIVATE_KEY (preferred) or SFTP_PASSWORD" >&2
-    exit 78
 fi
 
-REMOTE_PARENT="$(dirname "${SFTP_REMOTE_PATH}")"
-REMOTE_NAME="$(basename "${SFTP_REMOTE_PATH}")"
-STAGING="${SFTP_REMOTE_PATH}.upload"
-PREVIOUS="${SFTP_REMOTE_PATH}.previous"
+if ! command -v lftp >/dev/null 2>&1; then
+    echo "error: lftp is not installed" >&2
+    echo "       Debian/Ubuntu: sudo apt-get install lftp openssh-client" >&2
+    exit 69
+fi
 
-# lftp reads the password for `open -u` from stdin, which we never use; the
-# authentication above happens inside the connect program instead.
+# Escape a value for lftp's double-quoted strings. `printf` is a shell builtin,
+# so the value never becomes a separate process's argv.
+lftp_quote() {
+    printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+SFTP_USERNAME_Q="$(lftp_quote "${SFTP_USERNAME}")"
+CONNECT_PROGRAM_Q="$(lftp_quote "${CONNECT_PROGRAM}")"
+
+# Commands go in a 0600 file rather than in argv, which is visible to every
+# user on the machine via `ps`.
+lftp_script() {
+    local fail_exit="$1"
+    local commands="$2"
+    local script_file="${WORK_DIR}/lftp.commands"
+
+    touch "${script_file}"
+    chmod 600 "${script_file}"
+
+    {
+        echo "set sftp:connect-program \"${CONNECT_PROGRAM_Q}\";"
+        echo "set net:max-retries 3;"
+        echo "set net:timeout 30;"
+        echo "set xfer:clobber true;"
+        echo "set cmd:fail-exit ${fail_exit};"
+        echo "open -u \"${SFTP_USERNAME_Q}\" sftp://${SFTP_HOST}:${SFTP_PORT};"
+        echo "${commands}"
+        echo "bye;"
+    } > "${script_file}"
+
+    lftp -f "${script_file}"
+}
+
+# Steps that must succeed.
 lftp_run() {
-    lftp -c "
-        set sftp:connect-program \"${CONNECT_PROGRAM}\";
-        set net:max-retries 3;
-        set net:timeout 30;
-        set cmd:fail-exit true;
-        set xfer:clobber true;
-        open -u \"${SFTP_USERNAME}\", sftp://${SFTP_HOST}:${SFTP_PORT};
-        $1
-    "
+    lftp_script true "$1"
 }
 
-# Same, but for steps that are allowed to fail — removing something that was
-# never there, or renaming a target that does not exist yet on a first deploy.
+# Steps that are allowed to fail — removing something that was never there, or
+# renaming a target that does not exist yet on a first deploy.
 lftp_try() {
-    lftp -c "
-        set sftp:connect-program \"${CONNECT_PROGRAM}\";
-        set cmd:fail-exit false;
-        open -u \"${SFTP_USERNAME}\", sftp://${SFTP_HOST}:${SFTP_PORT};
-        $1
-    " >/dev/null 2>&1 || true
+    lftp_script false "$1" >/dev/null 2>&1 || true
 }
 
-echo "==> ${LOCAL_DIR}  ->  ${SFTP_USERNAME}@${SFTP_HOST}:${SFTP_REMOTE_PATH}"
+echo "==> ${LOCAL_DIR}  ->  ${SFTP_USERNAME}@${SFTP_HOST}:${REMOTE_PATH}"
+echo "==> Authenticating with a ${AUTH_METHOD}; host key verification is on."
 
 if [ "${DRY_RUN}" = "true" ]; then
     echo "==> Dry run: comparing against the live directory, uploading nothing"
-    lftp_run "mirror --reverse --dry-run --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${SFTP_REMOTE_PATH}\";"
+    lftp_run "mirror --reverse --dry-run --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${REMOTE_PATH}\";"
     echo "==> Dry run finished. Nothing was changed."
     exit 0
 fi
 
 echo "==> Clearing any staging directory left by a failed run"
-lftp_try "rm -rf \"${STAGING}\";"
+lftp_try "rm -rf \"${REMOTE_PARENT}/${STAGING_NAME}\";"
 
-echo "==> Uploading to ${STAGING}"
+echo "==> Uploading to ${REMOTE_PARENT}/${STAGING_NAME}"
 # --no-perms: shared hosting usually refuses chmod, and the files do not need
 # any mode beyond what the account's umask gives them.
-lftp_run "mirror --reverse --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${STAGING}\";"
+lftp_run "mirror --reverse --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${REMOTE_PARENT}/${STAGING_NAME}\";"
 
 echo "==> Swapping the new version in"
-lftp_try "rm -rf \"${PREVIOUS}\";"
+lftp_try "rm -rf \"${REMOTE_PARENT}/${PREVIOUS_NAME}\";"
 # Expected to fail on a first deploy, when there is nothing to move aside.
-lftp_try "cd \"${REMOTE_PARENT}\"; mv \"${REMOTE_NAME}\" \"$(basename "${PREVIOUS}")\";"
+lftp_try "cd \"${REMOTE_PARENT}\"; mv \"${REMOTE_NAME}\" \"${PREVIOUS_NAME}\";"
 
 # If moving the old version aside failed for a real reason — permissions, say —
 # then this rename fails too, because the target still exists. That is the
 # failure mode we want: the live module is untouched, the upload is sitting in
 # a directory webtrees ignores, and the site is still serving the old version.
-if ! lftp_run "cd \"${REMOTE_PARENT}\"; mv \"$(basename "${STAGING}")\" \"${REMOTE_NAME}\";"; then
+if ! lftp_run "cd \"${REMOTE_PARENT}\"; mv \"${STAGING_NAME}\" \"${REMOTE_NAME}\";"; then
     echo >&2
     echo "error: could not put the new version in place." >&2
     echo "       The live module was NOT changed and the site is still running" >&2
     echo "       the previous version. The upload is at:" >&2
-    echo "         ${STAGING}" >&2
+    echo "         ${REMOTE_PARENT}/${STAGING_NAME}" >&2
     echo "       Check that ${SFTP_USERNAME} may rename directories in" >&2
     echo "       ${REMOTE_PARENT}, then run this again." >&2
     exit 74
 fi
 
 echo "==> Removing the previous version"
-lftp_try "rm -rf \"${PREVIOUS}\";"
+lftp_try "rm -rf \"${REMOTE_PARENT}/${PREVIOUS_NAME}\";"
 
 echo "==> Done."
 echo
