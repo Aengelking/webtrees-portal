@@ -278,7 +278,27 @@ through with the body, cookie and `Cache-Control: private, no-store` intact,
 and a client-supplied `X-Portal-Proxy-Secret` is stripped and replaced with
 the real one rather than passed along.
 
-### 2.12 SFTP deployment swaps rather than overwrites
+### 2.12 webtrees' pretty URLs are a deployment prerequisite
+
+The API is mounted at `/api/v1/…`, which webtrees only routes when
+`rewrite_urls` is enabled in `data/config.ini.php`. That is not the default,
+and it is frequently off on shared hosting. With it off, `Router::process()`
+takes the route from a `route` query parameter and *replaces* the request path
+with it — so a request to `/api/v1/csrf` arrives with an empty path, matches
+nothing, and 404s. Every endpoint, silently, with a working module.
+
+Rather than require the setting, the Worker can produce the form webtrees
+understands without it: `WEBTREES_UGLY_URLS=true` sends
+`/index.php?route=/api/v1/csrf`, preserving any other query parameters. Off by
+default, because a correctly configured host does not need it and the pretty
+form is what the module's own tests exercise.
+
+Verified with `wrangler dev` against a stub: pretty mode forwards
+`/api/v1/members?q=anna&page=2` verbatim; ugly mode sends
+`/index.php?route=%2Fapi%2Fv1%2Fmembers&q=anna&page=2`; the SPA fallback is
+unaffected in both.
+
+### 2.13 SFTP deployment swaps rather than overwrites
 
 `module/tools/deploy-sftp.sh` uploads to `portal_api.upload/` beside the target
 and swaps it in with two renames, instead of mirroring over the live
@@ -330,7 +350,7 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
-### 2.13 Three navigation destinations, and no component library
+### 2.14 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
 `portal/src/components/`. No MUI, Chakra or Ant: the constraints that actually

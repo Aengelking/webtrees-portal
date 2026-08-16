@@ -16,6 +16,17 @@ export interface ProxyEnv {
   WEBTREES_ORIGIN?: string
   /** Optional shared secret the PHP module checks. */
   PORTAL_PROXY_SECRET?: string
+  /**
+   * Set to "true" when the webtrees installation does NOT have `rewrite_urls`
+   * enabled in its config.ini.php.
+   *
+   * webtrees only understands a path like /api/v1/csrf when URL rewriting is
+   * on. With it off — which is the default, and common on shared hosting — its
+   * router reads the route from a `route` query parameter and ignores the path
+   * entirely, so every endpoint answers 404. This turns requests into the form
+   * webtrees does understand: /index.php?route=/api/v1/csrf
+   */
+  WEBTREES_UGLY_URLS?: string
 }
 
 /** Hop-by-hop and Cloudflare-specific headers that must not be forwarded. */
@@ -59,7 +70,7 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
   }
 
   const incoming = new URL(request.url)
-  const target = new URL(incoming.pathname + incoming.search, origin)
+  const target = buildTargetUrl(incoming, origin, env)
 
   const headers = new Headers(request.headers)
 
@@ -114,6 +125,25 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
     statusText: upstream.statusText,
     headers: responseHeaders,
   })
+}
+
+function buildTargetUrl(incoming: URL, origin: string, env: ProxyEnv): URL {
+  const ugly = env.WEBTREES_UGLY_URLS === 'true' || env.WEBTREES_UGLY_URLS === '1'
+
+  if (!ugly) {
+    return new URL(incoming.pathname + incoming.search, origin)
+  }
+
+  const target = new URL('/index.php', origin)
+  target.searchParams.set('route', incoming.pathname)
+
+  for (const [key, value] of incoming.searchParams) {
+    if (key !== 'route') {
+      target.searchParams.append(key, value)
+    }
+  }
+
+  return target
 }
 
 function json(body: unknown, status: number): Response {

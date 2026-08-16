@@ -367,6 +367,27 @@ npx wrangler secret put PORTAL_PROXY_SECRET   # same value as the module setting
 | --- | --- | --- |
 | `WEBTREES_ORIGIN` | yes | `https://webtrees.example.org` — scheme and host, no path. |
 | `PORTAL_PROXY_SECRET` | recommended | A long random string. Set the *same* value as the module's **Proxy secret**. |
+| `WEBTREES_UGLY_URLS` | sometimes | `true` if the webtrees installation does not have `rewrite_urls` enabled — see below. |
+
+#### Does your webtrees have pretty URLs?
+
+This one is easy to miss and produces a portal where every API call 404s.
+
+webtrees only understands a path like `/api/v1/csrf` when `rewrite_urls` is
+enabled in its `data/config.ini.php`. That is **not** the default, and it is
+often off on shared hosting. With it off, webtrees' router ignores the path
+entirely and reads the route from a `route` query parameter instead.
+
+Check by opening webtrees and looking at the address bar:
+
+* `https://host/tree/mytree/individual/X1` — pretty URLs are on, nothing to do.
+* `https://host/index.php?route=/tree/mytree/…` — pretty URLs are off, so set
+  `WEBTREES_UGLY_URLS=true` and the Worker will send
+  `/index.php?route=/api/v1/csrf` instead.
+
+Or look for `rewrite_urls="1"` in `data/config.ini.php`. Enabling it there is
+the other option, but it needs working `mod_rewrite` and affects the whole
+webtrees site, so the Worker setting is the smaller change.
 
 For `wrangler dev`, put the same names in `portal/.dev.vars`, which is
 gitignored.
@@ -525,8 +546,40 @@ webserver.
 
 ### The API returns 404 for every endpoint
 
-The module is not installed or not enabled. Check that the folder on the host
-is named exactly `portal_api`, then Control panel → Modules → All modules.
+Two likely causes, in order.
+
+**Pretty URLs are off.** See *Does your webtrees have pretty URLs?* above. If
+webtrees' own address bar shows `index.php?route=…`, set
+`WEBTREES_UGLY_URLS=true` on the Worker.
+
+**The module is not installed or not enabled.** Check that the folder on the
+host is named exactly `portal_api` and sits inside webtrees' `modules_v4/` —
+not beside it, and not in the SFTP login directory — then Control panel →
+Modules → All modules.
+
+### Which layer is broken?
+
+Test the two halves separately rather than guessing. Against the webtrees host
+directly, bypassing Cloudflare entirely:
+
+```bash
+curl -i https://your-webtrees-host/api/v1/csrf
+# or, if pretty URLs are off:
+curl -i 'https://your-webtrees-host/index.php?route=/api/v1/csrf'
+```
+
+| Result | Meaning |
+| --- | --- |
+| `200` with `{"csrf_token":…}` | The module is installed and configured. The problem is the Worker. |
+| `403 proxy_secret_invalid` | Also fine — the module is running and enforcing its proxy secret. |
+| `503 not_configured` | Installed, but no family tree is configured. |
+| `404`, HTML | Not installed, not enabled, or pretty URLs are off. |
+
+Then the same path through the Worker:
+
+```bash
+curl -i https://your-worker.your-subdomain.workers.dev/api/v1/csrf
+```
 
 ---
 
