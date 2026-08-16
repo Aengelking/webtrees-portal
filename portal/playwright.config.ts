@@ -40,10 +40,23 @@ export default defineConfig({
   ...(process.env.E2E_BASE_URL === undefined
     ? {
         webServer: {
-          command: 'npm run build && npx vite preview --port 4173 --strictPort',
+          // Serve only — `npm run test:e2e` builds first. Keeping the build
+          // out of here means a broken build is reported as a broken build,
+          // rather than as a web server that never became ready.
+          //
+          // --host 127.0.0.1 is not decoration. `vite preview` otherwise binds
+          // to `localhost`, which on a CI runner can resolve to ::1 alone
+          // while Playwright polls 127.0.0.1 — the server comes up, nothing
+          // ever answers on the address being watched, and the wait burns the
+          // whole timeout with no useful error.
+          command: 'npm run preview:e2e',
           url: baseURL,
           reuseExistingServer: process.env.CI !== 'true',
-          timeout: 120_000,
+          timeout: 60_000,
+          // Let vite's output reach the log. Without this a failure to start
+          // is silent, and all you get is the timeout.
+          stdout: 'pipe',
+          stderr: 'pipe',
         },
       }
     : {}),

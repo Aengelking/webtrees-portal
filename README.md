@@ -364,9 +364,11 @@ npm run build       # typecheck + production build
 npm run test:e2e    # Playwright smoke path
 ```
 
-The Playwright run builds the app, serves it with `vite preview` and stubs the
-API in the browser, so it needs no webtrees host. To run the same path against
-a real deployment:
+The Playwright run builds the app, serves it with `vite preview` on
+`127.0.0.1:4173` and stubs the API in the browser, so it needs no webtrees
+host. When it fails in CI, the job uploads the Playwright report and traces as
+an artifact called `playwright-report`. To run the same path against a real
+deployment:
 
 ```bash
 E2E_BASE_URL=https://portal.example.org \

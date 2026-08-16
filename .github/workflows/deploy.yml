@@ -99,6 +99,17 @@ jobs:
         working-directory: portal
         run: npm run test:e2e
 
+      - name: Keep the Playwright report when the smoke path fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            portal/playwright-report
+            portal/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Keep the built portal
         if: inputs.target == 'portal' || inputs.target == 'both'
         uses: actions/upload-artifact@v7

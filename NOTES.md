@@ -436,3 +436,11 @@ Written down rather than acted on, per §2 of the handoff.
   webtrees in production, and nothing in this repository can or should fix it.
 * The Playwright smoke path stubs the API in the browser by default, so it
   runs anywhere. `E2E_BASE_URL` points the same specs at a real deployment.
+* The web server Playwright starts binds to `127.0.0.1` explicitly. Left to
+  itself `vite preview` binds to `localhost`, which on a CI runner can resolve
+  to `::1` alone while Playwright polls `127.0.0.1`: the server starts, nothing
+  answers on the address being watched, and the run dies on the webServer
+  timeout with no indication of why. The build was also moved out of the
+  webServer command and into `npm run test:e2e`, so a broken build is reported
+  as a broken build rather than as a server that never came up, and
+  `stdout`/`stderr` are piped so vite's own output reaches the log.

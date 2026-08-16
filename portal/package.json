@@ -13,9 +13,10 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.edge.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "deploy": "npm run build && wrangler deploy",
-    "dev:edge": "wrangler dev"
+    "dev:edge": "wrangler dev",
+    "preview:e2e": "vite preview --host 127.0.0.1 --port 4173 --strictPort"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
