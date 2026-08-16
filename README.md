@@ -190,6 +190,28 @@ This is public data: the server offers these keys to anyone who connects. The
 secrecy is not the point, the pinning is. Do not put a private key or a
 `SHA256:…` fingerprint here.
 
+If `ssh-keyscan` prints the server banner and then an error such as
+`choose_kex: unsupported KEX method sntrup761x25519-sha512@openssh.com`, the
+problem is the local client, not the server: it advertised a key-exchange
+method its own build cannot perform. `ssh-keyscan` takes no `-o` flag, but
+`ssh` does, so steer around it and read the key back out afterwards:
+
+```bash
+ssh -o KexAlgorithms=curve25519-sha256 \
+    -o StrictHostKeyChecking=accept-new \
+    -p 22 YOUR_USER@webtrees.example.org exit
+
+ssh-keygen -F webtrees.example.org
+```
+
+Drop the leading `# Host … found:` comment line. Hashed entries (`|1|…`) are
+fine — `ssh` matches those too. Running the scan from a machine with a current
+OpenSSH, or from a throwaway GitHub Actions step, works just as well.
+
+If the hostname is load-balanced across several machines, their host keys may
+differ, and pinning one will fail intermittently. Capture the key from a few
+separate connections and put all the lines in the secret.
+
 **It is required.** The script will not connect without it and offers no way to
 turn host verification off. With password authentication that matters more than
 usual: an intercepted session gives away the password itself, not just that one
