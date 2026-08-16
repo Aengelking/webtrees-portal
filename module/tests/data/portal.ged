@@ -1,0 +1,72 @@
+0 HEAD
+1 SOUR portal_api-tests
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @X1@ INDI
+1 NAME Anna /Beispiel/
+2 GIVN Anna
+2 SURN Beispiel
+1 SEX F
+1 BIRT
+2 DATE 12 MAR 1985
+2 PLAC Hannover, Niedersachsen, Deutschland
+1 OCCU Tischlerin
+1 FAMC @F1@
+0 @X2@ INDI
+1 NAME Bertha /Beispiel/
+2 GIVN Bertha
+2 SURN Beispiel
+1 SEX F
+1 BIRT
+2 DATE 4 JUN 1889
+2 PLAC Celle, Niedersachsen, Deutschland
+1 DEAT
+2 DATE 17 NOV 1976
+2 PLAC Hannover, Niedersachsen, Deutschland
+1 OCCU Hebamme
+1 OCCU Geheimniskraemerin
+2 RESN confidential
+1 FAMS @F1@
+0 @X3@ INDI
+1 NAME Clara /Beispiel/
+2 GIVN Clara
+2 SURN Beispiel
+1 SEX F
+1 RESN confidential
+1 BIRT
+2 DATE 2 SEP 1987
+2 PLAC Hannover, Niedersachsen, Deutschland
+1 FAMC @F1@
+0 @X4@ INDI
+1 NAME Dieter /Beispiel/
+2 GIVN Dieter
+2 SURN Beispiel
+1 SEX M
+1 BIRT
+2 DATE 30 JAN 1990
+2 PLAC Hannover, Niedersachsen, Deutschland
+1 FAMC @F1@
+0 @X5@ INDI
+1 NAME Emil /Beispiel/
+2 GIVN Emil
+2 SURN Beispiel
+1 SEX M
+1 BIRT
+2 DATE 21 JUL 1884
+2 PLAC Celle, Niedersachsen, Deutschland
+1 DEAT
+2 DATE 3 FEB 1961
+2 PLAC Celle, Niedersachsen, Deutschland
+1 FAMS @F1@
+0 @F1@ FAM
+1 HUSB @X5@
+1 WIFE @X2@
+1 CHIL @X1@
+1 CHIL @X3@
+1 CHIL @X4@
+1 MARR
+2 DATE 8 MAY 1912
+2 PLAC Celle, Niedersachsen, Deutschland
+0 TRLR

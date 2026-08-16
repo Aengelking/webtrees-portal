@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<phpunit
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.4/phpunit.xsd"
+  bootstrap="tests/bootstrap.php"
+  colors="true"
+  cacheDirectory=".phpunit.cache"
+  beStrictAboutOutputDuringTests="true"
+  failOnWarning="true"
+  failOnRisky="true"
+>
+  <testsuites>
+    <testsuite name="portal_api">
+      <directory>tests</directory>
+    </testsuite>
+  </testsuites>
+  <source>
+    <include>
+      <directory suffix=".php">portal_api/src</directory>
+    </include>
+  </source>
+</phpunit>

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.vite/
+
+# The webtrees checkout the module's tests run against.
+module/.webtrees/
+module/.phpunit.cache/
+module/portal_api/vendor/
+
+# Playwright
+portal/test-results/
+portal/playwright-report/
+portal/blob-report/
+portal/.playwright/
+
+.DS_Store
+*.log
+.env
+.env.local
+.dev.vars

@@ -1,0 +1,24 @@
+@import 'tailwindcss';
+
+/*
+ * The audience is older members, often on a phone, often one-handed.
+ * 16px is the floor for body text, not a starting point to shrink from.
+ */
+@theme {
+  --default-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Never remove focus rings — they are how a keyboard user knows where they are. */
+:focus-visible {
+  outline-offset: 2px;
+}

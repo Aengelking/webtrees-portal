@@ -1,0 +1,687 @@
+openapi: 3.1.0
+
+info:
+  title: webtrees Member Portal API
+  version: 1.0.0-phase1
+  description: |
+    Read-only JSON API served by the webtrees custom module `portal_api`
+    (`modules_v4/portal_api/`). It is consumed by the React member portal,
+    which is deployed to Cloudflare Pages and proxies `/api/*` onto this API
+    so that both live on the same origin.
+
+    ## Authentication
+
+    Cookie-session authentication, reusing webtrees' own session and user
+    accounts. `POST /session` verifies the credentials through webtrees'
+    authentication path and starts a webtrees session; the browser receives
+    the standard webtrees session cookie
+    (`__Secure-WT-ID` over HTTPS, `WT2_SESSION` otherwise) with
+    `HttpOnly; Secure; SameSite=Lax; Path=/`.
+
+    There is no bearer token. Nothing credential-shaped is readable from
+    JavaScript.
+
+    ## CSRF
+
+    Every request whose method is not `GET`, `HEAD` or `OPTIONS` must carry
+    the header `X-CSRF-TOKEN`, holding the token from `GET /csrf`. The token
+    is webtrees' own session CSRF token (`Session::getCsrfToken()`).
+
+    `SameSite=Lax` alone is not treated as sufficient.
+
+    Note that webtrees core runs its own CSRF middleware in front of every
+    `POST` route in the application, and it answers a bad token with a `302`
+    redirect rather than a JSON error. Clients should therefore treat a
+    redirect or a non-JSON response to an unsafe request as "token stale",
+    re-fetch `GET /csrf` and retry once. All other methods are handled by this
+    module and answer with `403 csrf_token_invalid`.
+
+    ## Caching
+
+    Every response carries `Cache-Control: private, no-store`. The Cloudflare
+    Pages Function that proxies `/api/*` must also be configured to bypass the
+    cache. A cached authenticated response would show one member another
+    member's relatives.
+
+    ## Privacy
+
+    Every genealogy record in every response has passed webtrees' own
+    visibility logic (`GedcomRecord::canShow()` and per-fact `Fact::canShow()`)
+    at the authenticated user's access level for the configured tree. An
+    individual the caller may not see is absent from the response entirely —
+    including from nested relative lists and from directory entries — rather
+    than being present in a redacted form, so that response shape does not leak
+    existence.
+
+servers:
+  - url: /api/v1
+    description: Same-origin path, via the Cloudflare Pages proxy
+  - url: https://webtrees.example.org/api/v1
+    description: The webtrees host directly (local development)
+
+tags:
+  - name: session
+    description: Login, logout and CSRF
+  - name: me
+    description: The authenticated member
+  - name: individuals
+    description: Genealogy records
+  - name: members
+    description: Member directory
+
+paths:
+  /csrf:
+    get:
+      tags: [session]
+      summary: Get a CSRF token
+      description: |
+        Returns the CSRF token for the current session, creating a session
+        (and therefore setting the session cookie) if there is not one yet.
+        Safe to call unauthenticated — this is how the login screen obtains a
+        token.
+      security: []
+      operationId: getCsrfToken
+      responses:
+        '200':
+          description: The current session's CSRF token
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+
+  /session:
+    post:
+      tags: [session]
+      summary: Log in
+      description: |
+        Verifies username (or email) and password through webtrees'
+        `UserService`/`User::checkPassword()` and starts a session.
+
+        All failures — unknown user, wrong password, unverified email address,
+        account not yet approved by an administrator, and rate limiting —
+        return the same `401 invalid_credentials` body. The real reason is
+        written to the webtrees authentication log server-side only. Requests
+        that exceed the rate limit also return `401 invalid_credentials`, so
+        that the limiter cannot be used to probe for valid usernames.
+      security: []
+      operationId: createSession
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Logged in
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: |
+            Authentication failed. Deliberately indistinguishable across
+            wrong password, unknown user, unverified account, unapproved
+            account and rate limiting.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: invalid_credentials
+                message: Benutzername oder Passwort ist falsch.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      tags: [session]
+      summary: Log out
+      description: |
+        Destroys the server-side session. Returns a fresh CSRF token, because
+        destroying the session invalidates the old one.
+      operationId: deleteSession
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: Logged out
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /me:
+    get:
+      tags: [me]
+      summary: The authenticated member and their own record
+      operationId: getMe
+      responses:
+        '200':
+          description: The authenticated member
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /individuals/{xref}:
+    get:
+      tags: [individuals]
+      summary: One individual record, privacy-filtered
+      description: |
+        Returns `404` both when the record does not exist and when the
+        authenticated user may not see it, so that the response does not
+        disclose which of the two is the case.
+      operationId: getIndividual
+      parameters:
+        - name: xref
+          in: path
+          required: true
+          description: The GEDCOM XREF of the individual, e.g. `X1234`.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_.\-]{1,20}$'
+      responses:
+        '200':
+          description: The individual
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Individual'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /members:
+    get:
+      tags: [members]
+      summary: Directory of members who opted in
+      description: |
+        Lists webtrees users who have a portal profile with
+        `visible_in_directory` set. A member's own entry is included.
+
+        The `display_name` of an entry is portal data the member consented to
+        publish, not GEDCOM data. The `individual` of an entry is GEDCOM data
+        and is `null` whenever the caller may not see that record.
+      operationId: listMembers
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive substring filter on the display name.
+          schema:
+            type: string
+            maxLength: 100
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        '200':
+          description: A page of members
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /members/{id}:
+    get:
+      tags: [members]
+      summary: One member of the directory
+      description: |
+        Returns `404` for a member who is not visible in the directory, so
+        that a non-listed account cannot be confirmed by probing.
+      operationId: getMember
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: |
+            The portal member id — the surrogate primary key of
+            `portal_member_profile`. Not a webtrees user id and not a GEDCOM
+            XREF.
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: The member
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Secure-WT-ID
+      description: |
+        The webtrees session cookie, set by `POST /session`. Named
+        `WT2_SESSION` when the site is not served over HTTPS.
+
+  headers:
+    CacheControl:
+      description: Always `private, no-store`.
+      required: true
+      schema:
+        type: string
+        const: 'private, no-store'
+
+  parameters:
+    CsrfHeader:
+      name: X-CSRF-TOKEN
+      in: header
+      required: true
+      description: The token from `GET /csrf`.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: The request body was malformed or a field was missing.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: bad_request
+            message: Die Anfrage war unvollständig.
+
+    Unauthorized:
+      description: No valid session. The body carries no record data.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: unauthenticated
+            message: Bitte melden Sie sich an.
+
+    Forbidden:
+      description: The CSRF token was missing or did not match the session.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: csrf_token_invalid
+            message: Die Sitzung ist abgelaufen. Bitte erneut versuchen.
+
+    NotFound:
+      description: |
+        No such record, or the authenticated user may not see it. The two
+        cases are deliberately indistinguishable.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/CacheControl'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: not_found
+            message: Dieser Eintrag wurde nicht gefunden.
+
+  schemas:
+
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: A stable machine-readable code.
+          enum:
+            - bad_request
+            - unauthenticated
+            - csrf_token_invalid
+            - proxy_secret_invalid
+            - invalid_credentials
+            - not_found
+            - not_configured
+            - server_error
+        message:
+          type: string
+          description: |
+            A human-readable message in the server's language. The portal
+            renders its own translated text keyed off `error` and uses this
+            only for logging.
+
+    CsrfToken:
+      type: object
+      additionalProperties: false
+      required: [csrf_token]
+      properties:
+        csrf_token:
+          type: string
+          minLength: 1
+
+    Credentials:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: webtrees username or email address.
+        password:
+          type: string
+          minLength: 1
+          format: password
+
+    Tree:
+      type: object
+      additionalProperties: false
+      required: [name, title]
+      properties:
+        name:
+          type: string
+          description: The tree's internal name, used in webtrees URLs.
+        title:
+          type: string
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, username, real_name, email, language, role]
+      properties:
+        id:
+          type: integer
+          description: The webtrees user id.
+        username:
+          type: string
+        real_name:
+          type: string
+        email:
+          type: string
+          format: email
+        language:
+          type: string
+          description: The user's webtrees language tag, e.g. `de` or `en-GB`.
+        role:
+          type: string
+          description: |
+            The user's role in the configured tree. The portal shows the
+            "open in webtrees" affordances only to editors and above.
+          enum: [visitor, member, editor, moderator, manager, administrator]
+
+    MemberProfile:
+      description: The portal's own record for a member, from `portal_member_profile`.
+      type: object
+      additionalProperties: false
+      required: [id, visible_in_directory, display_name_override, consent_recorded_at]
+      properties:
+        id:
+          type: integer
+          description: Surrogate primary key. The member id used by `/members/{id}`.
+        visible_in_directory:
+          type: boolean
+        display_name_override:
+          type: [string, 'null']
+        consent_recorded_at:
+          type: [string, 'null']
+          format: date-time
+
+    Me:
+      type: object
+      additionalProperties: false
+      required: [user, profile, individual, tree, csrf_token]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        profile:
+          oneOf:
+            - $ref: '#/components/schemas/MemberProfile'
+            - type: 'null'
+          description: |
+            `null` when no portal profile row exists yet for this webtrees
+            user. The portal treats that as "not visible in the directory,
+            no consent recorded".
+        individual:
+          oneOf:
+            - $ref: '#/components/schemas/Individual'
+            - type: 'null'
+          description: |
+            The member's own record. `null` when an administrator has not
+            linked this webtrees account to an individual in the configured
+            tree (the per-tree user setting `gedcomid`).
+        tree:
+          $ref: '#/components/schemas/Tree'
+        csrf_token:
+          type: string
+
+    DateValue:
+      type: object
+      additionalProperties: false
+      required: [display, gedcom, year]
+      properties:
+        display:
+          type: string
+          description: |
+            Plain text, formatted by webtrees for the tree's calendar and
+            date-format preferences.
+        gedcom:
+          type: string
+          description: The raw GEDCOM date value, e.g. `ABT 1889`.
+        year:
+          type: [integer, 'null']
+          description: Gregorian year, or `null` when the date has no usable year.
+
+    Event:
+      type: object
+      additionalProperties: false
+      required: [tag, label, value, date, place]
+      properties:
+        tag:
+          type: string
+          description: The GEDCOM tag path, e.g. `INDI:BIRT`.
+        label:
+          type: string
+          description: webtrees' translated label for the tag.
+        value:
+          type: [string, 'null']
+          description: The fact's own value, where it carries one (e.g. an occupation).
+        date:
+          oneOf:
+            - $ref: '#/components/schemas/DateValue'
+            - type: 'null'
+        place:
+          type: [string, 'null']
+
+    IndividualRef:
+      description: |
+        A reference to an individual the caller is allowed to see. Individuals
+        the caller may not see are omitted from the containing list entirely.
+      type: object
+      additionalProperties: false
+      required: [xref, name, sex, is_deceased, lifespan]
+      properties:
+        xref:
+          type: string
+        name:
+          type: string
+          description: |
+            Plain text. Where the record is visible but its name is not,
+            this is webtrees' own placeholder for a private name.
+        sex:
+          type: string
+          enum: [M, F, X, U]
+        is_deceased:
+          type: boolean
+        lifespan:
+          type: [string, 'null']
+          description: e.g. `1889–1976`. `null` when neither year is visible.
+
+    Individual:
+      allOf:
+        - $ref: '#/components/schemas/IndividualRef'
+        - type: object
+          additionalProperties: false
+          required:
+            - name_alternative
+            - birth
+            - death
+            - events
+            - parents
+            - siblings
+            - spouses
+            - children
+            - webtrees_url
+          properties:
+            name_alternative:
+              type: [string, 'null']
+              description: A name in an alternative character set, where one exists.
+            birth:
+              oneOf:
+                - $ref: '#/components/schemas/Event'
+                - type: 'null'
+            death:
+              oneOf:
+                - $ref: '#/components/schemas/Event'
+                - type: 'null'
+            events:
+              type: array
+              description: |
+                Visible facts, in webtrees' own order. Restricted to an
+                allow-list of tags for Phase 1; see NOTES.md.
+              items:
+                $ref: '#/components/schemas/Event'
+            parents:
+              type: array
+              items:
+                $ref: '#/components/schemas/IndividualRef'
+            siblings:
+              type: array
+              items:
+                $ref: '#/components/schemas/IndividualRef'
+            spouses:
+              type: array
+              items:
+                $ref: '#/components/schemas/IndividualRef'
+            children:
+              type: array
+              items:
+                $ref: '#/components/schemas/IndividualRef'
+            webtrees_url:
+              type: string
+              format: uri
+              description: |
+                Absolute URL of this record in webtrees. The portal links out
+                here for charts, which it does not implement.
+
+    MemberSummary:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, individual]
+      properties:
+        id:
+          type: integer
+          description: The portal member id.
+        display_name:
+          type: string
+          description: |
+            Portal data the member consented to publish — their
+            `display_name_override` if set, otherwise their webtrees real
+            name. Never taken from GEDCOM.
+        individual:
+          oneOf:
+            - $ref: '#/components/schemas/IndividualRef'
+            - type: 'null'
+          description: |
+            `null` when the member has no linked record, or when the caller
+            may not see it.
+
+    MemberDetail:
+      allOf:
+        - $ref: '#/components/schemas/MemberSummary'
+        - type: object
+          additionalProperties: false
+          required: [individual_detail]
+          properties:
+            individual_detail:
+              oneOf:
+                - $ref: '#/components/schemas/Individual'
+                - type: 'null'
+
+    MemberPage:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, per_page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberSummary'
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+security:
+  - sessionCookie: []

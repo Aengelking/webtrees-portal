@@ -1,0 +1,105 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<int,Tree> $trees
+ * @var PortalApiModule      $module
+ * @var string               $title
+ * @var string               $tree
+ * @var string               $proxy_secret
+ * @var string               $rate_limit_ip
+ * @var string               $rate_limit_user
+ * @var string               $rate_limit_window
+ */
+
+$tree_options = ['' => I18N::translate('Use the site’s default family tree')];
+
+foreach ($trees as $a_tree) {
+    $tree_options[$a_tree->name()] = $a_tree->title();
+}
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('This module serves the member portal. It is read-only: it adds no way to change genealogy data.') ?>
+</p>
+
+<form method="post">
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_TREE ?>">
+            <?= I18N::translate('Family tree') ?>
+        </label>
+        <div class="col-sm-9">
+            <?= view('components/select', ['name' => PortalApiModule::SETTING_TREE, 'id' => PortalApiModule::SETTING_TREE, 'selected' => $tree, 'options' => $tree_options]) ?>
+            <div class="form-text">
+                <?= I18N::translate('The portal serves one family tree. Members see only records from this tree.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_PROXY_SECRET ?>">
+            <?= I18N::translate('Proxy secret') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="text" id="<?= PortalApiModule::SETTING_PROXY_SECRET ?>" name="<?= PortalApiModule::SETTING_PROXY_SECRET ?>" value="<?= e($proxy_secret) ?>" autocomplete="off">
+            <div class="form-text">
+                <?= I18N::translate('When set, the API accepts only requests carrying this value in the X-Portal-Proxy-Secret header. Set the same value as a secret on the Cloudflare Pages project. Leave empty for local development.') ?>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('Sign-in rate limits') ?></h2>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_RATE_LIMIT_IP ?>">
+            <?= I18N::translate('Failed attempts per IP address') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="0" id="<?= PortalApiModule::SETTING_RATE_LIMIT_IP ?>" name="<?= PortalApiModule::SETTING_RATE_LIMIT_IP ?>" value="<?= e($rate_limit_ip) ?>">
+            <div class="form-text"><?= I18N::translate('Zero disables this limit.') ?></div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_RATE_LIMIT_USER ?>">
+            <?= I18N::translate('Failed attempts per username') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="0" id="<?= PortalApiModule::SETTING_RATE_LIMIT_USER ?>" name="<?= PortalApiModule::SETTING_RATE_LIMIT_USER ?>" value="<?= e($rate_limit_user) ?>">
+            <div class="form-text"><?= I18N::translate('Zero disables this limit.') ?></div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_RATE_LIMIT_WINDOW ?>">
+            <?= I18N::translate('Time window (seconds)') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="60" id="<?= PortalApiModule::SETTING_RATE_LIMIT_WINDOW ?>" name="<?= PortalApiModule::SETTING_RATE_LIMIT_WINDOW ?>" value="<?= e($rate_limit_window) ?>">
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="offset-sm-3 col-sm-9">
+            <button type="submit" class="btn btn-primary">
+                <?= view('icons/save') ?>
+                <?= I18N::translate('save') ?>
+            </button>
+        </div>
+    </div>
+
+    <?= csrf_field() ?>
+</form>
