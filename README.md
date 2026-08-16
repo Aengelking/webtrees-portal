@@ -146,16 +146,54 @@ Settings → Secrets and variables → Actions:
 | `SFTP_MODULE_PATH` | Absolute path to replace, e.g. `/var/www/webtrees/modules_v4/portal_api`. |
 | `SFTP_PORTAL_PATH` | Only if you also upload the SPA; see below. |
 
-Record the server's host key and paste the output into `SFTP_KNOWN_HOSTS`:
+#### What goes in `SFTP_KNOWN_HOSTS`
+
+The literal output of `ssh-keyscan` for your server — one or more lines in
+`known_hosts` format:
 
 ```bash
-ssh-keyscan -p 22 your.host
+ssh-keyscan -p 22 webtrees.example.org
 ```
 
-**This is required.** The script will not connect without it and offers no way
-to turn host verification off. With password authentication that matters more
-than usual: an intercepted session gives away the password itself, not just
-that one connection.
+```
+webtrees.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...
+webtrees.example.org ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTI...
+webtrees.example.org ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB...
+```
+
+Paste **all** of the lines in. Multi-line secrets are fine; the script writes
+the value verbatim to a temporary `known_hosts` file and points `ssh` at it.
+
+Three things that catch people out:
+
+* **The host string must match `SFTP_HOST` exactly.** `ssh` matches it
+  literally, so scan the same name you put in `SFTP_HOST` — not the IP address
+  of the same machine, and not another alias for it. A mismatch fails with
+  `Host key verification failed` even when the key itself is right.
+* **On a non-standard port**, pass `-p` so the entries come out bracketed,
+  which is the form `ssh` looks for: `[webtrees.example.org]:2222 ssh-ed25519 …`
+* **Check the fingerprint out of band.** `ssh-keyscan` trusts whatever answers
+  at the moment you run it, so on an already-intercepted connection you would
+  be pinning the attacker's key. Compare it against what the host publishes in
+  its control panel:
+
+  ```bash
+  ssh-keyscan -p 22 webtrees.example.org 2>/dev/null | ssh-keygen -lf -
+  ```
+
+  If you have logged in to the server by hand before and checked the
+  fingerprint then, `ssh-keygen -F webtrees.example.org` prints the entry from
+  your own `~/.ssh/known_hosts` — a better source, because you have already
+  vetted it.
+
+This is public data: the server offers these keys to anyone who connects. The
+secrecy is not the point, the pinning is. Do not put a private key or a
+`SHA256:…` fingerprint here.
+
+**It is required.** The script will not connect without it and offers no way to
+turn host verification off. With password authentication that matters more than
+usual: an intercepted session gives away the password itself, not just that one
+connection.
 
 The workflow installs `sshpass`, because `ssh` will not read a password from
 anywhere but a terminal. The password is passed to it through the `SSHPASS`
