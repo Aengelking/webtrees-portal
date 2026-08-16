@@ -244,7 +244,7 @@ The portal deploys to **Cloudflare Workers** with static assets, configured in
 | Root directory | `portal` |
 | Build command | `npm run build` |
 | Deploy command | `npx wrangler deploy` |
-| Node version | 20 or later |
+| Node version | 22 or later |
 
 Or from a checkout: `cd portal && npm run deploy`.
 

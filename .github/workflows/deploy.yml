@@ -50,7 +50,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -61,7 +61,7 @@ jobs:
 
       - name: Cache the webtrees checkout
         id: webtrees-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: module/.webtrees
           key: webtrees-2.2.1-${{ runner.os }}-php8.3
@@ -73,9 +73,9 @@ jobs:
         working-directory: module
         run: .webtrees/vendor/bin/phpunit --no-coverage
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: portal/package-lock.json
 
@@ -101,7 +101,7 @@ jobs:
 
       - name: Keep the built portal
         if: inputs.target == 'portal' || inputs.target == 'both'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: portal-dist
           path: portal/dist
@@ -115,7 +115,7 @@ jobs:
     # you want a human to approve each deployment.
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install lftp and sshpass
         run: |
@@ -138,7 +138,7 @@ jobs:
 
       - name: Download the built portal
         if: inputs.target == 'portal' || inputs.target == 'both'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: portal-dist
           path: portal/dist
