@@ -8,9 +8,9 @@ alongside it for the majority of members, who only want to look at their own
 record and find other members.
 
 ```
-  Cloudflare Pages ── React SPA (static build)
+  Cloudflare Workers ── React SPA (static assets)
         │
-        │  /api/*  via Pages Function (same-origin reverse proxy)
+        │  /api/*  via the Worker (same-origin reverse proxy)
         ▼
   webtrees host ── custom module "portal_api" ── webtrees core
                      PHP, JSON endpoints,          Auth, GedcomRecord,
@@ -31,7 +31,8 @@ users; there is no second identity system.
 | `module/tools/setup-test-env.sh` | Creates a webtrees checkout for those tests to run against. |
 | `module/tools/deploy-sftp.sh` | Uploads a directory to the webtrees host over SFTP, atomically. |
 | `.github/workflows/deploy.yml` | Runs the tests, then that script. |
-| `portal/` | The React app, plus the Cloudflare Pages Function. |
+| `portal/` | The React app. |
+| `portal/edge/` | The Cloudflare Worker that serves it and proxies `/api/*`. |
 
 ## Scope
 
@@ -79,7 +80,7 @@ out to webtrees for those.
    | Setting | Meaning |
    | --- | --- |
    | **Family tree** | The one tree the portal serves. Leave empty to use the site's default tree. |
-   | **Proxy secret** | Shared secret the Pages Function sends in `X-Portal-Proxy-Secret`. Leave empty for local development. |
+   | **Proxy secret** | Shared secret the Worker sends in `X-Portal-Proxy-Secret`. Leave empty for local development. |
    | **Failed attempts per IP address** | Default 30. `0` disables. |
    | **Failed attempts per username** | Default 5. `0` disables. |
    | **Time window (seconds)** | Default 900. |
@@ -209,18 +210,20 @@ module/tools/deploy-sftp.sh module/portal_api                 # then upload
 
 Needs `lftp` and `openssh-client`.
 
-#### Uploading the portal over SFTP instead of Cloudflare Pages
+#### Uploading the portal over SFTP instead of Cloudflare
 
 Choosing `portal` or `both` in the manual run uploads `portal/dist` to
 `SFTP_PORTAL_PATH`. That suits an installation that serves the SPA from the
-same webspace as webtrees — one host, and `/api` is then already same-origin,
-so no proxy is involved at all.
+same webspace as webtrees — one host, no Cloudflare, and `/api` is then already
+same-origin, so no proxy is involved at all.
 
 Two things to know if you go that way:
 
-* `portal/public/.htaccess` provides the SPA fallback for Apache, the job
-  `_redirects` does on Pages. On nginx you will need the equivalent
+* `portal/public/.htaccess` provides the SPA fallback for Apache — the job
+  `not_found_handling` does on Workers. On nginx you will need the equivalent
   `try_files $uri /index.html;`.
+* Nothing proxies `/api/*` in this arrangement, and nothing needs to: webtrees
+  is already on the same origin.
 * The SPA expects to live at the domain root, because the API client asks for
   `/api/v1/…`. To serve it from a subdirectory, set Vite's `base` and adjust
   `BASE` in `portal/src/api/client.ts` to match.
@@ -235,37 +238,66 @@ broken. The module adds routes under `/api/v1/`; it changes nothing else.
 
 ## Deploying the portal
 
-### Cloudflare Pages project
+The portal deploys to **Cloudflare Workers** with static assets, configured in
+`portal/wrangler.jsonc`.
 
 | Setting | Value |
 | --- | --- |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
 | Root directory | `portal` |
+| Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
 | Node version | 20 or later |
 
-`portal/functions/api/[[path]].ts` is picked up automatically as a Pages
-Function and proxies `/api/*` to the webtrees host. This is what keeps
-everything same-origin: the session cookie is first-party, so the PHP module
-needs no CORS handling and no `SameSite=None`.
+Or from a checkout: `cd portal && npm run deploy`.
 
-`portal/public/_redirects` contains `/* /index.html 200`, the SPA fallback.
-Without it, refreshing on `/members` returns a 404.
+### How a request is routed
+
+`portal/edge/worker.ts` is the Worker. It does two things:
+
+* **`/api/*`** is proxied to the webtrees host. This is what keeps everything
+  same-origin: the session cookie is first-party, so the PHP module needs no
+  CORS handling and no `SameSite=None`.
+* **everything else** is a static asset, and
+  `not_found_handling: "single-page-application"` turns an unmatched path into
+  `index.html` so the client-side router can take it. Without that, refreshing
+  on `/members` would 404.
+
+Two details in `wrangler.jsonc` are load-bearing, and both are the kind of
+thing that fails quietly:
+
+* **There is no `_redirects` file, deliberately.** The usual SPA rule
+  `/*  /index.html  200` is *rejected* by the Workers asset validator —
+  it normalises `/index.html` back to `/`, which matches `/*` again, so the
+  rule is a loop by construction. `not_found_handling` is the Workers way to
+  say the same thing. (Cloudflare *Pages* still wants the `_redirects` file;
+  see below.)
+* **`run_worker_first: ["/api/*"]`.** Without it the SPA fallback would answer
+  `/api/v1/me` with `index.html` before the Worker ever ran, and every API
+  call would return HTML instead of JSON — a deploy that looks successful and
+  a portal that does not work.
 
 ### Environment variables
 
-Set these on the Pages project (Settings → Environment variables), for each
-environment separately:
+Both are secrets, so set them with wrangler rather than committing them:
+
+```bash
+cd portal
+npx wrangler secret put WEBTREES_ORIGIN       # https://webtrees.example.org
+npx wrangler secret put PORTAL_PROXY_SECRET   # same value as the module setting
+```
 
 | Name | Required | Value |
 | --- | --- | --- |
 | `WEBTREES_ORIGIN` | yes | `https://webtrees.example.org` — scheme and host, no path. |
-| `PORTAL_PROXY_SECRET` | recommended | A long random string. Set the *same* value as the module's **Proxy secret**. Store it as a secret, not a plain variable. |
+| `PORTAL_PROXY_SECRET` | recommended | A long random string. Set the *same* value as the module's **Proxy secret**. |
+
+For `wrangler dev`, put the same names in `portal/.dev.vars`, which is
+gitignored.
 
 ### Caching
 
 Every API response carries `Cache-Control: private, no-store` from PHP, the
-Pages Function sets it again, and the proxy fetch runs with `cacheTtl: 0`.
+Worker sets it again, and the proxy fetch runs with `cacheTtl: 0`.
 A cached authenticated response means one member sees another member's
 relatives — that is a data breach, not a bug.
 
@@ -277,9 +309,26 @@ or `DYNAMIC`.
 
 ### Preview deployments
 
-Preview deployments must not point at production data. Either point
-`WEBTREES_ORIGIN` for the preview environment at a staging webtrees, or turn
-preview deployments off in the Pages project settings.
+Preview URLs must not point at production data. Give the preview environment
+its own `WEBTREES_ORIGIN` pointing at a staging webtrees, or turn preview URLs
+off for this Worker.
+
+### If you ever move to Cloudflare Pages
+
+`portal/functions/api/[[path]].ts` is the Pages entry point for the same
+proxy, sharing its implementation with the Worker via `portal/edge/proxy.ts`
+so the two cannot drift. Workers ignores it.
+
+Moving back means creating a Pages project (root `portal`, build
+`npm run build`, output `dist`) and restoring the SPA fallback that Workers
+rejects:
+
+```bash
+printf '/*    /index.html   200\n' > portal/public/_redirects
+```
+
+There is no reason to do this today — Workers is where Cloudflare is putting
+its effort, and it is what this repository is configured and tested for.
 
 ---
 
@@ -311,7 +360,7 @@ Function creates in production.
 
 ```bash
 cd portal
-npm run typecheck   # tsc for the app and, separately, for the Pages Function
+npm run typecheck   # tsc for the app and, separately, for the Worker
 npm test            # Vitest: API client, contract, app behaviour
 npm run build       # typecheck + production build
 npm run test:e2e    # Playwright smoke path

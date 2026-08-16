@@ -56,7 +56,7 @@ foreach ($trees as $a_tree) {
         <div class="col-sm-9">
             <input class="form-control" type="text" id="<?= PortalApiModule::SETTING_PROXY_SECRET ?>" name="<?= PortalApiModule::SETTING_PROXY_SECRET ?>" value="<?= e($proxy_secret) ?>" autocomplete="off">
             <div class="form-text">
-                <?= I18N::translate('When set, the API accepts only requests carrying this value in the X-Portal-Proxy-Secret header. Set the same value as a secret on the Cloudflare Pages project. Leave empty for local development.') ?>
+                <?= I18N::translate('When set, the API accepts only requests carrying this value in the X-Portal-Proxy-Secret header. Set the same value as a secret on the Cloudflare Worker that serves the portal. Leave empty for local development.') ?>
             </div>
         </div>
     </div>

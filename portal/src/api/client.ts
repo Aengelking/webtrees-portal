@@ -100,8 +100,8 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
     response = await fetch(buildUrl(path, options.query), {
       method,
       headers,
-      // Same origin: the Cloudflare Pages Function proxies /api onto the
-      // webtrees host, so the session cookie is a first-party cookie.
+      // Same origin: the Cloudflare Worker proxies /api onto the webtrees
+      // host, so the session cookie is a first-party cookie.
       credentials: 'same-origin',
       cache: 'no-store',
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),

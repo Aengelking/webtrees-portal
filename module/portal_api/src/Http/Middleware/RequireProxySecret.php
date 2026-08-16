@@ -16,7 +16,7 @@ use function hash_equals;
 /**
  * Reject API traffic that did not come through the portal's proxy.
  *
- * The Cloudflare Pages Function sends a shared secret in
+ * The Cloudflare Worker that serves the portal sends a shared secret in
  * `X-Portal-Proxy-Secret`. This is a second lock, not the lock: the API is
  * still authenticated and privacy-filtered without it.
  *

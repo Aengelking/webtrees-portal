@@ -7,6 +7,9 @@ module/.webtrees/
 module/.phpunit.cache/
 module/portal_api/vendor/
 
+# Wrangler / miniflare local state, including captured request traces.
+portal/.wrangler/
+
 # Playwright
 portal/test-results/
 portal/playwright-report/

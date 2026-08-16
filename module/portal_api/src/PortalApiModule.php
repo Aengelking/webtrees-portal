@@ -68,7 +68,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const int DEFAULT_RATE_LIMIT_USER   = 5;
     public const int DEFAULT_RATE_LIMIT_WINDOW = 900;
 
-    /** The API is mounted here. The Cloudflare Pages Function proxies /api/* onto it. */
+    /** The API is mounted here. The portal's Cloudflare Worker proxies /api/* onto it. */
     private const string ROUTE_PREFIX = '/api/v1';
 
     public function title(): string

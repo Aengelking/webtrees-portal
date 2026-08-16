@@ -76,8 +76,8 @@ is worth answering before Phase 2 rather than after.
 
 **Still open.** The only thing this repository assumes is that the webtrees
 host is reachable over HTTPS from Cloudflare's network and that it can set
-cookies for its own hostname. Moving it means changing `WEBTREES_ORIGIN` on
-the Pages project.
+cookies for its own hostname. Moving it means changing the `WEBTREES_ORIGIN`
+secret on the Worker.
 
 ---
 
@@ -239,7 +239,46 @@ German is the default, deliberately, rather than following the browser's
 language — the handoff asks for German default, and the switcher is one tap
 away on every screen including login.
 
-### 2.11 SFTP deployment swaps rather than overwrites
+### 2.11 The portal is a Cloudflare Worker, not a Pages project
+
+The handoff says "Cloudflare Pages" and "a Pages Function proxies `/api/*`".
+The account deploys to **Workers with static assets** instead — the first
+deploy failed with `A request to the Cloudflare API
+(/accounts/…/workers/scripts/webtrees-portal/versions) failed`, which is the
+Workers upload endpoint, not the Pages one.
+
+The property the handoff actually cares about is unchanged: the browser talks
+to one origin, so the session cookie is first-party and the PHP module needs
+no CORS handling and no `SameSite=None`. Only the mechanism moved, from
+`functions/api/[[path]].ts` to `edge/worker.ts`.
+
+Two things bit, and both are worth knowing because one of them fails loudly
+and the other does not:
+
+**`_redirects` is rejected on Workers.** The standard SPA rule
+`/*  /index.html  200` fails validation with "Infinite loop detected in this
+rule": the asset layer normalises `/index.html` back to `/`, which matches
+`/*` again. There is no non-looping way to write it. The Workers equivalent is
+`assets.not_found_handling: "single-page-application"`, so `public/_redirects`
+was deleted. A move back to Pages needs it restored — the Pages entry point
+says so in a comment.
+
+**`run_worker_first: ["/api/*"]` is not optional.** Without it the SPA
+fallback answers `/api/v1/me` with `index.html` *before* the Worker runs. The
+deploy succeeds, the site loads, and every API call returns HTML — which
+surfaces as a confusing JSON parse error rather than as a deployment failure.
+
+The proxy itself lives in `edge/proxy.ts` and both entry points — the Worker
+and the Pages Function — are thin wrappers around it, so the two platforms
+cannot drift apart while only one of them is being exercised.
+
+Verified locally with `wrangler dev` against a stub webtrees: `/` and
+`/members` both serve the SPA, `/api/v1/me` and `POST /api/v1/session` proxy
+through with the body, cookie and `Cache-Control: private, no-store` intact,
+and a client-supplied `X-Portal-Proxy-Secret` is stripped and replaced with
+the real one rather than passed along.
+
+### 2.12 SFTP deployment swaps rather than overwrites
 
 `module/tools/deploy-sftp.sh` uploads to `portal_api.upload/` beside the target
 and swaps it in with two renames, instead of mirroring over the live
@@ -260,7 +299,7 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
-### 2.12 Three navigation destinations, and no component library
+### 2.13 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
 `portal/src/components/`. No MUI, Chakra or Ant: the constraints that actually
@@ -304,15 +343,18 @@ Flagging these so they get a second look rather than being inherited as fact.
 
 ## 4. Deviations from the handoff
 
-Three, all small, all deliberate.
+Four, all deliberate.
 
 1. **PHP version.** The handoff says 8.2+; webtrees 2.2 requires 8.3–8.4.
    See §1.1.
-2. **`GET /csrf` is an endpoint the handoff does not mention.** §5 lists only
+2. **Cloudflare Workers, not Pages.** The handoff specifies Pages and a Pages
+   Function; the account deploys to Workers. See §2.11. The same-origin
+   property the whole design rests on is identical either way.
+3. **`GET /csrf` is an endpoint the handoff does not mention.** §5 lists only
    `POST` and `DELETE /session`, but a cookie-based CSRF token has to be
    fetched somehow before the first login, and putting it in the login response
    would be too late. It is unauthenticated and returns nothing but the token.
-3. **`/members/{id}` returns both `individual` (a summary) and
+4. **`/members/{id}` returns both `individual` (a summary) and
    `individual_detail` (the full record).** Slightly redundant, but it keeps
    `MemberSummary` and `MemberDetail` in the same shape, so the list and the
    detail screen share one component and one privacy rule.

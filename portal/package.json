@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p functions/tsconfig.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.edge.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deploy": "npm run build && wrangler deploy",
+    "dev:edge": "wrangler dev"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
@@ -34,6 +36,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.2.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wrangler": "^4.123.0"
   }
 }

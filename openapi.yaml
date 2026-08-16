@@ -6,7 +6,7 @@ info:
   description: |
     Read-only JSON API served by the webtrees custom module `portal_api`
     (`modules_v4/portal_api/`). It is consumed by the React member portal,
-    which is deployed to Cloudflare Pages and proxies `/api/*` onto this API
+    which is deployed to Cloudflare Workers and proxies `/api/*` onto this API
     so that both live on the same origin.
 
     ## Authentication
@@ -39,7 +39,7 @@ info:
     ## Caching
 
     Every response carries `Cache-Control: private, no-store`. The Cloudflare
-    Pages Function that proxies `/api/*` must also be configured to bypass the
+    Worker that proxies `/api/*` must also be configured to bypass the
     cache. A cached authenticated response would show one member another
     member's relatives.
 
@@ -55,7 +55,7 @@ info:
 
 servers:
   - url: /api/v1
-    description: Same-origin path, via the Cloudflare Pages proxy
+    description: Same-origin path, via the portal's Cloudflare Worker
   - url: https://webtrees.example.org/api/v1
     description: The webtrees host directly (local development)
 

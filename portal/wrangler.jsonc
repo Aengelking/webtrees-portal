@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webtrees-portal",
+  "main": "edge/worker.ts",
+  "compatibility_date": "2026-08-01",
+
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+
+    // The SPA fallback. On Workers this replaces the `_redirects` rule
+    // `/*  /index.html  200`, which the asset validator rejects: it normalises
+    // `/index.html` back to `/`, which matches `/*` again, so the rule is a
+    // loop by construction.
+    "not_found_handling": "single-page-application",
+
+    // Without this, the fallback above would answer `/api/v1/me` with
+    // index.html before the Worker ever ran, and every API call would quietly
+    // return HTML instead of JSON.
+    "run_worker_first": ["/api/*"]
+  },
+
+  "observability": {
+    "enabled": true
+  }
+
+  // WEBTREES_ORIGIN and PORTAL_PROXY_SECRET are deliberately not here.
+  // Set them as secrets:
+  //   npx wrangler secret put WEBTREES_ORIGIN
+  //   npx wrangler secret put PORTAL_PROXY_SECRET
+  // Committing the origin would be harmless; committing the secret would not,
+  // and keeping them together avoids the mistake.
+}
