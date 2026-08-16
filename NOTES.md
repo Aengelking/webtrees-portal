@@ -310,7 +310,21 @@ to key authentication later is one secret, no code change. Worth doing.
 `PubkeyAuthentication=no` is set on the password path. Without it ssh offers
 agent and default keys first, which on a server with a low `MaxAuthTries` can
 exhaust the attempts before the password is ever tried — a failure that looks
-like a wrong password and is not one.
+like a wrong password and is not one. `NumberOfPasswordPrompts=1` is set for a
+similar reason: sshpass answers exactly one prompt, so a rejected password
+otherwise leaves ssh asking twice more with nothing to answer it.
+
+lftp is given a **placeholder** password as well as the username. It never
+sends it — over sftp all authentication happens inside the connect program,
+which is ssh — but given a username and no password it tries to prompt, finds
+no terminal, and falls back to logging in as `anonymous`:
+
+    open: GetPass() failed -- assume anonymous login
+    mirror: Fatal error: max-retries exceeded (Connection closed by ... port 22)
+
+The second line looks like a network or server problem and is neither; it is
+the server refusing `anonymous`. The placeholder keeps the real password in
+`SSHPASS`, out of the command file.
 
 The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release

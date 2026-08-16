@@ -143,8 +143,27 @@ Settings → Secrets and variables → Actions:
 | `SFTP_USERNAME` | Login name. |
 | `SFTP_PASSWORD` | The account's password. |
 | `SFTP_KNOWN_HOSTS` | The server's host key — see below. |
-| `SFTP_MODULE_PATH` | Absolute path to replace, e.g. `/var/www/webtrees/modules_v4/portal_api`. |
+| `SFTP_MODULE_PATH` | The module directory to replace — see below. |
 | `SFTP_PORTAL_PATH` | Only if you also upload the SPA; see below. |
+
+#### What goes in `SFTP_MODULE_PATH`
+
+The path of the `portal_api` directory **as seen from the SFTP login**, which
+on shared hosting is usually not the server's filesystem root. So typically
+something like:
+
+```
+webtrees/modules_v4/portal_api
+```
+
+and not `/var/www/webtrees/modules_v4/portal_api`, unless the account really
+does log in at `/`.
+
+It must contain at least one `/`. A bare name like `portal_api` uploads into
+the login directory itself rather than into webtrees' `modules_v4/`, where the
+module would never be found; the script warns when the path has no directory
+part. Connect with any SFTP client once and look at where you land, or use
+`DRY_RUN=true`, which lists what it would change without uploading anything.
 
 #### What goes in `SFTP_KNOWN_HOSTS`
 

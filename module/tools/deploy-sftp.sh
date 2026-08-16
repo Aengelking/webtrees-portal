@@ -140,6 +140,10 @@ else
     SSH_OPTIONS+=(
         -o "PreferredAuthentications=password,keyboard-interactive"
         -o "PubkeyAuthentication=no"
+        # sshpass answers exactly one prompt. Without this, a rejected password
+        # makes ssh ask twice more and sshpass has nothing left to say, which
+        # reads as a hang rather than as a wrong password.
+        -o "NumberOfPasswordPrompts=1"
     )
     export SSHPASS="${SFTP_PASSWORD}"
     CONNECT_PROGRAM="sshpass -e ssh ${SSH_OPTIONS[*]}"
@@ -160,6 +164,16 @@ lftp_quote() {
 SFTP_USERNAME_Q="$(lftp_quote "${SFTP_USERNAME}")"
 CONNECT_PROGRAM_Q="$(lftp_quote "${CONNECT_PROGRAM}")"
 
+# lftp insists on having *a* password for the account, even over sftp, where it
+# never uses one: authentication happens entirely inside the connect program
+# above, which is ssh. Given only a username it tries to prompt, finds no
+# terminal, prints "GetPass() failed -- assume anonymous login" and then logs in
+# as `anonymous` — which the server rejects, closing the connection.
+#
+# So give it a placeholder. It is never sent anywhere. The real password stays
+# in SSHPASS, out of this file and out of the process list.
+LFTP_PLACEHOLDER_PASSWORD='unused-ssh-handles-authentication'
+
 # Commands go in a 0600 file rather than in argv, which is visible to every
 # user on the machine via `ps`.
 lftp_script() {
@@ -176,7 +190,7 @@ lftp_script() {
         echo "set net:timeout 30;"
         echo "set xfer:clobber true;"
         echo "set cmd:fail-exit ${fail_exit};"
-        echo "open -u \"${SFTP_USERNAME_Q}\" sftp://${SFTP_HOST}:${SFTP_PORT};"
+        echo "open -u \"${SFTP_USERNAME_Q}\",\"${LFTP_PLACEHOLDER_PASSWORD}\" sftp://${SFTP_HOST}:${SFTP_PORT};"
         echo "${commands}"
         echo "bye;"
     } > "${script_file}"
@@ -197,6 +211,19 @@ lftp_try() {
 
 echo "==> ${LOCAL_DIR}  ->  ${SFTP_USERNAME}@${SFTP_HOST}:${REMOTE_PATH}"
 echo "==> Authenticating with a ${AUTH_METHOD}; host key verification is on."
+
+# A path with no directory part lands straight in the SFTP login directory.
+# That is legal, and almost never what was meant: the module has to end up
+# inside webtrees' modules_v4/, which by definition has a parent.
+if [ "${REMOTE_PARENT}" = "." ]; then
+    echo "WARNING: the remote path has no directory part, so this will upload to" >&2
+    echo "         '${REMOTE_NAME}' directly in the SFTP login directory." >&2
+    echo "         For the module that is almost certainly wrong — it needs to be" >&2
+    echo "         inside webtrees' modules_v4/, e.g." >&2
+    echo "           webtrees/modules_v4/portal_api" >&2
+    echo "         Paths are relative to the SFTP login root, which on shared" >&2
+    echo "         hosting is usually not the server's filesystem root." >&2
+fi
 
 if [ "${DRY_RUN}" = "true" ]; then
     echo "==> Dry run: comparing against the live directory, uploading nothing"
