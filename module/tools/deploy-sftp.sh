@@ -186,7 +186,11 @@ lftp_script() {
 
     {
         echo "set sftp:connect-program \"${CONNECT_PROGRAM_Q}\";"
-        echo "set net:max-retries 3;"
+        # Shared-host SFTP drops connections occasionally under load. Keep retrying
+        # long enough for transient resets to clear instead of failing the deploy.
+        echo "set net:max-retries 10;"
+        echo "set net:reconnect-interval-base 5;"
+        echo "set net:reconnect-interval-max 30;"
         echo "set net:timeout 30;"
         echo "set xfer:clobber true;"
         echo "set cmd:fail-exit ${fail_exit};"
