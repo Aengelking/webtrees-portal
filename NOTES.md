@@ -472,35 +472,55 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
-### 2.15.1 The SFTP upload assumes the host will hang up
+### 2.15.1 The upload uses OpenSSH `sftp`; lftp only deletes
 
 `mirror: Fatal error: max-retries exceeded (Connection closed by … port 22)`
-turned out to be a regular event, not a one-off. Shared hosting drops SSH
-connections, and does it more readily to a CI runner than to a laptop.
+was a regular event on this host, not a one-off.
 
-Three changes, in order of how much they matter:
+The first attempt at fixing it treated it as a network problem — retries,
+fewer connections, lftp told to be patient. That helped and did not cure it.
+What settled the question was a working deployment to the *same server* from
+another project, which does the same thing through OpenSSH's `sftp` client
+over the same `sshpass -e ssh`. So it was never the connection: it is lftp's
+SFTP implementation, which keeps many requests in flight and opens a second
+connection when it suits it, against a server that tolerates neither.
 
-1. **Retry with a widening delay** (5s, 15s, 45s; `SFTP_MAX_ATTEMPTS`
-   overrides the count). The upload *resumes* — `mirror --delete` makes the
-   staging directory match the source whatever state it was left in, so the
-   files already there are skipped.
-2. **Fewer connections**: four SSH sessions per run rather than six. The
-   separate "clear the staging directory" step is gone, because `--delete`
-   already does that, and the two tolerant swap commands share one session.
-   Each connection is another chance to be turned away.
-3. **lftp held back**: one connection, eight packets in flight rather than
-   sixteen, 60-second timeouts, and reconnect intervals that widen. Its
-   defaults assume a link that works.
+So the transfer is `sftp -b`, one request at a time, and lftp is kept only for
+`rm -rf` — `sftp` has no recursive delete, and those commands are short and
+have never been the step that failed. Two clients is a smell; two clients that
+each do the thing they are good at, with the reason written down, is cheaper
+than the alternatives (parsing recursive listings out of `ls -l`, or adding a
+Node dependency to the deploy job for `ssh2-sftp-client`).
 
-The rename is the one step that is not safe to simply repeat: a connection
-that dies *after* the server carried it out would leave nothing to rename, and
-a blind retry would report a failure for a deployment that had succeeded. So
-that step gets an "is it already done?" check — the module directory back in
-place *and* the staging directory gone — before it is retried.
+Things worth knowing about the batch that gets generated:
 
-None of this weakens the atomicity: the swap still happens only once a
-complete copy is in the staging directory, so a run that dies mid-upload
-changes nothing on the live site, and re-running it is always safe.
+* **Every path is listed explicitly** rather than left to `put -r` and a glob.
+  A glob skips dotfiles and `portal/dist` ships an `.htaccess`; the other
+  project's `local_path: './module/*'` idiom would have dropped it. It also
+  makes the log say exactly what went where.
+* **`ls -1`, never `ls -d`.** sftp's `ls` takes `[-1afhlnrSt]`. An invalid flag
+  makes the existence check answer "no" for every path, which would quietly
+  disable the safety net below rather than fail loudly.
+* **A glob character in a filename stops the deployment.** `put` expands globs
+  in the local path with no way to disable it, so `[[path]].ts` would be
+  skipped in silence. Refusing is the only honest option.
+
+Retries survive from the first attempt, and are still worth having: every step
+that must succeed is retried with a widening delay (5s, 15s, 45s;
+`SFTP_MAX_ATTEMPTS` overrides the count). The staging directory is cleared
+before each upload, because `sftp` merges into what is already there and a file
+this version no longer has would otherwise ride along into the swap.
+
+The rename is the one step that is not safe to repeat blindly: a connection
+that dies *after* the server carried it out leaves nothing to rename, and the
+retry would report a failure for a deployment that succeeded. That step checks
+"module back in place **and** staging gone" before retrying.
+
+Host key verification stays on, which the off-the-shelf actions in this space
+do not do — `wlixcc/SFTP-Deploy-Action` passes `StrictHostKeyChecking=no`. With
+password authentication an intercepted connection hands over the password
+itself, not just the session, so that is not a trade worth making for a
+deployment that runs unattended.
 
 ### 2.16 Three navigation destinations, and no component library
 

@@ -18,27 +18,29 @@
 # ModuleService skips any directory under modules_v4/ whose name contains a
 # dot, so a half-uploaded or rolled-back copy is never loaded as a module.
 #
-# Flaky servers
-# -------------
-# Shared hosting drops SSH connections, and does it more often to a CI runner
-# than to a laptop: a burst of connections from an unfamiliar address looks
-# like something to throttle. The symptom is
+# Two clients, on purpose
+# -----------------------
+# The files go up through OpenSSH's own `sftp`, and only the recursive
+# deletions are done with lftp.
+#
+# That split is not tidiness, it is the fix for
 #
 #     mirror: Fatal error: max-retries exceeded (Connection closed by ... port 22)
 #
-# which is not a permissions or a path problem — it is the server hanging up
-# mid-transfer. Three things here are aimed at it:
+# which this host produced regularly. It is the server hanging up mid-transfer,
+# not a permissions or a path problem. The same host takes an upload from
+# OpenSSH `sftp` over exactly the same ssh and sshpass without complaint — the
+# difference is the SFTP client, not the connection: lftp keeps many requests
+# in flight and reaches for a second connection when it feels like it, and this
+# server does not care for either. `sftp` asks for one thing at a time.
 #
-#   * fewer connections. One session for the upload and two for the swap,
-#     rather than one per command; each new SSH connection is another chance
-#     to be turned away.
-#   * every step is retried with a widening delay, and the upload resumes
-#     rather than starting over, because `mirror` skips what is already there.
-#   * lftp is told to keep a single connection, take smaller bites, and wait
-#     longer before giving up. Its defaults are tuned for a good link.
+# lftp is still the only one of the two that can delete a directory tree
+# (`sftp` has no recursive `rm`), and those commands are short and have never
+# been the thing that failed. So it keeps that job and nothing else.
 #
-# None of it makes an upload half-apply: the swap still happens only after a
-# complete copy is sitting in the staging directory.
+# On top of that, every step that must succeed is retried with a widening
+# delay. None of it can make an upload half-apply: the swap still happens only
+# once a complete copy is sitting in the staging directory.
 #
 # Required environment:
 #   SFTP_HOST          hostname of the SFTP server
@@ -139,6 +141,20 @@ SSH_OPTIONS=(
     -p "${SFTP_PORT}"
 )
 
+# The same options for OpenSSH's sftp client. It takes -P for the port where
+# ssh takes -p, and everything else as -o, so the list is built once here and
+# shared.
+SFTP_OPTIONS=(
+    -o "StrictHostKeyChecking=yes"
+    -o "UserKnownHostsFile=${KNOWN_HOSTS}"
+    -o "ConnectTimeout=20"
+    -o "ConnectionAttempts=3"
+    -o "TCPKeepAlive=yes"
+    -o "ServerAliveInterval=15"
+    -o "ServerAliveCountMax=6"
+    -P "${SFTP_PORT}"
+)
+
 if [ -n "${SFTP_PRIVATE_KEY:-}" ]; then
     AUTH_METHOD="private key"
     KEY_FILE="${WORK_DIR}/id_deploy"
@@ -152,6 +168,13 @@ if [ -n "${SFTP_PRIVATE_KEY:-}" ]; then
         -o "IdentitiesOnly=yes"
         -i "${KEY_FILE}"
     )
+    SFTP_OPTIONS+=(
+        -o "BatchMode=yes"
+        -o "PreferredAuthentications=publickey"
+        -o "IdentitiesOnly=yes"
+        -i "${KEY_FILE}"
+    )
+    SFTP_COMMAND=(sftp)
     CONNECT_PROGRAM="ssh ${SSH_OPTIONS[*]}"
 else
     AUTH_METHOD="password"
@@ -179,15 +202,27 @@ else
         # reads as a hang rather than as a wrong password.
         -o "NumberOfPasswordPrompts=1"
     )
+    SFTP_OPTIONS+=(
+        # BatchMode=no, deliberately: it is the password prompt that sshpass
+        # exists to answer, and BatchMode would suppress it. sftp's own -b
+        # still makes the session non-interactive.
+        -o "BatchMode=no"
+        -o "PreferredAuthentications=password,keyboard-interactive"
+        -o "PubkeyAuthentication=no"
+        -o "NumberOfPasswordPrompts=1"
+    )
+    SFTP_COMMAND=(sshpass -e sftp)
     export SSHPASS="${SFTP_PASSWORD}"
     CONNECT_PROGRAM="sshpass -e ssh ${SSH_OPTIONS[*]}"
 fi
 
-if ! command -v lftp >/dev/null 2>&1; then
-    echo "error: lftp is not installed" >&2
-    echo "       Debian/Ubuntu: sudo apt-get install lftp openssh-client" >&2
-    exit 69
-fi
+for tool in lftp sftp; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+        echo "error: ${tool} is not installed" >&2
+        echo "       Debian/Ubuntu: sudo apt-get install lftp openssh-client" >&2
+        exit 69
+    fi
+done
 
 # Escape a value for lftp's double-quoted strings. `printf` is a shell builtin,
 # so the value never becomes a separate process's argv.
@@ -253,21 +288,104 @@ lftp_script() {
     lftp -f "${script_file}"
 }
 
-# A step that must succeed, retried when the server hangs up on it.
+# -----------------------------------------------------------------
+# The transfer: OpenSSH's sftp, one request at a time
+# -----------------------------------------------------------------
+
+# Escape a value for an sftp batch file, where paths are double-quoted.
+sftp_quote() {
+    printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
+}
+
+# Run a batch of sftp commands in one session.
 #
-# The second argument is optional: the name of a function that answers "is this
-# already done?". It exists for the rename, which is the one step that is not
-# safe to simply repeat — a connection dropped *after* the server carried out
-# the rename would otherwise turn a success into a failure, because the second
-# attempt finds nothing to rename.
-lftp_run() {
+# The batch goes in a 0600 file rather than on the command line, which every
+# user on the machine can read out of `ps`.
+sftp_batch() {
     local commands="$1"
-    local already_done="${2:-}"
+    local batch_file="${WORK_DIR}/sftp.batch"
+
+    touch "${batch_file}"
+    chmod 600 "${batch_file}"
+    printf '%s\n' "${commands}" > "${batch_file}"
+
+    "${SFTP_COMMAND[@]}" "${SFTP_OPTIONS[@]}" -b "${batch_file}" \
+        "${SFTP_USERNAME}@${SFTP_HOST}"
+}
+
+# The batch that uploads $1 into remote directory $2.
+#
+# Every directory and every file is named explicitly rather than left to
+# `put -r` and a shell glob. Two reasons, both of which have bitten this
+# repository already: a glob skips dotfiles, and portal/dist contains an
+# .htaccess; and an explicit list makes the log say exactly what went where.
+#
+# `-mkdir` — the leading dash — means "carry on if this fails", which is what
+# an existing directory looks like. The `put` lines carry no dash, so a failed
+# transfer stops the batch and the step is retried.
+upload_batch() {
+    local local_dir="$1"
+    local remote_dir="$2"
+
+    # sftp's `put` expands globs in the local path, and there is no way to turn
+    # that off. A file called `[[path]].ts` — this repository has one, under
+    # portal/functions/ — would be read as a pattern and quietly not uploaded.
+    # Refuse rather than deploy something incomplete.
+    local offending
+    offending="$( ( cd "${local_dir}" && find . -mindepth 1 -name '*[][*?]*' -printf '%P\n' ) | head -5 )"
+
+    if [ -n "${offending}" ]; then
+        echo "error: these paths contain characters sftp would treat as a glob:" >&2
+        printf '         %s\n' ${offending} >&2
+        echo "       Rename them, or this deployment would silently skip them." >&2
+        exit 65
+    fi
+
+    printf -- '-mkdir "%s"\n' "$(sftp_quote "${remote_dir}")"
+
+    ( cd "${local_dir}" && find . -mindepth 1 -type d -printf '%P\n' | sort ) |
+        while IFS= read -r dir; do
+            printf -- '-mkdir "%s"\n' "$(sftp_quote "${remote_dir}/${dir}")"
+        done
+
+    ( cd "${local_dir}" && find . -mindepth 1 -type f -printf '%P\n' | sort ) |
+        while IFS= read -r file; do
+            printf 'put "%s" "%s"\n' \
+                "$(sftp_quote "${local_dir}/${file}")" \
+                "$(sftp_quote "${remote_dir}/${file}")"
+        done
+}
+
+# -----------------------------------------------------------------
+# Housekeeping: lftp, for the recursive deletes sftp cannot do
+# -----------------------------------------------------------------
+
+# Steps that are allowed to fail — removing something that was never there, or
+# renaming a target that does not exist yet on a first deploy.
+lftp_try() {
+    lftp_script false "$1" >/dev/null 2>&1 || true
+}
+
+# -----------------------------------------------------------------
+# Retrying
+# -----------------------------------------------------------------
+
+# Run a step, and try again with a widening delay when the server hangs up.
+#
+# The first argument is either empty or the name of a function answering "is
+# this already done?". It exists for the rename, which is the one step that is
+# not safe to simply repeat: a connection dropped *after* the server carried it
+# out would otherwise turn a success into a failure, because the second attempt
+# finds nothing left to rename.
+with_retries() {
+    local already_done="$1"
+    shift
+
     local attempt=1
     local delay=5
 
     while true; do
-        if lftp_script true "${commands}"; then
+        if "$@"; then
             return 0
         fi
 
@@ -288,16 +406,13 @@ lftp_run() {
     done
 }
 
-# Steps that are allowed to fail — removing something that was never there, or
-# renaming a target that does not exist yet on a first deploy.
-lftp_try() {
-    lftp_script false "$1" >/dev/null 2>&1 || true
-}
-
 # Does this remote path exist? Used only to tell "the rename worked and then
 # the connection dropped" apart from "the rename never happened".
 remote_exists() {
-    lftp_script true "cls -d \"$(lftp_quote "$1")\";" >/dev/null 2>&1
+    # `ls -1` and not `ls -d`: sftp's ls takes [-1afhlnrSt] and nothing else,
+    # and an invalid flag would make this answer "no" for every path, quietly
+    # disabling the check it exists to perform.
+    sftp_batch "ls -1 \"$(sftp_quote "$1")\"" >/dev/null 2>&1
 }
 
 # The swap is done when the module is back in place and the staging directory
@@ -325,33 +440,45 @@ fi
 
 if [ "${DRY_RUN}" = "true" ]; then
     echo "==> Dry run: comparing against the live directory, uploading nothing"
-    lftp_run "mirror --reverse --dry-run --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${REMOTE_PATH}\";"
+    # lftp for this one: `mirror --dry-run` is a diff against what is already
+    # there, which is exactly what a rehearsal wants to print. It only lists.
+    with_retries "" lftp_script true \
+        "mirror --reverse --dry-run --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${REMOTE_PATH}\";"
     echo "==> Dry run finished. Nothing was changed."
     exit 0
 fi
 
+# sftp merges into whatever is already in the staging directory, so a partial
+# copy left by a failed run has to go first — otherwise a file that this
+# version no longer has would ride along into the swap.
+echo "==> Clearing any staging directory left by a failed run"
+lftp_try "rm -rf \"${REMOTE_PARENT}/${STAGING_NAME}\";"
+
 echo "==> Uploading to ${REMOTE_PARENT}/${STAGING_NAME}"
-# --no-perms: shared hosting usually refuses chmod, and the files do not need
-# any mode beyond what the account's umask gives them.
-#
-# --delete is what makes leftovers from a failed run harmless, so there is no
-# separate "clear the staging directory first" step: mirror makes the staging
-# directory match the source exactly, whatever state it was left in. That also
-# makes a retry a resume — the files already up are skipped — instead of
-# starting the upload again from nothing.
-lftp_run "mirror --reverse --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${REMOTE_PARENT}/${STAGING_NAME}\";"
+UPLOAD_BATCH="$(upload_batch "${LOCAL_DIR}" "${REMOTE_PARENT}/${STAGING_NAME}")"
+
+if ! with_retries "" sftp_batch "${UPLOAD_BATCH}"; then
+    echo >&2
+    echo "error: the upload did not finish." >&2
+    echo "       Nothing on the live site was touched — the module is still" >&2
+    echo "       running the previous version. Run this again; a partial" >&2
+    echo "       upload in ${REMOTE_PARENT}/${STAGING_NAME} is cleared first." >&2
+    exit 74
+fi
 
 echo "==> Swapping the new version in"
-# One session for both, because each connection is another chance to be turned
-# away. The second command is expected to fail on a first deploy, when there is
-# nothing to move aside — which is why this session tolerates failure.
+# One lftp session for both, because each connection is another chance to be
+# turned away. The second command is expected to fail on a first deploy, when
+# there is nothing to move aside — which is why this session tolerates failure.
 lftp_try "rm -rf \"${REMOTE_PARENT}/${PREVIOUS_NAME}\"; cd \"${REMOTE_PARENT}\"; mv \"${REMOTE_NAME}\" \"${PREVIOUS_NAME}\";"
 
 # If moving the old version aside failed for a real reason — permissions, say —
 # then this rename fails too, because the target still exists. That is the
 # failure mode we want: the live module is untouched, the upload is sitting in
 # a directory webtrees ignores, and the site is still serving the old version.
-if ! lftp_run "cd \"${REMOTE_PARENT}\"; mv \"${STAGING_NAME}\" \"${REMOTE_NAME}\";" swap_already_done; then
+SWAP_BATCH="rename \"$(sftp_quote "${REMOTE_PARENT}/${STAGING_NAME}")\" \"$(sftp_quote "${REMOTE_PATH}")\""
+
+if ! with_retries swap_already_done sftp_batch "${SWAP_BATCH}"; then
     echo >&2
     echo "error: could not put the new version in place." >&2
     echo "       The live module was NOT changed and the site is still running" >&2
