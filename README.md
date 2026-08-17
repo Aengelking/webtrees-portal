@@ -293,6 +293,34 @@ If the swap fails — usually a permissions problem — the live module is left
 untouched and the site keeps serving the previous version. The upload stays in
 `portal_api.upload/` and the job's log says so.
 
+#### When the upload fails with "Connection closed by ... port 22"
+
+```
+mirror: Fatal error: max-retries exceeded (Connection closed by 81.169.145.126 port 22)
+```
+
+That is the host hanging up, not a permissions or a path problem. Shared
+hosting does it more readily to a CI runner than to a laptop: a burst of SSH
+connections from an unfamiliar address looks like something to throttle.
+
+The script is built to ride it out. Every step that must succeed is retried
+with a widening delay (5s, 15s, 45s), the upload **resumes** rather than
+restarting — `mirror` skips the files already there — and lftp is held to one
+connection, smaller transfer windows and longer timeouts than its defaults.
+A normal run opens four SSH sessions in total.
+
+If it still fails, set the repository variable `SFTP_MAX_ATTEMPTS` (Settings →
+Secrets and variables → Actions → Variables) to something higher than the
+default of 4, and re-run the job. Re-running is always safe: the module goes
+live only once a complete copy is sitting in the staging directory, so a run
+that died mid-upload changed nothing on the site.
+
+One thing the script handles that is worth knowing about: if the connection
+dies *after* the server carried out the final rename, retrying it blindly
+would fail — there would be nothing left to rename — and report a broken
+deployment that actually succeeded. So before retrying that one step it checks
+whether the work is already done, and says so in the log.
+
 #### Running it locally
 
 ```bash

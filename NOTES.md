@@ -472,6 +472,36 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
+### 2.15.1 The SFTP upload assumes the host will hang up
+
+`mirror: Fatal error: max-retries exceeded (Connection closed by … port 22)`
+turned out to be a regular event, not a one-off. Shared hosting drops SSH
+connections, and does it more readily to a CI runner than to a laptop.
+
+Three changes, in order of how much they matter:
+
+1. **Retry with a widening delay** (5s, 15s, 45s; `SFTP_MAX_ATTEMPTS`
+   overrides the count). The upload *resumes* — `mirror --delete` makes the
+   staging directory match the source whatever state it was left in, so the
+   files already there are skipped.
+2. **Fewer connections**: four SSH sessions per run rather than six. The
+   separate "clear the staging directory" step is gone, because `--delete`
+   already does that, and the two tolerant swap commands share one session.
+   Each connection is another chance to be turned away.
+3. **lftp held back**: one connection, eight packets in flight rather than
+   sixteen, 60-second timeouts, and reconnect intervals that widen. Its
+   defaults assume a link that works.
+
+The rename is the one step that is not safe to simply repeat: a connection
+that dies *after* the server carried it out would leave nothing to rename, and
+a blind retry would report a failure for a deployment that had succeeded. So
+that step gets an "is it already done?" check — the module directory back in
+place *and* the staging directory gone — before it is retried.
+
+None of this weakens the atomicity: the swap still happens only once a
+complete copy is in the staging directory, so a run that dies mid-upload
+changes nothing on the live site, and re-running it is always safe.
+
 ### 2.16 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in

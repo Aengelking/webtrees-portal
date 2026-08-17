@@ -18,6 +18,28 @@
 # ModuleService skips any directory under modules_v4/ whose name contains a
 # dot, so a half-uploaded or rolled-back copy is never loaded as a module.
 #
+# Flaky servers
+# -------------
+# Shared hosting drops SSH connections, and does it more often to a CI runner
+# than to a laptop: a burst of connections from an unfamiliar address looks
+# like something to throttle. The symptom is
+#
+#     mirror: Fatal error: max-retries exceeded (Connection closed by ... port 22)
+#
+# which is not a permissions or a path problem — it is the server hanging up
+# mid-transfer. Three things here are aimed at it:
+#
+#   * fewer connections. One session for the upload and two for the swap,
+#     rather than one per command; each new SSH connection is another chance
+#     to be turned away.
+#   * every step is retried with a widening delay, and the upload resumes
+#     rather than starting over, because `mirror` skips what is already there.
+#   * lftp is told to keep a single connection, take smaller bites, and wait
+#     longer before giving up. Its defaults are tuned for a good link.
+#
+# None of it makes an upload half-apply: the swap still happens only after a
+# complete copy is sitting in the staging directory.
+#
 # Required environment:
 #   SFTP_HOST          hostname of the SFTP server
 #   SFTP_USERNAME      login name
@@ -33,6 +55,8 @@
 #
 # Optional:
 #   SFTP_PORT          default 22
+#   SFTP_MAX_ATTEMPTS  how many times to retry a step whose connection was
+#                      dropped, default 4. See "Flaky servers" below.
 #   DRY_RUN            "true" to list what would change and upload nothing
 #
 # Usage:  module/tools/deploy-sftp.sh <local-directory>
@@ -73,6 +97,7 @@ fi
 
 SFTP_PORT="${SFTP_PORT:-22}"
 DRY_RUN="${DRY_RUN:-false}"
+MAX_ATTEMPTS="${SFTP_MAX_ATTEMPTS:-4}"
 
 # Strip any trailing slash, so dirname/basename below behave.
 REMOTE_PATH="${SFTP_REMOTE_PATH%/}"
@@ -102,6 +127,15 @@ SSH_OPTIONS=(
     -o "StrictHostKeyChecking=yes"
     -o "UserKnownHostsFile=${KNOWN_HOSTS}"
     -o "ConnectTimeout=20"
+    # Three tries at getting the connection up before ssh gives up. The first
+    # refusal from a busy shared host is often the only one.
+    -o "ConnectionAttempts=3"
+    # Keep the connection alive across the pauses lftp leaves between files.
+    # An idle SFTP session is a session some hosts decide to reap, and the
+    # symptom is indistinguishable from a network fault.
+    -o "TCPKeepAlive=yes"
+    -o "ServerAliveInterval=15"
+    -o "ServerAliveCountMax=6"
     -p "${SFTP_PORT}"
 )
 
@@ -186,8 +220,29 @@ lftp_script() {
 
     {
         echo "set sftp:connect-program \"${CONNECT_PROGRAM_Q}\";"
-        echo "set net:max-retries 3;"
-        echo "set net:timeout 30;"
+
+        # lftp's defaults assume a healthy link to a server that wants to talk
+        # to you. Against shared hosting, patience beats throughput.
+        #
+        # One connection: lftp will happily open a second for a listing while
+        # a transfer runs, and a host that is already unhappy about connection
+        # count answers that by closing both.
+        echo "set net:connection-limit 1;"
+        echo "set mirror:parallel-transfer-count 1;"
+        echo "set mirror:parallel-directories false;"
+
+        # Smaller bites. 16 outstanding packets is fine on a real server and
+        # more than some shared SFTP subsystems will accept.
+        echo "set sftp:max-packets-in-flight 8;"
+
+        # Wait, and keep waiting: 5s, 7s, 11s, 17s ... capped at a minute.
+        echo "set net:max-retries 8;"
+        echo "set net:persist-retries 5;"
+        echo "set net:reconnect-interval-base 5;"
+        echo "set net:reconnect-interval-multiplier 1.5;"
+        echo "set net:reconnect-interval-max 60;"
+        echo "set net:timeout 60;"
+
         echo "set xfer:clobber true;"
         echo "set cmd:fail-exit ${fail_exit};"
         echo "open -u \"${SFTP_USERNAME_Q}\",\"${LFTP_PLACEHOLDER_PASSWORD}\" sftp://${SFTP_HOST}:${SFTP_PORT};"
@@ -198,15 +253,58 @@ lftp_script() {
     lftp -f "${script_file}"
 }
 
-# Steps that must succeed.
+# A step that must succeed, retried when the server hangs up on it.
+#
+# The second argument is optional: the name of a function that answers "is this
+# already done?". It exists for the rename, which is the one step that is not
+# safe to simply repeat — a connection dropped *after* the server carried out
+# the rename would otherwise turn a success into a failure, because the second
+# attempt finds nothing to rename.
 lftp_run() {
-    lftp_script true "$1"
+    local commands="$1"
+    local already_done="${2:-}"
+    local attempt=1
+    local delay=5
+
+    while true; do
+        if lftp_script true "${commands}"; then
+            return 0
+        fi
+
+        if [ -n "${already_done}" ] && "${already_done}"; then
+            echo "    the connection dropped, but the server had already done it"
+            return 0
+        fi
+
+        if [ "${attempt}" -ge "${MAX_ATTEMPTS}" ]; then
+            echo "    giving up after ${MAX_ATTEMPTS} attempts" >&2
+            return 1
+        fi
+
+        echo "    attempt ${attempt} of ${MAX_ATTEMPTS} failed; trying again in ${delay}s" >&2
+        sleep "${delay}"
+        attempt=$((attempt + 1))
+        delay=$((delay * 3))
+    done
 }
 
 # Steps that are allowed to fail — removing something that was never there, or
 # renaming a target that does not exist yet on a first deploy.
 lftp_try() {
     lftp_script false "$1" >/dev/null 2>&1 || true
+}
+
+# Does this remote path exist? Used only to tell "the rename worked and then
+# the connection dropped" apart from "the rename never happened".
+remote_exists() {
+    lftp_script true "cls -d \"$(lftp_quote "$1")\";" >/dev/null 2>&1
+}
+
+# The swap is done when the module is back in place and the staging directory
+# is gone. Checking both matters: the module directory also exists when the
+# rename never started.
+swap_already_done() {
+    remote_exists "${REMOTE_PATH}" && ! remote_exists "${REMOTE_PARENT}/${STAGING_NAME}"
 }
 
 echo "==> ${LOCAL_DIR}  ->  ${SFTP_USERNAME}@${SFTP_HOST}:${REMOTE_PATH}"
@@ -232,24 +330,28 @@ if [ "${DRY_RUN}" = "true" ]; then
     exit 0
 fi
 
-echo "==> Clearing any staging directory left by a failed run"
-lftp_try "rm -rf \"${REMOTE_PARENT}/${STAGING_NAME}\";"
-
 echo "==> Uploading to ${REMOTE_PARENT}/${STAGING_NAME}"
 # --no-perms: shared hosting usually refuses chmod, and the files do not need
 # any mode beyond what the account's umask gives them.
+#
+# --delete is what makes leftovers from a failed run harmless, so there is no
+# separate "clear the staging directory first" step: mirror makes the staging
+# directory match the source exactly, whatever state it was left in. That also
+# makes a retry a resume — the files already up are skipped — instead of
+# starting the upload again from nothing.
 lftp_run "mirror --reverse --delete --no-perms --verbose \"${LOCAL_DIR}\" \"${REMOTE_PARENT}/${STAGING_NAME}\";"
 
 echo "==> Swapping the new version in"
-lftp_try "rm -rf \"${REMOTE_PARENT}/${PREVIOUS_NAME}\";"
-# Expected to fail on a first deploy, when there is nothing to move aside.
-lftp_try "cd \"${REMOTE_PARENT}\"; mv \"${REMOTE_NAME}\" \"${PREVIOUS_NAME}\";"
+# One session for both, because each connection is another chance to be turned
+# away. The second command is expected to fail on a first deploy, when there is
+# nothing to move aside — which is why this session tolerates failure.
+lftp_try "rm -rf \"${REMOTE_PARENT}/${PREVIOUS_NAME}\"; cd \"${REMOTE_PARENT}\"; mv \"${REMOTE_NAME}\" \"${PREVIOUS_NAME}\";"
 
 # If moving the old version aside failed for a real reason — permissions, say —
 # then this rename fails too, because the target still exists. That is the
 # failure mode we want: the live module is untouched, the upload is sitting in
 # a directory webtrees ignores, and the site is still serving the old version.
-if ! lftp_run "cd \"${REMOTE_PARENT}\"; mv \"${STAGING_NAME}\" \"${REMOTE_NAME}\";"; then
+if ! lftp_run "cd \"${REMOTE_PARENT}\"; mv \"${STAGING_NAME}\" \"${REMOTE_NAME}\";" swap_already_done; then
     echo >&2
     echo "error: could not put the new version in place." >&2
     echo "       The live module was NOT changed and the site is still running" >&2
