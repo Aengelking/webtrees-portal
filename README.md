@@ -410,6 +410,18 @@ cookie out of scope.
 For `wrangler dev`, put the same names in `portal/.dev.vars`, which is
 gitignored.
 
+### Cookies
+
+webtrees sets its session cookie for its *own* hostname. The Worker rewrites
+each `Set-Cookie` on the way back — dropping `Domain` so the cookie is
+host-only for the portal's origin, and forcing `Path=/` — while leaving
+`HttpOnly`, `Secure` and `SameSite` alone.
+
+Without that the browser rejects the cookie: login returns 200 with a valid
+body, nothing is stored, and the next request is a 401 that bounces the member
+back to the login screen. If you ever see "signing in appears to work but I am
+immediately signed out again", this is the first thing to check.
+
 ### Caching
 
 Every API response carries `Cache-Control: private, no-store` from PHP, the

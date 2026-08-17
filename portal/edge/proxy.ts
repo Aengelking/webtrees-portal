@@ -147,11 +147,59 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
   // Belt and braces: the PHP module already sends this on every response.
   responseHeaders.set('Cache-Control', 'private, no-store')
 
+  rewriteSetCookies(upstream.headers, responseHeaders)
+
   return new Response(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: responseHeaders,
   })
+}
+
+/**
+ * Re-scope webtrees' cookies to the portal's own origin.
+ *
+ * webtrees sets its session cookie with `Domain=` and `Path=` taken from the
+ * `base_url` in its config.ini.php — so `Domain=webtrees.example.org`. A
+ * browser on the portal's origin *rejects* that outright: a response may not
+ * set a cookie for an unrelated domain. The failure is quiet and confusing —
+ * login returns 200 with a valid body, the cookie is dropped on the floor, and
+ * the next request is 401, so the member is bounced back to the login screen
+ * having apparently just signed in successfully.
+ *
+ * Dropping `Domain` makes it a host-only cookie for whatever origin the portal
+ * is served from, which is exactly right. `Path` is forced to `/` because
+ * webtrees' path is its own install directory, which would not match /api/v1.
+ *
+ * Everything else — HttpOnly, Secure, SameSite — is passed through untouched.
+ */
+function rewriteSetCookies(from: Headers, to: Headers): void {
+  const cookies =
+    typeof from.getSetCookie === 'function'
+      ? from.getSetCookie()
+      : [from.get('set-cookie')].filter((value): value is string => value !== null)
+
+  if (cookies.length === 0) {
+    return
+  }
+
+  to.delete('set-cookie')
+
+  for (const cookie of cookies) {
+    to.append('set-cookie', rescopeCookie(cookie))
+  }
+}
+
+function rescopeCookie(cookie: string): string {
+  const [nameValue, ...attributes] = cookie.split(';')
+
+  const kept = attributes.filter((attribute) => {
+    const name = attribute.trim().split('=')[0]?.toLowerCase()
+
+    return name !== 'domain' && name !== 'path'
+  })
+
+  return [nameValue, ...kept, ' Path=/'].join(';')
 }
 
 function buildTargetUrl(incoming: URL, origin: string, env: ProxyEnv): URL {

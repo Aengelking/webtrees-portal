@@ -326,7 +326,28 @@ Verified with `wrangler dev` against a stub, all four cases:
 
 The SPA fallback is unaffected in all of them.
 
-### 2.13 Non-secret Worker settings belong in wrangler.jsonc
+### 2.13 The Worker re-scopes webtrees' session cookie
+
+webtrees sets its session cookie with `Domain=` and `Path=` taken from the
+`base_url` in its own config.ini.php — so `Domain=webtrees.example.org`. The
+browser is on the portal's origin, and a response may not set a cookie for an
+unrelated domain, so it is rejected outright.
+
+The failure mode is quiet and misleading: `POST /session` returns 200 with a
+complete `Me` payload, the cookie is dropped on the floor, and the next request
+is 401 — so the member lands back on the login screen having apparently just
+signed in successfully. Nothing in either log says anything is wrong.
+
+`rewriteSetCookies()` drops `Domain`, making it a host-only cookie for whatever
+origin the portal is served from, and forces `Path=/` because webtrees' path is
+its own install directory and would not match `/api/v1`. `HttpOnly`, `Secure`
+and `SameSite` pass through untouched.
+
+This is the same job `cookieDomainRewrite` does in the Vite dev proxy, which
+was configured from the start — the Worker simply never had the equivalent, so
+local development worked and the deployment would not have.
+
+### 2.14 Non-secret Worker settings belong in wrangler.jsonc
 
 A variable typed into the Cloudflare dashboard as **Text** does not survive:
 `wrangler.jsonc` is the source of truth for plaintext vars, so the next deploy
@@ -340,7 +361,7 @@ Encrypted secrets are preserved, so `PORTAL_PROXY_SECRET` is safe as a secret.
 sensitive — so they belong in the config file, in version control, where a
 deploy reasserts them rather than removing them.
 
-### 2.14 SFTP deployment swaps rather than overwrites
+### 2.15 SFTP deployment swaps rather than overwrites
 
 `module/tools/deploy-sftp.sh` uploads to `portal_api.upload/` beside the target
 and swaps it in with two renames, instead of mirroring over the live
@@ -392,7 +413,7 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
-### 2.15 Three navigation destinations, and no component library
+### 2.16 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
 `portal/src/components/`. No MUI, Chakra or Ant: the constraints that actually
