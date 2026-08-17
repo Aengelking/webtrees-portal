@@ -25,7 +25,16 @@ test.describe('the smoke path', () => {
 
     // My profile: my own record, read-only.
     await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
-    await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible()
+
+    // The name is a name — the archive number is its own line under it, not a
+    // badge glued to the front the way webtrees shows it.
+    const name = page.getByRole('heading', { level: 2 }).first()
+    await expect(name).toBeVisible()
+
+    if (!REAL_BACKEND) {
+      await expect(name).toHaveText('Anna Beispiel')
+      await expect(page.getByText('SB 4711')).toBeVisible()
+    }
 
     // The directory.
     await page.getByRole('link', { name: 'Mitglieder' }).click()

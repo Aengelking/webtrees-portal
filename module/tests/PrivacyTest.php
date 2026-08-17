@@ -9,6 +9,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Fig\Http\Message\StatusCodeInterface;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -238,30 +239,52 @@ class PrivacyTest extends PortalTestCase
     // -----------------------------------------------------------------
 
     /**
-     * The published fact list is an allow-list, and this is what that buys.
+     * A reference number is not an event, and it is not part of a name.
      *
-     * X1 carries a user reference number ("1 REFN / 2 TYPE SB"), the kind of
-     * bookkeeping field a desktop genealogy program leaves behind. It is not
-     * on the list, so it is not in the response — not as a fact, and not
-     * anywhere else in it.
+     * X1 carries "1 REFN 4711 / 2 TYPE SB" — the archive's own numbering, which
+     * the Vesta module shows as a badge in front of the name in webtrees. Here
+     * it belongs in `references` and nowhere else.
      */
-    public function testBookkeepingFactsAreNotPublished(): void
+    public function testAReferenceNumberIsItsOwnFieldAndNotAnEvent(): void
     {
         $this->login($this->member);
 
-        $response = $this->api(MeRead::class);
-        $tags     = [];
+        $individual = $this->json($this->api(MeRead::class))['individual'];
+        $tags       = [];
 
-        foreach ($this->json($response)['individual']['events'] as $event) {
+        foreach ($individual['events'] as $event) {
             $tags[] = $event['tag'];
         }
 
         self::assertNotContains('INDI:REFN', $tags);
-        self::assertStringNotContainsString('REFN', $this->raw($response));
-        self::assertStringNotContainsString('4711', $this->raw($response));
+        self::assertSame([['number' => '4711', 'type' => 'SB']], $individual['references']);
+        self::assertSame('Anna Beispiel', $individual['name']);
+    }
 
-        // And the reference number is not glued onto the name either.
-        self::assertSame('Anna Beispiel', $this->json($response)['individual']['name']);
+    /**
+     * And it is filtered like everything else. X2 has two: a plain one and a
+     * confidential one.
+     */
+    public function testAConfidentialReferenceNumberIsNotPublished(): void
+    {
+        $this->login($this->member);
+
+        $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X2']);
+
+        self::assertSame([['number' => '4712', 'type' => null]], $this->json($response)['references']);
+        self::assertStringNotContainsString('9999', $this->raw($response));
+
+        // A manager may see the tree's confidential facts, so they see both.
+        Auth::logout();
+        $this->login($this->manager);
+
+        self::assertSame(
+            [
+                ['number' => '4712', 'type' => null],
+                ['number' => '9999', 'type' => 'Intern'],
+            ],
+            $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X2']))['references']
+        );
     }
 
     public function testEveryResponseForbidsCaching(): void

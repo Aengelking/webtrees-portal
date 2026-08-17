@@ -156,6 +156,7 @@ export const en: Translations = {
     siblings: 'Brothers and sisters',
     spouses: 'Partners',
     children: 'Children',
+    reference: 'Reference number in the family archive',
     noEvents: 'No further details are recorded for this person.',
     sex: {
       M: 'male',

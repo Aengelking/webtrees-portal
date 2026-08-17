@@ -117,6 +117,44 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: 'Anna Beispiel' })).toBeDefined()
   })
 
+  it('shows the archive reference number under the name, not in front of it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({
+              ...ME,
+              individual: {
+                ...ME.individual,
+                references: [{ number: '4711', type: 'SB' }],
+              },
+            }),
+      ),
+    )
+
+    renderApp('/me')
+
+    const heading = await screen.findByRole('heading', { name: 'Anna Beispiel' })
+
+    // The name is a name. The number is its own line, after it.
+    expect(heading.textContent).toBe('Anna Beispiel')
+    expect(screen.getByText('SB 4711')).toBeDefined()
+  })
+
+  it('survives a server that does not send reference numbers yet', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf') ? jsonResponse({ csrf_token: 'token-1' }) : jsonResponse(ME),
+      ),
+    )
+
+    renderApp('/me')
+
+    expect(await screen.findByRole('heading', { name: 'Anna Beispiel' })).toBeDefined()
+  })
+
   it('says the same thing for every kind of sign-in failure', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) =>
       String(input).endsWith('/csrf')

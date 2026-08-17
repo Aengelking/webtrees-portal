@@ -541,8 +541,30 @@ HTML for a page to show is fair game for them to change.
 way, so the next module that does this is caught here rather than in
 production.
 
-The SB number itself is not currently published in any form. If it should be,
-it belongs in a field of its own — not glued to the front of a name.
+### 2.19 The reference number is published, as a field of its own
+
+`Individual.references` — a list of `{number, type}` from the record's `REFN`
+facts. Usually one; GEDCOM allows several, so it is a list rather than a
+scalar that would quietly drop the second one.
+
+A field rather than an entry in `events`, because it is bookkeeping and not
+something that happened to the person, and `INDI:REFN` is deliberately still
+absent from `PUBLISHED_TAGS` so it cannot arrive twice under a "Reference
+number" label.
+
+It comes out of the same privacy-filtered fact collection as everything else,
+so a `2 RESN confidential` under a REFN hides it without any extra code —
+`PrivacyTest::testAConfidentialReferenceNumberIsNotPublished` pins that.
+
+In the portal it is a line **under** the name, not a badge in front of it,
+with a screen-reader label ("Kennnummer im Familienarchiv"). Rendered as
+`SB 4711` where the record gives a type, and as the bare number where it does
+not.
+
+`references` is **optional** in the TypeScript type, on purpose. The module
+ships over SFTP and the portal ships through CI, so the two can be a version
+apart; the portal has to survive a server that predates the field rather than
+throwing on the profile screen.
 
 ---
 

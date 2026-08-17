@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { Individual, IndividualRef, Event } from '../api/types'
+import type { Individual, IndividualRef, Event, Reference } from '../api/types'
 import { Card, Section } from './ui'
 
 function EventLine({ event }: { event: Event }) {
@@ -12,6 +12,32 @@ function EventLine({ event }: { event: Event }) {
       <p className="text-base font-medium text-slate-900">{event.label}</p>
       {details.length > 0 && <p className="mt-1 text-base text-slate-700">{details.join(' · ')}</p>}
     </li>
+  )
+}
+
+/**
+ * The archive's own numbering, under the name rather than in front of it.
+ *
+ * webtrees shows this as a badge before the name, via the Vesta module. Here
+ * it is a line of its own: a reference number is a useful thing to be able to
+ * quote back to the family archive, and it is not part of anybody's name.
+ */
+function References({ references }: { references: Reference[] }) {
+  const { t } = useTranslation()
+
+  if (references.length === 0) {
+    return null
+  }
+
+  return (
+    <p className="mt-1 text-base text-slate-600">
+      <span className="sr-only">{t('individual.reference')}: </span>
+      {references
+        .map((reference) =>
+          reference.type === null ? reference.number : `${reference.type} ${reference.number}`,
+        )
+        .join(' · ')}
+    </p>
   )
 }
 
@@ -60,6 +86,7 @@ export function IndividualView({ individual }: { individual: Individual }) {
       {individual.name_alternative !== null && (
         <p className="mt-1 text-base text-slate-700">{individual.name_alternative}</p>
       )}
+      <References references={individual.references ?? []} />
       <p className="mt-1 text-base text-slate-700">{headline.join(' · ')}</p>
 
       <Section title={t('individual.events')}>

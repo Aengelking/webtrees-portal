@@ -154,6 +154,7 @@ export const de = {
     siblings: 'Geschwister',
     spouses: 'Partnerinnen und Partner',
     children: 'Kinder',
+    reference: 'Kennnummer im Familienarchiv',
     noEvents: 'Zu dieser Person sind keine weiteren Daten hinterlegt.',
     sex: {
       M: 'männlich',

@@ -33,6 +33,10 @@
 1 OCCU Hebamme
 1 OCCU Geheimniskraemerin
 2 RESN confidential
+1 REFN 4712
+1 REFN 9999
+2 TYPE Intern
+2 RESN confidential
 1 FAMS @F1@
 0 @X3@ INDI
 1 NAME Clara /Beispiel/

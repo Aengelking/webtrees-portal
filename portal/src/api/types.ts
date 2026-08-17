@@ -79,6 +79,15 @@ export interface Event {
   place: string | null
 }
 
+/**
+ * A user reference number from the record — the family archive's own
+ * numbering (an "SB" number here), not webtrees'.
+ */
+export interface Reference {
+  number: string
+  type: string | null
+}
+
 export type Sex = 'M' | 'F' | 'X' | 'U'
 
 export interface IndividualRef {
@@ -117,6 +126,12 @@ export interface PendingIndividual {
 
 export interface Individual extends IndividualRef {
   name_alternative: string | null
+  /**
+   * Optional on purpose. The module and the portal deploy separately — the
+   * module by SFTP, the portal by CI — so the portal has to survive a server
+   * that predates this field rather than throwing on the profile screen.
+   */
+  references?: Reference[]
   birth: Event | null
   death: Event | null
   events: Event[]

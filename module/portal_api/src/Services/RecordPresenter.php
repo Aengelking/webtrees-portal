@@ -131,6 +131,7 @@ class RecordPresenter
 
         return $ref + [
             'name_alternative' => $this->alternateName($individual, $access_level),
+            'references'       => $this->references($facts),
             'birth'            => $birth === null ? null : $this->event($birth),
             'death'            => $death === null ? null : $this->event($death),
             'events'           => $events,
@@ -274,6 +275,42 @@ class RecordPresenter
         }
 
         return null;
+    }
+
+    /**
+     * The record's user reference numbers.
+     *
+     * A field of its own rather than an event, because that is what it is:
+     * bookkeeping, not something that happened to the person. This tree keeps
+     * a "SB" number per person, and the Vesta "Classic Look & Feel" module
+     * shows it as a badge in front of the name in webtrees. The portal will
+     * not do that — see §2.18 — but the number is genuinely useful to a member
+     * comparing notes with the family archive, so it is published in the open,
+     * labelled, and not glued to a name.
+     *
+     * Filtered like everything else: `$facts` has already been through
+     * `Fact::canShow()`, so a `2 RESN` under a REFN is honoured here for free.
+     * GEDCOM allows several, so this is a list.
+     *
+     * @param Collection<int,Fact> $facts
+     *
+     * @return array<int,array<string,string|null>>
+     */
+    private function references(Collection $facts): array
+    {
+        return $facts
+            ->filter(static fn (Fact $fact): bool => $fact->tag() === 'INDI:REFN')
+            ->map(static function (Fact $fact): array {
+                $type = trim($fact->attribute('TYPE'));
+
+                return [
+                    'number' => trim($fact->value()),
+                    'type'   => $type === '' ? null : $type,
+                ];
+            })
+            ->filter(static fn (array $reference): bool => $reference['number'] !== '')
+            ->values()
+            ->all();
     }
 
     /**

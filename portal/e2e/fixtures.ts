@@ -14,6 +14,7 @@ const ANNA = {
   is_deceased: false,
   lifespan: '1985–',
   name_alternative: null,
+  references: [{ number: '4711', type: 'SB' }],
   birth: {
     tag: 'INDI:BIRT',
     label: 'Geburt',
