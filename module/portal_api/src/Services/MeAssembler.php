@@ -41,8 +41,11 @@ class MeAssembler
                 'role'      => $this->role($tree, $user),
             ],
             'profile'    => $this->members->profileForUser($user),
+            // own_record: unlocks the member's own contact details, which are
+            // not published on anyone else's record, and tells them whether an
+            // edit of theirs is still waiting for approval.
             'individual' => $individual instanceof Individual
-                ? $this->presenter->individualDetail($individual, $access_level)
+                ? $this->presenter->individualDetail($individual, $access_level, true)
                 : null,
             'tree' => [
                 'name'  => $tree->name(),

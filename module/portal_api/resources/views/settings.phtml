@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
  * @var PortalApiModule      $module
  * @var string               $title
  * @var string               $tree
+ * @var string               $portal_url
  * @var string               $proxy_secret
  * @var string               $rate_limit_ip
  * @var string               $rate_limit_user
@@ -45,6 +46,18 @@ foreach ($trees as $a_tree) {
             <?= view('components/select', ['name' => PortalApiModule::SETTING_TREE, 'id' => PortalApiModule::SETTING_TREE, 'selected' => $tree, 'options' => $tree_options]) ?>
             <div class="form-text">
                 <?= I18N::translate('The portal serves one family tree. Members see only records from this tree.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_PORTAL_URL ?>">
+            <?= I18N::translate('Portal address') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="url" id="<?= PortalApiModule::SETTING_PORTAL_URL ?>" name="<?= PortalApiModule::SETTING_PORTAL_URL ?>" value="<?= e($portal_url) ?>" placeholder="https://portal.example.org">
+            <div class="form-text">
+                <?= I18N::translate('Where members reach the portal. Used for the link in password reset emails, which must point at the portal rather than at webtrees. Leave empty to switch password resets off.') ?>
             </div>
         </div>
     </div>

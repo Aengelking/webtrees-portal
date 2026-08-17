@@ -40,6 +40,10 @@ use const ENT_QUOTES;
  */
 class RecordPresenter
 {
+    public function __construct(private readonly PendingChanges $pending_changes)
+    {
+    }
+
     /**
      * Level-1 INDI tags the portal publishes.
      *
@@ -47,6 +51,18 @@ class RecordPresenter
      * is the safe direction to be wrong in. Contact details (ADDR, EMAIL,
      * PHON, WWW) are deliberately absent from Phase 1; see NOTES.md.
      */
+    /**
+     * Contact details, published on the member's **own** record only.
+     *
+     * A member is the authority on their own address and may edit it (Phase
+     * 2), so they must be able to see it. Handing it out on other members'
+     * records is a different decision with a different consent question, and
+     * belongs with Phase 3's connections rather than here.
+     */
+    private const array OWN_RECORD_TAGS = [
+        'INDI:ADDR', 'INDI:EMAIL', 'INDI:PHON', 'INDI:WWW',
+    ];
+
     private const array PUBLISHED_TAGS = [
         'INDI:BIRT', 'INDI:CHR', 'INDI:BAPM', 'INDI:CONF', 'INDI:BARM', 'INDI:BASM',
         'INDI:ADOP', 'INDI:DEAT', 'INDI:BURI', 'INDI:CREM',
@@ -85,7 +101,13 @@ class RecordPresenter
      *
      * @return array<string,mixed>|null null when this caller may not see the record.
      */
-    public function individualDetail(Individual $individual, int $access_level): array|null
+    /**
+     * @param bool $own_record Whether this is the authenticated member's own
+     *                         record. Unlocks contact details and the pending
+     *                         change flag, neither of which is anyone else's
+     *                         business.
+     */
+    public function individualDetail(Individual $individual, int $access_level, bool $own_record = false): array|null
     {
         $ref = $this->individualRef($individual, $access_level);
 
@@ -93,11 +115,15 @@ class RecordPresenter
             return null;
         }
 
+        $published = $own_record
+            ? [...self::PUBLISHED_TAGS, ...self::OWN_RECORD_TAGS]
+            : self::PUBLISHED_TAGS;
+
         $facts  = $this->visibleFacts($individual, $access_level);
         $birth  = $this->firstEvent($facts, Gedcom::BIRTH_EVENTS);
         $death  = $this->firstEvent($facts, Gedcom::DEATH_EVENTS);
         $events = $facts
-            ->filter(fn (Fact $fact): bool => in_array($fact->tag(), self::PUBLISHED_TAGS, true))
+            ->filter(static fn (Fact $fact): bool => in_array($fact->tag(), $published, true))
             ->map(fn (Fact $fact): array => $this->event($fact))
             ->values()
             ->all();
@@ -111,6 +137,7 @@ class RecordPresenter
             'siblings'         => $this->siblings($individual, $access_level),
             'spouses'          => $this->spouses($individual, $access_level),
             'children'         => $this->children($individual, $access_level),
+            'pending_change'   => $own_record && $this->pending_changes->existsFor($individual),
             'webtrees_url'     => $individual->url(),
         ];
     }

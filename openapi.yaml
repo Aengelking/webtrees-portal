@@ -186,6 +186,198 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /me/profile:
+    patch:
+      tags: [me]
+      summary: Update the member's own portal settings
+      description: |
+        Portal-native data only — this endpoint never touches GEDCOM. Fields
+        that are absent are left alone; `display_name_override` may be sent as
+        `null` to clear it.
+
+        Setting `visible_in_directory` to true records the moment of consent in
+        `consent_recorded_at`. Setting it to false clears that timestamp:
+        withdrawn consent should not leave a record saying consent was given.
+      operationId: updateMyProfile
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberProfileUpdate'
+      responses:
+        '200':
+          description: The updated profile
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /me/individual:
+    put:
+      tags: [me]
+      summary: Propose changes to the member's own record
+      description: |
+        Submits an edit to the member's *own* linked individual record. The
+        target is never taken from the request — it is whichever record
+        webtrees links to the authenticated account — so this endpoint cannot
+        be pointed at anyone else.
+
+        The change does not take effect. It is written to webtrees' pending
+        changes queue exactly as an editor's own edit would be, with a `CHAN`
+        entry naming the member, and waits for an editor to approve it in
+        webtrees. The response is therefore `202`, and the `individual` it
+        returns is still the *approved* version.
+
+        Only the fields listed in `IndividualUpdate` can be changed. Every
+        other fact on the record — including facts the member is not allowed
+        to see — is preserved untouched.
+      operationId: updateMyIndividual
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IndividualUpdate'
+      responses:
+        '202':
+          description: |
+            The change was queued for approval. Nothing has changed yet.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingIndividual'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: |
+            The account is not linked to a record, or the record is locked
+            against editing.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /password/request:
+    post:
+      tags: [session]
+      summary: Ask for a password reset link
+      description: |
+        Always answers `202`, whether or not the address belongs to an
+        account, and takes a similar amount of time either way. Anything else
+        would turn this into a way to find out who has an account.
+
+        Uses webtrees' own reset mechanism: a token in the user's
+        `password-token` preference, valid for one hour, delivered by
+        webtrees' mail configuration. The link in the email points at the
+        portal, not at webtrees.
+      security: []
+      operationId: requestPasswordReset
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '202':
+          description: Accepted — said the same thing regardless of the outcome.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /password/reset:
+    post:
+      tags: [session]
+      summary: Set a new password using a token from the email
+      description: |
+        A valid token signs the member in, as webtrees' own reset does, so the
+        response is the same `Me` payload as `POST /session`.
+      security: []
+      operationId: resetPassword
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        '200':
+          description: The password was changed and the member is signed in.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '400':
+          description: |
+            The token is unknown or has expired, or the password is too short.
+            The two are distinguishable: a token is not a secret worth
+            protecting once it has expired, and a member who waited too long
+            needs to be told so.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -401,6 +593,10 @@ components:
             - invalid_credentials
             - not_found
             - not_configured
+            - no_linked_record
+            - record_locked
+            - change_pending
+            - invalid_token
             - server_error
         message:
           type: string
@@ -485,6 +681,92 @@ components:
         consent_recorded_at:
           type: [string, 'null']
           format: date-time
+
+    Accepted:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: accepted
+
+    MemberProfileUpdate:
+      description: |
+        Absent fields are left unchanged. This is a PATCH, not a replacement.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        visible_in_directory:
+          type: boolean
+        display_name_override:
+          type: [string, 'null']
+          maxLength: 128
+
+    IndividualUpdate:
+      description: |
+        The complete set of things a member may change about themselves.
+        Absent fields are left unchanged; a field sent as `null` removes that
+        fact from the record.
+
+        Values are plain text. Anything resembling GEDCOM structure in a value
+        is rejected rather than escaped — a newline in a value would otherwise
+        let a member append arbitrary facts to their own record.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        given_names:
+          type: [string, 'null']
+          maxLength: 120
+        surname:
+          type: [string, 'null']
+          maxLength: 120
+        birth_date:
+          type: [string, 'null']
+          maxLength: 60
+          description: |
+            A GEDCOM date, parsed by webtrees' own Date class — so `12 MAR
+            1985`, `ABT 1985` and `BET 1980 AND 1985` are all valid. Rejected
+            if webtrees cannot parse it.
+        birth_place:
+          type: [string, 'null']
+          maxLength: 120
+        occupation:
+          type: [string, 'null']
+          maxLength: 120
+        address:
+          type: [string, 'null']
+          maxLength: 200
+        email:
+          type: [string, 'null']
+          maxLength: 120
+        phone:
+          type: [string, 'null']
+          maxLength: 60
+        website:
+          type: [string, 'null']
+          maxLength: 200
+
+    PendingIndividual:
+      type: object
+      additionalProperties: false
+      required: [status, individual, pending_change]
+      properties:
+        status:
+          type: string
+          const: pending_approval
+        pending_change:
+          type: boolean
+          description: |
+            True once a change is waiting for an editor. The portal uses this
+            to tell the member their edit has been received but is not live.
+        individual:
+          oneOf:
+            - $ref: '#/components/schemas/Individual'
+            - type: 'null'
+          description: The record as currently approved — not the proposed version.
 
     Me:
       type: object
@@ -590,6 +872,7 @@ components:
             - siblings
             - spouses
             - children
+            - pending_change
             - webtrees_url
           properties:
             name_alternative:
@@ -626,6 +909,12 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/IndividualRef'
+            pending_change:
+              type: boolean
+              description: |
+                True when this record has an edit waiting for an editor to
+                approve it. The portal shows the member that their change was
+                received but is not live yet.
             webtrees_url:
               type: string
               format: uri

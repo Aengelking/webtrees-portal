@@ -13,6 +13,9 @@
 2 DATE 12 MAR 1985
 2 PLAC Hannover, Niedersachsen, Deutschland
 1 OCCU Tischlerin
+1 EVEN Vertrauliche Notiz zur Person
+2 TYPE Vertraulich
+2 RESN confidential
 1 FAMC @F1@
 0 @X2@ INDI
 1 NAME Bertha /Beispiel/
@@ -60,6 +63,14 @@
 2 DATE 3 FEB 1961
 2 PLAC Celle, Niedersachsen, Deutschland
 1 FAMS @F1@
+0 @X6@ INDI
+1 NAME Fritz /Beispiel/
+2 GIVN Fritz
+2 SURN Beispiel
+1 SEX M
+1 RESN locked
+1 BIRT
+2 DATE 5 MAY 1992
 0 @F1@ FAM
 1 HUSB @X5@
 1 WIFE @X2@

@@ -9,7 +9,10 @@ use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\User;
 use Illuminate\Support\Collection;
+use RuntimeException;
 
+use function array_key_exists;
+use function date;
 use function trim;
 
 /**
@@ -94,6 +97,59 @@ class MemberService
             'items' => $members->slice(($page - 1) * $per_page, $per_page)->values(),
             'total' => $members->count(),
         ];
+    }
+
+    /**
+     * Create or update the member's own portal profile.
+     *
+     * `consent_recorded_at` is written when the member becomes visible in the
+     * directory, and cleared when they stop being visible. Consent that has
+     * been withdrawn should not leave behind a record saying it was given —
+     * the column answers "since when is this person listed", and the answer
+     * for an unlisted person is "they are not".
+     *
+     * @param array<string,mixed> $changes
+     *
+     * @return array<string,mixed>
+     */
+    public function updateProfile(UserInterface $user, array $changes): array
+    {
+        $now      = date('Y-m-d H:i:s');
+        $existing = DB::table(self::TABLE)->where('wt_user_id', '=', $user->id())->first();
+
+        $update = ['updated_at' => $now];
+
+        if (array_key_exists('visible_in_directory', $changes)) {
+            $visible = (bool) $changes['visible_in_directory'];
+            $was_visible = $existing !== null && (bool) $existing->visible_in_directory;
+
+            $update['visible_in_directory'] = $visible ? 1 : 0;
+
+            if ($visible !== $was_visible) {
+                $update['consent_recorded_at'] = $visible ? $now : null;
+            }
+        }
+
+        if (array_key_exists('display_name_override', $changes)) {
+            $update['display_name_override'] = $changes['display_name_override'];
+        }
+
+        if ($existing === null) {
+            DB::table(self::TABLE)->insert($update + [
+                'wt_user_id' => $user->id(),
+                'created_at' => $now,
+            ] + ['visible_in_directory' => 0]);
+        } else {
+            DB::table(self::TABLE)->where('id', '=', $existing->id)->update($update);
+        }
+
+        $row = DB::table(self::TABLE)->where('wt_user_id', '=', $user->id())->first();
+
+        if ($row === null) {
+            throw new RuntimeException('portal_member_profile row vanished immediately after writing it');
+        }
+
+        return $this->profile($row);
     }
 
     /**
