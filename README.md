@@ -258,8 +258,8 @@ connection.
 
 The workflow installs `sshpass`, because `ssh` will not read a password from
 anywhere but a terminal. The password is passed to it through the `SSHPASS`
-environment variable, so it never appears in the process list or in the lftp
-command file.
+environment variable, so it never appears in the process list or in the sftp
+batch file.
 
 If you ever add key authentication, set `SFTP_PRIVATE_KEY` to the private key
 and the script will use it in preference to the password — nothing else needs
@@ -293,36 +293,49 @@ If the swap fails — usually a permissions problem — the live module is left
 untouched and the site keeps serving the previous version. The upload stays in
 `portal_api.upload/` and the job's log says so.
 
-#### Why the upload uses two different clients
+#### Why the upload is plain OpenSSH `sftp`
 
-The files go up through OpenSSH's own `sftp`. Only the recursive deletions use
-`lftp`.
-
-That is the fix for this, which the host produced regularly:
+It used to drive `lftp`, and `lftp` is why deployments kept dying with:
 
 ```
 mirror: Fatal error: max-retries exceeded (Connection closed by 81.169.145.126 port 22)
 ```
 
-It is the server hanging up mid-transfer — not a permissions or a path
-problem. The same host accepts an upload from OpenSSH `sftp` over exactly the
-same `ssh` and `sshpass` without complaining. The difference is the SFTP
-client, not the connection: lftp keeps many requests in flight and opens a
-second connection when it feels like it, and this server dislikes both. `sftp`
-asks for one thing at a time.
+The same host accepts an upload from OpenSSH's own `sftp` over exactly the same
+`ssh` and `sshpass` without a murmur, so the connection was never the problem.
+lftp keeps many requests in flight and opens a second connection when it feels
+like it; this server tolerates neither. `sftp` asks for one thing at a time.
 
-lftp stays for `rm -rf`, because `sftp` has no recursive delete. Those commands
-are short and have never been the step that failed.
+A middle version kept lftp for the recursive deletes, which `sftp` cannot do.
+That was worse than useless. Those deletes ran through a helper that ignored
+failures, so on a host lftp could not talk to at all, the old version was
+silently never moved aside — and the deployment then failed at the *next* step,
+reporting a permissions problem that did not exist.
 
-Two details of how the upload is built:
+So `lftp` is gone entirely, and with it that whole class of failure. Recursive
+deletion now works from a manifest: every upload writes
+`.portal-deploy-manifest` listing what it contains, **before** it writes
+anything else, and a later run reads that file to know exactly which paths to
+remove. Deleting a known list needs no directory listing, no recursion and no
+second tool.
 
-* every directory and file is listed explicitly, rather than left to `put -r`
-  and a shell glob. A glob skips dotfiles, and `portal/dist` contains an
-  `.htaccess` — it would have been silently left behind.
-* a path containing `*`, `?` or `[` stops the deployment with an error.
-  `sftp`'s `put` expands globs in the local path and offers no way to turn that
-  off, so such a file would be quietly skipped. This repository has one
+Three details worth knowing:
+
+* **Every path is listed explicitly**, rather than left to `put -r` and a shell
+  glob. A glob skips dotfiles and `portal/dist` contains an `.htaccess`.
+* **A path containing `*`, `?` or `[` stops the deployment.** `sftp`'s `put`
+  expands globs in the local path with no way to turn that off, so such a file
+  would be quietly skipped. This repository has one
   (`portal/functions/api/[[path]].ts`), which is how the case is known.
+* **A directory that will not delete gets moved aside**, to
+  `<name>.previous.orphan-<timestamp>`. Without that, one undeletable rollback
+  directory — say, holding a file from a release older than any manifest —
+  would block the rename on every future deployment, permanently. The orphan
+  has a dot in its name, so webtrees ignores it; delete it by hand whenever.
+
+The first run after this change is the untidy one: the live module was uploaded
+by the old script and has no manifest, so the cleanup falls back to the current
+file list and says so. From the second run on it is exact.
 
 If a transfer still fails, set the repository variable `SFTP_MAX_ATTEMPTS`
 (Settings → Secrets and variables → Actions → Variables) higher than the
@@ -348,7 +361,8 @@ DRY_RUN=true module/tools/deploy-sftp.sh module/portal_api   # look first
 module/tools/deploy-sftp.sh module/portal_api                 # then upload
 ```
 
-Needs `lftp`, `openssh-client` and `sshpass`.
+Needs `openssh-client` and `sshpass`. `DRY_RUN=true` prints the exact batch of
+sftp commands the real run would send and contacts nothing.
 
 #### Uploading the portal over SFTP instead of Cloudflare
 

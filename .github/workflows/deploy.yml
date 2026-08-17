@@ -132,12 +132,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install lftp and sshpass
+      - name: Install sshpass
         run: |
           sudo apt-get update -qq
-          # sshpass: ssh will not read a password from anywhere but a
-          # terminal, so a non-interactive password login needs it.
-          sudo apt-get install -y -qq lftp openssh-client sshpass
+          # openssh-client is already on the runner; named anyway so this step
+          # says what the upload needs. sshpass is the only addition: ssh will
+          # not read a password from anywhere but a terminal, so a
+          # non-interactive password login needs it.
+          sudo apt-get install -y -qq openssh-client sshpass
 
       - name: Upload the module
         if: github.event_name == 'push' || inputs.target == 'module' || inputs.target == 'both'
