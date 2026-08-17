@@ -278,20 +278,32 @@ through with the body, cookie and `Cache-Control: private, no-store` intact,
 and a client-supplied `X-Portal-Proxy-Secret` is stripped and replaced with
 the real one rather than passed along.
 
-### 2.12 webtrees' pretty URLs are a deployment prerequisite
+### 2.12 webtrees is addressed by ugly URL, because it ships no rewrite rules
 
-The API is mounted at `/api/v1/…`, which webtrees only routes when
-`rewrite_urls` is enabled in `data/config.ini.php`. That is not the default,
-and it is frequently off on shared hosting. With it off, `Router::process()`
-takes the route from a `route` query parameter and *replaces* the request path
-with it — so a request to `/api/v1/csrf` arrives with an empty path, matches
-nothing, and 404s. Every endpoint, silently, with a working module.
+The API is mounted at `/api/v1/…`, and I first assumed a webtrees host would
+serve that path. It will not, on a stock install, and the reason is more basic
+than a config setting: **webtrees ships no rewrite rules at all.** The only
+`.htaccess` in the distribution is `data/.htaccess`, which is a deny-all. There
+is nothing to map `/api/v1/csrf` onto `index.php`, so the webserver looks for a
+file of that name and returns its own 404 — no PHP, no session cookie, no
+webtrees HTML. A bare `Server: Apache` 404 with no `X-Powered-By` is the
+signature, and it means the request never reached the application.
 
-Rather than require the setting, the Worker can produce the form webtrees
-understands without it: `WEBTREES_UGLY_URLS=true` sends
-`/index.php?route=/api/v1/csrf`, preserving any other query parameters. Off by
-default, because a correctly configured host does not need it and the pretty
-form is what the module's own tests exercise.
+`rewrite_urls` in `config.ini.php` is a second, separate switch, also off by
+default: with it off `Router::process()` takes the route from a `route` query
+parameter and *replaces* the request path, so even a rewriting webserver would
+not help unless both are set.
+
+So the Worker addresses webtrees as `/index.php?route=/api/v1/csrf` **by
+default** — the form that needs no server configuration whatsoever.
+`WEBTREES_UGLY_URLS=false` opts into the pretty form for installations that
+have configured rewriting.
+
+Getting it backwards is diagnosable in both directions, which is the point of
+choosing this default rather than requiring a setting: wrongly `false` gives
+the bare webserver 404 above, and wrongly defaulted on a rewriting install
+gives a `308` from webtrees to the pretty URL — which points at the webtrees
+host, leaving the portal's origin and taking the session cookie out of scope.
 
 The symptom is not a 404, which is what makes it hard to place: webtrees'
 `NoRouteFound` middleware **redirects an unmatched GET to the home page**, so
@@ -306,9 +318,10 @@ Verified with `wrangler dev` against a stub, all four cases:
 
 | `WEBTREES_ORIGIN` | mode | webtrees receives |
 | --- | --- | --- |
-| `http://h:8099` | pretty | `/api/v1/csrf?x=1` |
-| `http://h:8099/webtrees` | pretty | `/webtrees/api/v1/csrf?x=1` |
-| `http://h:8099/webtrees/` | ugly | `/webtrees/index.php?route=%2Fapi%2Fv1%2Fcsrf&x=1` |
+| `http://h:8099` | default | `/index.php?route=%2Fapi%2Fv1%2Fcsrf` |
+| `http://h:8099` | `UGLY_URLS=false` | `/api/v1/csrf` |
+| `http://h:8099/webtrees` | `UGLY_URLS=false` | `/webtrees/api/v1/csrf?x=1` |
+| `http://h:8099/webtrees/` | default | `/webtrees/index.php?route=%2Fapi%2Fv1%2Fcsrf&x=1` |
 | `not a url` | — | 503 naming the bad setting |
 
 The SPA fallback is unaffected in all of them.

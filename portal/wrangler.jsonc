@@ -36,9 +36,10 @@
   // fill in the host.
   //
   // "vars": {
-  //   "WEBTREES_ORIGIN": "https://webtrees.example.org",
-  //   // "true" if webtrees does not have rewrite_urls enabled — see README.
-  //   "WEBTREES_UGLY_URLS": "false"
+  //   "WEBTREES_ORIGIN": "https://webtrees.example.org"
+  //   // WEBTREES_UGLY_URLS defaults to true, which is what a stock webtrees
+  //   // needs. Only set it to "false" if URL rewriting is configured on the
+  //   // server and rewrite_urls="1" is in config.ini.php.
   // },
   //
   // PORTAL_PROXY_SECRET is a real secret and must never be committed. Encrypted

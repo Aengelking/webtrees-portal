@@ -23,14 +23,22 @@ export interface ProxyEnv {
   /** Optional shared secret the PHP module checks. */
   PORTAL_PROXY_SECRET?: string
   /**
-   * Set to "true" when the webtrees installation does NOT have `rewrite_urls`
-   * enabled in its config.ini.php.
+   * Whether to address webtrees as /index.php?route=/api/v1/csrf rather than
+   * /api/v1/csrf. **Defaults to true**, because that is what a stock webtrees
+   * needs.
    *
-   * webtrees only understands a path like /api/v1/csrf when URL rewriting is
-   * on. With it off — which is the default, and common on shared hosting — its
-   * router reads the route from a `route` query parameter and ignores the path
-   * entirely, so every endpoint answers 404. This turns requests into the form
-   * webtrees does understand: /index.php?route=/api/v1/csrf
+   * webtrees ships no rewrite rules — the only .htaccess in the distribution
+   * is a deny-all for data/ — and `rewrite_urls` in config.ini.php is off by
+   * default. So on an ordinary install nothing maps a path like /api/v1/csrf
+   * onto index.php: the webserver looks for a file of that name, does not find
+   * one, and answers its own 404 without PHP ever running.
+   *
+   * Set to "false" only if URL rewriting is configured on the server *and*
+   * `rewrite_urls="1"` is set in config.ini.php. Getting this backwards is
+   * visible either way: with it wrongly false you get a bare webserver 404,
+   * and with it wrongly true webtrees answers a 308 redirect to the pretty
+   * form — which points at the webtrees host and so leaves the portal's
+   * origin, taking the session cookie out of scope.
    */
   WEBTREES_UGLY_URLS?: string
 }
@@ -156,9 +164,10 @@ function buildTargetUrl(incoming: URL, origin: string, env: ProxyEnv): URL {
   // replaces the base's path entirely.
   const prefix = base.pathname.replace(/\/+$/, '')
 
-  const ugly = env.WEBTREES_UGLY_URLS === 'true' || env.WEBTREES_UGLY_URLS === '1'
+  // Defaults to ugly: that is what an unconfigured webtrees understands.
+  const pretty = env.WEBTREES_UGLY_URLS === 'false' || env.WEBTREES_UGLY_URLS === '0'
 
-  if (!ugly) {
+  if (pretty) {
     return new URL(prefix + incoming.pathname + incoming.search, base)
   }
 

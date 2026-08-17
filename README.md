@@ -379,27 +379,33 @@ npx wrangler secret put PORTAL_PROXY_SECRET   # same value as the module setting
 | --- | --- | --- |
 | `WEBTREES_ORIGIN` | yes | `https://webtrees.example.org` — scheme and host, no path. |
 | `PORTAL_PROXY_SECRET` | recommended | A long random string. Set the *same* value as the module's **Proxy secret**. |
-| `WEBTREES_UGLY_URLS` | sometimes | `true` if the webtrees installation does not have `rewrite_urls` enabled — see below. |
+| `WEBTREES_UGLY_URLS` | no | Defaults to `true`, which is what a stock webtrees needs. Set to `false` only if URL rewriting is configured — see below. |
 
 #### Does your webtrees have pretty URLs?
 
-This one is easy to miss and produces a portal where every API call 404s.
+Almost certainly not, and the default assumes it does not.
 
-webtrees only understands a path like `/api/v1/csrf` when `rewrite_urls` is
-enabled in its `data/config.ini.php`. That is **not** the default, and it is
-often off on shared hosting. With it off, webtrees' router ignores the path
-entirely and reads the route from a `route` query parameter instead.
+**webtrees ships no rewrite rules.** The only `.htaccess` in the distribution
+is a deny-all for `data/`. And `rewrite_urls` in `data/config.ini.php` is off
+unless someone turned it on. So on an ordinary install nothing maps a path like
+`/api/v1/csrf` onto `index.php`: the webserver looks for a file of that name,
+does not find one, and returns its own 404 without PHP ever running.
 
-Check by opening webtrees and looking at the address bar:
+The Worker therefore addresses webtrees as `/index.php?route=/api/v1/csrf` by
+default, which needs no server configuration at all.
 
-* `https://host/tree/mytree/individual/X1` — pretty URLs are on, nothing to do.
-* `https://host/index.php?route=/tree/mytree/…` — pretty URLs are off, so set
-  `WEBTREES_UGLY_URLS=true` and the Worker will send
-  `/index.php?route=/api/v1/csrf` instead.
+Check which one you have by opening webtrees and reading the address bar:
 
-Or look for `rewrite_urls="1"` in `data/config.ini.php`. Enabling it there is
-the other option, but it needs working `mod_rewrite` and affects the whole
-webtrees site, so the Worker setting is the smaller change.
+* `https://host/index.php?route=/tree/mytree/…` — the normal case. Leave
+  `WEBTREES_UGLY_URLS` unset.
+* `https://host/tree/mytree/individual/X1` — rewriting is configured. Set
+  `WEBTREES_UGLY_URLS=false`.
+
+Getting it backwards is visible either way. Wrongly `false` gives a bare
+webserver 404 with no PHP headers and no cookie. Wrongly unset on a rewriting
+install gives a `308` redirect from webtrees to the pretty form, which points
+at the webtrees host and so leaves the portal's origin — taking the session
+cookie out of scope.
 
 For `wrangler dev`, put the same names in `portal/.dev.vars`, which is
 gitignored.
@@ -564,7 +570,8 @@ not that something is broken downstream.
 
 Two causes:
 
-1. **Pretty URLs are off** and `WEBTREES_UGLY_URLS` is not set. See below.
+1. **`WEBTREES_UGLY_URLS=false` on an install without URL rewriting** — the
+   request reaches webtrees with an empty path. See above.
 2. **The module is not installed or not enabled**, so its routes were never
    registered.
 
@@ -577,9 +584,10 @@ curl -i 'https://your-webtrees-host/index.php?route=/api/v1/csrf'
 
 | Result | Meaning |
 | --- | --- |
-| `200` with `{"csrf_token":…}` | The module is fine; pretty URLs are off. Set `WEBTREES_UGLY_URLS=true`. |
-| `403 proxy_secret_invalid` | Also fine — same conclusion, the module just wants its proxy secret. |
-| `302` to the home page | The module is not installed or not enabled. |
+| `200` with `{"csrf_token":…}` | The module is fine. Leave `WEBTREES_UGLY_URLS` unset. |
+| `403 proxy_secret_invalid` | Also fine — the module just wants its proxy secret. |
+| `302` to the home page | webtrees is running but has no such route: the module is not enabled. |
+| `404` from Apache, no PHP headers | webtrees is not at that URL at all — check where it actually lives. |
 
 (A `POST` to an unmatched route does return 404, which is why only the `GET`
 endpoints show this.)
