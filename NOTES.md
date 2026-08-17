@@ -472,58 +472,60 @@ The workflow runs the full test suite before it uploads anything, and there is
 no input to skip it. The privacy assertions are the reason to trust a release
 of this particular thing.
 
-### 2.15.1 The upload is OpenSSH `sftp`, and nothing else
+### 2.15.1 The upload is OpenSSH `sftp`, in exactly two connections
 
-`mirror: Fatal error: max-retries exceeded (Connection closed by … port 22)`
-was a regular event on this host. Two fixes were needed, and the first one was
-wrong in an instructive way.
+Four rounds, and each one was a different wrong theory. Writing them down
+because the sequence is the lesson.
 
-**Attempt one** treated it as a network problem: retries, fewer connections,
-lftp told to be patient. It helped and did not cure it.
+1. **"It is the network."** Retries, connection limits, lftp told to be
+   patient. Helped, cured nothing.
+2. **"It is lftp's transfer."** True, and found only because a working
+   deployment to the *same server* from another project turned out to use
+   OpenSSH `sftp` over the same `sshpass -e ssh`. lftp keeps many requests in
+   flight and opens a second connection when it suits it; this host tolerates
+   neither.
+3. **"lftp can stay for the deletes."** Wrong, and expensively so. Those
+   deletes went through `lftp_try`, which discarded failures — so on a host
+   lftp could not reach at all, the old version was silently never moved
+   aside, and the run failed at the *next* step reporting a permissions
+   problem that did not exist. **A step allowed to fail silently is a step
+   that cannot be trusted to have happened.**
+4. **"It is how many connections we open."** The log that settled it showed
+   `Connection closed by <ip> port 22` with *no sftp command echoed before
+   it*. `sftp -b` echoes each command as it runs, so a session printing none
+   died at the door. Shared hosting rate-limits bursts of SSH connections, a
+   CI runner looks like a burst, and once it trips everything after it is
+   refused too. The version that had just removed lftp opened nine sessions
+   per run; the working project opens one.
 
-**Attempt two** replaced the transfer with OpenSSH `sftp` — after seeing a
-working deployment to the *same server* from another project that does exactly
-that, over the same `sshpass -e ssh`. So the connection was never the issue: it
-is lftp's SFTP implementation, which keeps many requests in flight and opens a
-second connection when it suits it. But lftp was kept for the recursive
-deletes, and that was the mistake. Those deletes went through `lftp_try`, which
-discarded failures, so on a host lftp could not talk to *at all* the old version
-was silently never moved aside — and the run then failed at the next step, the
-rename, reporting a permissions problem that did not exist. **A step allowed to
-fail silently is a step that cannot be trusted to have happened.** That is the
-lesson worth keeping; it cost two rounds.
+So: two sessions. One reads the manifests, one does the entire deployment.
+And because the fix is "fewer connections", the second session has to be safe
+to repeat — deletes and mkdirs tolerant, puts overwriting, renames last — so
+that a long retry delay is a real remedy. The delays are 30s, 90s, 270s;
+seconds outlast nothing.
 
-**Attempt three** removes lftp. Recursive deletion works from a manifest:
-every upload writes `.portal-deploy-manifest` listing its contents *before* it
-writes anything else, so even an upload the server cut short leaves a complete
-list of what might be in there. A later run reads it and deletes exactly those
-paths, files first and directories in reverse lexicographic order so children
-precede parents. No directory listing to parse, no recursion, no second tool.
+Design points that fell out of this, each of which cost a simulated run:
 
-Other things this design has to get right:
+* **Recursive delete comes from a manifest.** `sftp` has no recursive `rm` and
+  parsing `ls -l` differs per server. Every upload writes
+  `.portal-deploy-manifest` listing its contents *before* writing anything
+  else, so even an upload the server cut short leaves a complete list.
+* **A rollback directory is renamed aside before it is emptied.** Renaming
+  always frees the name; deleting might not. The other order deadlocks: one
+  undeletable rollback directory blocks the swap on every future run, for
+  ever, with a misleading error. Found by simulation, not in production.
+* **`ls -1`, never `ls -d`.** sftp's `ls` takes `[-1afhlnrSt]`; an invalid flag
+  would make an existence check answer "no" for everything.
+* **Explicit paths, not `put -r` with a glob.** A glob skips dotfiles and
+  `portal/dist` ships an `.htaccess`. A filename containing a glob character
+  stops the deployment, because `put` expands globs locally with no way to
+  disable it.
 
-* **Every path is listed explicitly** rather than left to `put -r` and a glob.
-  A glob skips dotfiles and `portal/dist` ships an `.htaccess`; the other
-  project's `local_path: './module/*'` idiom would have dropped it.
-* **`ls -1`, never `ls -d`.** sftp's `ls` takes `[-1afhlnrSt]`. An invalid flag
-  makes the existence check answer "no" for every path, quietly disabling the
-  safety nets that depend on it.
-* **A glob character in a filename stops the deployment.** `put` expands globs
-  in the local path with no way to disable it, so `[[path]].ts` would be
-  skipped in silence.
-* **A directory that will not delete is moved aside**, not ignored. This was
-  found by simulation, not in production: a rollback directory holding a file
-  from a release older than any manifest cannot be removed, and would then
-  block the rename on *every* future run — permanently, with a misleading
-  error. It becomes `<name>.previous.orphan-<epoch>`, which webtrees ignores.
-* **The rename is the one step not safe to repeat.** A connection dying after
-  the server carried it out leaves nothing to rename; the retry checks "module
-  back in place **and** staging gone" first.
-
-The first run after this change is the untidy one: the live module predates
-manifests, so cleanup falls back to the current file list and says so. From the
-second run it is exact. A three-run simulation against a filesystem-backed fake
-server covers exactly that convergence.
+The test for all of this is a filesystem-backed fake SFTP server
+(`mkdir`/`put`/`get`/`ls`/`rename`/`rm`/`rmdir`, honouring the `-` prefix) and
+a scripted sequence of runs: upgrading from the pre-manifest layout, steady
+state, every connection refused, a drop part way through the puts, and a drop
+between the two renames. That last pair is what proves the batch is repeatable.
 
 Host key verification stays on, which the off-the-shelf actions in this space
 do not do — `wlixcc/SFTP-Deploy-Action` passes `StrictHostKeyChecking=no`. With

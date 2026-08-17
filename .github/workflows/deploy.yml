@@ -122,10 +122,11 @@ jobs:
     name: Upload over SFTP
     needs: test
     runs-on: ubuntu-latest
-    # The upload retries a dropped connection with a widening delay, so a bad
-    # day on the host takes minutes rather than seconds. This stops a hung
-    # connection from sitting on a runner for hours instead.
-    timeout-minutes: 25
+    # A refused connection is retried after 30s, then 90s, then 270s — long
+    # enough to outlast a host that is briefly turning this runner away. Two
+    # sessions, so the worst case is around a quarter of an hour. This stops a
+    # hung connection from sitting on a runner for the default six.
+    timeout-minutes: 30
     # Add required reviewers to this environment in the repository settings if
     # you want a human to approve each deployment.
     environment: production
@@ -150,8 +151,10 @@ jobs:
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_KNOWN_HOSTS: ${{ secrets.SFTP_KNOWN_HOSTS }}
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_MODULE_PATH }}
-          # Optional repository variable; the script defaults to 4.
+          # Optional repository variables; the script defaults to 4 attempts
+          # and a 30-second first delay.
           SFTP_MAX_ATTEMPTS: ${{ vars.SFTP_MAX_ATTEMPTS }}
+          SFTP_RETRY_DELAY: ${{ vars.SFTP_RETRY_DELAY }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: module/tools/deploy-sftp.sh module/portal_api
 
@@ -172,5 +175,6 @@ jobs:
           SFTP_KNOWN_HOSTS: ${{ secrets.SFTP_KNOWN_HOSTS }}
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_PORTAL_PATH }}
           SFTP_MAX_ATTEMPTS: ${{ vars.SFTP_MAX_ATTEMPTS }}
+          SFTP_RETRY_DELAY: ${{ vars.SFTP_RETRY_DELAY }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: module/tools/deploy-sftp.sh portal/dist

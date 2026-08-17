@@ -293,61 +293,83 @@ If the swap fails — usually a permissions problem — the live module is left
 untouched and the site keeps serving the previous version. The upload stays in
 `portal_api.upload/` and the job's log says so.
 
-#### Why the upload is plain OpenSSH `sftp`
+#### Why the upload is plain OpenSSH `sftp`, in exactly two connections
 
-It used to drive `lftp`, and `lftp` is why deployments kept dying with:
+Two separate problems produced the same red job, and both are worth knowing
+about.
+
+**One: lftp.** Deployments kept dying with
 
 ```
 mirror: Fatal error: max-retries exceeded (Connection closed by 81.169.145.126 port 22)
 ```
 
 The same host accepts an upload from OpenSSH's own `sftp` over exactly the same
-`ssh` and `sshpass` without a murmur, so the connection was never the problem.
-lftp keeps many requests in flight and opens a second connection when it feels
-like it; this server tolerates neither. `sftp` asks for one thing at a time.
+`ssh` and `sshpass`, so the connection was never the problem. lftp keeps many
+requests in flight and opens a second connection when it feels like it; this
+server tolerates neither. `sftp` asks for one thing at a time.
 
-A middle version kept lftp for the recursive deletes, which `sftp` cannot do.
-That was worse than useless. Those deletes ran through a helper that ignored
-failures, so on a host lftp could not talk to at all, the old version was
-silently never moved aside — and the deployment then failed at the *next* step,
-reporting a permissions problem that did not exist.
+A middle version kept lftp for the recursive deletes. That was worse than
+useless: those deletes ran through a helper that ignored failures, so on a host
+lftp could not talk to at all the old version was silently never moved aside —
+and the run then failed at the *next* step, reporting a permissions problem
+that did not exist.
 
-So `lftp` is gone entirely, and with it that whole class of failure. Recursive
-deletion now works from a manifest: every upload writes
-`.portal-deploy-manifest` listing what it contains, **before** it writes
-anything else, and a later run reads that file to know exactly which paths to
-remove. Deleting a known list needs no directory listing, no recursion and no
-second tool.
+**Two: the number of connections.** After lftp was gone the log looked like
 
-Three details worth knowing:
+```
+==> Uploading to ....upload
+Connection closed by 81.169.145.126 port 22
+```
 
+with no sftp command echoed before it. `sftp -b` echoes each command as it runs
+it, so a session that prints none died at the door, not mid-transfer. Shared
+hosting rate-limits bursts of SSH connections, and a CI runner looks like a
+burst; once that trips, everything after it is refused too.
+
+So a run now opens **exactly two** sessions: one that reads the manifests it
+needs, and one that does the whole deployment — clean, upload, swap, tidy up.
+That is the same budget as the deployment from another project that works
+against this server. An earlier version of this script needed nine.
+
+The second session is written so that repeating it is safe: deletes and mkdirs
+are tolerant, puts overwrite, and the renames come last. Running it again from
+the top reaches the same end state, which is what makes a long retry delay a
+real remedy — 30s, then 90s, then 270s, rather than a few seconds that outlast
+nothing.
+
+Three more details worth knowing:
+
+* **Recursive delete comes from a manifest.** `sftp` has no recursive `rm`, so
+  every upload writes `.portal-deploy-manifest` listing its contents *before*
+  it writes anything else. A later run reads that and deletes exactly those
+  paths. No directory listing to parse, no recursion, no second tool.
 * **Every path is listed explicitly**, rather than left to `put -r` and a shell
-  glob. A glob skips dotfiles and `portal/dist` contains an `.htaccess`.
-* **A path containing `*`, `?` or `[` stops the deployment.** `sftp`'s `put`
-  expands globs in the local path with no way to turn that off, so such a file
-  would be quietly skipped. This repository has one
+  glob. A glob skips dotfiles and `portal/dist` contains an `.htaccess`. A path
+  containing `*`, `?` or `[` stops the deployment, because `put` expands globs
+  in the local path with no way to turn that off — this repository has one
   (`portal/functions/api/[[path]].ts`), which is how the case is known.
-* **A directory that will not delete gets moved aside**, to
-  `<name>.previous.orphan-<timestamp>`. Without that, one undeletable rollback
-  directory — say, holding a file from a release older than any manifest —
-  would block the rename on every future deployment, permanently. The orphan
-  has a dot in its name, so webtrees ignores it; delete it by hand whenever.
+* **A rollback directory is renamed aside before it is emptied.** Renaming
+  always frees the name; deleting might not. Without that order, one
+  undeletable rollback directory would block the swap on every future
+  deployment, permanently.
+
+If a run still fails at "could not open an SFTP session at all", the message
+lists what to check. The quickest test is to connect by hand:
+
+```bash
+sftp -P 22 "$SFTP_USERNAME@$SFTP_HOST"
+```
+
+If that works from a laptop but not from CI, the host is turning the runner
+away; raise the repository variables `SFTP_RETRY_DELAY` and
+`SFTP_MAX_ATTEMPTS` (Settings → Secrets and variables → Actions → Variables),
+or just re-run later. Re-running is always safe.
 
 The first run after this change is the untidy one: the live module was uploaded
-by the old script and has no manifest, so the cleanup falls back to the current
-file list and says so. From the second run on it is exact.
-
-If a transfer still fails, set the repository variable `SFTP_MAX_ATTEMPTS`
-(Settings → Secrets and variables → Actions → Variables) higher than the
-default of 4 and re-run. Re-running is always safe: the module goes live only
-once a complete copy is in the staging directory, so a run that died mid-upload
-changed nothing on the site.
-
-One thing the script handles that is worth knowing about: if the connection
-dies *after* the server carried out the final rename, retrying it blindly would
-fail — nothing left to rename — and report a broken deployment that actually
-succeeded. So before retrying that one step it checks whether the work is
-already done, and says so in the log.
+by the old script and carries no manifest, so cleanup falls back to the current
+file list and may leave a `portal_api.previous.orphan-…` directory behind. It
+has a dot in its name, so webtrees ignores it; delete it by hand whenever.
 
 #### Running it locally
 
