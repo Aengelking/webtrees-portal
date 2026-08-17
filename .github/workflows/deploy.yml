@@ -10,7 +10,20 @@ name: Deploy
 #
 # Nothing is uploaded until the tests pass. This deploys code that reads a
 # family's genealogy database, including living people's data; the privacy
-# assertions are the reason to trust a release, so they are not skippable.
+# assertions are the reason to trust a release.
+#
+# The one exception is the `skip_tests` box on a manual run, for when the thing
+# being debugged is the upload itself and waiting several minutes for a green
+# suite before each attempt is dead time. It is deliberately awkward:
+#
+#   * only a hand-started run can set it — a push to main always runs the
+#     tests, so nothing reaches the server untested by accident;
+#   * it refuses to upload the portal, because the portal is built by the test
+#     job and there is nothing to upload without it;
+#   * the deploy job says loudly, in its own log, that it uploaded untested
+#     code.
+#
+# Untick it again as soon as the upload works.
 
 on:
   workflow_dispatch:
@@ -25,7 +38,12 @@ on:
           - portal
           - both
       dry_run:
-        description: Compare against the live server and upload nothing
+        description: Print what would be uploaded and contact nothing
+        type: boolean
+        required: false
+        default: false
+      skip_tests:
+        description: "Skip the test suite (module only — for debugging the upload)"
         type: boolean
         required: false
         default: false
@@ -48,6 +66,8 @@ permissions:
 jobs:
   test:
     name: Test
+    # `inputs` is null for a push, so a push always runs this.
+    if: inputs.skip_tests != true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -121,6 +141,9 @@ jobs:
   deploy:
     name: Upload over SFTP
     needs: test
+    # always(), because a skipped `test` job would otherwise skip this one too.
+    # The result check is what keeps a *failed* test run from deploying.
+    if: always() && needs.test.result != 'failure' && needs.test.result != 'cancelled'
     runs-on: ubuntu-latest
     # A refused connection is retried after 30s, then 90s, then 270s — long
     # enough to outlast a host that is briefly turning this runner away. Two
@@ -132,6 +155,17 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v7
+
+      - name: Say plainly that this is untested
+        if: needs.test.result == 'skipped'
+        run: |
+          echo "::warning title=Tests skipped::Uploading code that has not been tested. This is only for debugging the upload itself — re-run without skip_tests before trusting the result."
+
+      - name: Refuse to upload an unbuilt portal
+        if: needs.test.result == 'skipped' && inputs.target != 'module'
+        run: |
+          echo "::error title=Nothing to upload::The portal is built by the test job, so skip_tests leaves nothing to upload. Choose target=module, or run with the tests."
+          exit 1
 
       - name: Install sshpass
         run: |

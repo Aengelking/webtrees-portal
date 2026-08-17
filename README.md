@@ -271,12 +271,29 @@ another leak.
 
 * **Automatically** — a push to `main` that touches `module/portal_api/**`.
 * **By hand** — Actions → Deploy → *Run workflow*, choosing what to upload and
-  whether to do a dry run. A dry run lists what would change and uploads
-  nothing.
+  whether to do a dry run. A dry run prints the batch of sftp commands the real
+  run would send and contacts nothing.
 
 The `deploy` job runs in a GitHub environment called `production`. Add required
 reviewers to it in the repository settings if you want a human to approve each
 deployment.
+
+There is a third box, **Skip the test suite**, for when the thing being
+debugged is the upload itself and waiting several minutes for a green suite
+before each attempt is dead time. It is deliberately awkward to misuse:
+
+* only a hand-started run can set it — a push to `main` always runs the tests,
+  so nothing reaches the server untested by accident;
+* it refuses to upload the portal, because the portal is *built* by the test
+  job and there would be nothing to upload;
+* the deploy job posts a warning on the run saying it uploaded untested code.
+
+Untick it as soon as the upload works. This deploys code that reads living
+people's data, and the privacy tests are the reason to trust a release.
+
+The faster loop while debugging is not CI at all — run the script against the
+server from a terminal (see *Running it locally* below). Same script, same
+result, no waiting for a runner.
 
 #### How the upload avoids a broken site
 
