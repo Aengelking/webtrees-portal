@@ -520,6 +520,30 @@ leave "Birth" sitting on a German screen. It goes *last* in the key so that
 `Event.tag` are machine-readable and stay put — the edit form reads values back
 out of the rendered record by `tag`, and would break if they were translated.
 
+### 2.18 Names come from the structured name, not from `fullName()`
+
+`Individual::fullName()` is a *display* string, and other modules decorate it.
+On the installation this portal serves, the Vesta "Classic Look & Feel" module
+overrides it to prepend a badge holding the SB reference number, and it can
+append the XREF as well. That is a reasonable thing to do to a webtrees page
+and wrong in a JSON field called `name`: a badge is not part of anybody's name,
+and this API publishes no XREFs at all (§2.8).
+
+`RecordPresenter::nameAt()` reads `getAllNames()[…]['fullNN']` instead — the
+plain name webtrees itself puts in the database, underneath the display layer —
+and re-applies the only two things `fullName()` does that we still want: the
+placeholders for an unknown given name or surname.
+
+This is the general shape of the problem, not a one-off: a webtrees
+installation is webtrees *plus its other modules*, and anything that returns
+HTML for a page to show is fair game for them to change.
+`NameDecorationTest` stands in for Vesta by decorating `fullName()` the same
+way, so the next module that does this is caught here rather than in
+production.
+
+The SB number itself is not currently published in any form. If it should be,
+it belongs in a field of its own — not glued to the front of a name.
+
 ---
 
 ## 3. Things that were guessed

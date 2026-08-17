@@ -567,6 +567,11 @@ unverified email, unapproved account and rate limiting all produce the same
 401 body; the rate limiter refuses even a correct password once tripped; CSRF
 is required on every unsafe method; the proxy secret is enforced when set.
 
+**Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
+`Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does
+not leak that decoration into the API's `name` field, in a record or in a
+relative list.
+
 **Language** (`module/tests/LanguageTest.php`, `portal/src/Language.test.tsx`) —
 fact labels and written-out dates come back in the language the request asked
 for; `Accept-Language` goes out on every request; switching language in the

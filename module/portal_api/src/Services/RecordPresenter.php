@@ -16,6 +16,7 @@ use function html_entity_decode;
 use function in_array;
 use function preg_replace;
 use function str_contains;
+use function str_replace;
 use function strip_tags;
 use function trim;
 
@@ -329,7 +330,7 @@ class RecordPresenter
             return I18N::translate('Private');
         }
 
-        return $this->text($individual->fullName());
+        return $this->nameAt($individual, $individual->getPrimaryName());
     }
 
     private function alternateName(Individual $individual, int $access_level): string|null
@@ -338,9 +339,52 @@ class RecordPresenter
             return null;
         }
 
-        $alternate = $individual->alternateName();
+        $primary   = $individual->getPrimaryName();
+        $secondary = $individual->getSecondaryName();
 
-        return $alternate === null ? null : $this->text($alternate);
+        if ($primary === $secondary) {
+            return null;
+        }
+
+        $alternate = $this->nameAt($individual, $secondary);
+
+        return $alternate === '' ? null : $alternate;
+    }
+
+    /**
+     * One of a record's names, as a name and nothing else.
+     *
+     * Deliberately **not** `Individual::fullName()`. That method is a display
+     * string, and custom modules decorate it: the Vesta "Classic Look & Feel"
+     * module overrides it to prepend a badge (a reference number, say) and can
+     * append the XREF, and any other module is free to do the same. Those are
+     * reasonable things to do to a webtrees page and wrong in a JSON field
+     * called `name` — a badge is not part of anybody's name, and an XREF is
+     * something this API never publishes at all.
+     *
+     * `getAllNames()` is the structured form underneath, unchanged by all of
+     * that: `fullNN` is the plain name that goes into the database. The two
+     * things `fullName()` does that we still want are done here — the
+     * placeholders for an unknown given name or surname, so a record with half
+     * a name reads the same as it does in webtrees.
+     */
+    private function nameAt(Individual $individual, int $index): string
+    {
+        $names = $individual->getAllNames();
+        $name  = $names[$index]['fullNN'] ?? '';
+
+        $name = str_replace(
+            [Individual::NOMEN_NESCIO, Individual::PRAENOMEN_NESCIO],
+            [
+                I18N::translateContext('Unknown surname', '…'),
+                I18N::translateContext('Unknown given name', '…'),
+            ],
+            $name
+        );
+
+        // No strip_tags(): there is no markup in here by construction, and a
+        // name that happens to contain "<" is a name, not a tag.
+        return trim((string) preg_replace('/\s+/u', ' ', $name));
     }
 
     private function sex(Individual $individual): string
