@@ -15,6 +15,10 @@ export type ApiErrorCode =
   | 'invalid_credentials'
   | 'not_found'
   | 'not_configured'
+  | 'no_linked_record'
+  | 'record_locked'
+  | 'change_pending'
+  | 'invalid_token'
   | 'server_error'
   | 'network_error'
 
@@ -85,6 +89,32 @@ export interface IndividualRef {
   lifespan: string | null
 }
 
+/** Everything a member may change about themselves. */
+export interface IndividualUpdate {
+  given_names?: string | null
+  surname?: string | null
+  birth_date?: string | null
+  birth_place?: string | null
+  occupation?: string | null
+  address?: string | null
+  email?: string | null
+  phone?: string | null
+  website?: string | null
+}
+
+export type EditableField = keyof IndividualUpdate
+
+export interface MemberProfileUpdate {
+  visible_in_directory?: boolean
+  display_name_override?: string | null
+}
+
+export interface PendingIndividual {
+  status: 'pending_approval'
+  pending_change: boolean
+  individual: Individual | null
+}
+
 export interface Individual extends IndividualRef {
   name_alternative: string | null
   birth: Event | null
@@ -94,6 +124,8 @@ export interface Individual extends IndividualRef {
   siblings: IndividualRef[]
   spouses: IndividualRef[]
   children: IndividualRef[]
+  /** True while an edit of the member's own record awaits approval. */
+  pending_change: boolean
   webtrees_url: string
 }
 

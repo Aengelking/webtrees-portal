@@ -1,18 +1,42 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
+import { useMe, useUpdateProfile } from '../api/queries'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
-import { Button, Card, PageHeading, Section } from '../components/ui'
+import {
+  Button,
+  Card,
+  ErrorNotice,
+  Field,
+  PageHeading,
+  Section,
+  SuccessNote,
+  Toggle,
+} from '../components/ui'
 
 export function Settings() {
   const { t } = useTranslation()
   const { me, signOut } = useAuth()
+  const { data } = useMe()
+  const mutation = useUpdateProfile()
   const [busy, setBusy] = useState(false)
+
+  const profile = data?.profile ?? null
+
+  const [displayName, setDisplayName] = useState('')
+
+  // The field follows the server until the member starts typing.
+  useEffect(() => {
+    setDisplayName(profile?.display_name_override ?? '')
+  }, [profile?.display_name_override])
 
   async function onSignOut() {
     setBusy(true)
     await signOut()
   }
+
+  const visible = profile?.visible_in_directory === true
+  const nameChanged = displayName.trim() !== (profile?.display_name_override ?? '')
 
   return (
     <>
@@ -35,14 +59,45 @@ export function Settings() {
           </Section>
 
           <Section title={t('settings.directory')}>
-            <Card>
-              <p className="text-base text-slate-900">
-                {me.profile?.visible_in_directory === true
-                  ? t('settings.directoryVisible')
-                  : t('settings.directoryHidden')}
-              </p>
-              <p className="mt-2 text-base text-slate-700">{t('settings.directoryChange')}</p>
-            </Card>
+            {mutation.isError && (
+              <div className="mb-4">
+                <ErrorNotice error={mutation.error} />
+              </div>
+            )}
+
+            {mutation.isSuccess && !nameChanged && (
+              <div className="mb-4">
+                <SuccessNote>{t('settings.saved')}</SuccessNote>
+              </div>
+            )}
+
+            <Toggle
+              label={t('settings.directoryToggle')}
+              hint={t('settings.directoryExplain')}
+              checked={visible}
+              disabled={mutation.isPending}
+              onChange={(checked) => mutation.mutate({ visible_in_directory: checked })}
+            />
+
+            <div className="mt-6">
+              <Field
+                label={t('settings.displayName')}
+                hint={t('settings.displayNameHint')}
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+              <Button
+                variant="secondary"
+                disabled={mutation.isPending || !nameChanged}
+                onClick={() =>
+                  mutation.mutate({
+                    display_name_override: displayName.trim() === '' ? null : displayName.trim(),
+                  })
+                }
+              >
+                {mutation.isPending ? t('settings.saving') : t('settings.save')}
+              </Button>
+            </div>
           </Section>
         </>
       )}

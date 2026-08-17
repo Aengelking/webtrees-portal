@@ -36,9 +36,10 @@ site's default tree. All tree selection lives in one class,
 that class and adding a tree parameter to the routes — it does not mean
 unpicking the privacy code, the presenter or the frontend.
 
-If the answer turns out to be "several trees", say so before Phase 2: the
-member→individual link is per-tree, so a member could have a different record
-in each, and the directory would need to say which tree an entry refers to.
+If the answer turns out to be "several trees", this now costs more than it did:
+editing is per-record, so a member with a record in each tree would need to
+choose which one they are editing, and the directory would need to say which
+tree an entry refers to.
 
 ### 1.3 Do members self-register, or does an editor create accounts?
 
@@ -50,17 +51,12 @@ Recommendation, unchanged from the handoff: invitation-only. It removes the
 registration surface, the spam problem, and the "who is this person and are
 they really family" question that no software can answer.
 
-### 1.4 Password reset
+### 1.4 Password reset — **answered, and built in Phase 2**
 
-**Not built.** The login screen says "please contact the family
-administrator", in both languages.
-
-The cheap option is to link out to webtrees' existing reset flow — it already
-works, and it sends the email. The cost is that it drops the member into the
-webtrees UI mid-flow, which is exactly what the portal exists to avoid. A
-portal screen over the same backend is maybe a day's work in Phase 2, and it
-needs the same rate limiting and the same generic responses as login. Your
-call.
+A portal screen over webtrees' own backend, rather than a link into webtrees.
+See §2.0.2. One thing this needs from you: the module's **Portal address**
+setting must hold the portal's URL, or the emailed link has nowhere to point
+and resets are effectively off.
 
 ### 1.5 Is Google/social login a requirement?
 
@@ -69,8 +65,9 @@ OIDC module plus an identity-mapping table (`provider`, `subject`,
 `wt_user_id`) — the portal's own auth surface (`SessionCreate`,
 `RequireAuthentication`) would gain a second way in, not be replaced.
 
-Nothing in Phase 1 makes that harder. It is a real chunk of work, though, so it
-is worth answering before Phase 2 rather than after.
+Nothing in Phases 1 or 2 makes that harder — but the longer the portal is in
+use with passwords, the more accounts there are to migrate, so it is worth
+answering sooner rather than later.
 
 ### 1.6 Where does webtrees live long-term?
 
@@ -82,6 +79,68 @@ secret on the Worker.
 ---
 
 ## 2. Decisions taken
+
+### 2.0 Phase 2: editing goes through the queue, and loses nothing
+
+Three things about `Services/GedcomEditor.php` are load-bearing, and all three
+fail quietly rather than loudly if got wrong.
+
+**It works from the raw GEDCOM, never from `facts()`.** `facts()` is privacy
+filtered. Rebuilding a record from it would delete every fact the member is not
+allowed to see, and the edit would look entirely successful. The fixture gives
+Anna an `EVEN` marked `2 RESN confidential` that she cannot read, and
+`EditTest::testAnEditPreservesAFactTheMemberCannotSee` proves an edit of her
+occupation leaves it intact. That test is the reason this class exists in the
+shape it does.
+
+**The record is never named by the request.** `IndividualUpdate` reads whichever
+individual webtrees links to the session and edits that. There is no parameter
+to point elsewhere, which is the whole authorisation model.
+
+**Values cannot carry structure.** A newline in a value would append arbitrary
+level-1 facts to one's own record. Control characters are collapsed to spaces,
+and a `/` is refused in a name because it delimits the surname inside `NAME`.
+
+Only the *first* matching fact of a tag is replaced. Someone with three `OCCU`
+facts keeps the other two: the portal offers one occupation box, and that is
+not a mandate to delete a genealogist's research.
+
+A second edit while one is pending is refused with `409` rather than accepted.
+`AbstractGedcomRecordFactory::pendingChanges()` returns nothing to non-editors,
+so a member's record always reads as the approved version — meaning a second
+edit would be built from that and would overwrite the first when an editor
+applied them in order. Refusing is the only option that cannot lose someone's
+work silently.
+
+Found while testing: the record factory hands back the *same instance* that
+`updateRecord()` has just mutated, so re-reading after an edit showed the
+member their own proposal as though it were live, while the next page load
+would have disagreed. `IndividualUpdate` now photographs the approved record
+before writing.
+
+### 2.0.1 Contact details are readable only on one's own record
+
+`ADDR`, `EMAIL`, `PHON` and `WWW` were deliberately unpublished in Phase 1.
+Phase 2 makes them editable, and a field a member can change must be one they
+can see — so they are now returned on the member's **own** record and nowhere
+else. Publishing them on other members' records is a different question with a
+different consent model, and belongs with Phase 3.
+
+### 2.0.2 Password reset reuses webtrees' mechanism entirely
+
+Same `password-token` preference, same one-hour expiry, same
+`RateLimitService`, same email templates, same mail configuration. The only
+difference is that the link points at the portal.
+
+Requests answer `202` identically whether or not the address exists — including
+when the rate limiter refuses, which is swallowed rather than reported, because
+"you are being rate limited" would confirm the account exists. When there is no
+such user the handler sleeps for a comparable time, as webtrees itself does.
+
+Resets, unlike logins, *do* distinguish an expired token from a wrong one. A
+token is not a secret worth protecting once it has expired, the holder already
+had it, and a member who took too long needs to be told that rather than left
+guessing.
 
 ### 2.1 Authentication reuses webtrees' session cookie as-is
 

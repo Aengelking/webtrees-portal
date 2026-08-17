@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
 import { ApiError } from '../api/client'
@@ -93,7 +93,14 @@ export function Login() {
         </Button>
       </form>
 
-      <p className="mt-6 text-base text-slate-700">{t('login.forgotten')}</p>
+      <p className="mt-6">
+        <Link
+          to="/password/request"
+          className="inline-flex min-h-[44px] items-center text-base font-semibold text-sky-800 underline underline-offset-4"
+        >
+          {t('login.forgotten')}
+        </Link>
+      </p>
 
       <div className="mt-10">
         <LanguageSwitcher />

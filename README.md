@@ -1,6 +1,6 @@
-# webtrees Member Portal — Phase 1
+# webtrees Member Portal
 
-A read-only member portal for an existing webtrees installation.
+A member portal for an existing webtrees installation.
 
 webtrees stays exactly as it is: it remains the genealogy engine and back
 office — GEDCOM import/export, the editor, charts, admin. The portal sits
@@ -36,13 +36,26 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phase 1 is read-only.** There are no write endpoints. Editing arrives in
-Phase 2 and will go through webtrees' pending-changes queue.
+**Phases 1 and 2 are built.** Members can read the tree within their privacy
+level, change their own portal settings, propose changes to their own record,
+and reset their own password. Photos, and the social graph, are not in scope.
 
-Endpoints: `GET /csrf`, `POST /session`, `DELETE /session`, `GET /me`,
-`GET /individuals/{xref}`, `GET /members`, `GET /members/{id}`.
+**No edit writes to the tree.** A member's change goes to webtrees' pending
+changes list with a `CHAN` entry naming them, and an editor approves it in
+webtrees exactly as they would any other edit.
 
-Screens: login, My profile, Members, member detail, Settings.
+Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
+`PATCH /me/profile`, `PUT /me/individual`, `GET /individuals/{xref}`,
+`GET /members`, `GET /members/{id}`, `POST /password/request`,
+`POST /password/reset`.
+
+Screens: login, forgotten password, set a new password, My profile, edit my
+details, Members, member detail, Settings.
+
+What a member may change about themselves: given names, surname, date and
+place of birth, occupation, and contact details (address, email, telephone,
+website). Contact details are published on the member's *own* record only,
+never on anyone else's.
 
 Charts (pedigree, fan, descendancy) are not implemented — every record links
 out to webtrees for those.
@@ -80,6 +93,7 @@ out to webtrees for those.
    | Setting | Meaning |
    | --- | --- |
    | **Family tree** | The one tree the portal serves. Leave empty to use the site's default tree. |
+   | **Portal address** | Where members reach the portal, e.g. `https://portal.example.org`. Used for the link in password reset emails, which must point at the portal rather than at webtrees. Leave empty to switch password resets off. |
    | **Proxy secret** | Shared secret the Worker sends in `X-Portal-Proxy-Secret`. Leave empty for local development. |
    | **Failed attempts per IP address** | Default 30. `0` disables. |
    | **Failed attempts per username** | Default 5. `0` disables. |
@@ -108,20 +122,26 @@ portal shows a plain-language "your entry in the family tree is missing"
 message.
 
 **2. Is this member in the directory?** This is the portal's own data, in
-`portal_member_profile`. Phase 1 has no UI for changing it — that is Phase 2 —
-so for now:
+`portal_member_profile`, and **members set it themselves** under Settings.
+There is nothing for an administrator to do.
 
-```sql
-INSERT INTO portal_member_profile
-    (wt_user_id, visible_in_directory, consent_recorded_at, created_at, updated_at)
-VALUES
-    (42, 1, NOW(), NOW(), NOW());
-```
+Nobody is listed until they ask to be. `consent_recorded_at` records when they
+did, and is cleared again if they withdraw — consent that has been taken back
+should not leave a note saying it was given.
 
-`display_name_override` is optional; when it is null the member's webtrees
-real name is used. **Only insert a row with `visible_in_directory = 1` for
-members who have actually agreed to be listed** — that column is a consent
-record, and `consent_recorded_at` is when they gave it.
+`display_name_override` is the name shown in the directory; when it is empty
+the member's webtrees real name is used.
+
+### Approving what members propose
+
+A member's edit appears in webtrees under **Control panel → Pending changes**,
+attributed to them. Approving or rejecting it is the ordinary webtrees flow.
+
+Until someone approves it, the member sees the previous version of their
+record with a note saying their change is being reviewed, and the portal will
+not let them submit a second one. That is deliberate: a member cannot see
+pending changes, so a second edit would be built from the approved record and
+would silently discard the first when both were applied.
 
 ### Deploying the module over SFTP
 

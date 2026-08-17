@@ -40,6 +40,7 @@ const ANNA = {
   ],
   spouses: [],
   children: [],
+  pending_change: false,
   webtrees_url: 'https://webtrees.example.org/tree/portal/individual/X1',
 }
 
@@ -94,6 +95,8 @@ function json(route: Route, body: unknown, status = 200): Promise<void> {
 
 export async function stubApi(page: Page): Promise<void> {
   let signedIn = false
+  let pendingChange = false
+  let visibleInDirectory = true
 
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
@@ -119,6 +122,10 @@ export async function stubApi(page: Page): Promise<void> {
       )
     }
 
+    if (path === '/password/request' && method === 'POST') {
+      return json(route, { status: 'accepted' }, 202)
+    }
+
     if (path === '/session' && method === 'DELETE') {
       signedIn = false
       return json(route, { csrf_token: 'token-2' })
@@ -129,7 +136,34 @@ export async function stubApi(page: Page): Promise<void> {
     }
 
     if (path === '/me') {
-      return json(route, ME)
+      return json(route, {
+        ...ME,
+        profile: { ...ME.profile, visible_in_directory: visibleInDirectory },
+        individual: { ...ANNA, pending_change: pendingChange },
+      })
+    }
+
+    if (path === '/me/individual' && method === 'PUT') {
+      pendingChange = true
+      return json(route, { status: 'pending_approval', pending_change: true, individual: ANNA }, 202)
+    }
+
+    if (path === '/me/profile' && method === 'PATCH') {
+      const body = route.request().postDataJSON() as {
+        visible_in_directory?: boolean
+        display_name_override?: string | null
+      }
+
+      if (body.visible_in_directory !== undefined) {
+        visibleInDirectory = body.visible_in_directory
+      }
+
+      return json(route, {
+        id: 1,
+        visible_in_directory: visibleInDirectory,
+        display_name_override: body.display_name_override ?? null,
+        consent_recorded_at: visibleInDirectory ? '2026-08-17 12:00:00' : null,
+      })
     }
 
     if (path === '/members') {

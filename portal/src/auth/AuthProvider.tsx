@@ -11,6 +11,8 @@ interface AuthContextValue {
   me: Me | null
   signIn: (credentials: Credentials) => Promise<void>
   signOut: () => Promise<void>
+  /** A completed reset signs the member in, so it lands here rather than in a route. */
+  resetPassword: (token: string, password: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -80,14 +82,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   )
 
+  const resetPassword = useCallback(
+    async (token: string, password: string) => {
+      const result = await api.resetPassword(token, password)
+
+      queryClient.clear()
+      queryClient.setQueryData(['me'], result)
+      setMe(result)
+      setStatus('signed-in')
+    },
+    [queryClient],
+  )
+
   const signOut = useCallback(async () => {
     await api.logout()
     reset()
   }, [reset])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, me, signIn, signOut }),
-    [status, me, signIn, signOut],
+    () => ({ status, me, signIn, signOut, resetPassword }),
+    [status, me, signIn, signOut, resetPassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

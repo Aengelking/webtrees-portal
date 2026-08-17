@@ -11,9 +11,13 @@ import type {
   Credentials,
   CsrfToken,
   Individual,
+  IndividualUpdate,
   MemberDetail,
   MemberPage,
+  MemberProfile,
+  MemberProfileUpdate,
   Me,
+  PendingIndividual,
 } from './types'
 
 const BASE = '/api/v1'
@@ -225,5 +229,28 @@ export const api = {
 
   member(id: number, signal?: AbortSignal): Promise<MemberDetail> {
     return request<MemberDetail>(`/members/${id}`, signal === undefined ? {} : { signal })
+  },
+
+  updateProfile(changes: MemberProfileUpdate): Promise<MemberProfile> {
+    return request<MemberProfile>('/me/profile', { method: 'PATCH', body: changes })
+  },
+
+  updateIndividual(changes: IndividualUpdate): Promise<PendingIndividual> {
+    return request<PendingIndividual>('/me/individual', { method: 'PUT', body: changes })
+  },
+
+  requestPasswordReset(email: string): Promise<{ status: string }> {
+    return request<{ status: string }>('/password/request', { method: 'POST', body: { email } })
+  },
+
+  /**
+   * A successful reset signs the member in, exactly as webtrees' own does, so
+   * this behaves like login: keep the token that came back with the session.
+   */
+  async resetPassword(token: string, password: string): Promise<Me> {
+    const me = await request<Me>('/password/reset', { method: 'POST', body: { token, password } })
+    rememberCsrfToken(me.csrf_token)
+
+    return me
   },
 }

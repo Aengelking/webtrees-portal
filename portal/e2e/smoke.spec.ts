@@ -105,3 +105,60 @@ test.describe('the smoke path', () => {
     await expect(page.getByRole('button', { name: 'Anmelden' })).toBeVisible()
   })
 })
+
+test.describe('phase 2', () => {
+  test.skip(REAL_BACKEND, 'These write. Do not aim them at a real installation.')
+
+  async function signIn(page: import('@playwright/test').Page) {
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+  }
+
+  test('a member proposes a change and is told it is waiting', async ({ page }) => {
+    await signIn(page)
+
+    await page.getByRole('link', { name: 'Meine Daten ändern' }).click()
+    await expect(page.getByRole('heading', { name: 'Meine Daten ändern' })).toBeVisible()
+
+    await page.getByLabel('Beruf').fill('Möbelrestauratorin')
+    await page.getByRole('button', { name: 'Änderung einreichen' }).click()
+
+    // Back on the profile, told the change is not live yet.
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+    await expect(page.getByText('Ihre Änderung wird geprüft')).toBeVisible()
+
+    // And the form is not offered again while one is outstanding.
+    await expect(page.getByRole('link', { name: 'Meine Daten ändern' })).toBeHidden()
+  })
+
+  test('a member can leave the directory', async ({ page }) => {
+    await signIn(page)
+
+    await page.getByRole('link', { name: 'Einstellungen' }).click()
+
+    const toggle = page.getByRole('switch', { name: /Mitgliederverzeichnis/ })
+    await expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+    await toggle.click()
+    await expect(toggle).toHaveAttribute('aria-checked', 'false')
+  })
+
+  test('the forgotten-password path says nothing about who has an account', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByRole('link', { name: 'Passwort vergessen?' }).click()
+
+    await page.getByLabel('E-Mail-Adresse').fill('niemand@example.test')
+    await page.getByRole('button', { name: 'Link anfordern' }).click()
+
+    await expect(page.getByText('Bitte sehen Sie in Ihr Postfach')).toBeVisible()
+  })
+
+  test('a reset link with no token explains itself', async ({ page }) => {
+    await page.goto('/password/reset')
+
+    await expect(page.getByText('Dieser Link ist unvollständig')).toBeVisible()
+  })
+})

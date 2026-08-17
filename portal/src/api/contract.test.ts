@@ -24,8 +24,12 @@ describe('openapi.yaml and the API client agree', () => {
       '/csrf',
       '/individuals/{xref}',
       '/me',
+      '/me/individual',
+      '/me/profile',
       '/members',
       '/members/{id}',
+      '/password/request',
+      '/password/reset',
       '/session',
     ])
   })
@@ -38,10 +42,31 @@ describe('openapi.yaml and the API client agree', () => {
       '/members': "'/members'",
       '/individuals/{xref}': '`/individuals/${',
       '/members/{id}': '`/members/${',
+      '/me/profile': "'/me/profile'",
+      '/me/individual': "'/me/individual'",
+      '/password/request': "'/password/request'",
+      '/password/reset': "'/password/reset'",
     }
 
     for (const path of specPaths()) {
       expect(client, `no client call for ${path}`).toContain(templates[path] as string)
+    }
+  })
+
+  it('agrees on the error codes the UI branches on', () => {
+    // ErrorNotice picks a sentence from the code, so a code the spec knows
+    // and the client's union does not would render the fallback.
+    // Scoped to the Error schema's enum. Matching every 12-space list item in
+    // the file also picks up `required:` entries from other schemas.
+    const error_schema = spec.split(/^ {4}Error:$/m)[1]?.split(/^ {4}\w/m)[0] ?? ''
+    const enum_block = error_schema.split(/^ {10}enum:$/m)[1] ?? ''
+    const spec_codes = [...enum_block.matchAll(/^ {12}- (\w+)$/gm)].map((match) => match[1] as string)
+    const client_types = readFileSync(resolve(process.cwd(), 'src/api/types.ts'), 'utf-8')
+
+    expect(spec_codes.length).toBeGreaterThan(5)
+
+    for (const code of spec_codes) {
+      expect(client_types, `ApiErrorCode is missing ${code}`).toContain(`'${code}'`)
     }
   })
 

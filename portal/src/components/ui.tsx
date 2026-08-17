@@ -105,15 +105,89 @@ export function Notice({
 }
 
 /**
+ * A switch, drawn as a large tap target rather than a small iOS-style slider.
+ * The whole row is the control: on a phone, a thumb is about 10mm wide and a
+ * 20px toggle is a coin toss.
+ */
+export function Toggle({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (checked: boolean) => void
+}) {
+  const id = useId()
+  const hintId = `${id}-hint`
+
+  return (
+    <div>
+      <button
+        type="button"
+        role="switch"
+        id={id}
+        aria-checked={checked}
+        {...(hint === undefined ? {} : { 'aria-describedby': hintId })}
+        disabled={disabled === true}
+        onClick={() => onChange(!checked)}
+        className="flex min-h-[56px] w-full items-center justify-between gap-4 rounded-lg border border-slate-400 bg-white px-4 py-3 text-left text-base font-medium text-slate-900 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 disabled:opacity-60"
+      >
+        <span>{label}</span>
+        <span
+          aria-hidden
+          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
+            checked ? 'bg-sky-800' : 'bg-slate-400'
+          }`}
+        >
+          <span
+            className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
+              checked ? 'left-6' : 'left-1'
+            }`}
+          />
+        </span>
+      </button>
+      {hint !== undefined && (
+        <p id={hintId} className="mt-2 text-base text-slate-700">
+          {hint}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** A short confirmation that does not need dismissing. */
+export function SuccessNote({ children }: { children: ReactNode }) {
+  return (
+    <p role="status" className="rounded-lg border border-emerald-500 bg-emerald-50 p-4 text-base text-slate-900">
+      {children}
+    </p>
+  )
+}
+
+/**
  * Errors are shown as a sentence a member can act on, never as a code. The
  * code is only used to pick which sentence.
  */
 export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const { t } = useTranslation()
 
+  const known = [
+    'network_error',
+    'not_found',
+    'not_configured',
+    'server_error',
+    'record_locked',
+    'change_pending',
+    'no_linked_record',
+  ]
+
   const key =
-    error instanceof ApiError &&
-    ['network_error', 'not_found', 'not_configured', 'server_error'].includes(error.code)
+    error instanceof ApiError && known.includes(error.code)
       ? error.code.replace('network_error', 'network')
       : 'unknown'
 

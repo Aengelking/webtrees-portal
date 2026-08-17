@@ -6,9 +6,18 @@
  * device may be shared.
  */
 
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
-import type { Individual, MemberDetail, MemberPage, Me } from './types'
+import type {
+  Individual,
+  IndividualUpdate,
+  MemberDetail,
+  MemberPage,
+  MemberProfile,
+  MemberProfileUpdate,
+  Me,
+  PendingIndividual,
+} from './types'
 
 export const queryKeys = {
   me: ['me'] as const,
@@ -39,6 +48,42 @@ export function useMembers(q: string, page: number) {
     // Keeps the list on screen while a new search runs, instead of flashing
     // an empty page under the reader's thumb.
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Writes.
+ *
+ * Both invalidate `me`, because both change what /me returns — the profile
+ * directly, and an edit by setting `pending_change`. Re-reading from the
+ * server rather than patching the cache keeps one source of truth for what
+ * has actually been accepted.
+ */
+export function useUpdateProfile() {
+  const queryClient = useQueryClient()
+
+  return useMutation<MemberProfile, Error, MemberProfileUpdate>({
+    mutationFn: (changes) => api.updateProfile(changes),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+export function useUpdateIndividual() {
+  const queryClient = useQueryClient()
+
+  return useMutation<PendingIndividual, Error, IndividualUpdate>({
+    mutationFn: (changes) => api.updateIndividual(changes),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+export function useRequestPasswordReset() {
+  return useMutation<{ status: string }, Error, string>({
+    mutationFn: (email) => api.requestPasswordReset(email),
   })
 }
 

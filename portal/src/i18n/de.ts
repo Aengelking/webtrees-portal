@@ -16,9 +16,37 @@ export const de = {
     password: 'Passwort',
     submit: 'Anmelden',
     submitting: 'Einen Moment …',
-    forgotten: 'Passwort vergessen? Bitte wenden Sie sich an die Familienverwaltung.',
+    forgotten: 'Passwort vergessen?',
     failed: 'Benutzername oder Passwort ist falsch. Bitte versuchen Sie es noch einmal.',
     missing: 'Bitte füllen Sie beide Felder aus.',
+  },
+  password: {
+    requestTitle: 'Passwort zurücksetzen',
+    requestIntro:
+      'Geben Sie Ihre E-Mail-Adresse ein. Wenn dazu ein Konto gehört, schicken wir Ihnen einen Link zum Zurücksetzen.',
+    email: 'E-Mail-Adresse',
+    send: 'Link anfordern',
+    sending: 'Wird gesendet …',
+    sent: {
+      title: 'Bitte sehen Sie in Ihr Postfach',
+      body:
+        'Falls zu dieser Adresse ein Konto gehört, ist der Link unterwegs. Er gilt eine Stunde. Sehen Sie auch im Spam-Ordner nach.',
+    },
+    backToLogin: 'Zurück zur Anmeldung',
+    resetTitle: 'Neues Passwort festlegen',
+    resetIntro: 'Wählen Sie ein Passwort mit mindestens acht Zeichen.',
+    newPassword: 'Neues Passwort',
+    repeatPassword: 'Passwort wiederholen',
+    save: 'Passwort speichern',
+    saving: 'Wird gespeichert …',
+    mismatch: 'Die beiden Passwörter stimmen nicht überein.',
+    tooShort: 'Das Passwort muss mindestens acht Zeichen lang sein.',
+    missingToken: {
+      title: 'Dieser Link ist unvollständig',
+      body: 'Bitte öffnen Sie den Link aus der E-Mail noch einmal oder fordern Sie einen neuen an.',
+      action: 'Neuen Link anfordern',
+    },
+    expired: 'Dieser Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.',
   },
   profile: {
     title: 'Mein Profil',
@@ -26,8 +54,51 @@ export const de = {
       title: 'Ihr Eintrag im Stammbaum fehlt noch',
       body: 'Ihr Konto ist noch mit keiner Person im Stammbaum verknüpft. Die Familienverwaltung kann das einrichten.',
     },
-    readOnly: 'In dieser Version können Sie Ihre Daten ansehen, aber noch nicht ändern.',
+    edit: 'Meine Daten ändern',
     openInWebtrees: 'Stammbaum und Diagramme öffnen',
+    pending: {
+      title: 'Ihre Änderung wird geprüft',
+      body:
+        'Ihre Angaben wurden weitergegeben. Bis jemand aus der Familienverwaltung sie freigibt, sehen Sie hier weiterhin den bisherigen Stand.',
+    },
+  },
+  edit: {
+    title: 'Meine Daten ändern',
+    intro:
+      'Ihre Änderungen werden nicht sofort übernommen. Die Familienverwaltung sieht sie sich an und gibt sie frei.',
+    section: {
+      name: 'Name',
+      birth: 'Geburt',
+      work: 'Beruf',
+      contact: 'Kontakt',
+    },
+    givenNames: 'Vorname',
+    surname: 'Nachname',
+    birthDate: 'Geburtsdatum',
+    birthDateHint: 'Zum Beispiel „12 MAR 1985“ oder „ABT 1985“, wenn Sie es nur ungefähr wissen.',
+    birthPlace: 'Geburtsort',
+    occupation: 'Beruf',
+    address: 'Anschrift',
+    email: 'E-Mail-Adresse',
+    phone: 'Telefon',
+    website: 'Webseite',
+    contactHint: 'Ihre Kontaktdaten sehen nur Sie selbst und die Familienverwaltung.',
+    submit: 'Änderung einreichen',
+    submitting: 'Wird eingereicht …',
+    cancel: 'Abbrechen',
+    unchanged: 'Sie haben nichts geändert.',
+    submitted: {
+      title: 'Danke — wir haben Ihre Änderung erhalten',
+      body: 'Sie wird geprüft und danach übernommen. Sie müssen nichts weiter tun.',
+      action: 'Zurück zum Profil',
+    },
+    blocked: {
+      title: 'Eine Änderung wartet noch',
+      body:
+        'Sie haben bereits eine Änderung eingereicht, die noch nicht freigegeben ist. Bitte warten Sie, bis sie geprüft wurde.',
+    },
+    locked: 'Dieser Eintrag ist gesperrt und kann nicht geändert werden. Bitte wenden Sie sich an die Familienverwaltung.',
+    noRecord: 'Ihr Konto ist noch mit keiner Person im Stammbaum verknüpft.',
   },
   members: {
     title: 'Mitglieder',
@@ -64,8 +135,14 @@ export const de = {
     directory: 'Verzeichnis',
     directoryVisible: 'Sie sind im Mitgliederverzeichnis sichtbar.',
     directoryHidden: 'Sie sind im Mitgliederverzeichnis nicht sichtbar.',
-    directoryChange:
-      'Diese Einstellung kann derzeit nur die Familienverwaltung ändern. Schreiben Sie ihr, wenn Sie das ändern möchten.',
+    directoryToggle: 'Im Mitgliederverzeichnis anzeigen',
+    directoryExplain:
+      'Andere angemeldete Mitglieder sehen dann Ihren Namen. Sie können das jederzeit wieder ausschalten.',
+    displayName: 'Angezeigter Name',
+    displayNameHint: 'Leer lassen, um Ihren normalen Namen zu verwenden.',
+    save: 'Speichern',
+    saving: 'Wird gespeichert …',
+    saved: 'Gespeichert.',
     logout: 'Abmelden',
     tree: 'Stammbaum',
   },
@@ -93,6 +170,11 @@ export const de = {
     not_configured:
       'Das Portal ist noch nicht vollständig eingerichtet. Bitte wenden Sie sich an die Familienverwaltung.',
     server_error: 'Auf dem Server ist ein Fehler aufgetreten. Bitte versuchen Sie es später noch einmal.',
+    record_locked:
+      'Dieser Eintrag ist gesperrt und kann nicht geändert werden. Bitte wenden Sie sich an die Familienverwaltung.',
+    change_pending:
+      'Eine frühere Änderung von Ihnen wartet noch auf die Freigabe. Bitte warten Sie, bis sie geprüft wurde.',
+    no_linked_record: 'Ihr Konto ist noch mit keiner Person im Stammbaum verknüpft.',
     unknown: 'Bitte versuchen Sie es noch einmal.',
     pageNotFound: {
       title: 'Diese Seite gibt es nicht',

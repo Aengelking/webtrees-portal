@@ -3,7 +3,10 @@ import type { ReactElement } from 'react'
 import { useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { Loading } from './components/ui'
+import { EditProfile } from './routes/EditProfile'
 import { Login } from './routes/Login'
+import { PasswordRequest } from './routes/PasswordRequest'
+import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
 import { Members } from './routes/Members'
 import { MyProfile } from './routes/MyProfile'
@@ -33,6 +36,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/password/request" element={<PasswordRequest />} />
+      <Route path="/password/reset" element={<PasswordReset />} />
 
       <Route
         element={
@@ -43,6 +48,7 @@ export function App() {
       >
         <Route path="/" element={<Navigate to="/me" replace />} />
         <Route path="/me" element={<MyProfile />} />
+        <Route path="/me/edit" element={<EditProfile />} />
         <Route path="/members" element={<Members />} />
         <Route path="/members/:id" element={<MemberDetail />} />
         <Route path="/settings" element={<Settings />} />

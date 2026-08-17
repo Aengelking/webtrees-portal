@@ -1,11 +1,15 @@
+import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMe } from '../api/queries'
 import { IndividualView } from '../components/IndividualView'
-import { ErrorNotice, Loading, Notice, PageHeading } from '../components/ui'
+import { ErrorNotice, Loading, Notice, PageHeading, SuccessNote } from '../components/ui'
 
 export function MyProfile() {
   const { t } = useTranslation()
+  const location = useLocation()
   const { data, isPending, isError, error, refetch } = useMe()
+
+  const justSubmitted = (location.state as { submitted?: boolean } | null)?.submitted === true
 
   return (
     <>
@@ -25,9 +29,27 @@ export function MyProfile() {
             <Notice title={t('profile.noRecord.title')} body={t('profile.noRecord.body')} />
           ) : (
             <>
-              <p className="mb-6 rounded-lg bg-slate-200 p-4 text-base text-slate-800">
-                {t('profile.readOnly')}
-              </p>
+              {justSubmitted && (
+                <div className="mb-6">
+                  <SuccessNote>{t('edit.submitted.body')}</SuccessNote>
+                </div>
+              )}
+
+              {data.individual.pending_change ? (
+                <div className="mb-6">
+                  <Notice title={t('profile.pending.title')} body={t('profile.pending.body')} />
+                </div>
+              ) : (
+                <p className="mb-6">
+                  <Link
+                    to="/me/edit"
+                    className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-sky-800 px-5 py-3 text-base font-semibold text-white"
+                  >
+                    {t('profile.edit')}
+                  </Link>
+                </p>
+              )}
+
               <IndividualView individual={data.individual} />
             </>
           )}
