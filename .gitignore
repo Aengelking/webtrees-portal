@@ -2,8 +2,9 @@ node_modules/
 dist/
 .vite/
 
-# The webtrees checkout the module's tests run against.
-module/.webtrees/
+# The webtrees checkout the module's tests run against. No trailing slash: it
+# is often a symlink to a checkout elsewhere, which a directory pattern misses.
+module/.webtrees
 module/.phpunit.cache/
 module/portal_api/vendor/
 

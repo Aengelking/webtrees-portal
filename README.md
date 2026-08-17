@@ -541,6 +541,12 @@ cd module
 instead. The tests run against an in-memory SQLite database and import a small
 GEDCOM fixture; they touch nothing on disk.
 
+If you point `WEBTREES_DIR` at a *git checkout* rather than a released ZIP, run
+`php index.php compile-po-files` in it once. A checkout ships only the `.po`
+translation sources, and webtrees falls back to untranslated English without
+the compiled `messages.php` files — silently, which makes the language tests
+fail for a reason that has nothing to do with the module.
+
 ---
 
 ## What the tests prove
@@ -560,6 +566,12 @@ access levels plus an unauthenticated caller:
 unverified email, unapproved account and rate limiting all produce the same
 401 body; the rate limiter refuses even a correct password once tripped; CSRF
 is required on every unsafe method; the proxy secret is enforced when set.
+
+**Language** (`module/tests/LanguageTest.php`, `portal/src/Language.test.tsx`) —
+fact labels and written-out dates come back in the language the request asked
+for; `Accept-Language` goes out on every request; switching language in the
+portal refetches rather than leaving English labels on a German screen; an
+unavailable language changes nothing rather than failing.
 
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the

@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\ApiEnvelope;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireAuthentication;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireCsrfToken;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
+use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
@@ -37,6 +38,7 @@ use Fisharebest\Webtrees\Module\ModuleCustomTrait;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\EmailService;
 use Fisharebest\Webtrees\Services\MigrationService;
+use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\RateLimitService;
 use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Services\UserService;
@@ -153,6 +155,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(GedcomEditor::class, $gedcom_editor);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope());
+        $container->set(UsePortalLanguage::class, new UsePortalLanguage($container->get(ModuleService::class)));
         $container->set(RequireProxySecret::class, new RequireProxySecret($this));
         $container->set(RequireCsrfToken::class, new RequireCsrfToken());
         $container->set(RequireAuthentication::class, new RequireAuthentication());
@@ -182,20 +185,26 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         // Applied to every route below. Order matters: the envelope is
         // outermost, so that it can turn anything thrown further in into a
-        // JSON error and stamp the no-store header onto every response.
+        // JSON error and stamp the no-store header onto every response. The
+        // language comes next, so that even the refusals further in — a bad
+        // proxy secret, a stale CSRF token — are worded in the member's own
+        // language.
         $public = [
             ApiEnvelope::class,
+            UsePortalLanguage::class,
             RequireProxySecret::class,
         ];
 
         $unsafe = [
             ApiEnvelope::class,
+            UsePortalLanguage::class,
             RequireProxySecret::class,
             RequireCsrfToken::class,
         ];
 
         $private = [
             ApiEnvelope::class,
+            UsePortalLanguage::class,
             RequireProxySecret::class,
             RequireAuthentication::class,
         ];
@@ -227,6 +236,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         // routes the CSRF machinery was built for in Phase 1.
         $unsafe_private = [
             ApiEnvelope::class,
+            UsePortalLanguage::class,
             RequireProxySecret::class,
             RequireCsrfToken::class,
             RequireAuthentication::class,

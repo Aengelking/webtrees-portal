@@ -49,7 +49,7 @@ class ApiEnvelope implements MiddlewareInterface
         return $response
             ->withHeader('Cache-Control', 'private, no-store')
             ->withHeader('Pragma', 'no-cache')
-            ->withHeader('Vary', 'Cookie')
+            ->withHeader('Vary', 'Cookie, Accept-Language')
             ->withHeader('X-Content-Type-Options', 'nosniff')
             ->withHeader('X-Robots-Tag', 'noindex, nofollow');
     }

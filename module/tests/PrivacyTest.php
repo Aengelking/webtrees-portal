@@ -237,6 +237,33 @@ class PrivacyTest extends PortalTestCase
     // Caching
     // -----------------------------------------------------------------
 
+    /**
+     * The published fact list is an allow-list, and this is what that buys.
+     *
+     * X1 carries a user reference number ("1 REFN / 2 TYPE SB"), the kind of
+     * bookkeeping field a desktop genealogy program leaves behind. It is not
+     * on the list, so it is not in the response — not as a fact, and not
+     * anywhere else in it.
+     */
+    public function testBookkeepingFactsAreNotPublished(): void
+    {
+        $this->login($this->member);
+
+        $response = $this->api(MeRead::class);
+        $tags     = [];
+
+        foreach ($this->json($response)['individual']['events'] as $event) {
+            $tags[] = $event['tag'];
+        }
+
+        self::assertNotContains('INDI:REFN', $tags);
+        self::assertStringNotContainsString('REFN', $this->raw($response));
+        self::assertStringNotContainsString('4711', $this->raw($response));
+
+        // And the reference number is not glued onto the name either.
+        self::assertSame('Anna Beispiel', $this->json($response)['individual']['name']);
+    }
+
     public function testEveryResponseForbidsCaching(): void
     {
         $this->login($this->member);

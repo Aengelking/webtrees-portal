@@ -6,11 +6,11 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
-use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Log;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\Session;
@@ -70,16 +70,17 @@ class SessionCreate implements RequestHandlerInterface
         // Unlike core, tolerate an account that has never chosen either:
         // Locale::create('') throws, and a member should not be locked out of
         // the portal by a blank preference.
-        $language = $user->getPreference(UserInterface::PREF_LANGUAGE);
-        $theme    = $user->getPreference(UserInterface::PREF_THEME);
+        $theme = $user->getPreference(UserInterface::PREF_THEME);
 
         if ($theme !== '') {
             Session::put('theme', $theme);
         }
 
-        if ($language !== '') {
-            Session::put('language', $language);
-            I18N::init($language);
+        // The language the portal asked for wins over the account's webtrees
+        // preference: the member chose it a moment ago, on this device, and
+        // this response is going to the portal.
+        if ($request->getAttribute(UsePortalLanguage::REQUEST_ATTRIBUTE) === null) {
+            UsePortalLanguage::apply($user->getPreference(UserInterface::PREF_LANGUAGE));
         }
 
         $this->rate_limiter->clear($ip, $username);

@@ -39,6 +39,20 @@ export class ApiError extends Error {
  */
 let csrfToken: string | null = null
 
+/**
+ * The language the portal is being read in, sent on every request.
+ *
+ * Not everything on screen is translated in the browser: GEDCOM fact labels
+ * ("Geburt", "Beruf"), formatted dates and webtrees' own privacy placeholders
+ * are rendered by the server, which needs to be told which language to render
+ * them in. Set from i18n, so there is one answer and the switch changes it.
+ */
+let requestLanguage: string | null = null
+
+export function setRequestLanguage(language: string | null): void {
+  requestLanguage = language
+}
+
 /** Called when any request comes back 401, so the app can reset itself. */
 let onUnauthenticated: (() => void) | null = null
 
@@ -89,6 +103,10 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 async function send<T>(path: string, options: RequestOptions, csrf?: string): Promise<T> {
   const method = options.method ?? 'GET'
   const headers: Record<string, string> = { Accept: 'application/json' }
+
+  if (requestLanguage !== null && requestLanguage !== '') {
+    headers['Accept-Language'] = requestLanguage
+  }
 
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json'

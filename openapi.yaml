@@ -36,6 +36,24 @@ info:
     re-fetch `GET /csrf` and retry once. All other methods are handled by this
     module and answer with `403 csrf_token_invalid`.
 
+    ## Language
+
+    Parts of a response are rendered by webtrees rather than by the client:
+    `Event.label` (the name of a GEDCOM fact), `DateValue.display` (a date
+    written out for a reader) and the placeholders that stand in for a name
+    that may not be shown. Those follow the request's `Accept-Language`
+    header, matched against the languages the webtrees installation has
+    enabled — exactly, then by language without region, so `en` finds `en-US`.
+
+    A request with no `Accept-Language`, or one asking only for languages that
+    are not installed, is answered in whatever language webtrees would have
+    chosen for it; nothing fails. `POST /session` is the one exception worth
+    knowing about: with no header, it answers in the language set on the
+    member's webtrees account.
+
+    Responses carry `Vary: Cookie, Accept-Language`. Only `display` moves —
+    `DateValue.gedcom` and `Event.tag` are machine-readable and stay put.
+
     ## Caching
 
     Every response carries `Cache-Control: private, no-store`. The Cloudflare
@@ -109,6 +127,7 @@ paths:
       security: []
       operationId: createSession
       parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
         required: true
@@ -173,6 +192,8 @@ paths:
       tags: [me]
       summary: The authenticated member and their own record
       operationId: getMe
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
       responses:
         '200':
           description: The authenticated member
@@ -245,6 +266,7 @@ paths:
         to see — is preserved untouched.
       operationId: updateMyIndividual
       parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
         required: true
@@ -335,6 +357,7 @@ paths:
       security: []
       operationId: resetPassword
       parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/CsrfHeader'
       requestBody:
         required: true
@@ -388,6 +411,7 @@ paths:
         disclose which of the two is the case.
       operationId: getIndividual
       parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
         - name: xref
           in: path
           required: true
@@ -423,6 +447,7 @@ paths:
         and is `null` whenever the caller may not see that record.
       operationId: listMembers
       parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
         - name: q
           in: query
           required: false
@@ -467,6 +492,7 @@ paths:
         that a non-listed account cannot be confirmed by probing.
       operationId: getMember
       parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
         - name: id
           in: path
           required: true
@@ -512,6 +538,18 @@ components:
         const: 'private, no-store'
 
   parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: |
+        The language to render server-side strings in — fact labels, written
+        dates, privacy placeholders. Standard content negotiation; an
+        unavailable language is ignored rather than refused.
+      example: de
+      schema:
+        type: string
+
     CsrfHeader:
       name: X-CSRF-TOKEN
       in: header

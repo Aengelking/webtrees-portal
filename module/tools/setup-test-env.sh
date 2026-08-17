@@ -27,6 +27,13 @@ fi
 echo "==> Installing webtrees dependencies"
 (cd "${WEBTREES_DIR}" && COMPOSER_ALLOW_SUPERUSER=1 composer install --no-interaction --no-progress)
 
+# The distribution ZIP ships compiled translations (resources/lang/*/messages.php);
+# a git checkout has only the .po sources, and webtrees silently falls back to
+# untranslated English without them. The API's fact labels and dates come from
+# these files, so the language tests need them.
+echo "==> Compiling the language files"
+(cd "${WEBTREES_DIR}" && php index.php compile-po-files >/dev/null)
+
 echo "==> Linking the module into modules_v4/"
 mkdir -p "${WEBTREES_DIR}/modules_v4"
 ln -sfn "${MODULE_DIR}/portal_api" "${WEBTREES_DIR}/modules_v4/portal_api"

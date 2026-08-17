@@ -1,5 +1,6 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { setRequestLanguage } from '../api/client'
 import { de } from './de'
 import { en } from './en'
 
@@ -61,9 +62,12 @@ i18n.on('languageChanged', (language) => {
   if (isLanguage(language)) {
     rememberLanguage(language)
     document.documentElement.lang = language
+    // The server renders fact labels and dates, so it has to be told too.
+    setRequestLanguage(language)
   }
 })
 
 document.documentElement.lang = i18n.language
+setRequestLanguage(i18n.language)
 
 export default i18n

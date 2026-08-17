@@ -483,6 +483,43 @@ design system.
 Error and empty states are sentences with a next action, in both languages. The
 API's `error` code only chooses which sentence; no code is ever shown.
 
+### 2.17 The API answers in the language the portal is being read in
+
+Not everything on the screen is translated in the browser. Three kinds of
+string come out of webtrees itself, server-side:
+
+* `Event.label` — the name of a GEDCOM fact ("Geburt", "Beruf", "Titel");
+* `DateValue.display` — a date written out for a reader ("12. März 1985");
+* the placeholders webtrees uses where a name may not be shown.
+
+So the portal sends `Accept-Language` on every request (`api/client.ts`, set
+from i18n), and `Http/Middleware/UsePortalLanguage.php` matches it against the
+languages the installation has enabled — exact tag first, then language
+without region, so `en` finds `en-US`. An unavailable language changes
+nothing rather than failing.
+
+Two things about that middleware are not obvious:
+
+1. **It re-registers the GEDCOM tags.** Element labels are translated *once*,
+   when webtrees' `RegisterGedcomTags` middleware builds the element factory —
+   which runs before routing, and therefore before any module middleware. Just
+   calling `I18N::init()` moves `I18N::translate()` and leaves every label
+   behind in the language webtrees first guessed. Registering the tags again is
+   the same call webtrees itself makes, against the now-correct translations.
+2. **`POST /session` no longer lets the account's webtrees language win.** If
+   the request carried a language, that is the member's choice, made a moment
+   ago on this device. With no header it still falls back to the account
+   preference, exactly as webtrees' own login does.
+
+On the client, the language is part of every query key. The same request in two
+languages is two different responses, so switching has to refetch rather than
+leave "Birth" sitting on a German screen. It goes *last* in the key so that
+`queryKeys.me` still matches when a mutation invalidates it.
+
+`Vary: Cookie, Accept-Language`. Only `display` moves: `DateValue.gedcom` and
+`Event.tag` are machine-readable and stay put — the edit form reads values back
+out of the rendered record by `tag`, and would break if they were translated.
+
 ---
 
 ## 3. Things that were guessed
@@ -587,6 +624,17 @@ Written down rather than acted on, per §2 of the handoff.
   labels — *before* it initialises I18N; that works in webtrees' own suite only
   because an earlier test has already set the static translator. Ours is the
   first suite in the process, so it has to do it itself.
+* `tools/setup-test-env.sh` runs `php index.php compile-po-files`. The
+  distribution ZIP ships compiled translations (`resources/lang/*/messages.php`)
+  but a git checkout has only the `.po` sources, and webtrees falls back to
+  untranslated English **silently** without them — `Translation` treats a
+  missing `.php` file as an empty translation set rather than an error. The
+  language tests assert on German output, so they need the compile step.
+* `LanguageTest` resets both `I18N` *and* the element factory in `setUp()`, and
+  runs its two date assertions in separate processes. webtrees caches
+  translated month and day names in function-level `static` variables — free in
+  production, where a request is a process, but in one PHPUnit process the
+  first language to render a date keeps it.
 * PHPUnit reports one deprecation on PHP 8.4, from `oscarotero/middleland`
   inside webtrees' own vendor directory. It is webtrees' dependency, used by
   webtrees in production, and nothing in this repository can or should fix it.
