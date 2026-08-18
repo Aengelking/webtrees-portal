@@ -17,9 +17,16 @@ name: Deploy module via SFTP
 # If your host needs a key instead of a password, swap `password` for
 # `ssh_private_key` and store the key in an SSH_PRIVATE_KEY secret.
 
+# Hand-started only. The `push:` trigger is gone rather than emptied: an empty
+# branch list reads as "matches nothing", but that is a property of the filter
+# rather than something the docs promise, and this workflow writes straight
+# into the live module directory. Removing the key says it outright.
+#
+# .github/workflows/deploy.yml is the one that deploys. This is kept as the
+# reference that identified lftp as the cause of the upload failures — it is
+# the shape that works on this host, minus the host key check, the atomic
+# swap and the tests.
 on:
-  push:
-    branches: []
   workflow_dispatch:
 
 concurrency:
