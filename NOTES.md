@@ -833,11 +833,13 @@ Written down rather than acted on, per §2 of the handoff.
   (1 in 20 failed logins). Under a sustained attack, the table could reach
   perhaps tens of thousands of rows before pruning catches up. Indexed and
   small, so not a problem — noted so it is not a surprise.
-* **There is no plain CI workflow.** `deploy.yml` runs the whole suite, but
-  only on a push to `main` that touches the module, or on a manual run —
-  nothing runs the tests on a pull request. Splitting the `test` job into its
-  own `ci.yml` and having `deploy.yml` depend on it is a ten-minute change,
-  left undone because it was not asked for.
+* ~~There is no plain CI workflow.~~ **Done.** `ci.yml` runs the suites on
+  pull requests and on pushes to any branch except `main`, which `deploy.yml`
+  already covers. Split by what changed — a portal change does not wait for
+  the module's PHP suite, and a module change does not wait for a browser to
+  install. `deploy.yml` deliberately still runs its own tests rather than
+  depending on this one: what gates a deployment should be the code being
+  deployed, checked at that moment, not a green tick from an earlier commit.
 * **Serving the SPA over SFTP assumes the domain root.** The API client asks
   for `/api/v1/…`, so a subdirectory install needs Vite's `base` and the
   client's `BASE` changed together. Fine for Cloudflare Pages, which is the

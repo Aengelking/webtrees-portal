@@ -1,0 +1,125 @@
+name: CI
+
+# Runs the tests. That is all it does — nothing here touches a server.
+#
+# `deploy.yml` has always run the suite before uploading, but only on a push to
+# main that touches the module, or on a hand-started run. So a pull request, or
+# a push to a working branch, got no signal at all: the first time anything was
+# checked was the moment it was about to go live, which is the wrong moment to
+# find out.
+#
+# Split by what changed, for the same reason deploy.yml is: a change to the
+# portal has no bearing on the PHP module's privacy assertions, and waiting for
+# a browser to install in order to hear that is time spent for nothing.
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      # main is covered by deploy.yml, which runs the same suites before it
+      # uploads anything. Running them here as well would only double the wait.
+      - main
+  workflow_dispatch:
+
+concurrency:
+  # A newer commit on the same branch makes an older run's answer irrelevant.
+  # Unlike a deployment, a test run is safe to cancel half way through.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      module: ${{ steps.filter.outputs.module }}
+      portal: ${{ steps.filter.outputs.portal }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            module:
+              - 'module/**'
+              - 'openapi.yaml'
+            portal:
+              - 'portal/**'
+              - 'openapi.yaml'
+
+  module:
+    name: Module
+    needs: changes
+    if: needs.changes.outputs.module == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: ctype, curl, gd, iconv, intl, json, mbstring, pcre, pdo, pdo_sqlite, session, xml, zip
+          coverage: none
+
+      - name: Cache the webtrees checkout
+        uses: actions/cache@v6
+        with:
+          path: module/.webtrees
+          key: webtrees-2.2.1-${{ runner.os }}-php8.3
+
+      - name: Set up the test environment
+        run: module/tools/setup-test-env.sh
+
+      - name: Run the module tests
+        working-directory: module
+        run: .webtrees/vendor/bin/phpunit --no-coverage
+
+  portal:
+    name: Portal
+    needs: changes
+    if: needs.changes.outputs.portal == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Install the portal's dependencies
+        working-directory: portal
+        run: npm ci
+
+      - name: Typecheck and build
+        working-directory: portal
+        run: npm run build
+
+      - name: Run the unit tests
+        working-directory: portal
+        run: npm test
+
+      - name: Install Playwright's browser
+        working-directory: portal
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the smoke path
+        working-directory: portal
+        run: npm run test:e2e
+
+      - name: Keep the Playwright report when the smoke path fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            portal/playwright-report
+            portal/test-results
+          retention-days: 7
+          if-no-files-found: ignore
