@@ -199,7 +199,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members));
 
         $container->set(ProfileUpdate::class, new ProfileUpdate($members));
-        $container->set(IndividualUpdate::class, new IndividualUpdate($portal_trees, $presenter, $gedcom_editor));
+        $container->set(IndividualUpdate::class, new IndividualUpdate($portal_trees, $presenter, $gedcom_editor, $pending));
         $container->set(PasswordRequestCreate::class, new PasswordRequestCreate(
             $this,
             $user_service,

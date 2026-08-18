@@ -237,6 +237,37 @@ describe('editing my own record', () => {
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/me/individual'))).toHaveLength(0)
   })
 
+  it('says the change is live when the server says it was applied', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) {
+          return jsonResponse({ csrf_token: 'token-1' })
+        }
+
+        if (url.endsWith('/me/individual') && init?.method === 'PUT') {
+          // What webtrees does for a user with auto_accept: no queue.
+          return jsonResponse({ status: 'applied', pending_change: false, individual: INDIVIDUAL }, 202)
+        }
+
+        return jsonResponse(me())
+      }),
+    )
+
+    renderAt('/me/edit')
+
+    const user = userEvent.setup()
+    await user.clear(await screen.findByLabelText('Beruf'))
+    await user.type(screen.getByLabelText('Beruf'), 'Möbelrestauratorin')
+    await user.click(screen.getByRole('button', { name: 'Änderung einreichen' }))
+
+    // Not "wird geprüft": that would send them looking for it in a pending
+    // list it is not in.
+    expect(await screen.findByText(/wurde übernommen/)).toBeDefined()
+  })
+
   it('says the change is waiting rather than showing it as done', async () => {
     vi.stubGlobal(
       'fetch',

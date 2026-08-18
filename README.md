@@ -134,6 +134,40 @@ should not leave a note saying it was given.
 `display_name_override` is the name shown in the directory; when it is empty
 the member's webtrees real name is used.
 
+### Trying the write path safely
+
+A second family tree in the same webtrees installation is a sound way to
+rehearse this, with three things worth knowing first.
+
+**The module serves exactly one tree.** *Family tree* in the module's settings
+is the only tree it will ever read or write — `PortalTreeService` refuses to
+guess. So pointing it at a test tree isolates the live one completely. The
+same setting is why you cannot rehearse and serve members at the same time
+from one installation: while it points at the test tree, that is what the
+portal shows everyone.
+
+**Pending changes are per tree.** Each row in webtrees' `change` table carries
+its tree, so a proposal made against the test tree appears in the test tree's
+pending list and nowhere else.
+
+**Check `auto_accept` on the account you test with.** webtrees applies an edit
+immediately, with no pending change, when the *acting* user has that
+preference — editors and administrators usually do, members do not. Testing
+with your own administrator account therefore does not exercise the queue at
+all. The API says which happened (`status: applied` rather than
+`pending_approval`) and the portal words it accordingly, so you will not be
+misled, but you also will not have tested what you meant to. Use a plain
+member account.
+
+One thing a second tree does **not** isolate: `portal_member_profile` is keyed
+on the webtrees user, not on a tree, so directory visibility and display-name
+choices are shared. Harmless for a rehearsal, worth knowing before you read
+anything into it.
+
+If the test tree is a copy of the real one, remember it now holds living
+people's data under whatever privacy settings the copy inherited. Check
+*Privacy* on the new tree before giving anyone access to it.
+
 ### Approving what members propose
 
 A member's edit appears in webtrees under **Control panel → Pending changes**,

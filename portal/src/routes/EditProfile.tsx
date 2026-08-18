@@ -191,8 +191,10 @@ export function EditProfile() {
     }
 
     try {
-      await mutation.mutateAsync(changes)
-      void navigate('/me', { state: { submitted: true } })
+      const result = await mutation.mutateAsync(changes)
+
+      // Say which of the two things happened rather than assuming the queue.
+      void navigate('/me', { state: { submitted: result.status } })
     } catch {
       // Rendered from mutation.error below.
     }

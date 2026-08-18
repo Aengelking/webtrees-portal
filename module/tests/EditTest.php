@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Registry;
@@ -320,5 +321,51 @@ class EditTest extends PortalTestCase
     private function text(string $html): string
     {
         return trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    /**
+     * webtrees applies an edit immediately, with no pending change, when the
+     * acting user has `auto_accept` — which editors and administrators usually
+     * do and members do not. The portal has to say which of the two happened.
+     *
+     * Getting this wrong is not a data problem, it is a trust problem: an
+     * administrator trying the portal out would be told their change was
+     * waiting for review, and would then go looking for it in a list it is
+     * not in.
+     */
+    public function testAnEditThatWentStraightThroughIsNotCalledPending(): void
+    {
+        Auth::logout();
+
+        $user = $this->createUser('mia', 'Mia Verwalterin', 'geheim', UserInterface::ROLE_MANAGER, 'X1');
+        $user->setPreference(UserInterface::PREF_AUTO_ACCEPT_EDITS, '1');
+
+        $this->login($user);
+
+        $response = $this->api(
+            IndividualUpdate::class,
+            RequestMethodInterface::METHOD_PUT,
+            body: ['occupation' => 'Möbelrestauratorin'],
+            headers: $this->csrfHeader(),
+        );
+
+        $payload = $this->json($response);
+
+        self::assertSame('applied', $payload['status']);
+        self::assertFalse($payload['pending_change']);
+    }
+
+    public function testAMembersEditIsStillQueued(): void
+    {
+        // setUp() already signed in as Anna, a plain member.
+        $payload = $this->json($this->api(
+            IndividualUpdate::class,
+            RequestMethodInterface::METHOD_PUT,
+            body: ['occupation' => 'Möbelrestauratorin'],
+            headers: $this->csrfHeader(),
+        ));
+
+        self::assertSame('pending_approval', $payload['status']);
+        self::assertTrue($payload['pending_change']);
     }
 }

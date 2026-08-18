@@ -89,6 +89,9 @@ export const en: Translations = {
     submitting: 'Submitting …',
     cancel: 'Cancel',
     unchanged: 'You have not changed anything.',
+    applied: {
+      body: 'Your change has been applied and is live in the family tree.',
+    },
     submitted: {
       title: 'Thank you — we have your change',
       body: 'It will be reviewed and then applied. There is nothing else for you to do.',

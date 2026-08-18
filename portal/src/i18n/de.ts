@@ -87,6 +87,9 @@ export const de = {
     submitting: 'Wird eingereicht …',
     cancel: 'Abbrechen',
     unchanged: 'Sie haben nichts geändert.',
+    applied: {
+      body: 'Ihre Änderung wurde übernommen und ist im Stammbaum sichtbar.',
+    },
     submitted: {
       title: 'Danke — wir haben Ihre Änderung erhalten',
       body: 'Sie wird geprüft und danach übernommen. Sie müssen nichts weiter tun.',

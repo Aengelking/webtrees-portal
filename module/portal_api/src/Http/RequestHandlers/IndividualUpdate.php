@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
+use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Fig\Http\Message\StatusCodeInterface;
@@ -34,6 +35,7 @@ class IndividualUpdate implements RequestHandlerInterface
         private readonly PortalTreeService $trees,
         private readonly RecordPresenter $presenter,
         private readonly GedcomEditor $editor,
+        private readonly PendingChanges $pending_changes,
     ) {
     }
 
@@ -69,14 +71,25 @@ class IndividualUpdate implements RequestHandlerInterface
 
         $this->editor->applyToOwnRecord($individual, $changes);
 
+        // Ask what actually happened rather than assuming. webtrees applies an
+        // edit immediately, without queueing it, when the *acting* user has the
+        // `auto_accept` preference — which editors and administrators usually
+        // do. A member does not, so in normal use this is always the queue.
+        //
+        // But an administrator trying the portal out is exactly the person who
+        // would be told "your change is being reviewed" about a change that
+        // was already live, and would then go looking for it in a pending list
+        // it is not in. The portal does not get to be wrong about what it did
+        // to the family's data.
+        $pending = $this->pending_changes->existsFor($individual);
+
         if ($approved !== null) {
-            // True by definition now, and computed before the write.
-            $approved['pending_change'] = true;
+            $approved['pending_change'] = $pending;
         }
 
         return Json::response([
-            'status'         => 'pending_approval',
-            'pending_change' => true,
+            'status'         => $pending ? 'pending_approval' : 'applied',
+            'pending_change' => $pending,
             'individual'     => $approved,
         ], StatusCodeInterface::STATUS_ACCEPTED);
     }

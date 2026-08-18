@@ -572,6 +572,24 @@ This is deliberately the one place in the module where an exception is
 swallowed. Everywhere else, failing loudly is right; here the cost of failing
 loudly is paid by somebody who did not ask for a portal.
 
+### 2.15.4 The portal says what happened, not what usually happens
+
+`PUT /me/individual` used to answer `status: pending_approval` unconditionally.
+That is right for a member and wrong for an editor or administrator: webtrees
+applies an edit immediately, with no pending change at all, when the *acting*
+user has the `auto_accept` preference.
+
+Not a data problem — an administrator's edit going live is what webtrees would
+do anyway — but a trust problem. The portal would have told them their change
+was waiting for review, and they would have gone looking for it in a list it
+was never going to appear in. So the handler asks `PendingChanges::existsFor()`
+after the write and reports `applied` or `pending_approval` accordingly, and
+the profile screen has wording for both.
+
+Found while answering "how safe is it to test the write path on a test tree in
+the same installation?" — which is exactly the situation where an
+administrator makes the first edit.
+
 ### 2.16 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in

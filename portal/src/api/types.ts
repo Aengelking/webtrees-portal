@@ -119,7 +119,12 @@ export interface MemberProfileUpdate {
 }
 
 export interface PendingIndividual {
-  status: 'pending_approval'
+  /**
+   * `applied` when webtrees put the change live straight away, which it does
+   * for a user with the `auto_accept` preference — editors and administrators
+   * usually have it, members do not.
+   */
+  status: 'pending_approval' | 'applied'
   pending_change: boolean
   individual: Individual | null
 }

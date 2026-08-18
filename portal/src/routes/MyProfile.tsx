@@ -9,7 +9,7 @@ export function MyProfile() {
   const location = useLocation()
   const { data, isPending, isError, error, refetch } = useMe()
 
-  const justSubmitted = (location.state as { submitted?: boolean } | null)?.submitted === true
+  const submitted = (location.state as { submitted?: string } | null)?.submitted
 
   return (
     <>
@@ -29,9 +29,11 @@ export function MyProfile() {
             <Notice title={t('profile.noRecord.title')} body={t('profile.noRecord.body')} />
           ) : (
             <>
-              {justSubmitted && (
+              {submitted !== undefined && (
                 <div className="mb-6">
-                  <SuccessNote>{t('edit.submitted.body')}</SuccessNote>
+                  <SuccessNote>
+                    {t(submitted === 'applied' ? 'edit.applied.body' : 'edit.submitted.body')}
+                  </SuccessNote>
                 </div>
               )}
 

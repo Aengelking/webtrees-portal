@@ -846,12 +846,20 @@ components:
       properties:
         status:
           type: string
-          const: pending_approval
-        pending_change:
-          type: boolean
+          enum: [pending_approval, applied]
           description: |
-            True once a change is waiting for an editor. The portal uses this
-            to tell the member their edit has been received but is not live.
+            What actually happened, not what usually happens.
+
+            `pending_approval` is the normal case and the one the whole design
+            is built around: the edit is in webtrees' pending changes list and
+            an editor decides.
+
+            `applied` is what webtrees does when the *acting* user has the
+            `auto_accept` preference — editors and administrators usually do,
+            members do not. The change is already live and there is nothing to
+            approve. The portal has to be able to say so: telling an
+            administrator their change is under review, when it is not, sends
+            them looking for it in a list it will never appear in.
         individual:
           oneOf:
             - $ref: '#/components/schemas/Individual'
