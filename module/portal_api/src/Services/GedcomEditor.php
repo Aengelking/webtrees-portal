@@ -323,32 +323,35 @@ class GedcomEditor
 
         $existing = $this->firstBlock($blocks, 'BIRT');
 
+        // A field the member did not touch keeps its whole block, children
+        // included. A place can carry coordinates, a source citation, a note:
+        //
+        //   2 PLAC Reutlingen
+        //   3 MAP
+        //   4 LATI N48.4919
+        //
+        // Rebuilding that line from its value alone would drop all of it,
+        // silently, because the member edited the date. A field the member
+        // *did* change is written fresh without the old children, which
+        // described the old value and would be wrong attached to the new one.
         $date = array_key_exists('birth_date', $values)
-            ? $values['birth_date']
-            : $this->subTag($existing, 'DATE');
+            ? $this->newSubLine('DATE', $values['birth_date'])
+            : $this->subBlock($existing, 'DATE');
 
         $place = array_key_exists('birth_place', $values)
-            ? $values['birth_place']
-            : $this->subTag($existing, 'PLAC');
+            ? $this->newSubLine('PLAC', $values['birth_place'])
+            : $this->subBlock($existing, 'PLAC');
 
         $others = $this->otherSubLines($existing, ['DATE', 'PLAC']);
 
         // A birth fact with no date, no place and nothing else is noise.
-        if ($date === null && $place === null && $others === []) {
+        if ($date === [] && $place === [] && $others === []) {
             return $this->replaceTag($blocks, 'BIRT', null);
         }
 
         $fact = '1 BIRT';
 
-        if ($date !== null) {
-            $fact .= "\n2 DATE " . $date;
-        }
-
-        if ($place !== null) {
-            $fact .= "\n2 PLAC " . $place;
-        }
-
-        foreach ($others as $line) {
+        foreach ([...$date, ...$place, ...$others] as $line) {
             $fact .= "\n" . $line;
         }
 
@@ -421,6 +424,52 @@ class GedcomEditor
     /**
      * The value of a level-2 subtag, or null.
      */
+    /**
+     * One level-2 line for a value the member just supplied, or nothing when
+     * they cleared it.
+     *
+     * @return array<int,string>
+     */
+    private function newSubLine(string $tag, string|null $value): array
+    {
+        return $value === null || $value === '' ? [] : ['2 ' . $tag . ' ' . $value];
+    }
+
+    /**
+     * A level-2 line *and everything under it*, exactly as it stands.
+     *
+     * This is what keeps a place's coordinates, or a date's source citation,
+     * when the member edits the other one of the pair.
+     *
+     * @return array<int,string>
+     */
+    private function subBlock(string|null $block, string $tag): array
+    {
+        if ($block === null) {
+            return [];
+        }
+
+        $lines = explode("\n", $block);
+        array_shift($lines);
+
+        $keep      = [];
+        $capturing = false;
+
+        foreach ($lines as $line) {
+            if (preg_match('/^2 (\w+)/', $line, $match) === 1) {
+                // Only the first one: a fact may carry several places, and
+                // rebuilding them all under one heading would merge them.
+                $capturing = $match[1] === $tag && $keep === [];
+            }
+
+            if ($capturing) {
+                $keep[] = $line;
+            }
+        }
+
+        return $keep;
+    }
+
     private function subTag(string|null $block, string $tag): string|null
     {
         if ($block === null) {

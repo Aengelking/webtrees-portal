@@ -368,4 +368,70 @@ class EditTest extends PortalTestCase
         self::assertSame('pending_approval', $payload['status']);
         self::assertTrue($payload['pending_change']);
     }
+
+    /**
+     * A real GEDCOM export puts more under a birth than a date and a place:
+     *
+     *   1 BIRT
+     *   2 DATE 19 MAR 1978
+     *   3 SOUR Geburtsurkunde
+     *   2 PLAC Reutlingen
+     *   3 MAP
+     *   4 LATI N48.4919
+     *   2 ADDR
+     *   3 CITY Reutlingen
+     *   3 STAE Baden-Württemberg
+     *   3 CTRY Germany
+     *
+     * A member editing one of the two fields the portal offers must not cost
+     * the family any of the rest. This is the test that says so.
+     */
+    public function testEditingTheBirthDateKeepsEverythingUnderThePlace(): void
+    {
+        $this->api(
+            IndividualUpdate::class,
+            RequestMethodInterface::METHOD_PUT,
+            body: ['birth_date' => '13 MAR 1985'],
+            headers: $this->csrfHeader(),
+        );
+
+        $gedcom = $this->proposedGedcom();
+
+        self::assertStringContainsString('2 DATE 13 MAR 1985', $gedcom, 'The date is the one thing that changed.');
+
+        // The place, its coordinates, and the address block beside it.
+        self::assertStringContainsString('2 PLAC Hannover, Niedersachsen, Deutschland', $gedcom);
+        self::assertStringContainsString('3 MAP', $gedcom);
+        self::assertStringContainsString('4 LATI N52.3759', $gedcom);
+        self::assertStringContainsString('4 LONG E9.7320', $gedcom);
+        self::assertStringContainsString('2 ADDR', $gedcom);
+        self::assertStringContainsString('3 CITY Hannover', $gedcom);
+        self::assertStringContainsString('3 STAE Niedersachsen', $gedcom);
+        self::assertStringContainsString('3 CTRY Germany', $gedcom);
+    }
+
+    public function testEditingTheBirthPlaceKeepsEverythingUnderTheDate(): void
+    {
+        $this->api(
+            IndividualUpdate::class,
+            RequestMethodInterface::METHOD_PUT,
+            body: ['birth_place' => 'Reutlingen'],
+            headers: $this->csrfHeader(),
+        );
+
+        $gedcom = $this->proposedGedcom();
+
+        self::assertStringContainsString('2 PLAC Reutlingen', $gedcom);
+        self::assertStringContainsString('2 DATE 12 MAR 1985', $gedcom);
+        self::assertStringContainsString('3 SOUR Geburtsurkunde', $gedcom, 'The date kept its source citation.');
+
+        // The old coordinates went with the old place, which is right: they
+        // described Hannover, and this is now Reutlingen.
+        self::assertStringNotContainsString('N52.3759', $gedcom);
+
+        // The address block is not part of the place line, so it stays. It is
+        // now stale, which is a thing for an editor to notice when approving —
+        // not something the portal should quietly delete.
+        self::assertStringContainsString('3 CITY Hannover', $gedcom);
+    }
 }

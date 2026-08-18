@@ -590,6 +590,38 @@ Found while answering "how safe is it to test the write path on a test tree in
 the same installation?" — which is exactly the situation where an
 administrator makes the first edit.
 
+### 2.15.5 An untouched field keeps its whole block, children and all
+
+The birth fact is the only one the portal rebuilds from parts, because it
+offers two of them: date and place. That rebuild used to take each part as a
+*value* — `2 PLAC Reutlingen` — and write a fresh line from it. Which meant
+that a member editing only the date silently threw away everything hanging
+under the place:
+
+    2 PLAC Reutlingen
+    3 MAP
+    4 LATI N48.4919
+    4 LONG E9.2042
+
+Coordinates, source citations, notes: gone, from a field the member never
+touched. The address block beside it (`2 ADDR / 3 CITY / 3 STAE / 3 CTRY`,
+which real exports carry) was always safe — `otherSubLines()` keeps deeper
+lines with their level-2 parent — but that made the gap harder to notice, not
+smaller.
+
+Now a field the member did **not** change keeps its entire block verbatim, and
+a field they *did* change is written fresh without the old children, because
+those described the old value and would be wrong attached to the new one. Old
+coordinates do not follow a place from Hannover to Reutlingen.
+
+The address block is deliberately left alone in both cases. After a place
+change it is stale — and that is something for an editor to notice while
+approving, not something the portal should quietly delete on a member's
+behalf.
+
+Found by reading a GEDCOM snippet from the installation this serves, before
+the first real write test. `EditTest` now carries that shape.
+
 ### 2.16 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in

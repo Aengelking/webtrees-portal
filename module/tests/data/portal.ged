@@ -13,7 +13,15 @@
 1 SEX F
 1 BIRT
 2 DATE 12 MAR 1985
+3 SOUR Geburtsurkunde
 2 PLAC Hannover, Niedersachsen, Deutschland
+3 MAP
+4 LATI N52.3759
+4 LONG E9.7320
+2 ADDR
+3 CITY Hannover
+3 STAE Niedersachsen
+3 CTRY Germany
 1 OCCU Tischlerin
 1 EVEN Vertrauliche Notiz zur Person
 2 TYPE Vertraulich
