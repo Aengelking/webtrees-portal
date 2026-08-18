@@ -162,6 +162,9 @@ export const en: Translations = {
     reference: 'Reference number in the family archive',
     relationship: 'To you: {{relationship}}',
     showAncestors: 'Show ancestors',
+    photos: 'Photographs',
+    photoUntitled: 'Untitled photograph',
+    photoClose: 'Close',
     noEvents: 'No further details are recorded for this person.',
     sex: {
       M: 'male',

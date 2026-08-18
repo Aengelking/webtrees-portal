@@ -144,8 +144,7 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
     responseHeaders.delete(name)
   }
 
-  // Belt and braces: the PHP module already sends this on every response.
-  responseHeaders.set('Cache-Control', 'private, no-store')
+  responseHeaders.set('Cache-Control', privateCacheControl(upstream.headers.get('cache-control')))
 
   rewriteSetCookies(upstream.headers, responseHeaders)
 
@@ -154,6 +153,29 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
     statusText: upstream.statusText,
     headers: responseHeaders,
   })
+}
+
+/**
+ * Never let anything but the member's own browser keep a response.
+ *
+ * The module marks photographs `private, max-age=...` — a browser may keep
+ * them, a shared cache may not — and everything else `private, no-store`. This
+ * passes a `private` directive through and replaces anything else, so the
+ * decision stays with the module and the worst case is that a response is not
+ * cached at all.
+ *
+ * The reason this is a filter and not a passthrough: webtrees answers media
+ * requests with `public, max-age=31536000`. Reasonable on a site serving its
+ * own pages; here, `public` means a Cloudflare edge could hold one member's
+ * photograph and hand it to the next member who asks for that URL. The word
+ * never gets past this function.
+ */
+function privateCacheControl(upstream: string | null): string {
+  if (upstream !== null && /^private\b/i.test(upstream.trim()) && !/\bpublic\b/i.test(upstream)) {
+    return upstream
+  }
+
+  return 'private, no-store'
 }
 
 /**

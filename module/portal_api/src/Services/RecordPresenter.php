@@ -44,6 +44,7 @@ class RecordPresenter
     public function __construct(
         private readonly PendingChanges $pending_changes,
         private readonly RelationshipNamer $relationships,
+        private readonly PhotoPresenter $photos,
     ) {
     }
 
@@ -96,6 +97,7 @@ class RecordPresenter
             'sex'         => $this->sex($individual),
             'is_deceased' => $individual->isDead(),
             'lifespan'    => $this->lifespan($birth, $death, $individual->isDead()),
+            'portrait'    => $this->photos->portrait($individual, $access_level),
         ];
     }
 
@@ -142,6 +144,7 @@ class RecordPresenter
         return $ref + [
             'name_alternative' => $this->alternateName($individual, $access_level),
             'relationship'     => $this->relationships->name($viewer, $individual, $access_level),
+            'photos'           => $this->photos->gallery($individual, $access_level),
             'references'       => $this->references($facts),
             'birth'            => $birth === null ? null : $this->event($birth),
             'death'            => $death === null ? null : $this->event($death),

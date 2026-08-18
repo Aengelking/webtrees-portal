@@ -14,6 +14,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
@@ -27,6 +28,7 @@ use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PendingChanges;
+use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
@@ -166,7 +168,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $portal_trees   = new PortalTreeService($this, $tree_service);
         $pending        = new PendingChanges();
         $relationships  = new RelationshipNamer($container->get(RelationshipService::class));
-        $presenter      = new RecordPresenter($pending, $relationships);
+        $photos         = new PhotoPresenter();
+        $presenter      = new RecordPresenter($pending, $relationships, $photos);
         $ancestors      = new AncestorTree($presenter);
         $members        = new MemberService($user_service);
         $rate_limiter   = new LoginRateLimiter($this);
@@ -176,6 +179,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
         $container->set(RelationshipNamer::class, $relationships);
+        $container->set(PhotoPresenter::class, $photos);
         $container->set(AncestorTree::class, $ancestors);
         $container->set(MemberService::class, $members);
         $container->set(LoginRateLimiter::class, $rate_limiter);
@@ -195,6 +199,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MeRead::class, new MeRead($me));
         $container->set(IndividualRead::class, new IndividualRead($portal_trees, $presenter));
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
+        $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
         $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members));
         $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members));
 
@@ -257,6 +262,15 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $map->get(AncestorsRead::class, self::ROUTE_PREFIX . '/individuals/{xref}/ancestors', AncestorsRead::class)
             ->tokens(['xref' => '[A-Za-z0-9_.\-]{1,20}'])
+            ->extras(['middleware' => $private]);
+
+        // Two routes, one handler: the `size` token is what tells them apart.
+        $map->get(MediaRead::class, self::ROUTE_PREFIX . '/media/{xref}/{fact}/{size}', MediaRead::class)
+            ->tokens([
+                'xref' => '[A-Za-z0-9_.\-]{1,20}',
+                'fact' => '[0-9a-f]{32}',
+                'size' => 'thumbnail|image',
+            ])
             ->extras(['middleware' => $private]);
 
         $map->get(MemberList::class, self::ROUTE_PREFIX . '/members', MemberList::class)

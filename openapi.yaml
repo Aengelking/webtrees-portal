@@ -486,6 +486,69 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /media/{xref}/{fact}/{size}:
+    get:
+      tags: [Tree]
+      summary: The bytes of a photograph
+      description: |
+        A picture, served from the portal's own origin so that the request
+        carries the member's session.
+
+        webtrees' own media URLs point at the webtrees host, and the session
+        cookie is deliberately scoped to the portal's origin — a browser
+        following one would arrive with no session, fail `canShow()`, and get
+        webtrees' "forbidden" replacement image. So the URLs in `Photo` are
+        these, and the bytes make one extra hop.
+
+        The rendering is webtrees': its image factory produces the thumbnail
+        and applies whatever watermark it would apply on its own pages for this
+        user. What is decided here is only whether this member may see the
+        picture, and for how long a browser may keep it.
+
+        **The one response in this API that is not `no-store`.** It is
+        `private, max-age=86400`: a browser may keep it, a shared cache may
+        not. A gallery re-fetched on every scroll costs a phone its battery for
+        no reason; `public`, which is what webtrees itself sends, would let a
+        CDN edge hand one member's photograph to the next member who asks.
+      operationId: getMedia
+      parameters:
+        - name: xref
+          in: path
+          required: true
+          description: The media record.
+          schema:
+            type: string
+        - name: fact
+          in: path
+          required: true
+          description: Which file within that record — `Photo.id`.
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{32}$'
+        - name: size
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [thumbnail, image]
+      responses:
+        '200':
+          description: The image.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: private, max-age=86400
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /members:
     get:
       tags: [members]
@@ -938,7 +1001,7 @@ components:
         the caller may not see are omitted from the containing list entirely.
       type: object
       additionalProperties: false
-      required: [xref, name, sex, is_deceased, lifespan]
+      required: [xref, name, sex, is_deceased, lifespan, portrait]
       properties:
         xref:
           type: string
@@ -955,6 +1018,18 @@ components:
         lifespan:
           type: [string, 'null']
           description: e.g. `1889–1976`. `null` when neither year is visible.
+        portrait:
+          description: |
+            The one picture that stands for this person, or `null`. webtrees'
+            own choice — the first media object on the record with an image in
+            it — so the portal and webtrees agree about which face belongs to a
+            name.
+
+            Carried on the *reference* shape, so a directory entry or a
+            relative list can show a face without a request each.
+          oneOf:
+            - $ref: '#/components/schemas/Photo'
+            - type: 'null'
 
     Reference:
       type: object
@@ -973,6 +1048,34 @@ components:
             What kind of reference it is (`REFN:TYPE`), where the record says
             so — e.g. "SB" for this archive's own numbering.
           example: SB
+
+    Photo:
+      type: object
+      additionalProperties: false
+      required: [id, title, thumbnail_url, image_url]
+      properties:
+        id:
+          type: string
+          description: Identifies the file within its media record.
+          example: 6f8a1c2e4b7d9013a5c6e8f0b2d4a6c8
+        title:
+          type: [string, 'null']
+          example: Anna im Garten
+        thumbnail_url:
+          type: string
+          description: |
+            A square thumbnail, **relative to the portal's own origin**.
+
+            Deliberately not webtrees' media URL. That points at the webtrees
+            host, and the session cookie is scoped to the portal's origin, so
+            the browser would arrive without a session and get webtrees'
+            "forbidden" replacement image back. Every picture would be a grey
+            box.
+          example: /api/v1/media/M1/6f8a1c2e4b7d9013a5c6e8f0b2d4a6c8/thumbnail
+        image_url:
+          type: string
+          description: The full-size file, same origin, same reasoning.
+          example: /api/v1/media/M1/6f8a1c2e4b7d9013a5c6e8f0b2d4a6c8/image
 
     Ancestor:
       allOf:
@@ -1026,6 +1129,7 @@ components:
           required:
             - name_alternative
             - relationship
+            - photos
             - references
             - birth
             - death
@@ -1055,6 +1159,14 @@ components:
                 the shape of the path that produced it, so naming one through
                 a hidden person would disclose that they exist.
               example: Ihre Urgroßmutter
+            photos:
+              type: array
+              description: |
+                Every picture on the record this member may see, `portrait`
+                included. A media record they may not see is absent — not a
+                placeholder, not a count.
+              items:
+                $ref: '#/components/schemas/Photo'
             references:
               type: array
               description: |

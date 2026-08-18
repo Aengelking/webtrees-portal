@@ -160,6 +160,9 @@ export const de = {
     reference: 'Kennnummer im Familienarchiv',
     relationship: 'Für Sie: {{relationship}}',
     showAncestors: 'Vorfahren anzeigen',
+    photos: 'Fotos',
+    photoUntitled: 'Foto ohne Titel',
+    photoClose: 'Schließen',
     noEvents: 'Zu dieser Person sind keine weiteren Daten hinterlegt.',
     sex: {
       M: 'männlich',

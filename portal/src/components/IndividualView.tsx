@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { Individual, IndividualRef, Event, Reference } from '../api/types'
+import { Gallery, Portrait } from './Photos'
 import { Card, Section } from './ui'
 
 function EventLine({ event }: { event: Event }) {
@@ -63,14 +64,17 @@ function RelativeList({ title, people }: { title: string; people: IndividualRef[
           <li key={person.xref}>
             <Link
               to={`/individuals/${encodeURIComponent(person.xref)}`}
-              className="block rounded-xl border border-slate-300 bg-white p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              className="flex items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
             >
-              <p className="text-base font-medium text-sky-900 underline underline-offset-4">
-                {person.name}
-              </p>
-              {person.lifespan !== null && (
-                <p className="mt-1 text-base text-slate-700">{person.lifespan}</p>
-              )}
+              <Portrait person={person} />
+              <span className="min-w-0">
+                <span className="block text-base font-medium text-sky-900 underline underline-offset-4">
+                  {person.name}
+                </span>
+                {person.lifespan !== null && (
+                  <span className="mt-1 block text-base text-slate-700">{person.lifespan}</span>
+                )}
+              </span>
             </Link>
           </li>
         ))}
@@ -97,17 +101,24 @@ export function IndividualView({ individual }: { individual: Individual }) {
 
   return (
     <article>
-      <h2 className="text-xl font-semibold text-slate-900">{individual.name}</h2>
-      {individual.name_alternative !== null && (
-        <p className="mt-1 text-base text-slate-700">{individual.name_alternative}</p>
-      )}
-      <References references={individual.references ?? []} />
-      {individual.relationship !== null && individual.relationship !== undefined && (
-        <p className="mt-1 text-base font-medium text-sky-900">
-          {t('individual.relationship', { relationship: individual.relationship })}
-        </p>
-      )}
-      <p className="mt-1 text-base text-slate-700">{headline.join(' · ')}</p>
+      <div className="flex items-start gap-4">
+        <Portrait person={individual} size={72} />
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-slate-900">{individual.name}</h2>
+          {individual.name_alternative !== null && (
+            <p className="mt-1 text-base text-slate-700">{individual.name_alternative}</p>
+          )}
+          <References references={individual.references ?? []} />
+          {individual.relationship !== null && individual.relationship !== undefined && (
+            <p className="mt-1 text-base font-medium text-sky-900">
+              {t('individual.relationship', { relationship: individual.relationship })}
+            </p>
+          )}
+          <p className="mt-1 text-base text-slate-700">{headline.join(' · ')}</p>
+        </div>
+      </div>
+
+      <Gallery photos={individual.photos ?? []} />
 
       <Section title={t('individual.events')}>
         {individual.events.length === 0 ? (

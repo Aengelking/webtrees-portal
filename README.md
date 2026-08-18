@@ -36,7 +36,7 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 3 are built.** Members can read the tree within their privacy
+**Phases 1 to 4 are built.** Members can read the tree within their privacy
 level, change their own portal settings, propose changes to their own record,
 and reset their own password. Photos, and the social graph, are not in scope.
 
@@ -47,7 +47,8 @@ webtrees exactly as they would any other edit.
 Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `PATCH /me/profile`, `PUT /me/individual`, `GET /individuals/{xref}`,
 `GET /members`, `GET /members/{id}`, `GET /individuals/{xref}/ancestors`,
-`POST /password/request`, `POST /password/reset`.
+`GET /media/{xref}/{fact}/{size}`, `POST /password/request`,
+`POST /password/reset`.
 
 Screens: login, forgotten password, set a new password, My profile, edit my
 details, person, ancestors, Members, member detail, Settings.
@@ -56,6 +57,9 @@ What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
 website). Contact details are published on the member's *own* record only,
 never on anyone else's.
+
+Photographs from webtrees are shown: a face beside every name, a gallery on a
+person's page, full size on a tap. Read-only — uploading is not built.
 
 The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
@@ -704,6 +708,13 @@ access levels plus an unauthenticated caller:
 unverified email, unapproved account and rate limiting all produce the same
 401 body; the rate limiter refuses even a correct password once tripped; CSRF
 is required on every unsafe method; the proxy secret is enforced when set.
+
+**Photographs** (`module/tests/PhotoTest.php`, `portal/src/Photos.test.tsx`,
+`portal/edge/proxy.test.ts`) — a confidential picture is absent from the
+record and is not served if asked for by name; images load from the portal's
+own origin, never webtrees'; a photograph may be kept by a browser and by
+nothing else, and webtrees' own `public, max-age=31536000` is refused at the
+proxy.
 
 **The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — a
 confidential ancestor is absent from the pedigree and the walk stops there

@@ -88,6 +88,19 @@ export interface Reference {
   type: string | null
 }
 
+/**
+ * A picture, with URLs relative to the portal's own origin.
+ *
+ * Not webtrees' media URLs: those point at the webtrees host, where this
+ * browser has no session, and would come back as a "forbidden" placeholder.
+ */
+export interface Photo {
+  id: string
+  title: string | null
+  thumbnail_url: string
+  image_url: string
+}
+
 export type Sex = 'M' | 'F' | 'X' | 'U'
 
 export interface IndividualRef {
@@ -96,6 +109,8 @@ export interface IndividualRef {
   sex: Sex
   is_deceased: boolean
   lifespan: string | null
+  /** Optional: the module and the portal can be a version apart. */
+  portrait?: Photo | null
 }
 
 /** Everything a member may change about themselves. */
@@ -150,6 +165,7 @@ export interface Individual extends IndividualRef {
    * deploy separately and can be a version apart.
    */
   relationship?: string | null
+  photos?: Photo[]
   /**
    * Optional on purpose. The module and the portal deploy separately — the
    * module by SFTP, the portal by CI — so the portal has to survive a server

@@ -23,6 +23,8 @@
 3 STAE Niedersachsen
 3 CTRY Germany
 1 OCCU Tischlerin
+1 OBJE @M1@
+1 OBJE @M2@
 1 EVEN Vertrauliche Notiz zur Person
 2 TYPE Vertraulich
 2 RESN confidential
@@ -173,4 +175,13 @@
 0 @F5@ FAM
 1 HUSB @X12@
 1 CHIL @X9@
+0 @M1@ OBJE
+1 FILE anna.png
+2 FORM png
+2 TITL Anna im Garten
+0 @M2@ OBJE
+1 FILE vertraulich.png
+2 FORM png
+2 TITL Nicht fuer alle
+1 RESN confidential
 0 TRLR

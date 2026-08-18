@@ -25,7 +25,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    // edge/ too: the proxy decides what a CDN may keep, which is worth a test.
+    include: ['src/**/*.test.{ts,tsx}', 'edge/**/*.test.ts'],
     globals: true,
   },
 })

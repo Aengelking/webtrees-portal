@@ -29,6 +29,18 @@ use function error_log;
  */
 class ApiEnvelope implements MiddlewareInterface
 {
+    /**
+     * A handler sets this to the number of seconds a *browser* may keep the
+     * response. It is translated into a `Cache-Control` header and removed.
+     *
+     * Only photographs use it. Everything else in this API is small JSON about
+     * one member, where re-fetching costs nothing and keeping a copy is how
+     * one member ends up looking at another's relatives. Making the exception
+     * explicit, and spelled `private`, is the point: no handler can widen it
+     * to a shared cache by accident, because the word `public` never appears.
+     */
+    public const string PRIVATE_CACHE_HEADER = 'X-Portal-Private-Cache';
+
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         try {
@@ -46,8 +58,15 @@ class ApiEnvelope implements MiddlewareInterface
             ));
         }
 
+        $seconds = $response->getHeaderLine(self::PRIVATE_CACHE_HEADER);
+
+        $cache_control = $seconds === ''
+            ? 'private, no-store'
+            : 'private, max-age=' . (int) $seconds;
+
         return $response
-            ->withHeader('Cache-Control', 'private, no-store')
+            ->withoutHeader(self::PRIVATE_CACHE_HEADER)
+            ->withHeader('Cache-Control', $cache_control)
             ->withHeader('Pragma', 'no-cache')
             ->withHeader('Vary', 'Cookie, Accept-Language')
             ->withHeader('X-Content-Type-Options', 'nosniff')

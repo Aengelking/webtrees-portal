@@ -763,6 +763,53 @@ Indented rows, not a drawn chart: a pedigree diagram is wide and a phone is
 not, and pinch-to-zoom is the webtrees experience this portal exists to
 replace.
 
+### 2.21 Phase 4: photographs, and the one response that may be cached
+
+Pictures from webtrees, shown in the portal. Read-only: uploading is a
+separate piece of work with a file, a media folder and a disk quota in it.
+
+**Why the portal serves the bytes itself.** webtrees' media URLs point at the
+webtrees host, built from its `base_url`, and the session cookie was
+deliberately re-scoped to the portal's origin (§2.13). A browser following one
+would arrive with no session, fail `canShow()`, and get webtrees' "forbidden"
+replacement image — every picture in the portal a grey box. So `Photo` carries
+portal-relative URLs and `MediaRead` streams the file through the same proxy as
+everything else. The rendering stays webtrees': its image factory makes the
+thumbnail and applies the watermark it would apply on its own pages.
+
+That also sidesteps webtrees' signed media URLs, which sign the *resize
+parameters* against a site key. That protection is webtrees defending itself
+against being asked for ten thousand sizes of one photograph; it is webtrees'
+business, and the portal simply never hands out a URL that reaches it.
+
+**The cache exception.** Every other response in this API is
+`private, no-store`, and §2.9 says why. Photographs are the exception:
+`private, max-age=86400`. A gallery re-fetched on every scroll costs a phone
+its battery for nothing, and `private` is what keeps it safe — a browser may
+keep it, a shared cache may not.
+
+This needed a change at both ends. A handler asks for it through
+`ApiEnvelope::PRIVATE_CACHE_HEADER`, a marker the envelope translates and
+removes, so the word `public` never appears in a handler and cannot be widened
+by accident. And the Worker previously flattened every upstream
+`Cache-Control` to `private, no-store`; it now passes a `private` directive
+through and replaces everything else. That filter is not decoration:
+**webtrees answers media requests with `public, max-age=31536000`** — a year,
+in any cache that will have it. Reasonable for a site serving its own
+privacy-filtered pages; on the far side of a CDN it means an edge could hold
+one member's photograph and hand it to the next member who asks for that URL.
+`edge/proxy.test.ts` pins that exact string being refused.
+
+**Two filters when listing, not one.** `facts(['OBJE'], …, $access_level)`
+decides whether the *link* is visible; `$media->canShow($access_level)` decides
+whether the media record is. They answer different questions and a record can
+be restricted without its links being.
+
+**No external files.** A media record can point at a URL on somebody else's
+server. Proxying those would make the portal a fetcher of arbitrary URLs;
+linking them directly would leak the member's address to that server. Neither
+is worth a photograph, so they are omitted.
+
 ---
 
 ## 3. Things that were guessed
