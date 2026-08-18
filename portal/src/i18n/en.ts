@@ -77,7 +77,7 @@ export const en: Translations = {
     givenNames: 'Given names',
     surname: 'Surname',
     birthDate: 'Date of birth',
-    birthDateHint: 'For example “12 MAR 1985”, or “ABT 1985” if you only know roughly.',
+    birthDateStored: 'Currently recorded: {{date}}. It stays as it is unless you choose a date here.',
     birthPlace: 'Place of birth',
     occupation: 'Occupation',
     address: 'Address',

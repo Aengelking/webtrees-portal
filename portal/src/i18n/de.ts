@@ -75,7 +75,7 @@ export const de = {
     givenNames: 'Vorname',
     surname: 'Nachname',
     birthDate: 'Geburtsdatum',
-    birthDateHint: 'Zum Beispiel „12 MAR 1985“ oder „ABT 1985“, wenn Sie es nur ungefähr wissen.',
+    birthDateStored: 'Bisher gespeichert: {{date}}. Dieses Datum bleibt unverändert, solange Sie hier keines auswählen.',
     birthPlace: 'Geburtsort',
     occupation: 'Beruf',
     address: 'Anschrift',

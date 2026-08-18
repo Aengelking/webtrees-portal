@@ -75,6 +75,84 @@ function renderAt(path: string) {
   )
 }
 
+describe('the birth date is a calendar', () => {
+  it('offers the stored date as a date field, and sends GEDCOM back', async () => {
+    let sent: unknown = null
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) {
+          return jsonResponse({ csrf_token: 'token-1' })
+        }
+
+        if (url.endsWith('/me/individual')) {
+          sent = JSON.parse(String(init?.body))
+          return jsonResponse({ status: 'pending_approval', pending_change: true, individual: INDIVIDUAL }, 202)
+        }
+
+        return jsonResponse(me())
+      }),
+    )
+
+    renderAt('/me/edit')
+
+    const field = (await screen.findByLabelText('Geburtsdatum')) as HTMLInputElement
+
+    // A real date picker, prefilled from "12 MAR 1985".
+    expect(field.type).toBe('date')
+    expect(field.value).toBe('1985-03-12')
+
+    const user = userEvent.setup()
+    await user.clear(field)
+    await user.type(field, '1985-03-14')
+    await user.click(screen.getByRole('button', { name: 'Änderung einreichen' }))
+
+    // What goes to the server is GEDCOM, because that is what is stored.
+    await waitFor(() => {
+      expect(sent).toEqual({ birth_date: '14 MAR 1985' })
+    })
+  })
+
+  /**
+   * The one that matters. A date the picker cannot hold must not be quietly
+   * replaced by an empty field — the member gets told what is on file, and
+   * submitting without touching it changes nothing.
+   */
+  it('leaves an approximate date alone instead of deleting it', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+      String(input).endsWith('/csrf')
+        ? jsonResponse({ csrf_token: 'token-1' })
+        : jsonResponse(
+            me({
+              individual: {
+                ...INDIVIDUAL,
+                birth: {
+                  ...INDIVIDUAL.birth,
+                  date: { display: 'etwa 1985', gedcom: 'ABT 1985', year: 1985 },
+                },
+              },
+            }),
+          ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAt('/me/edit')
+
+    const field = (await screen.findByLabelText('Geburtsdatum')) as HTMLInputElement
+
+    expect(field.value).toBe('')
+    expect(screen.getByText(/Bisher gespeichert: etwa 1985/)).toBeDefined()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Änderung einreichen' }))
+
+    expect(await screen.findByText('Sie haben nichts geändert.')).toBeDefined()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/me/individual'))).toHaveLength(0)
+  })
+})
+
 describe('editing my own record', () => {
   it('sends only the fields that changed', async () => {
     let sent: unknown = null

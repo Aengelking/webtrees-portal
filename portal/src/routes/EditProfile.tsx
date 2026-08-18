@@ -2,11 +2,18 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { gedcomToIso, isoToGedcom } from '../api/dates'
 import { useMe, useUpdateIndividual } from '../api/queries'
 import type { Individual, IndividualUpdate } from '../api/types'
 import { Button, ErrorNotice, Field, Loading, Notice, PageHeading, Section } from '../components/ui'
 
-/** The fields the API accepts, and where each one comes from on the record. */
+/**
+ * The fields the API accepts, and where each one comes from on the record.
+ *
+ * `birth_date` is the odd one out: it holds the calendar field's value, which
+ * is ISO (1985-03-12), and is translated to GEDCOM (12 MAR 1985) on the way
+ * out. Everything else goes as typed.
+ */
 type FormValues = Record<keyof IndividualUpdate, string>
 
 const EMPTY: FormValues = {
@@ -39,7 +46,9 @@ function initialValues(individual: Individual): FormValues {
     ...EMPTY,
     given_names: given,
     surname,
-    birth_date: individual.birth?.date?.gedcom ?? '',
+    // Empty when the stored date is not one exact day — see the note by the
+    // field below.
+    birth_date: gedcomToIso(individual.birth?.date?.gedcom) ?? '',
     birth_place: individual.birth?.place ?? '',
     occupation: eventValue('INDI:OCCU'),
     address: eventValue('INDI:ADDR'),
@@ -47,6 +56,11 @@ function initialValues(individual: Individual): FormValues {
     phone: eventValue('INDI:PHON'),
     website: eventValue('INDI:WWW'),
   }
+}
+
+/** Today, as the date input wants it. */
+function today(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 /**
@@ -119,6 +133,17 @@ export function EditProfile() {
   const original = initialValues(individual)
   const current = values ?? original
 
+  /**
+   * A stored date the calendar cannot hold — "ABT 1985", or a month without a
+   * day. The field stays empty, so nothing is sent and the date survives
+   * untouched; but the member would otherwise see a blank box and think their
+   * birth date had gone missing. So it is shown, as it reads on their profile.
+   */
+  const storedDate =
+    original.birth_date === '' && individual.birth?.date != null
+      ? individual.birth.date.display
+      : null
+
   function set(field: keyof IndividualUpdate, value: string) {
     setValues({ ...current, [field]: value })
     setNotice(null)
@@ -129,9 +154,27 @@ export function EditProfile() {
     const changes: IndividualUpdate = {}
 
     for (const key of Object.keys(EMPTY) as (keyof IndividualUpdate)[]) {
-      if (current[key].trim() !== original[key].trim()) {
-        changes[key] = current[key].trim() === '' ? null : current[key].trim()
+      const now = current[key].trim()
+
+      if (now === original[key].trim()) {
+        continue
       }
+
+      if (key === 'birth_date') {
+        // The API stores GEDCOM. A value the converter does not recognise is
+        // dropped rather than sent, because sending null here would delete the
+        // date the member was trying to correct.
+        const gedcom = now === '' ? null : isoToGedcom(now)
+
+        if (now !== '' && gedcom === null) {
+          continue
+        }
+
+        changes.birth_date = gedcom
+        continue
+      }
+
+      changes[key] = now === '' ? null : now
     }
 
     return changes
@@ -191,7 +234,13 @@ export function EditProfile() {
         <Section title={t('edit.section.birth')}>
           <Field
             label={t('edit.birthDate')}
-            hint={t('edit.birthDateHint')}
+            type="date"
+            // A birth date in the future is a slip, and the picker can say so
+            // before the server has to.
+            max={today()}
+            {...(storedDate === null
+              ? {}
+              : { hint: t('edit.birthDateStored', { date: storedDate }) })}
             value={current.birth_date}
             onChange={(event) => set('birth_date', event.target.value)}
           />

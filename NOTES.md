@@ -532,6 +532,29 @@ do not do — `wlixcc/SFTP-Deploy-Action` passes `StrictHostKeyChecking=no`. Wit
 password authentication an intercepted connection hands over the password
 itself, not just the session.
 
+### 2.15.2 The birth date is a calendar, and the API is not narrowed
+
+A member editing their *own* record is the one person who knows their birthday
+exactly, so the form offers `<input type="date">` rather than asking them to
+type a GEDCOM date. `api/dates.ts` is the whole translation, both ways.
+
+The **API keeps accepting every form webtrees does** — "ABT 1985", ranges,
+other calendars. It is one field on one form that asks for a plain date, not
+the contract. Narrowing the API would break the day someone needs to record an
+approximate date for a relative.
+
+The case that needed care is a stored date the picker cannot hold. The field
+starts empty then, and because only changed fields are sent, an untouched
+empty field leaves the stored date alone. But a blank box reads as "no birth
+date on file", so the hint says what is recorded, in the form the profile
+shows it: *"Bisher gespeichert: etwa 1985. Dieses Datum bleibt unverändert,
+solange Sie hier keines auswählen."* `Phase2.test.tsx` pins both halves —
+that the field is empty, and that submitting sends nothing.
+
+`isoToGedcom` returning null is treated as "send nothing", never as "send
+null": null deletes the fact, and deleting the date a member was trying to
+correct is the worst thing this form could do.
+
 ### 2.16 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
