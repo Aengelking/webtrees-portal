@@ -12,6 +12,12 @@ name: Deploy
 # family's genealogy database, including living people's data; the privacy
 # assertions are the reason to trust a release.
 #
+# The tests are split by what is being shipped. A module deployment runs the
+# module's suite — the privacy assertions — and nothing else. The portal's
+# build, unit tests and browser smoke path only run when the portal itself is
+# being uploaded, which is what a push never does. That is most of the waiting
+# gone from the common case without giving up the guard on what is shipped.
+#
 # The one exception is the `skip_tests` box on a manual run, for when the thing
 # being debugged is the upload itself and waiting several minutes for a green
 # suite before each attempt is dead time. It is deliberately awkward:
@@ -64,8 +70,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test
+  # Split in two so that a module deployment does not wait for a portal it is
+  # not shipping. The module's tests are the privacy assertions and run for
+  # every deployment; the portal's build, unit tests and smoke path — the
+  # slowest part of this workflow by a distance, mostly the browser — run only
+  # when the portal is actually being uploaded.
+  test-module:
+    name: Test the module
     # `inputs` is null for a push, so a push always runs this.
     if: inputs.skip_tests != true
     runs-on: ubuntu-latest
@@ -92,6 +103,14 @@ jobs:
       - name: Run the module tests
         working-directory: module
         run: .webtrees/vendor/bin/phpunit --no-coverage
+
+  test-portal:
+    name: Test the portal
+    # A push deploys the module only, so this is for hand-started portal runs.
+    if: inputs.skip_tests != true && (inputs.target == 'portal' || inputs.target == 'both')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
@@ -131,7 +150,6 @@ jobs:
           if-no-files-found: ignore
 
       - name: Keep the built portal
-        if: inputs.target == 'portal' || inputs.target == 'both'
         uses: actions/upload-artifact@v7
         with:
           name: portal-dist
@@ -140,10 +158,14 @@ jobs:
 
   deploy:
     name: Upload over SFTP
-    needs: test
-    # always(), because a skipped `test` job would otherwise skip this one too.
-    # The result check is what keeps a *failed* test run from deploying.
-    if: always() && needs.test.result != 'failure' && needs.test.result != 'cancelled'
+    needs: [test-module, test-portal]
+    # always(), because a skipped test job would otherwise skip this one too —
+    # and one of the two is skipped on most runs. The result checks are what
+    # keep a *failed* test run from deploying; "skipped" is not "failed".
+    if: >-
+      always()
+      && needs.test-module.result != 'failure' && needs.test-module.result != 'cancelled'
+      && needs.test-portal.result != 'failure' && needs.test-portal.result != 'cancelled'
     runs-on: ubuntu-latest
     # A refused connection is retried after 30s, then 90s, then 270s — long
     # enough to outlast a host that is briefly turning this runner away. Two
@@ -157,14 +179,14 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Say plainly that this is untested
-        if: needs.test.result == 'skipped'
+        if: needs.test-module.result == 'skipped'
         run: |
           echo "::warning title=Tests skipped::Uploading code that has not been tested. This is only for debugging the upload itself — re-run without skip_tests before trusting the result."
 
       - name: Refuse to upload an unbuilt portal
-        if: needs.test.result == 'skipped' && inputs.target != 'module'
+        if: needs.test-portal.result != 'success' && (inputs.target == 'portal' || inputs.target == 'both')
         run: |
-          echo "::error title=Nothing to upload::The portal is built by the test job, so skip_tests leaves nothing to upload. Choose target=module, or run with the tests."
+          echo "::error title=Nothing to upload::The portal is built by its test job, which did not run, so there is nothing to upload. Choose target=module, or run without skip_tests."
           exit 1
 
       - name: Install sshpass

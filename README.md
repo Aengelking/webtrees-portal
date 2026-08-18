@@ -278,6 +278,12 @@ The `deploy` job runs in a GitHub environment called `production`. Add required
 reviewers to it in the repository settings if you want a human to approve each
 deployment.
 
+The tests are split by what is being shipped: a module deployment runs the
+module's PHPUnit suite — the privacy assertions — and skips the portal's build,
+unit tests and browser smoke path, which are only relevant when the portal is
+being uploaded. A push never uploads the portal, so a push-triggered deployment
+waits for the fast half only.
+
 There is a third box, **Skip the test suite**, for when the thing being
 debugged is the upload itself and waiting several minutes for a green suite
 before each attempt is dead time. It is deliberately awkward to misuse:
