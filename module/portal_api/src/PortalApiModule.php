@@ -50,6 +50,9 @@ use Fisharebest\Webtrees\Validator;
 use Fisharebest\Webtrees\View;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Throwable;
+
+use function error_log;
 
 /**
  * The JSON API for the member portal.
@@ -121,14 +124,32 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      */
     public function boot(): void
     {
-        View::registerNamespace($this->name(), $this->resourcesFolder() . 'views/');
+        // Every custom module's boot() runs inside the same PHP request as
+        // webtrees itself, on *every* page of the site. An exception thrown
+        // here does not break the portal API — it breaks the family's
+        // genealogy site, for everyone, including the administrator who would
+        // have to go and fix it. The portal is the newer and less important of
+        // the two, so it is the one that fails.
+        //
+        // The real error goes to the server's log, where an administrator can
+        // find it. What a member sees is an API that is not there, which the
+        // portal already knows how to say.
+        try {
+            View::registerNamespace($this->name(), $this->resourcesFolder() . 'views/');
 
-        Registry::container()
-            ->get(MigrationService::class)
-            ->updateSchema('\\' . __NAMESPACE__ . '\\Schema', self::SCHEMA_SETTING_NAME, self::SCHEMA_VERSION);
+            Registry::container()
+                ->get(MigrationService::class)
+                ->updateSchema('\\' . __NAMESPACE__ . '\\Schema', self::SCHEMA_SETTING_NAME, self::SCHEMA_VERSION);
 
-        $this->registerServices();
-        $this->registerRoutes();
+            $this->registerServices();
+            $this->registerRoutes();
+        } catch (Throwable $exception) {
+            error_log(
+                'portal_api: the module could not start, so its API is not available. webtrees itself is unaffected. '
+                . $exception::class . ': ' . $exception->getMessage()
+                . ' in ' . $exception->getFile() . ':' . $exception->getLine()
+            );
+        }
     }
 
     /**

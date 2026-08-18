@@ -555,6 +555,23 @@ that the field is empty, and that submitting sends nothing.
 null": null deletes the fact, and deleting the date a member was trying to
 correct is the worst thing this form could do.
 
+### 2.15.3 The module may not take webtrees down with it
+
+`boot()` runs inside the same PHP request as webtrees itself, on every page of
+the site, for every visitor. An exception thrown there does not break the
+portal API — it breaks the family's genealogy site, for everyone, including
+the administrator who would then have to go and fix it without being able to
+log in.
+
+So the whole of `boot()` is wrapped: schema migration, service registration,
+route registration. A failure logs the real error to the server log and leaves
+webtrees running with no portal API, which is a state the portal already knows
+how to explain to a member.
+
+This is deliberately the one place in the module where an exception is
+swallowed. Everywhere else, failing loudly is right; here the cost of failing
+loudly is paid by somebody who did not ask for a portal.
+
 ### 2.16 Three navigation destinations, and no component library
 
 My profile, Members, Settings. Tailwind plus about ten local components in
