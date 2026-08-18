@@ -36,7 +36,7 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 and 2 are built.** Members can read the tree within their privacy
+**Phases 1 to 3 are built.** Members can read the tree within their privacy
 level, change their own portal settings, propose changes to their own record,
 and reset their own password. Photos, and the social graph, are not in scope.
 
@@ -46,19 +46,21 @@ webtrees exactly as they would any other edit.
 
 Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `PATCH /me/profile`, `PUT /me/individual`, `GET /individuals/{xref}`,
-`GET /members`, `GET /members/{id}`, `POST /password/request`,
-`POST /password/reset`.
+`GET /members`, `GET /members/{id}`, `GET /individuals/{xref}/ancestors`,
+`POST /password/request`, `POST /password/reset`.
 
 Screens: login, forgotten password, set a new password, My profile, edit my
-details, Members, member detail, Settings.
+details, person, ancestors, Members, member detail, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
 website). Contact details are published on the member's *own* record only,
 never on anyone else's.
 
-Charts (pedigree, fan, descendancy) are not implemented — every record links
-out to webtrees for those.
+The tree can be walked in the portal: every relative is a link, four
+generations of ancestors are one request, and a record says how the signed-in
+member is related to it. Drawn charts (fan, descendancy) are still webtrees'
+job, and every record still links out for them.
 
 ---
 
@@ -668,6 +670,12 @@ access levels plus an unauthenticated caller:
 unverified email, unapproved account and rate limiting all produce the same
 401 body; the rate limiter refuses even a correct password once tripped; CSRF
 is required on every unsafe method; the proxy secret is enforced when set.
+
+**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — a
+confidential ancestor is absent from the pedigree and the walk stops there
+rather than reaching around them; a relationship is never named through
+someone the member may not see, though a manager who can see the whole path is
+told; a hidden root and a missing one give byte-identical 404s.
 
 **Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
 `Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does

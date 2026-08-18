@@ -434,6 +434,58 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /individuals/{xref}/ancestors:
+    get:
+      tags: [Tree]
+      summary: A person's ancestors, several generations at once
+      description: |
+        The pedigree above one person, flat, in Ahnentafel numbering: the root
+        is 1, a father is 2n and a mother is 2n+1. The client indexes by
+        `position` and never walks a nested structure.
+
+        Nothing here is visible that stepping from relative to relative would
+        not also reach. The walk runs at the member's access level and **stops**
+        at anyone they may not see: that person is absent, and so is everyone
+        above them. There is no placeholder and no gap to read meaning into —
+        the branch simply ends, exactly as it does on the profile screen.
+
+        This exists so that four generations are one request rather than
+        fifteen, which matters on a phone and on shared hosting.
+      operationId: getAncestors
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: xref
+          in: path
+          required: true
+          description: The record to start from.
+          schema:
+            type: string
+        - name: generations
+          in: query
+          required: false
+          description: |
+            How many generations above the root to include. Clamped to 1..6
+            rather than refused; the response says what was used.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 6
+            default: 4
+      responses:
+        '200':
+          description: The visible ancestors.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AncestorPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /members:
     get:
       tags: [members]
@@ -914,6 +966,50 @@ components:
             so — e.g. "SB" for this archive's own numbering.
           example: SB
 
+    Ancestor:
+      allOf:
+        - $ref: '#/components/schemas/IndividualRef'
+        - type: object
+          required:
+            - position
+            - generation
+          properties:
+            position:
+              type: integer
+              minimum: 1
+              description: |
+                The Ahnentafel number. 1 is the root, 2n is a father and 2n+1
+                a mother.
+
+                Numbers are not contiguous: a person the member may not see is
+                absent, and so is everyone above them. A missing number means
+                "nothing to show here", never "somebody hidden lives here" —
+                the two are indistinguishable by design, because a tree with a
+                labelled hole in it is a tree that tells you what fills it.
+              example: 5
+            generation:
+              type: integer
+              minimum: 0
+              description: 0 for the root, 1 for parents, and so on.
+              example: 2
+
+    AncestorPage:
+      type: object
+      additionalProperties: false
+      required:
+        - generations
+        - people
+      properties:
+        generations:
+          type: integer
+          description: How many generations were actually walked, after clamping.
+          example: 4
+        people:
+          type: array
+          description: The visible ancestors, root first, in Ahnentafel order.
+          items:
+            $ref: '#/components/schemas/Ancestor'
+
     Individual:
       allOf:
         - $ref: '#/components/schemas/IndividualRef'
@@ -921,6 +1017,7 @@ components:
           additionalProperties: false
           required:
             - name_alternative
+            - relationship
             - references
             - birth
             - death
@@ -935,6 +1032,21 @@ components:
             name_alternative:
               type: [string, 'null']
               description: A name in an alternative character set, where one exists.
+            relationship:
+              type: [string, 'null']
+              description: |
+                How the authenticated member is related to this person, named
+                by webtrees in the request's language — "Ihre Cousine", "your
+                great-grandfather".
+
+                `null` whenever there is nothing safe or useful to say: the
+                member's account is not linked to a record, this *is* their
+                record, no relationship was found within four steps, or — the
+                one that matters — every path between them runs through
+                someone the member may not see. A relationship name encodes
+                the shape of the path that produced it, so naming one through
+                a hidden person would disclose that they exist.
+              example: Ihre Urgroßmutter
             references:
               type: array
               description: |

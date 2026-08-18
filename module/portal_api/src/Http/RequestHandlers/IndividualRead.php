@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Validator;
@@ -42,7 +43,11 @@ class IndividualRead implements RequestHandlerInterface
             throw ApiException::notFound();
         }
 
-        $payload = $this->presenter->individualDetail($individual, $access_level);
+        // The member's own record, so the response can say how they are
+        // related to this person. Null when their account is not linked to one.
+        $viewer = $this->trees->linkedIndividual($tree, Auth::user());
+
+        $payload = $this->presenter->individualDetail($individual, $access_level, false, $viewer);
 
         if ($payload === null) {
             throw ApiException::notFound();

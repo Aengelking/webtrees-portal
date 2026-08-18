@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { Individual, IndividualRef, Event, Reference } from '../api/types'
 import { Card, Section } from './ui'
@@ -41,6 +42,15 @@ function References({ references }: { references: Reference[] }) {
   )
 }
 
+/**
+ * Relatives are links, and that is the whole of the navigation.
+ *
+ * Everything in these lists has already been through the API's privacy
+ * filtering — a relative the member may not see is not in the array at all —
+ * so following one can never reach further than the list itself already
+ * showed. The link goes to the same screen, which is what makes the tree
+ * walkable: tap a parent, then their parent, and so on.
+ */
 function RelativeList({ title, people }: { title: string; people: IndividualRef[] }) {
   if (people.length === 0) {
     return null
@@ -51,12 +61,17 @@ function RelativeList({ title, people }: { title: string; people: IndividualRef[
       <ul className="space-y-2">
         {people.map((person) => (
           <li key={person.xref}>
-            <Card>
-              <p className="text-base font-medium text-slate-900">{person.name}</p>
+            <Link
+              to={`/individuals/${encodeURIComponent(person.xref)}`}
+              className="block rounded-xl border border-slate-300 bg-white p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+            >
+              <p className="text-base font-medium text-sky-900 underline underline-offset-4">
+                {person.name}
+              </p>
               {person.lifespan !== null && (
                 <p className="mt-1 text-base text-slate-700">{person.lifespan}</p>
               )}
-            </Card>
+            </Link>
           </li>
         ))}
       </ul>
@@ -87,6 +102,11 @@ export function IndividualView({ individual }: { individual: Individual }) {
         <p className="mt-1 text-base text-slate-700">{individual.name_alternative}</p>
       )}
       <References references={individual.references ?? []} />
+      {individual.relationship !== null && individual.relationship !== undefined && (
+        <p className="mt-1 text-base font-medium text-sky-900">
+          {t('individual.relationship', { relationship: individual.relationship })}
+        </p>
+      )}
       <p className="mt-1 text-base text-slate-700">{headline.join(' · ')}</p>
 
       <Section title={t('individual.events')}>
@@ -102,6 +122,15 @@ export function IndividualView({ individual }: { individual: Individual }) {
           </Card>
         )}
       </Section>
+
+      <p className="mt-6">
+        <Link
+          to={`/individuals/${encodeURIComponent(individual.xref)}/ancestors`}
+          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-sky-800 px-5 py-3 text-base font-semibold text-sky-900"
+        >
+          {t('individual.showAncestors')}
+        </Link>
+      </p>
 
       <RelativeList title={t('individual.parents')} people={individual.parents} />
       <RelativeList title={t('individual.siblings')} people={individual.siblings} />

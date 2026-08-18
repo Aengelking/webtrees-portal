@@ -124,8 +124,27 @@ export interface PendingIndividual {
   individual: Individual | null
 }
 
+/** One ancestor, positioned by Ahnentafel number. */
+export interface Ancestor extends IndividualRef {
+  position: number
+  generation: number
+}
+
+export interface AncestorPage {
+  generations: number
+  people: Ancestor[]
+}
+
 export interface Individual extends IndividualRef {
   name_alternative: string | null
+  /**
+   * How the signed-in member is related to this person, in their language,
+   * or null when there is nothing safe to say — see openapi.yaml.
+   *
+   * Optional for the same reason as `references`: the module and the portal
+   * deploy separately and can be a version apart.
+   */
+  relationship?: string | null
   /**
    * Optional on purpose. The module and the portal deploy separately — the
    * module by SFTP, the portal by CI — so the portal has to survive a server

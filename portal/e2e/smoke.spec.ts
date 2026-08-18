@@ -51,6 +51,29 @@ test.describe('the smoke path', () => {
     await expect(page.getByRole('link', { name: 'Zurück zur Übersicht' })).toBeVisible()
   })
 
+  test('the family tree can be walked without leaving the portal', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture tree.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    // A relative is a link, not a dead end. This is the whole of phase 3.
+    await page.getByRole('link', { name: /Bertha Beispiel/ }).first().click()
+
+    await expect(page.getByRole('heading', { name: 'Bertha Beispiel' })).toBeVisible()
+    await expect(page.getByText('Für Sie: Ihre Mutter')).toBeVisible()
+
+    // And the pedigree, which is one request rather than fifteen.
+    await page.goBack()
+    await page.getByRole('link', { name: 'Vorfahren anzeigen' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Vorfahren' })).toBeVisible()
+    await expect(page.getByText('Mütterliche Linie')).toBeVisible()
+  })
+
   test('a wrong password says nothing useful', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Do not fire failed logins at a real installation.')
 

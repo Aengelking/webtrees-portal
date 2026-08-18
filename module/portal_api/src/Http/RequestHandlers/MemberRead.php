@@ -10,6 +10,7 @@ use Engelking\Webtrees\PortalApi\Services\Member;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Validator;
 use Psr\Http\Message\ResponseInterface;
@@ -49,7 +50,8 @@ class MemberRead implements RequestHandlerInterface
 
         if ($individual instanceof Individual) {
             $ref    = $this->presenter->individualRef($individual, $access_level);
-            $detail = $this->presenter->individualDetail($individual, $access_level);
+            $viewer = $this->trees->linkedIndividual($tree, Auth::user());
+            $detail = $this->presenter->individualDetail($individual, $access_level, false, $viewer);
         }
 
         return Json::response([

@@ -157,6 +157,8 @@ export const en: Translations = {
     spouses: 'Partners',
     children: 'Children',
     reference: 'Reference number in the family archive',
+    relationship: 'To you: {{relationship}}',
+    showAncestors: 'Show ancestors',
     noEvents: 'No further details are recorded for this person.',
     sex: {
       M: 'male',
@@ -164,6 +166,24 @@ export const en: Translations = {
       X: 'other',
       U: 'unknown',
     },
+  },
+  person: {
+    title: 'Person',
+    backToProfile: 'Back to my profile',
+  },
+  ancestors: {
+    title: 'Ancestors',
+    line: {
+      root: 'Starting point',
+      paternal: "Father's line",
+      maternal: "Mother's line",
+    },
+    none: {
+      title: 'No ancestors recorded',
+      body: 'The family tree records no parents for this person — or they are not shown to you.',
+    },
+    privacyNote:
+      'Only people you are allowed to see are shown. Where a line ends, it may well continue in the family tree.',
   },
   error: {
     title: 'Something went wrong',

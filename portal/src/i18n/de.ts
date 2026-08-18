@@ -155,6 +155,8 @@ export const de = {
     spouses: 'Partnerinnen und Partner',
     children: 'Kinder',
     reference: 'Kennnummer im Familienarchiv',
+    relationship: 'Für Sie: {{relationship}}',
+    showAncestors: 'Vorfahren anzeigen',
     noEvents: 'Zu dieser Person sind keine weiteren Daten hinterlegt.',
     sex: {
       M: 'männlich',
@@ -162,6 +164,24 @@ export const de = {
       X: 'divers',
       U: 'unbekannt',
     },
+  },
+  person: {
+    title: 'Person',
+    backToProfile: 'Zurück zu meinem Profil',
+  },
+  ancestors: {
+    title: 'Vorfahren',
+    line: {
+      root: 'Ausgangspunkt',
+      paternal: 'Väterliche Linie',
+      maternal: 'Mütterliche Linie',
+    },
+    none: {
+      title: 'Keine Vorfahren hinterlegt',
+      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst — oder sie sind für Sie nicht freigegeben.',
+    },
+    privacyNote:
+      'Es werden nur Personen angezeigt, die für Sie freigegeben sind. Wo eine Linie endet, kann es sein, dass sie im Stammbaum weitergeht.',
   },
   error: {
     title: 'Da ist etwas schiefgelaufen',

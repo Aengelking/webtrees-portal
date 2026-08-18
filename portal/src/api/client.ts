@@ -6,17 +6,18 @@
  */
 
 import type {
+  AncestorPage,
   ApiErrorBody,
   ApiErrorCode,
   Credentials,
   CsrfToken,
   Individual,
   IndividualUpdate,
+  Me,
   MemberDetail,
   MemberPage,
   MemberProfile,
   MemberProfileUpdate,
-  Me,
   PendingIndividual,
 } from './types'
 
@@ -233,6 +234,13 @@ export const api = {
 
   individual(xref: string, signal?: AbortSignal): Promise<Individual> {
     return request<Individual>(`/individuals/${encodeURIComponent(xref)}`, signal === undefined ? {} : { signal })
+  },
+
+  ancestors(xref: string, generations: number, signal?: AbortSignal): Promise<AncestorPage> {
+    return request<AncestorPage>(`/individuals/${encodeURIComponent(xref)}/ancestors`, {
+      query: { generations },
+      ...(signal === undefined ? {} : { signal }),
+    })
   },
 
   members(

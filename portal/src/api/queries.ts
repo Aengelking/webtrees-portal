@@ -10,6 +10,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useTranslation } from 'react-i18next'
 import { api } from './client'
 import type {
+  AncestorPage,
   Individual,
   IndividualUpdate,
   MemberDetail,
@@ -23,6 +24,7 @@ import type {
 export const queryKeys = {
   me: ['me'] as const,
   individual: (xref: string) => ['individual', xref] as const,
+  ancestors: (xref: string, generations: number) => ['ancestors', xref, generations] as const,
   members: (q: string, page: number) => ['members', q, page] as const,
   member: (id: number) => ['member', id] as const,
 }
@@ -57,6 +59,16 @@ export function useIndividual(xref: string | undefined) {
   return useQuery<Individual>({
     queryKey: [...queryKeys.individual(xref ?? ''), language],
     queryFn: ({ signal }) => api.individual(xref as string, signal),
+    enabled: xref !== undefined && xref !== '',
+  })
+}
+
+export function useAncestors(xref: string | undefined, generations: number) {
+  const language = useLanguage()
+
+  return useQuery<AncestorPage>({
+    queryKey: [...queryKeys.ancestors(xref ?? '', generations), language],
+    queryFn: ({ signal }) => api.ancestors(xref as string, generations, signal),
     enabled: xref !== undefined && xref !== '',
   })
 }

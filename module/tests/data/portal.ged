@@ -38,6 +38,7 @@
 2 TYPE Intern
 2 RESN confidential
 1 FAMS @F1@
+1 FAMC @F3@
 0 @X3@ INDI
 1 NAME Clara /Beispiel/
 2 GIVN Clara
@@ -69,6 +70,7 @@
 2 DATE 3 FEB 1961
 2 PLAC Celle, Niedersachsen, Deutschland
 1 FAMS @F1@
+1 FAMC @F2@
 0 @X6@ INDI
 1 NAME Fritz /Beispiel/
 2 GIVN Fritz
@@ -86,4 +88,81 @@
 1 MARR
 2 DATE 8 MAY 1912
 2 PLAC Celle, Niedersachsen, Deutschland
+0 @X7@ INDI
+1 NAME Gustav /Beispiel/
+2 GIVN Gustav
+2 SURN Beispiel
+1 SEX M
+1 BIRT
+2 DATE 3 MAY 1850
+1 DEAT
+2 DATE 9 SEP 1920
+1 FAMS @F2@
+1 FAMC @F4@
+0 @X8@ INDI
+1 NAME Helene /Beispiel/
+2 GIVN Helene
+2 SURN Beispiel
+1 SEX F
+1 BIRT
+2 DATE 7 JUL 1855
+1 DEAT
+2 DATE 2 FEB 1930
+1 FAMS @F2@
+0 @X9@ INDI
+1 NAME Ida /Beispiel/
+2 GIVN Ida
+2 SURN Beispiel
+1 SEX F
+1 RESN confidential
+1 BIRT
+2 DATE 1 MAR 1860
+1 DEAT
+2 DATE 4 APR 1935
+1 FAMS @F3@
+1 FAMC @F5@
+0 @X10@ INDI
+1 NAME Konrad /Beispiel/
+2 GIVN Konrad
+2 SURN Beispiel
+1 SEX M
+1 BIRT
+2 DATE 5 MAY 1858
+1 DEAT
+2 DATE 6 JUN 1929
+1 FAMS @F3@
+0 @X11@ INDI
+1 NAME Ludwig /Beispiel/
+2 GIVN Ludwig
+2 SURN Beispiel
+1 SEX M
+1 BIRT
+2 DATE 8 AUG 1820
+1 DEAT
+2 DATE 10 OCT 1890
+1 FAMS @F4@
+0 @F2@ FAM
+1 HUSB @X7@
+1 WIFE @X8@
+1 CHIL @X5@
+0 @F3@ FAM
+1 HUSB @X10@
+1 WIFE @X9@
+1 CHIL @X2@
+0 @F4@ FAM
+1 HUSB @X11@
+1 CHIL @X7@
+0 @X12@ INDI
+1 NAME Otto /Fernab/
+2 GIVN Otto
+2 SURN Fernab
+1 SEX M
+1 BIRT
+2 DATE 2 FEB 1830
+1 DEAT
+2 DATE 3 MAR 1899
+1 FAMS @F5@
+0 @F5@ FAM
+1 HUSB @X12@
+1 CHIL @X9@
 0 TRLR

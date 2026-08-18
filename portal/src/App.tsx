@@ -8,7 +8,9 @@ import { Login } from './routes/Login'
 import { PasswordRequest } from './routes/PasswordRequest'
 import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
+import { Ancestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
+import { PersonDetail } from './routes/PersonDetail'
 import { MyProfile } from './routes/MyProfile'
 import { NotFound } from './routes/NotFound'
 import { Settings } from './routes/Settings'
@@ -49,6 +51,8 @@ export function App() {
         <Route path="/" element={<Navigate to="/me" replace />} />
         <Route path="/me" element={<MyProfile />} />
         <Route path="/me/edit" element={<EditProfile />} />
+        <Route path="/individuals/:xref" element={<PersonDetail />} />
+        <Route path="/individuals/:xref/ancestors" element={<Ancestors />} />
         <Route path="/members" element={<Members />} />
         <Route path="/members/:id" element={<MemberDetail />} />
         <Route path="/settings" element={<Settings />} />

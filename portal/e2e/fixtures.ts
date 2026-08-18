@@ -14,6 +14,7 @@ const ANNA = {
   is_deceased: false,
   lifespan: '1985–',
   name_alternative: null,
+  relationship: null,
   references: [{ number: '4711', type: 'SB' }],
   birth: {
     tag: 'INDI:BIRT',
@@ -172,6 +173,30 @@ export async function stubApi(page: Page): Promise<void> {
       const items = MEMBERS.filter((member) => member.display_name.toLowerCase().includes(q))
 
       return json(route, { items, total: items.length, page: 1, per_page: 25 })
+    }
+
+    if (path === '/individuals/X2') {
+      return json(route, {
+        ...ANNA,
+        xref: 'X2',
+        name: 'Bertha Beispiel',
+        lifespan: '1889–1976',
+        is_deceased: true,
+        relationship: 'Ihre Mutter',
+        references: [],
+        parents: [],
+        siblings: [],
+      })
+    }
+
+    if (path === '/individuals/X1/ancestors') {
+      return json(route, {
+        generations: 4,
+        people: [
+          { position: 1, generation: 0, ...refOf(ANNA) },
+          { position: 3, generation: 1, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
+        ],
+      })
     }
 
     if (path === '/members/1') {

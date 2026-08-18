@@ -23,6 +23,7 @@ describe('openapi.yaml and the API client agree', () => {
     expect(specPaths()).toEqual([
       '/csrf',
       '/individuals/{xref}',
+      '/individuals/{xref}/ancestors',
       '/me',
       '/me/individual',
       '/me/profile',
@@ -41,6 +42,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/me': "'/me'",
       '/members': "'/members'",
       '/individuals/{xref}': '`/individuals/${',
+      '/individuals/{xref}/ancestors': '}/ancestors`',
       '/members/{id}': '`/members/${',
       '/me/profile': "'/me/profile'",
       '/me/individual': "'/me/individual'",

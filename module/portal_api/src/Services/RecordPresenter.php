@@ -41,8 +41,10 @@ use const ENT_QUOTES;
  */
 class RecordPresenter
 {
-    public function __construct(private readonly PendingChanges $pending_changes)
-    {
+    public function __construct(
+        private readonly PendingChanges $pending_changes,
+        private readonly RelationshipNamer $relationships,
+    ) {
     }
 
     /**
@@ -103,13 +105,21 @@ class RecordPresenter
      * @return array<string,mixed>|null null when this caller may not see the record.
      */
     /**
-     * @param bool $own_record Whether this is the authenticated member's own
-     *                         record. Unlocks contact details and the pending
-     *                         change flag, neither of which is anyone else's
-     *                         business.
+     * @param bool            $own_record Whether this is the authenticated
+     *                                    member's own record. Unlocks contact
+     *                                    details and the pending change flag,
+     *                                    neither of which is anyone else's
+     *                                    business.
+     * @param Individual|null $viewer     The member's own record, when they
+     *                                    have one. Used only to say how they
+     *                                    are related to this person.
      */
-    public function individualDetail(Individual $individual, int $access_level, bool $own_record = false): array|null
-    {
+    public function individualDetail(
+        Individual $individual,
+        int $access_level,
+        bool $own_record = false,
+        Individual|null $viewer = null
+    ): array|null {
         $ref = $this->individualRef($individual, $access_level);
 
         if ($ref === null) {
@@ -131,6 +141,7 @@ class RecordPresenter
 
         return $ref + [
             'name_alternative' => $this->alternateName($individual, $access_level),
+            'relationship'     => $this->relationships->name($viewer, $individual, $access_level),
             'references'       => $this->references($facts),
             'birth'            => $birth === null ? null : $this->event($birth),
             'death'            => $death === null ? null : $this->event($death),

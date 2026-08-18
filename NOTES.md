@@ -649,6 +649,53 @@ ships over SFTP and the portal ships through CI, so the two can be a version
 apart; the portal has to survive a server that predates the field rather than
 throwing on the profile screen.
 
+### 2.20 Phase 3: the tree is walkable, and two webtrees traps on the way
+
+Relatives are links now, there is an ancestors view, and a record says how the
+member is related to it. The API endpoint and the query hook for the first of
+those had existed unused since Phase 1; what was missing was the routing.
+
+Two things in webtrees behave differently from how their names read, and both
+would have leaked if taken at face value.
+
+**`RelationshipService::getCloseRelationshipName()` walks at
+`Auth::PRIV_HIDE`.** All six of its traversal points pass it, deliberately: it
+serves webtrees' own pages, where the answer is already gated. Handing its
+result to a member would disclose more than a name — a relationship name
+encodes the shape of the path that produced it, so "your cousin" says a shared
+grandparent exists even when every record on the way is hidden. So
+`RelationshipNamer` walks the same algorithm at the member's access level and
+hands the resulting nodes to the public `nameFromPath()`. The names are still
+webtrees', translated by webtrees.
+
+**`Family::children($access_level)` does not mean what it looks like.** It
+filters on `canShowName()`, which is true for a member whenever the tree shows
+living people's names at all, and it silently escalates to `Auth::PRIV_HIDE`
+when `SHOW_PRIVATE_RELATIONSHIPS` is on. So it can hand back people whose
+records are hidden. `RecordPresenter` was never exposed to this — everything
+it returns goes through `individualRef()`, which checks `canShow()` — which is
+the design decision from §2.5 paying for itself. The relationship walk had to
+filter explicitly, and `TreeTest` pins it: Otto is visible, his daughter Ida is
+confidential, and a member is told nothing about how she is related to him
+while a manager is told.
+
+The reverse trap sits next to it: `Family::canShow()` is *too strict* for this
+purpose, because webtrees hides a family whenever any member is private — one
+confidential cousin would make "your mother" unnameable. What is checked
+instead is whether the family declares a `RESN` of its own, which is somebody
+saying that this connection is confidential rather than these people.
+
+**The pedigree is Ahnentafel-numbered and full of holes on purpose.** Root 1,
+father 2n, mother 2n+1, flat. A person the member may not see is absent and so
+is everyone above them — the branch ends, with no placeholder and no labelled
+gap, because a pedigree with a labelled hole in it tells the reader what fills
+the hole. The screen says outright that some people may not be shown, rather
+than leaving that to be inferred from a short tree.
+
+Indented rows, not a drawn chart: a pedigree diagram is wide and a phone is
+not, and pinch-to-zoom is the webtrees experience this portal exists to
+replace.
+
 ---
 
 ## 3. Things that were guessed
