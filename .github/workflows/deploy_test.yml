@@ -19,7 +19,7 @@ name: Deploy module via SFTP
 
 on:
   push:
-    branches: [main]
+    branches: []
   workflow_dispatch:
 
 concurrency:
