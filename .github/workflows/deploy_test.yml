@@ -41,6 +41,6 @@ jobs:
           username: ${{ secrets.SFTP_USERNAME }}
           password: ${{ secrets.SFTP_PASSWORD }}
           # Upload the contents of the module folder into the target directory.
-          local_path: './translate-notes/*'
+          local_path: './module/portal_api/*'
           remote_path: ${{ secrets.SFTP_MODULE_PATH }}
           sftp_only: true
