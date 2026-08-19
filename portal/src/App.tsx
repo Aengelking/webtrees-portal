@@ -5,6 +5,7 @@ import { Layout } from './components/Layout'
 import { Loading } from './components/ui'
 import { EditProfile } from './routes/EditProfile'
 import { Invitation } from './routes/Invitation'
+import { Invite } from './routes/Invite'
 import { Login } from './routes/Login'
 import { PasswordRequest } from './routes/PasswordRequest'
 import { PasswordReset } from './routes/PasswordReset'
@@ -55,6 +56,7 @@ export function App() {
         <Route path="/me/edit" element={<EditProfile />} />
         <Route path="/individuals/:xref" element={<PersonDetail />} />
         <Route path="/individuals/:xref/ancestors" element={<Ancestors />} />
+        <Route path="/invite" element={<Invite />} />
         <Route path="/members" element={<Members />} />
         <Route path="/members/:id" element={<MemberDetail />} />
         <Route path="/settings" element={<Settings />} />

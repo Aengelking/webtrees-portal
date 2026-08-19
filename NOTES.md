@@ -986,6 +986,84 @@ that only deploys the portal legitimately leaves the module's version alone.
 The step is skipped unless a `PORTAL_URL` repository variable is set, so an
 installation that is not reachable from GitHub does not fail every deploy.
 
+### 2.24 Phase 7: "the people I can see" is not "my close family"
+
+A member can now invite their own close relatives. The intuitive rule for who
+that is — the people the portal already shows them — is wrong, and wrong in
+the dangerous direction. It is worth writing down exactly why, because it
+looks right.
+
+`Individual::canShowByType()` applies relationship privacy **only** when the
+user has a per-user `RELATIONSHIP_PATH_LENGTH` greater than zero *and* a
+linked record:
+
+```php
+$user_path_length = (int) $this->tree->getUserPreference(Auth::user(), UserInterface::PREF_TREE_PATH_LENGTH);
+$gedcomid         = $this->tree->getUserPreference(Auth::user(), UserInterface::PREF_TREE_ACCOUNT_XREF);
+
+if ($gedcomid !== '' && $user_path_length > 0) {
+    return self::isRelated($this, $user_path_length);
+}
+
+// No restriction found - show living people to members only:
+return Auth::PRIV_USER >= $access_level;
+```
+
+Neither is set by default, and nothing in this module sets the first. So for a
+normal account, "the people I can see" means **every living person in the
+tree**. Scoping invitations to visibility would have handed most members the
+whole family, silently, while the code read as though it were restrictive —
+and it would have changed meaning again the next time somebody edited a tree
+preference.
+
+So `Services/CloseFamily.php` measures the distance itself, by walking, with
+the limit as this module's own setting (default: two steps — parents,
+siblings, partners, children, plus grandparents, grandchildren, nieces,
+nephews and parents-in-law). `canShow()` still applies on top: a relative the
+member may not see is not a candidate whatever the distance. The walk is
+`RelationshipNamer`'s, including both of the substitutions that class explains
+at length — families filtered on their own `RESN`, people filtered on
+`canShow()` rather than trusting `Family::children()`.
+
+**The candidate list discloses nobody new.** It is the same walk the member's
+own page already does, at the same access level, stopping at the same limit.
+`MemberInvitationTest::testTheScreenDisclosesNobodyNew` asserts that the
+confidential sister, the unconnected stranger and the confidential
+great-grandmother all stay absent.
+
+**Three exclusions, one of them a judgement call.** The dead, anyone who
+already holds an account, and anyone already invited are dropped. The last two
+are dropped *silently* — the person is simply not in the list and the member
+is not told why. Saying "your brother already has an account" would route
+around §2.7: appearing in the member directory is consent, and this would
+disclose the same fact without it. §7 of the handoff says to omit when unsure
+and write it down, so that is what this paragraph is.
+
+**Every rule is checked again at the moment it matters.** The candidate list
+is a convenience for the screen; `MemberInvitations::create()` re-runs the
+whole computation, because a client can post any XREF it likes. Too distant,
+hidden, already an account holder, already invited and not a person at all all
+produce the same `not_allowed`, so posting an XREF is not a way to find out
+which.
+
+**What holds it in proportion.** An invitation creates an account with member
+access to the tree, and a member issuing one is being *trusted* to know who is
+family in a way an administrator is not. Three limits, all visible in the
+module preferences: the relationship distance, a quota of outstanding
+invitations per member (default three), and an off switch. Every invitation
+carries who issued it, the administrator's screen now shows that column, and
+an unused one can be withdrawn from there.
+
+**The member sees the link and sends it themselves**, as the administrator's
+screen already does. Having the module send the email would not be safer — the
+member still types the address — and it would put a mail server between a
+member and the thing they are trying to do.
+
+**Not a fourth item in the bottom navigation.** `Layout.tsx` says "three
+destinations, no more", and that was a decision rather than an accident.
+Inviting somebody is a thing a member does once or twice; it lives on
+Settings, where the rest of "my own participation" already is.
+
 ---
 
 ## 3. Things that were guessed

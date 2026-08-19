@@ -77,6 +77,52 @@ export const de = {
       action: 'Zur Anmeldung',
     },
   },
+  invite: {
+    title: 'Jemanden einladen',
+    intro:
+      'Sie können Ihrer engen Familie einen Zugang zum Portal einrichten. Sie wählen die Person aus, bekommen einen Link und schicken ihn selbst — so, wie Sie diese Person sonst auch erreichen.',
+    chooseTitle: 'Wen möchten Sie einladen?',
+    whoLegend: 'Person auswählen',
+    email: 'E-Mail-Adresse (freiwillig)',
+    emailHint:
+      'Wird nur für sie ins Formular vorausgefüllt. Der Link geht nicht automatisch raus — den verschicken Sie selbst.',
+    create: 'Einladung erstellen',
+    creating: 'Wird erstellt …',
+    remaining_one: 'Sie können noch {{count}} Einladung offen haben.',
+    remaining_other: 'Sie können noch {{count}} Einladungen offen haben.',
+    pickSomebody: 'Bitte wählen Sie zuerst eine Person aus.',
+    refused:
+      'Diese Person können Sie nicht einladen. Vielleicht hat sie schon einen Zugang oder ist bereits eingeladen.',
+    ready: {
+      title: 'Die Einladung ist fertig',
+      body:
+        'Kopieren Sie den Link und schicken Sie ihn dieser Person — per Nachricht, E-Mail oder wie Sie mögen. Der Link wird nur dieses eine Mal angezeigt und lässt sich später nicht wieder aufrufen. Falls er verloren geht: Einladung zurücknehmen und eine neue erstellen.',
+      label: 'Einladungslink',
+      done: 'Habe ich kopiert',
+    },
+    outstandingTitle: 'Ihre offenen Einladungen',
+    expires: 'Gültig bis {{date}}',
+    withdraw: 'Zurücknehmen',
+    none: {
+      title: 'Zurzeit niemand zum Einladen',
+      body:
+        'Alle Ihre nahen Angehörigen sind schon dabei, bereits eingeladen, oder im Stammbaum als verstorben eingetragen.',
+    },
+    quota: {
+      title: 'Sie haben schon genug offene Einladungen',
+      body:
+        'Nehmen Sie eine offene Einladung zurück oder warten Sie, bis sie benutzt wurde — dann geht es weiter.',
+    },
+    off: {
+      title: 'Einladungen durch Mitglieder sind ausgeschaltet',
+      body: 'In dieser Familie legt die Familienverwaltung die Zugänge an. Fragen Sie dort nach.',
+    },
+    noRecord: {
+      title: 'Ihr Konto ist noch nicht verknüpft',
+      body:
+        'Solange Ihr Konto mit keiner Person im Stammbaum verbunden ist, weiß das Portal nicht, wer Ihre Familie ist. Bitte wenden Sie sich an die Familienverwaltung.',
+    },
+  },
   profile: {
     title: 'Mein Profil',
     noRecord: {
@@ -161,6 +207,10 @@ export const de = {
   },
   settings: {
     title: 'Einstellungen',
+    invite: 'Familie einladen',
+    inviteBody:
+      'Sie können Ihrer engen Familie einen Zugang zum Portal einrichten. Sie bekommen einen Link und schicken ihn selbst weiter.',
+    inviteAction: 'Jemanden einladen',
     language: 'Sprache',
     languageHint: 'Gilt für dieses Gerät.',
     account: 'Konto',

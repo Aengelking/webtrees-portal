@@ -426,6 +426,7 @@ class InvitationTest extends PortalTestCase
             'tree'         => $this->tree,
             'invitations'  => $this->invitations->outstanding($this->tree),
             'unlinked'     => Registry::container()->get(MemberService::class)->accountsWithoutRecord($this->tree),
+            'issuers'      => [],
             'valid_days'   => InvitationService::DEFAULT_VALIDITY_DAYS,
             'new_link'     => 'https://portal.example.test/invitation?token=abc',
             'portal_url'   => 'https://portal.example.test',
@@ -459,6 +460,9 @@ class InvitationTest extends PortalTestCase
             'invitation_days'   => '14',
             'invitations_url'   => '/invitations',
             'diagnosis_url'     => '/diagnosis',
+            'member_invites'      => '1',
+            'member_invite_steps' => '2',
+            'member_invite_quota' => '3',
         ]);
 
         self::assertStringContainsString('invitation_days', $html);
@@ -468,5 +472,6 @@ class InvitationTest extends PortalTestCase
         // page would still render — just without the link.
         self::assertStringContainsString('/invitations', $html);
         self::assertStringContainsString('/diagnosis', $html);
+        self::assertStringContainsString('member_invite_steps', $html);
     }
 }

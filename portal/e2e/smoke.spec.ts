@@ -232,3 +232,33 @@ test.describe('phase 5', () => {
     await expect(page.getByLabel('Benutzername')).toBeHidden()
   })
 })
+
+test.describe('phase 7', () => {
+  test('a member invites their brother and is shown the link once', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Would create a real invitation.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    // Reached from Settings, not from the navigation bar: three destinations
+    // was a decision, and this is a thing a member does once or twice.
+    await page.getByRole('link', { name: 'Einstellungen' }).click()
+    await page.getByRole('link', { name: 'Jemanden einladen' }).click()
+
+    // The relationship is named, so it is obvious who is about to be picked.
+    await expect(page.getByText('Ihr Bruder')).toBeVisible()
+
+    await page.getByRole('radio', { name: /Dieter Beispiel/ }).check()
+    await page.getByRole('button', { name: 'Einladung erstellen' }).click()
+
+    const link = page.getByLabel('Einladungslink')
+    await expect(link).toHaveValue(/token=einladung-fuer-dieter/)
+    await expect(page.getByRole('status')).toContainText('nur dieses eine Mal')
+
+    // Dieter is no longer on offer, and the invitation is listed as pending.
+    await page.getByRole('button', { name: 'Habe ich kopiert' }).click()
+    await expect(page.getByRole('button', { name: 'Zurücknehmen' })).toBeVisible()
+  })
+})

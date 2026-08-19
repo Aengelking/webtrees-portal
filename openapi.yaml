@@ -568,6 +568,146 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /invitations:
+    get:
+      tags: [invitations]
+      summary: Whom may I invite, and whom have I invited?
+      description: |
+        Everything the member's invite screen needs in one request.
+
+        The candidate list is the same walk the member's own page already
+        does, at the same access level, stopping at the limit the family set —
+        so opening this screen discloses nobody new. Relatives who are dead,
+        who already hold an account, or who already have an invitation
+        outstanding are absent, and nothing says which of the three applies:
+        "your brother already has an account" would route around the consent
+        model the member directory rests on.
+
+        Answers rather than refuses when the facility is switched off, so the
+        screen can say so.
+      operationId: listInvitations
+      responses:
+        '200':
+          description: The member's invitation state.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [invitations]
+      summary: Invite one close relative
+      description: |
+        Every rule is re-checked here rather than trusted from the list that
+        offered it: a client can post any XREF it likes. Too distant, hidden,
+        already an account holder, already invited and not a person at all all
+        produce the same `not_allowed`, so posting an XREF is not a way to
+        find out which.
+
+        The link is in the response once. Only a hash of the token is stored,
+        so it cannot be recovered afterwards — losing it means withdrawing the
+        invitation and issuing another.
+      operationId: createInvitation
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [xref]
+              properties:
+                xref:
+                  type: string
+                  description: One of the XREFs from `GET /invitations`.
+                email:
+                  type: string
+                  description: |
+                    Optional. Noted on the invitation and prefilled on the
+                    invitee's form. The module does not send it.
+      responses:
+        '201':
+          description: The invitation exists. The link is here and nowhere else.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuedInvitation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: |
+            `not_allowed` — members may not invite in this tree, or may not
+            invite this person. `no_linked_record` — the account is not linked
+            to anybody in the family tree, so it has no family to invite.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: '`quota_reached` — too many outstanding already.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: The portal has no address configured, so no link can be built.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /invitations/{id}:
+    delete:
+      tags: [invitations]
+      summary: Withdraw an invitation I sent
+      description: |
+        Somebody else's invitation and one that has already been used are both
+        `404`. A member has no business learning which.
+      operationId: withdrawInvitation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: Withdrawn. The body is the refreshed overview.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -917,6 +1057,8 @@ components:
             - record_locked
             - change_pending
             - invalid_token
+            - not_allowed
+            - quota_reached
             - username_taken
             - email_taken
             - server_error
@@ -948,6 +1090,75 @@ components:
         schema_version:
           type: integer
           description: The schema version this code expects.
+
+    InvitationCandidate:
+      allOf:
+        - $ref: '#/components/schemas/IndividualRef'
+        - type: object
+          required: [relationship]
+          properties:
+            relationship:
+              type: string
+              nullable: true
+              description: '"Ihr Bruder" — named by webtrees, in the request''s language.'
+
+    MemberInvitation:
+      type: object
+      additionalProperties: false
+      required: [id, name, email, expires_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+
+    InvitationOverview:
+      type: object
+      additionalProperties: false
+      required: [enabled, linked, quota, remaining, candidates, invitations]
+      properties:
+        enabled:
+          type: boolean
+          description: False when the family has switched member invitations off.
+        linked:
+          type: boolean
+          description: |
+            False when this account is not linked to anybody in the tree, and
+            therefore has no family the portal can identify.
+        quota:
+          type: integer
+        remaining:
+          type: integer
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/InvitationCandidate'
+        invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberInvitation'
+
+    IssuedInvitation:
+      type: object
+      additionalProperties: false
+      required: [link, invitation]
+      properties:
+        link:
+          type: string
+          description: |
+            Shown once. Only a hash of the token is stored, so there is
+            nothing to return on a later request.
+        invitation:
+          allOf:
+            - $ref: '#/components/schemas/MemberInvitation'
+          nullable: true
 
     InvitationPreview:
       type: object

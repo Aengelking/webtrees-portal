@@ -36,7 +36,7 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 6 are built.** Members can be invited, read the tree within
+**Phases 1 to 7 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, and reset their own password. The social graph — messages
 between members, shared contact details — is not in scope.
@@ -50,11 +50,12 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET /members`, `GET /members/{id}`, `GET /individuals/{xref}/ancestors`,
 `GET /media/{xref}/{fact}/{size}`, `POST /password/request`,
 `POST /password/reset`, `POST /invitation/preview`,
-`POST /invitation/accept`, `GET /health`.
+`POST /invitation/accept`, `GET|POST /invitations`,
+`DELETE /invitations/{id}`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
-My profile, edit my details, person, ancestors, Members, member detail,
-Settings.
+My profile, edit my details, person, ancestors, Members, member detail, invite
+close family, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -72,6 +73,10 @@ job, and every record still links out for them.
 Members get in by invitation. An administrator picks the person out of the
 tree and gets a one-time link to send; the invitee chooses their own username
 and password. Nobody registers who was not asked.
+
+Members can invite their own close family from inside the portal, within a
+relationship distance and a quota the administrator sets — see *Letting members
+invite their own family* below for what that does and does not allow.
 
 When something breaks for a member, somebody finds out: the failure is
 recorded with a short reference the member is shown, and the control panel has
@@ -186,6 +191,46 @@ If webtrees' own registration page is switched on
 (*Control panel → Website preferences → Allow visitors to request a new user
 account*), it is a second way in that this module knows nothing about. With
 invitations in place there is no reason to leave it on.
+
+### Letting members invite their own family
+
+*Control panel → Modules → Member portal API → preferences.*
+
+A member opens *Einstellungen → Jemanden einladen*, sees a list of their close
+relatives named by relationship ("Ihr Bruder — Dieter Beispiel"), picks one and
+gets a link to pass on. No administrator is in the loop.
+
+**One thing to understand before switching this on.** The obvious rule for who
+counts as close family — the people the portal already shows a member — is not
+the rule this uses, because it would be far too wide. webtrees applies
+relationship privacy only to accounts that have a per-user
+*Relationship path length* set, and that is not set by default. Without it, a
+member sees **every living person in the tree**. So the distance is measured by
+this module instead, by walking the family tree, and the limit is the setting
+below. What a member can *see* is applied on top: a relative they may not see
+is never a candidate, whatever the distance.
+
+**The three settings:**
+
+* **Members may invite their own close family** — the off switch. On by
+  default.
+* **How close a relative must be** — one step (parents, siblings, partners,
+  children), two (also grandparents, grandchildren, nieces and nephews,
+  parents-in-law) or three (also first cousins and great-grandparents). Two is
+  the default.
+* **Invitations one member may have outstanding** — three by default. Counts
+  only links that have not been used yet; zero has the same effect as switching
+  it off.
+
+**What you still see.** Every invitation appears on the Invitations screen with
+a *Created by* column, and you can withdraw any of them while they are unused.
+The member can withdraw their own, and nobody else's.
+
+**Who is quietly not offered.** Relatives who are dead, who already have an
+account, or who already have an invitation outstanding are simply absent from
+the member's list, with no explanation. That is deliberate: "your sister
+already has an account" would disclose something the portal otherwise treats as
+hers to share.
 
 ### When something goes wrong
 
@@ -856,6 +901,15 @@ form that cannot work.
 **Module actions** (`module/tests/ConfigurationTest.php`) — every action this
 module exposes through webtrees' `/module/{name}/{action}` route has "Admin"
 in its name, which is the only thing that restricts it to administrators.
+
+**Member invitations** (`module/tests/MemberInvitationTest.php`,
+`portal/src/Invite.test.tsx`) — a member is offered only living relatives
+within the configured distance whom they may see; a confidential sister, an
+unconnected stranger and every dead ancestor are absent, and so is anybody who
+already holds an account; posting an XREF that was never offered is refused,
+and every refusal is byte-identical; the quota is enforced; a member cannot
+withdraw somebody else's invitation or even see it; and switching the feature
+off answers rather than 403s, so the screen can explain itself.
 
 **Operations** (`module/tests/OperationsTest.php`, `portal/src/Errors.test.tsx`)
 — an unhandled failure is recorded and answered with a reference that matches

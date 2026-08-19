@@ -19,6 +19,8 @@ export type ApiErrorCode =
   | 'record_locked'
   | 'change_pending'
   | 'invalid_token'
+  | 'not_allowed'
+  | 'quota_reached'
   | 'username_taken'
   | 'email_taken'
   | 'server_error'
@@ -32,6 +34,35 @@ export interface ApiErrorBody {
    * was the portal's own fault rather than a refusal it meant to give.
    */
   reference?: string
+}
+
+/** A close relative a member may invite, with the relationship named. */
+export interface InvitationCandidate extends IndividualRef {
+  relationship: string | null
+}
+
+export interface MemberInvitation {
+  id: number
+  name: string | null
+  email: string | null
+  expires_at: string
+}
+
+export interface InvitationOverview {
+  /** False when the family has switched member invitations off entirely. */
+  enabled: boolean
+  /** False when this account is not linked to anybody in the tree. */
+  linked: boolean
+  quota: number
+  remaining: number
+  candidates: InvitationCandidate[]
+  invitations: MemberInvitation[]
+}
+
+/** The link is in the response once and is never recoverable afterwards. */
+export interface IssuedInvitation {
+  link: string
+  invitation: MemberInvitation | null
 }
 
 export interface Health {

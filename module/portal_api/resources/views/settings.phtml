@@ -22,6 +22,9 @@ use Illuminate\Support\Collection;
  * @var string               $invitation_days
  * @var string               $invitations_url
  * @var string               $diagnosis_url
+ * @var string               $member_invites
+ * @var string               $member_invite_steps
+ * @var string               $member_invite_quota
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -127,6 +130,51 @@ foreach ($trees as $a_tree) {
             <input class="form-control" type="number" min="1" max="90" id="<?= PortalApiModule::SETTING_INVITATION_DAYS ?>" name="<?= PortalApiModule::SETTING_INVITATION_DAYS ?>" value="<?= e($invitation_days) ?>">
             <div class="form-text">
                 <?= I18N::translate('How long an invitation link keeps working. An unused link stops working after this, and a new one can be issued.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Members may invite their own close family'), 'name' => PortalApiModule::SETTING_MEMBER_INVITES, 'checked' => $member_invites === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('A member sees a list of their close relatives and can create an invitation link for one of them, without asking you first. You see every invitation on the screen above, and can withdraw one that has not been used.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('An invitation creates an account with member access to this family tree, so the two settings below are what keeps it in proportion.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_MEMBER_INVITE_STEPS ?>">
+            <?= I18N::translate('How close a relative must be') ?>
+        </label>
+        <div class="col-sm-9">
+            <?= view('components/select', [
+                'name'     => PortalApiModule::SETTING_MEMBER_INVITE_STEPS,
+                'id'       => PortalApiModule::SETTING_MEMBER_INVITE_STEPS,
+                'selected' => $member_invite_steps,
+                'options'  => [
+                    '1' => I18N::translate('Parents, brothers and sisters, partners and children'),
+                    '2' => I18N::translate('Also grandparents, grandchildren, nieces and nephews, parents-in-law'),
+                    '3' => I18N::translate('Also first cousins, great-grandparents, great-nieces and great-nephews'),
+                ],
+            ]) ?>
+            <div class="form-text">
+                <?= I18N::translate('Measured by this module, by walking the family tree — not by webtrees’ own idea of who is visible, which for a member is usually everybody who is alive.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_MEMBER_INVITE_QUOTA ?>">
+            <?= I18N::translate('Invitations one member may have outstanding') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="0" max="20" id="<?= PortalApiModule::SETTING_MEMBER_INVITE_QUOTA ?>" name="<?= PortalApiModule::SETTING_MEMBER_INVITE_QUOTA ?>" value="<?= e($member_invite_quota) ?>">
+            <div class="form-text">
+                <?= I18N::translate('Counts only links that have not been used yet. Zero stops members from inviting anybody, the same as switching it off above.') ?>
             </div>
         </div>
     </div>

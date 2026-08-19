@@ -16,6 +16,9 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
@@ -26,12 +29,14 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ProfileUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
+use Engelking\Webtrees\PortalApi\Services\CloseFamily;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
 use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
+use Engelking\Webtrees\PortalApi\Services\MemberInvitations;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
@@ -123,6 +128,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_RATE_LIMIT_USER     = 'rate_limit_user';
     public const string SETTING_RATE_LIMIT_WINDOW   = 'rate_limit_window';
     public const string SETTING_INVITATION_DAYS     = 'invitation_days';
+    public const string SETTING_MEMBER_INVITES      = 'member_invites';
+    public const string SETTING_MEMBER_INVITE_STEPS = 'member_invite_steps';
+    public const string SETTING_MEMBER_INVITE_QUOTA = 'member_invite_quota';
 
     public const int DEFAULT_RATE_LIMIT_IP     = 30;
     public const int DEFAULT_RATE_LIMIT_USER   = 5;
@@ -212,6 +220,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $gedcom_editor  = new GedcomEditor($pending);
         $invitations    = new InvitationService();
         $errors         = new ErrorLog();
+        $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
+        $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
         $me             = new MeAssembler($portal_trees, $presenter, $members);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -226,6 +236,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(GedcomEditor::class, $gedcom_editor);
         $container->set(InvitationService::class, $invitations);
         $container->set(ErrorLog::class, $errors);
+        $container->set(CloseFamily::class, $close_family);
+        $container->set(MemberInvitations::class, $member_invites);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
@@ -244,6 +256,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
         $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members));
         $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members));
+
+        $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
+        $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
+        $container->set(MemberInvitationDelete::class, new MemberInvitationDelete($member_invites));
 
         $container->set(ProfileUpdate::class, new ProfileUpdate($members));
         $container->set(IndividualUpdate::class, new IndividualUpdate($portal_trees, $presenter, $gedcom_editor, $pending));
@@ -347,6 +363,19 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $map->patch(ProfileUpdate::class, self::ROUTE_PREFIX . '/me/profile', ProfileUpdate::class)
             ->extras(['middleware' => $unsafe_private]);
 
+        // Phase 7 — a member invites their own close family. Reading the
+        // candidate list is safe (it is the walk their own page already does);
+        // issuing and withdrawing are unsafe methods and CSRF-checked.
+        $map->get(MemberInvitationList::class, self::ROUTE_PREFIX . '/invitations', MemberInvitationList::class)
+            ->extras(['middleware' => $private]);
+
+        $map->post(MemberInvitationCreate::class, self::ROUTE_PREFIX . '/invitations', MemberInvitationCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(MemberInvitationDelete::class, self::ROUTE_PREFIX . '/invitations/{id}', MemberInvitationDelete::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
         $map->put(IndividualUpdate::class, self::ROUTE_PREFIX . '/me/individual', IndividualUpdate::class)
             ->extras(['middleware' => $unsafe_private]);
 
@@ -386,6 +415,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'rate_limit_user'   => $this->getPreference(self::SETTING_RATE_LIMIT_USER, (string) self::DEFAULT_RATE_LIMIT_USER),
             'rate_limit_window' => $this->getPreference(self::SETTING_RATE_LIMIT_WINDOW, (string) self::DEFAULT_RATE_LIMIT_WINDOW),
             'invitation_days'   => $this->getPreference(self::SETTING_INVITATION_DAYS, (string) InvitationService::DEFAULT_VALIDITY_DAYS),
+            'member_invites'    => $this->getPreference(self::SETTING_MEMBER_INVITES, '1'),
+            'member_invite_steps' => $this->getPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) CloseFamily::DEFAULT_STEPS),
+            'member_invite_quota' => $this->getPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) MemberInvitations::DEFAULT_QUOTA),
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -402,6 +434,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_RATE_LIMIT_USER, (string) max(0, $body->integer(self::SETTING_RATE_LIMIT_USER, self::DEFAULT_RATE_LIMIT_USER)));
         $this->setPreference(self::SETTING_RATE_LIMIT_WINDOW, (string) max(60, $body->integer(self::SETTING_RATE_LIMIT_WINDOW, self::DEFAULT_RATE_LIMIT_WINDOW)));
         $this->setPreference(self::SETTING_INVITATION_DAYS, (string) $this->validityDays($body->integer(self::SETTING_INVITATION_DAYS, InvitationService::DEFAULT_VALIDITY_DAYS)));
+        $this->setPreference(self::SETTING_MEMBER_INVITES, $body->boolean(self::SETTING_MEMBER_INVITES, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) max(1, min(CloseFamily::MAX_STEPS, $body->integer(self::SETTING_MEMBER_INVITE_STEPS, CloseFamily::DEFAULT_STEPS))));
+        $this->setPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) max(0, min(MemberInvitations::MAX_QUOTA, $body->integer(self::SETTING_MEMBER_INVITE_QUOTA, MemberInvitations::DEFAULT_QUOTA))));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 
@@ -439,6 +474,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'tree'        => $tree,
             'invitations' => $invitations->outstanding($tree),
             'unlinked'    => $members->accountsWithoutRecord($tree),
+            'issuers'     => $this->issuerNames(),
             'valid_days'  => (int) $this->getPreference(self::SETTING_INVITATION_DAYS, (string) InvitationService::DEFAULT_VALIDITY_DAYS),
             'new_link'    => is_string($new_link) ? $new_link : '',
             'portal_url'  => $this->getPreference(self::SETTING_PORTAL_URL, ''),
@@ -458,6 +494,26 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         }
 
         return redirect($this->invitationsUrl());
+    }
+
+    /**
+     * Who issued each invitation, by user id.
+     *
+     * Since Phase 7 an invitation can come from a member as well as from an
+     * administrator, and "who let this person in" is the first question about
+     * one that did not work out.
+     *
+     * @return array<int,string>
+     */
+    private function issuerNames(): array
+    {
+        $names = [];
+
+        foreach (Registry::container()->get(UserService::class)->all() as $user) {
+            $names[$user->id()] = $user->realName() . ' (' . $user->userName() . ')';
+        }
+
+        return $names;
     }
 
     private function issueInvitation(string $xref, string $email): void

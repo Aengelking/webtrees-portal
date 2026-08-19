@@ -78,6 +78,51 @@ export const en: Translations = {
       action: 'Go to sign in',
     },
   },
+  invite: {
+    title: 'Invite somebody',
+    intro:
+      'You can set up portal access for your close family. Choose the person, get a link, and send it yourself — the way you would normally reach them.',
+    chooseTitle: 'Who would you like to invite?',
+    whoLegend: 'Choose a person',
+    email: 'Email address (optional)',
+    emailHint:
+      'Only used to fill in their form for them. The link is not sent automatically — you send it yourself.',
+    create: 'Create an invitation',
+    creating: 'Creating …',
+    remaining_one: 'You may have {{count}} more invitation outstanding.',
+    remaining_other: 'You may have {{count}} more invitations outstanding.',
+    pickSomebody: 'Please choose a person first.',
+    refused:
+      'You cannot invite this person. They may already have access, or already have been invited.',
+    ready: {
+      title: 'The invitation is ready',
+      body:
+        'Copy the link and send it to them — by message, email, however you like. It is shown this once and cannot be looked up again later. If you lose it, withdraw the invitation and create a new one.',
+      label: 'Invitation link',
+      done: 'I have copied it',
+    },
+    outstandingTitle: 'Your outstanding invitations',
+    expires: 'Valid until {{date}}',
+    withdraw: 'Withdraw',
+    none: {
+      title: 'Nobody to invite at the moment',
+      body:
+        'Your close relatives are already here, already invited, or recorded in the family tree as no longer living.',
+    },
+    quota: {
+      title: 'You already have enough invitations outstanding',
+      body: 'Withdraw one, or wait until it has been used — then you can send another.',
+    },
+    off: {
+      title: 'Members cannot send invitations',
+      body: 'In this family the administrators set up accounts. Please ask them.',
+    },
+    noRecord: {
+      title: 'Your account is not linked yet',
+      body:
+        'While your account is not connected to anybody in the family tree, the portal does not know who your family is. Please contact the family administrators.',
+    },
+  },
   profile: {
     title: 'My profile',
     noRecord: {
@@ -162,6 +207,10 @@ export const en: Translations = {
   },
   settings: {
     title: 'Settings',
+    invite: 'Invite family',
+    inviteBody:
+      'You can set up portal access for your close family. You get a link and pass it on yourself.',
+    inviteAction: 'Invite somebody',
     language: 'Language',
     languageHint: 'Applies to this device.',
     account: 'Account',

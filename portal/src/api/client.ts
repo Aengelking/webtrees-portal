@@ -14,6 +14,8 @@ import type {
   Health,
   Individual,
   IndividualUpdate,
+  InvitationOverview,
+  IssuedInvitation,
   InvitationAcceptance,
   InvitationPreview,
   Me,
@@ -276,6 +278,19 @@ export const api = {
 
   member(id: number, signal?: AbortSignal): Promise<MemberDetail> {
     return request<MemberDetail>(`/members/${id}`, signal === undefined ? {} : { signal })
+  },
+
+  /** Whom may I invite, whom have I invited, and how many have I left? */
+  invitations(signal?: AbortSignal): Promise<InvitationOverview> {
+    return request<InvitationOverview>('/invitations', signal === undefined ? {} : { signal })
+  },
+
+  invite(xref: string, email: string): Promise<IssuedInvitation> {
+    return request<IssuedInvitation>('/invitations', { method: 'POST', body: { xref, email } })
+  },
+
+  withdrawInvitation(id: number): Promise<InvitationOverview> {
+    return request<InvitationOverview>(`/invitations/${id}`, { method: 'DELETE' })
   },
 
   updateProfile(changes: MemberProfileUpdate): Promise<MemberProfile> {

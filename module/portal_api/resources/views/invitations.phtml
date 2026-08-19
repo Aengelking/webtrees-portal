@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
 /**
  * @var Collection<int,Invitation> $invitations
  * @var Collection<int,User>       $unlinked
+ * @var array<int,string>          $issuers
  * @var PortalApiModule            $module
  * @var Tree                       $tree
  * @var int                        $valid_days
@@ -104,6 +105,7 @@ use Illuminate\Support\Collection;
                 <tr>
                     <th scope="col"><?= I18N::translate('Individual') ?></th>
                     <th scope="col"><?= I18N::translate('Email address') ?></th>
+                    <th scope="col"><?= I18N::translate('Created by') ?></th>
                     <th scope="col"><?= I18N::translate('Sent') ?></th>
                     <th scope="col"><?= I18N::translate('Expires') ?></th>
                     <th scope="col"><span class="visually-hidden"><?= I18N::translate('Withdraw') ?></span></th>
@@ -114,6 +116,7 @@ use Illuminate\Support\Collection;
                     <tr>
                         <td><?= e($invitation->invited_name ?? I18N::translate('Not linked to a record')) ?></td>
                         <td><?= e($invitation->email ?? '') ?></td>
+                        <td><?= e($issuers[$invitation->created_by] ?? I18N::translate('Unknown')) ?></td>
                         <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make($invitation->created_at)]) ?></td>
                         <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make($invitation->expires_at)]) ?></td>
                         <td>

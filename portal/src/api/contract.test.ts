@@ -27,6 +27,8 @@ describe('openapi.yaml and the API client agree', () => {
       '/individuals/{xref}/ancestors',
       '/invitation/accept',
       '/invitation/preview',
+      '/invitations',
+      '/invitations/{id}',
       '/me',
       '/me/individual',
       '/me/profile',
@@ -50,6 +52,8 @@ describe('openapi.yaml and the API client agree', () => {
       '/individuals/{xref}/ancestors': '}/ancestors`',
       '/invitation/preview': "'/invitation/preview'",
       '/invitation/accept': "'/invitation/accept'",
+      '/invitations': "'/invitations'",
+      '/invitations/{id}': '`/invitations/${',
       // Served straight into <img src>, so the client has no fetch for it —
       // the paths come from the API in Photo.thumbnail_url / image_url.
       '/media/{xref}/{fact}/{size}': '',

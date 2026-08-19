@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
 import { useMe, useUpdateProfile } from '../api/queries'
@@ -44,6 +45,24 @@ export function Settings() {
 
       <Section title={t('settings.language')}>
         <LanguageSwitcher />
+      </Section>
+
+      {/*
+        Not a fourth item in the bottom navigation. Three destinations was a
+        decision, and inviting somebody is a thing a member does once or twice
+        — not a place they need to be able to reach from every screen.
+        Settings is where the rest of "my own participation" already lives.
+      */}
+      <Section title={t('settings.invite')}>
+        <Card>
+          <p className="text-base text-slate-700">{t('settings.inviteBody')}</p>
+          <Link
+            to="/invite"
+            className="mt-4 inline-flex min-h-[44px] items-center rounded-lg bg-sky-800 px-5 py-3 text-base font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          >
+            {t('settings.inviteAction')}
+          </Link>
+        </Card>
       </Section>
 
       {me !== null && (

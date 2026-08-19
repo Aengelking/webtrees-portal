@@ -99,6 +99,7 @@ export async function stubApi(page: Page): Promise<void> {
   let signedIn = false
   let pendingChange = false
   let visibleInDirectory = true
+  let invitedDieter = false
 
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
@@ -168,6 +169,57 @@ export async function stubApi(page: Page): Promise<void> {
 
     if (!signedIn) {
       return json(route, { error: 'unauthenticated', message: 'Please sign in.' }, 401)
+    }
+
+    // Phase 7. Anna may invite her brother Dieter, and nobody else.
+    if (path === '/invitations' && method === 'GET') {
+      return json(route, {
+        enabled: true,
+        linked: true,
+        quota: 3,
+        remaining: invitedDieter ? 2 : 3,
+        candidates: invitedDieter
+          ? []
+          : [
+              {
+                xref: 'X4',
+                name: 'Dieter Beispiel',
+                sex: 'M',
+                is_deceased: false,
+                lifespan: '1990–',
+                portrait: null,
+                relationship: 'Ihr Bruder',
+              },
+            ],
+        invitations: invitedDieter
+          ? [{ id: 9, name: 'Dieter Beispiel', email: null, expires_at: '2026-09-01T12:00:00+00:00' }]
+          : [],
+      })
+    }
+
+    if (path === '/invitations' && method === 'POST') {
+      const body = route.request().postDataJSON() as { xref?: string }
+
+      if (body.xref !== 'X4') {
+        return json(route, { error: 'not_allowed', message: 'No.' }, 403)
+      }
+
+      invitedDieter = true
+
+      return json(
+        route,
+        {
+          link: 'https://portal.example.test/invitation?token=einladung-fuer-dieter',
+          invitation: { id: 9, name: 'Dieter Beispiel', email: null, expires_at: '2026-09-01T12:00:00+00:00' },
+        },
+        201,
+      )
+    }
+
+    if (path.startsWith('/invitations/') && method === 'DELETE') {
+      invitedDieter = false
+
+      return json(route, { enabled: true, linked: true, quota: 3, remaining: 3, candidates: [], invitations: [] })
     }
 
     if (path === '/me') {

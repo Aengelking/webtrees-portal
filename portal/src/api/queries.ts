@@ -18,6 +18,8 @@ import type {
   MemberProfile,
   MemberProfileUpdate,
   Me,
+  InvitationOverview,
+  IssuedInvitation,
   PendingIndividual,
 } from './types'
 
@@ -27,6 +29,7 @@ export const queryKeys = {
   ancestors: (xref: string, generations: number) => ['ancestors', xref, generations] as const,
   members: (q: string, page: number) => ['members', q, page] as const,
   member: (id: number) => ['member', id] as const,
+  invitations: ['invitations'] as const,
 }
 
 /**
@@ -111,6 +114,47 @@ export function useUpdateIndividual() {
     mutationFn: (changes) => api.updateIndividual(changes),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+/**
+ * Whom this member may invite, and whom they already have.
+ *
+ * Language is part of the key like everywhere else: the relationship names
+ * ("Ihr Bruder") are rendered by webtrees on the server, so a language switch
+ * has to refetch rather than leave German labels on an English screen.
+ */
+export function useInvitations() {
+  const language = useLanguage()
+
+  return useQuery<InvitationOverview>({
+    queryKey: [...queryKeys.invitations, language],
+    queryFn: ({ signal }) => api.invitations(signal),
+  })
+}
+
+export function useInvite() {
+  const queryClient = useQueryClient()
+
+  return useMutation<IssuedInvitation, Error, { xref: string; email: string }>({
+    mutationFn: ({ xref, email }) => api.invite(xref, email),
+    onSuccess: () => {
+      // The person just invited drops off the candidate list and the
+      // remaining count falls, so the answer comes from the server rather
+      // than from patching the cache.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.invitations })
+    },
+  })
+}
+
+export function useWithdrawInvitation() {
+  const queryClient = useQueryClient()
+
+  return useMutation<InvitationOverview, Error, number>({
+    mutationFn: (id) => api.withdrawInvitation(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.invitations })
     },
   })
 }
