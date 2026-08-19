@@ -976,10 +976,10 @@ Written down rather than acted on, per §2 of the handoff.
   and it stays, but it deserves a decision rather than a default: is that link
   what you want, or should a later phase bring a simple read-only pedigree into
   the portal instead?
-* **Nothing tells a member their account is not linked to a record.** `/me`
-  returns `individual: null` and the portal explains it, but no one tells the
-  *administrator*. A "members with no linked record" list in the module's
-  admin page would be a small, useful addition.
+* ~~Nothing tells an administrator that an account is not linked to a
+  record.~~ **Done in Phase 5.** The invitations screen lists them, and
+  invitations link the account at the moment it is created, so the list should
+  now only fill up from re-imports and from accounts made by hand.
 * **`portal_login_attempt` grows between prunes.** Pruning is opportunistic
   (1 in 20 failed logins). Under a sustained attack, the table could reach
   perhaps tens of thousands of rows before pruning catches up. Indexed and
