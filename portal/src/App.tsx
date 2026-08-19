@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { Loading } from './components/ui'
 import { EditProfile } from './routes/EditProfile'
+import { Invitation } from './routes/Invitation'
 import { Login } from './routes/Login'
 import { PasswordRequest } from './routes/PasswordRequest'
 import { PasswordReset } from './routes/PasswordReset'
@@ -40,6 +41,7 @@ export function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/password/request" element={<PasswordRequest />} />
       <Route path="/password/reset" element={<PasswordReset />} />
+      <Route path="/invitation" element={<Invitation />} />
 
       <Route
         element={

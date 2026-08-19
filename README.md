@@ -36,9 +36,10 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 4 are built.** Members can read the tree within their privacy
-level, change their own portal settings, propose changes to their own record,
-and reset their own password. Photos, and the social graph, are not in scope.
+**Phases 1 to 5 are built.** Members can be invited, read the tree within
+their privacy level, change their own portal settings, propose changes to
+their own record, and reset their own password. The social graph — messages
+between members, shared contact details — is not in scope.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -48,10 +49,12 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `PATCH /me/profile`, `PUT /me/individual`, `GET /individuals/{xref}`,
 `GET /members`, `GET /members/{id}`, `GET /individuals/{xref}/ancestors`,
 `GET /media/{xref}/{fact}/{size}`, `POST /password/request`,
-`POST /password/reset`.
+`POST /password/reset`, `POST /invitation/preview`,
+`POST /invitation/accept`.
 
-Screens: login, forgotten password, set a new password, My profile, edit my
-details, person, ancestors, Members, member detail, Settings.
+Screens: login, accept an invitation, forgotten password, set a new password,
+My profile, edit my details, person, ancestors, Members, member detail,
+Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -65,6 +68,10 @@ The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
 member is related to it. Drawn charts (fan, descendancy) are still webtrees'
 job, and every record still links out for them.
+
+Members get in by invitation. An administrator picks the person out of the
+tree and gets a one-time link to send; the invitee chooses their own username
+and password. Nobody registers who was not asked.
 
 ---
 
@@ -137,6 +144,42 @@ should not leave a note saying it was given.
 
 `display_name_override` is the name shown in the directory; when it is empty
 the member's webtrees real name is used.
+
+### Inviting a member
+
+*Control panel → Modules → Member portal API → Invitations.*
+
+1. Pick the person in the family tree. The new account will be linked to that
+   record, so the portal can show them their own page.
+2. Optionally note the email address you are sending to. It prefills their
+   form; it is not a password and it is not checked against anything.
+3. **Create an invitation.** The link appears once. Copy it and send it the
+   way you would normally reach that person — this module does not send email,
+   deliberately: guessing the wrong address means mailing a working credential
+   to a stranger.
+
+The invitee opens the link, sees who the invitation is for, and chooses a
+username and password. The account is created verified, approved, with the
+role *member* on the portal's tree, and already linked to the record. They are
+signed in immediately — there is nothing else for you to approve.
+
+Some details worth knowing:
+
+* **The link is shown once.** Only a hash of it is stored, so it cannot be
+  looked up later. If you lose it, withdraw the invitation and issue another.
+* **It works once**, and expires after the number of days set in the module
+  preferences (14 by default, 90 at most).
+* **Withdraw** removes an unspent invitation immediately.
+* **Accounts with no linked record** is listed on the same page. An account in
+  that list can sign in but the portal has nothing of its own to show it —
+  usually an account created by hand before invitations existed, or one whose
+  record moved in a re-import. Open it in webtrees and set the individual
+  record.
+
+If webtrees' own registration page is switched on
+(*Control panel → Website preferences → Allow visitors to request a new user
+account*), it is a second way in that this module knows nothing about. With
+invitations in place there is no reason to leave it on.
 
 ### Trying the write path safely
 
@@ -734,6 +777,21 @@ for; `Accept-Language` goes out on every request; switching language in the
 portal refetches rather than leaving English labels on a German screen; an
 unavailable language changes nothing rather than failing.
 
+**Invitations** (`module/tests/InvitationTest.php`,
+`portal/src/Invitation.test.tsx`) — the raw token appears in no column of
+`portal_invitation`; an invitation is redeemable once, and a second attempt
+creates no account; expired, withdrawn and unknown tokens produce identical
+refusals; the preview discloses no XREF and reads nothing from the family
+tree; the new account is `member`, is not an administrator and cannot accept
+its own edits; a taken username, a taken address and a short password are all
+refused *without* burning the invitation. On the client the token travels in a
+`POST` body and never in a URL, and a dead link says so instead of showing a
+form that cannot work.
+
+**Module actions** (`module/tests/ConfigurationTest.php`) — every action this
+module exposes through webtrees' `/module/{name}/{action}` route has "Admin"
+in its name, which is the only thing that restricts it to administrators.
+
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the
 app to the login screen; nothing but the language preference reaches browser
@@ -839,5 +897,5 @@ curl -i https://your-worker.your-subdomain.workers.dev/api/v1/csrf
 ## Open questions
 
 `NOTES.md` lists what was decided, what was assumed, and what still needs an
-answer from you — including the tree question, self-registration, password
-reset and social login.
+answer from you — including the tree question and social login. Registration
+and password reset are answered there now, in §1.3 and §1.4.

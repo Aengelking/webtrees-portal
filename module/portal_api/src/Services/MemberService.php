@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Services;
 
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Services\UserService;
+use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
 use Illuminate\Support\Collection;
 use RuntimeException;
@@ -150,6 +152,31 @@ class MemberService
         }
 
         return $this->profile($row);
+    }
+
+    /**
+     * Accounts that can sign in to the portal but are not linked to anybody
+     * in the family tree.
+     *
+     * Such an account works — it just shows the member nothing about
+     * themselves, because `/me` has no record to attach. Before invitations
+     * existed this was the normal outcome of creating an account by hand and
+     * forgetting the second step, and it is invisible from webtrees' own user
+     * list. It is worth an administrator being able to see it in one place.
+     *
+     * Administrators are excluded: an administrator's account is usually not
+     * a member's account, and listing it every time would train the reader to
+     * ignore the list.
+     *
+     * @return Collection<int,User>
+     */
+    public function accountsWithoutRecord(Tree $tree): Collection
+    {
+        return $this->user_service->all()
+            ->reject(static fn (User $user): bool => Auth::isAdmin($user))
+            ->filter(static fn (User $user): bool => $tree->getUserPreference($user, UserInterface::PREF_TREE_ACCOUNT_XREF) === '')
+            ->sortBy(static fn (User $user): string => mb_strtolower($user->realName()))
+            ->values();
     }
 
     /**

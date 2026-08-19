@@ -128,6 +128,39 @@ export async function stubApi(page: Page): Promise<void> {
       return json(route, { status: 'accepted' }, 202)
     }
 
+    // Phase 5. One invitation, spelled "einladung-fuer-anna"; anything else
+    // is refused the way an expired or spent one is.
+    if (path === '/invitation/preview' && method === 'POST') {
+      const body = route.request().postDataJSON() as { token?: string }
+
+      if (body.token !== 'einladung-fuer-anna') {
+        return json(route, { error: 'invalid_token', message: 'Expired.' }, 400)
+      }
+
+      return json(route, {
+        tree: { name: 'portal', title: 'Familie Beispiel' },
+        invited_name: 'Anna Beispiel',
+        email: 'anna@example.test',
+        expires_at: '2026-09-01T12:00:00+00:00',
+      })
+    }
+
+    if (path === '/invitation/accept' && method === 'POST') {
+      const body = route.request().postDataJSON() as { token?: string; username?: string }
+
+      if (body.token !== 'einladung-fuer-anna') {
+        return json(route, { error: 'invalid_token', message: 'Expired.' }, 400)
+      }
+
+      if (body.username === 'anna') {
+        return json(route, { error: 'username_taken', message: 'Duplicate username.' }, 409)
+      }
+
+      signedIn = true
+
+      return json(route, ME, 201)
+    }
+
     if (path === '/session' && method === 'DELETE') {
       signedIn = false
       return json(route, { csrf_token: 'token-2' })

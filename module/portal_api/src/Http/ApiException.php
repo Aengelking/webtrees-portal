@@ -82,6 +82,39 @@ class ApiException extends RuntimeException
         );
     }
 
+    /**
+     * Unknown, expired, spent, revoked, for another tree, or asked for too
+     * often — one answer for all of them.
+     *
+     * Unlike a login, this does not need to hide *which* failure it was in
+     * order to avoid saying who has an account: an invitation token names
+     * nobody. It is one message because there is one thing the reader can
+     * usefully do about any of them, which is to ask for a new invitation.
+     */
+    public static function invalidInvitation(): self
+    {
+        return new self(
+            'invalid_token',
+            StatusCodeInterface::STATUS_BAD_REQUEST,
+            I18N::translate('This invitation has expired or has already been used. Please ask for a new one.')
+        );
+    }
+
+    /**
+     * Refusals that a form has to be able to act on.
+     *
+     * These do name something about the installation — that a username or an
+     * address is spoken for — and that is unavoidable: a registration form
+     * that cannot say why it will not accept a name is a form nobody can
+     * complete. It is reachable only by someone already holding a valid
+     * invitation, which is what keeps it from being a way to enumerate
+     * accounts.
+     */
+    public static function conflict(string $error, string $message): self
+    {
+        return new self($error, StatusCodeInterface::STATUS_CONFLICT, $message);
+    }
+
     public static function notConfigured(string $message): self
     {
         return new self(

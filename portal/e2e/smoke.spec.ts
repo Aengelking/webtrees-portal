@@ -194,3 +194,41 @@ test.describe('phase 2', () => {
     await expect(page.getByText('Dieser Link ist unvollständig')).toBeVisible()
   })
 })
+
+test.describe('phase 5', () => {
+  test('an invited person creates an account and is signed in', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Would create a real account.')
+
+    await page.goto('/invitation?token=einladung-fuer-anna')
+
+    // Who it is for, before anything is asked of them.
+    await expect(page.getByText('Anna Beispiel')).toBeVisible()
+
+    // A username somebody already has is explained, and does not cost them
+    // the invitation or what they typed.
+    await page.getByLabel('Benutzername').fill('anna')
+    await page.getByLabel('Neues Passwort').fill('sehr-geheim-2026')
+    await page.getByLabel('Passwort wiederholen').fill('sehr-geheim-2026')
+    await page.getByRole('button', { name: 'Zugang anlegen' }).click()
+
+    await expect(page.getByRole('alert')).toContainText('Benutzernamen gibt es schon')
+    await expect(page.getByLabel('E-Mail-Adresse')).toHaveValue('anna@example.test')
+
+    await page.getByLabel('Benutzername').fill('anna2')
+    await page.getByLabel('Neues Passwort').fill('sehr-geheim-2026')
+    await page.getByLabel('Passwort wiederholen').fill('sehr-geheim-2026')
+    await page.getByRole('button', { name: 'Zugang anlegen' }).click()
+
+    // Signed in, with no second trip through the login screen.
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+  })
+
+  test('a spent invitation says so instead of showing a form', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed invitation.')
+
+    await page.goto('/invitation?token=schon-benutzt')
+
+    await expect(page.getByText('Diese Einladung gilt nicht mehr')).toBeVisible()
+    await expect(page.getByLabel('Benutzername')).toBeHidden()
+  })
+})

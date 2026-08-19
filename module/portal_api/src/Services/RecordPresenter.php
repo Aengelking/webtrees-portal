@@ -371,6 +371,25 @@ class RecordPresenter
     // -----------------------------------------------------------------
 
     /**
+     * A person's name with no privacy filtering at all.
+     *
+     * The one deliberate exception to "every record leaving here is filtered",
+     * and it is not on a path a member can reach. It exists so that an
+     * *administrator*, choosing whom to invite in the control panel, can store
+     * a snapshot of the name on the invitation — which is then the only thing
+     * the invitation screen ever shows, so that redeeming an invitation never
+     * reads the family tree for somebody who is not signed in yet.
+     *
+     * An administrator may see every record in every tree, so nothing is
+     * disclosed here that the caller could not already read. Do not call it
+     * from a request handler.
+     */
+    public function plainName(Individual $individual): string
+    {
+        return $this->nameAt($individual, $individual->getPrimaryName());
+    }
+
+    /**
      * A record can be visible while its name is not, and the reverse. Where
      * the name is hidden, emit exactly the placeholder webtrees would show,
      * so the shape of the response is the same either way.

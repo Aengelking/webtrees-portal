@@ -48,6 +48,35 @@ export const de = {
     },
     expired: 'Dieser Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.',
   },
+  invitation: {
+    title: 'Willkommen in der Familie',
+    intro:
+      'Sie wurden zum Mitgliederportal von „{{tree}}“ eingeladen. Legen Sie hier Ihren Zugang an — das dauert eine Minute.',
+    invitedAs: 'Die Einladung gilt für:',
+    realName: 'Ihr Name',
+    username: 'Benutzername',
+    usernameHint:
+      'Damit melden Sie sich künftig an. Mindestens drei Zeichen, ohne Leerzeichen und ohne „@“.',
+    email: 'E-Mail-Adresse',
+    emailHint:
+      'Hierhin geht der Link, falls Sie einmal Ihr Passwort vergessen. Sie muss nicht die Adresse sein, an die die Einladung ging.',
+    passwordHint: 'Mindestens acht Zeichen.',
+    save: 'Zugang anlegen',
+    saving: 'Wird angelegt …',
+    usernameTaken:
+      'Diesen Benutzernamen gibt es schon. Bitte wählen Sie einen anderen — Ihre Einladung gilt weiterhin.',
+    emailTaken:
+      'Zu dieser E-Mail-Adresse gibt es schon ein Konto. Bitte nehmen Sie eine andere Adresse oder melden Sie sich mit dem vorhandenen Konto an.',
+    badDetails: 'Bitte prüfen Sie Ihre Angaben. Etwas davon konnte der Server nicht annehmen.',
+    privacyNote:
+      'Im Portal sehen Sie nur, was für Sie freigegeben ist. Angaben zu lebenden Personen bleiben geschützt.',
+    unusable: {
+      title: 'Diese Einladung gilt nicht mehr',
+      body:
+        'Der Link ist abgelaufen oder wurde schon benutzt. Bitte fragen Sie in der Familienverwaltung nach einer neuen Einladung.',
+      action: 'Zur Anmeldung',
+    },
+  },
   profile: {
     title: 'Mein Profil',
     noRecord: {

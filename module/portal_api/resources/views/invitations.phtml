@@ -1,0 +1,165 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\Invitation;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\Http\RequestHandlers\UserEditPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Tree;
+use Fisharebest\Webtrees\User;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<int,Invitation> $invitations
+ * @var Collection<int,User>       $unlinked
+ * @var PortalApiModule            $module
+ * @var Tree                       $tree
+ * @var int                        $valid_days
+ * @var string                     $new_link
+ * @var string                     $portal_url
+ * @var string                     $settings_url
+ * @var string                     $title
+ */
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('An invitation is a one-time link for one person. Choose who it is for, send them the link, and they choose their own username and password. The account is created ready to use — there is no email to confirm and nothing to approve afterwards.') ?>
+</p>
+
+<?php if ($portal_url === '') : ?>
+    <div class="alert alert-danger">
+        <?= I18N::translate('The portal address is not set, so an invitation link cannot be built.') ?>
+        <a href="<?= e($settings_url) ?>"><?= I18N::translate('Preferences') ?></a>
+    </div>
+<?php endif ?>
+
+<?php if ($new_link !== '') : ?>
+    <div class="alert alert-success">
+        <h2 class="h5"><?= I18N::translate('The invitation is ready') ?></h2>
+        <p>
+            <?= I18N::translate('Copy this link and send it to the person it is for. It is shown once and cannot be recovered — if you lose it, withdraw the invitation below and issue another.') ?>
+        </p>
+        <input class="form-control" type="text" readonly value="<?= e($new_link) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Invitation link') ?>">
+    </div>
+<?php endif ?>
+
+<h2 class="h5 mt-4"><?= I18N::translate('Invite somebody') ?></h2>
+
+<form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminInvitations'])) ?>">
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="xref">
+            <?= I18N::translate('Individual') ?>
+        </label>
+        <div class="col-sm-9">
+            <?= view('components/select-individual', ['name' => 'xref', 'id' => 'xref', 'tree' => $tree]) ?>
+            <div class="form-text">
+                <?= I18N::translate('The new account is linked to this person, so that the portal can show them their own record. Leave empty to create an account that is not linked to anybody yet.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="email">
+            <?= I18N::translate('Email address') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="email" id="email" name="email" maxlength="64" autocomplete="off">
+            <div class="form-text">
+                <?= I18N::translate('Noted on the invitation and filled in for them on the form. This module does not send the email — send the link yourself, the way you would normally reach this person.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="offset-sm-3 col-sm-9">
+            <button type="submit" class="btn btn-primary">
+                <?= I18N::translate('Create an invitation') ?>
+            </button>
+            <div class="form-text">
+                <?= I18N::plural('The link is valid for %s day.', 'The link is valid for %s days.', $valid_days, I18N::number($valid_days)) ?>
+            </div>
+        </div>
+    </div>
+
+    <?= csrf_field() ?>
+</form>
+
+<h2 class="h5 mt-5"><?= I18N::translate('Outstanding invitations') ?></h2>
+
+<?php if ($invitations->isEmpty()) : ?>
+    <p class="text-muted"><?= I18N::translate('Nobody is waiting for an invitation.') ?></p>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Individual') ?></th>
+                    <th scope="col"><?= I18N::translate('Email address') ?></th>
+                    <th scope="col"><?= I18N::translate('Sent') ?></th>
+                    <th scope="col"><?= I18N::translate('Expires') ?></th>
+                    <th scope="col"><span class="visually-hidden"><?= I18N::translate('Withdraw') ?></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($invitations as $invitation) : ?>
+                    <tr>
+                        <td><?= e($invitation->invited_name ?? I18N::translate('Not linked to a record')) ?></td>
+                        <td><?= e($invitation->email ?? '') ?></td>
+                        <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make($invitation->created_at)]) ?></td>
+                        <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make($invitation->expires_at)]) ?></td>
+                        <td>
+                            <form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminInvitations'])) ?>">
+                                <input type="hidden" name="invitation_action" value="revoke">
+                                <input type="hidden" name="invitation_id" value="<?= (int) $invitation->id ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <?= I18N::translate('Withdraw') ?>
+                                </button>
+                                <?= csrf_field() ?>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>
+
+<h2 class="h5 mt-5"><?= I18N::translate('Accounts with no linked record') ?></h2>
+
+<p>
+    <?= I18N::translate('These accounts can sign in, but the portal has nothing of their own to show them. Open the account in webtrees and set the individual record for the family tree “%s”.', e($tree->title())) ?>
+</p>
+
+<?php if ($unlinked->isEmpty()) : ?>
+    <p class="text-muted"><?= I18N::translate('Every account is linked to a record.') ?></p>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Username') ?></th>
+                    <th scope="col"><?= I18N::translate('Real name') ?></th>
+                    <th scope="col"><?= I18N::translate('Email address') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($unlinked as $user) : ?>
+                    <tr>
+                        <td><a href="<?= e(route(UserEditPage::class, ['user_id' => $user->id()])) ?>"><?= e($user->userName()) ?></a></td>
+                        <td><?= e($user->realName()) ?></td>
+                        <td><?= e($user->email()) ?></td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>

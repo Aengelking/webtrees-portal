@@ -13,6 +13,8 @@ import type {
   CsrfToken,
   Individual,
   IndividualUpdate,
+  InvitationAcceptance,
+  InvitationPreview,
   Me,
   MemberDetail,
   MemberPage,
@@ -275,6 +277,26 @@ export const api = {
    */
   async resetPassword(token: string, password: string): Promise<Me> {
     const me = await request<Me>('/password/reset', { method: 'POST', body: { token, password } })
+    rememberCsrfToken(me.csrf_token)
+
+    return me
+  },
+
+  /**
+   * Both invitation calls are POSTs, including the one that only reads.
+   *
+   * The token must not travel in a URL: it would end up in the webserver's
+   * access log, in any proxy along the way, and in the `Referer` of every
+   * request this page goes on to make. A body is the only place it can go
+   * that none of those keep.
+   */
+  previewInvitation(token: string): Promise<InvitationPreview> {
+    return request<InvitationPreview>('/invitation/preview', { method: 'POST', body: { token } })
+  },
+
+  /** Creates the account and signs the new member in, so it behaves like login. */
+  async acceptInvitation(details: InvitationAcceptance): Promise<Me> {
+    const me = await request<Me>('/invitation/accept', { method: 'POST', body: details })
     rememberCsrfToken(me.csrf_token)
 
     return me

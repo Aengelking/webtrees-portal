@@ -19,6 +19,8 @@ export type ApiErrorCode =
   | 'record_locked'
   | 'change_pending'
   | 'invalid_token'
+  | 'username_taken'
+  | 'email_taken'
   | 'server_error'
   | 'network_error'
 
@@ -29,6 +31,28 @@ export interface ApiErrorBody {
 
 export interface CsrfToken {
   csrf_token: string
+}
+
+/**
+ * What an invitation opens, as far as somebody who is not signed in may know.
+ *
+ * `invited_name` is a snapshot the administrator's screen took when the
+ * invitation was issued, not a lookup — so opening an invitation link never
+ * reads the family tree.
+ */
+export interface InvitationPreview {
+  tree: Tree
+  invited_name: string | null
+  email: string | null
+  expires_at: string
+}
+
+export interface InvitationAcceptance {
+  token: string
+  username: string
+  real_name: string
+  email: string
+  password: string
 }
 
 export interface Credentials {

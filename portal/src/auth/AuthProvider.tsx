@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, forgetCsrfToken, setUnauthenticatedHandler } from '../api/client'
-import type { Credentials, Me } from '../api/types'
+import type { Credentials, InvitationAcceptance, Me } from '../api/types'
 
 type Status = 'checking' | 'signed-in' | 'signed-out'
 
@@ -13,6 +13,8 @@ interface AuthContextValue {
   signOut: () => Promise<void>
   /** A completed reset signs the member in, so it lands here rather than in a route. */
   resetPassword: (token: string, password: string) => Promise<void>
+  /** Accepting an invitation creates the account and signs it in, so it lands here too. */
+  acceptInvitation: (details: InvitationAcceptance) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -94,14 +96,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   )
 
+  const acceptInvitation = useCallback(
+    async (details: InvitationAcceptance) => {
+      const result = await api.acceptInvitation(details)
+
+      queryClient.clear()
+      queryClient.setQueryData(['me'], result)
+      setMe(result)
+      setStatus('signed-in')
+    },
+    [queryClient],
+  )
+
   const signOut = useCallback(async () => {
     await api.logout()
     reset()
   }, [reset])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, me, signIn, signOut, resetPassword }),
-    [status, me, signIn, signOut, resetPassword],
+    () => ({ status, me, signIn, signOut, resetPassword, acceptInvitation }),
+    [status, me, signIn, signOut, resetPassword, acceptInvitation],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

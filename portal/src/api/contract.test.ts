@@ -19,11 +19,13 @@ function specPaths(): string[] {
 const client = readFileSync(resolve(process.cwd(), 'src/api/client.ts'), 'utf-8')
 
 describe('openapi.yaml and the API client agree', () => {
-  it('documents exactly the endpoints Phase 1 uses', () => {
+  it('documents exactly the endpoints the portal uses', () => {
     expect(specPaths()).toEqual([
       '/csrf',
       '/individuals/{xref}',
       '/individuals/{xref}/ancestors',
+      '/invitation/accept',
+      '/invitation/preview',
       '/me',
       '/me/individual',
       '/me/profile',
@@ -44,6 +46,8 @@ describe('openapi.yaml and the API client agree', () => {
       '/members': "'/members'",
       '/individuals/{xref}': '`/individuals/${',
       '/individuals/{xref}/ancestors': '}/ancestors`',
+      '/invitation/preview': "'/invitation/preview'",
+      '/invitation/accept': "'/invitation/accept'",
       // Served straight into <img src>, so the client has no fetch for it —
       // the paths come from the API in Photo.thumbnail_url / image_url.
       '/media/{xref}/{fact}/{size}': '',

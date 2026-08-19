@@ -19,6 +19,8 @@ use Illuminate\Support\Collection;
  * @var string               $rate_limit_ip
  * @var string               $rate_limit_user
  * @var string               $rate_limit_window
+ * @var string               $invitation_days
+ * @var string               $invitations_url
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -34,7 +36,13 @@ foreach ($trees as $a_tree) {
 <h1><?= e($title) ?></h1>
 
 <p>
-    <?= I18N::translate('This module serves the member portal. It is read-only: it adds no way to change genealogy data.') ?>
+    <?= I18N::translate('This module serves the member portal. Members can view the family tree and propose changes to their own record; those changes go to the pending changes list for approval.') ?>
+</p>
+
+<p>
+    <a class="btn btn-outline-primary" href="<?= e($invitations_url) ?>">
+        <?= I18N::translate('Invitations') ?>
+    </a>
 </p>
 
 <form method="post">
@@ -102,6 +110,20 @@ foreach ($trees as $a_tree) {
         </label>
         <div class="col-sm-9">
             <input class="form-control" type="number" min="60" id="<?= PortalApiModule::SETTING_RATE_LIMIT_WINDOW ?>" name="<?= PortalApiModule::SETTING_RATE_LIMIT_WINDOW ?>" value="<?= e($rate_limit_window) ?>">
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('Invitations') ?></h2>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_INVITATION_DAYS ?>">
+            <?= I18N::translate('An invitation is valid for (days)') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="1" max="90" id="<?= PortalApiModule::SETTING_INVITATION_DAYS ?>" name="<?= PortalApiModule::SETTING_INVITATION_DAYS ?>" value="<?= e($invitation_days) ?>">
+            <div class="form-text">
+                <?= I18N::translate('How long an invitation link keeps working. An unused link stops working after this, and a new one can be issued.') ?>
+            </div>
         </div>
     </div>
 

@@ -401,6 +401,129 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /invitation/preview:
+    post:
+      tags: [session]
+      summary: What does this invitation open?
+      description: |
+        A read, done with `POST`, on purpose. The token has to travel in the
+        body: a `GET /invitation/{token}` would write the credential into the
+        webserver's access log, into any proxy in front of it, and into the
+        `Referer` of every request the resulting page makes.
+
+        The answer is deliberately small — the family tree's title and the
+        name the invitation was issued for. No XREF and no genealogy record:
+        the reader is not signed in. The name is a snapshot stored on the
+        invitation when it was issued, so nothing on this path reads the
+        family tree.
+
+        Unknown, expired, spent, withdrawn and rate-limited all produce the
+        same `invalid_token`.
+      security: []
+      operationId: previewInvitation
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: The invitation is still good.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitationPreview'
+        '400':
+          description: The invitation cannot be used. One answer for every reason.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /invitation/accept:
+    post:
+      tags: [session]
+      summary: Turn an invitation into an account
+      description: |
+        Creates a plain webtrees user account — there is no second user store
+        — already verified and already approved, with the role `member` on the
+        portal's tree, linked to the individual the invitation named. It then
+        signs the new member in, so the response is the same `Me` payload as
+        `POST /session`.
+
+        The invitation is claimed with a conditional update, so two requests
+        arriving together cannot both produce an account. A refusal that
+        creates nothing — a username somebody else has, a password that is too
+        short — leaves the invitation usable.
+      security: []
+      operationId: acceptInvitation
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvitationAcceptance'
+      responses:
+        '201':
+          description: The account exists and the member is signed in.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '400':
+          description: |
+            The invitation cannot be used, or the account details are not
+            acceptable — a password shorter than eight characters, a username
+            outside 3–32 characters or containing a space or `@`, or an
+            address that is not an address.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: |
+            The username or the email address already belongs to an account.
+            `username_taken` or `email_taken`. These do say something about
+            the installation, which is unavoidable in a form somebody has to
+            be able to complete; they are reachable only while holding a valid
+            invitation.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -750,6 +873,8 @@ components:
             - record_locked
             - change_pending
             - invalid_token
+            - username_taken
+            - email_taken
             - server_error
         message:
           type: string
@@ -757,6 +882,59 @@ components:
             A human-readable message in the server's language. The portal
             renders its own translated text keyed off `error` and uses this
             only for logging.
+
+    InvitationPreview:
+      type: object
+      additionalProperties: false
+      required: [tree, invited_name, email, expires_at]
+      properties:
+        tree:
+          $ref: '#/components/schemas/Tree'
+        invited_name:
+          type: string
+          nullable: true
+          description: |
+            The name the invitation was issued for, as it read at that moment.
+            A snapshot on the invitation, not a lookup — null when the
+            invitation is not tied to anybody in the tree.
+        email:
+          type: string
+          nullable: true
+          description: Where the administrator sent it, used to prefill the form.
+        expires_at:
+          type: string
+          format: date-time
+
+    InvitationAcceptance:
+      type: object
+      additionalProperties: false
+      required: [token, username, real_name, email, password]
+      properties:
+        token:
+          type: string
+          minLength: 1
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          description: |
+            No spaces and no `@`. webtrees signs people in with a query that
+            matches a username *or* an email address, so a username shaped
+            like an address could stand in front of somebody else's account.
+        real_name:
+          type: string
+          maxLength: 64
+        email:
+          type: string
+          format: email
+          maxLength: 64
+          description: |
+            A contact address. It does not have to match the one the
+            invitation was sent to — the credential is the token.
+        password:
+          type: string
+          format: password
+          minLength: 8
 
     CsrfToken:
       type: object

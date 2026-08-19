@@ -50,6 +50,34 @@ export const en: Translations = {
     },
     expired: 'This link has expired or has already been used. Please ask for a new one.',
   },
+  invitation: {
+    title: 'Welcome to the family',
+    intro:
+      'You have been invited to the member portal for “{{tree}}”. Set up your account here — it takes a minute.',
+    invitedAs: 'This invitation is for:',
+    realName: 'Your name',
+    username: 'Username',
+    usernameHint: 'You will sign in with this. At least three characters, no spaces and no “@”.',
+    email: 'Email address',
+    emailHint:
+      'Where a reset link goes if you ever forget your password. It does not have to be the address the invitation was sent to.',
+    passwordHint: 'At least eight characters.',
+    save: 'Create my account',
+    saving: 'Creating your account …',
+    usernameTaken:
+      'That username is already taken. Please choose another one — your invitation is still valid.',
+    emailTaken:
+      'There is already an account with that email address. Please use a different address, or sign in with the account you have.',
+    badDetails: 'Please check what you entered. The server could not accept one of the details.',
+    privacyNote:
+      'In the portal you see only what has been released to you. Details about living people stay protected.',
+    unusable: {
+      title: 'This invitation is no longer valid',
+      body:
+        'The link has expired or has already been used. Please ask the family administrator for a new invitation.',
+      action: 'Go to sign in',
+    },
+  },
   profile: {
     title: 'My profile',
     noRecord: {

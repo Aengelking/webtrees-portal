@@ -13,6 +13,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
@@ -24,6 +26,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
+use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
@@ -32,6 +35,7 @@ use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\FlashMessages;
 use Fisharebest\Webtrees\Http\ViewResponseTrait;
 use Fisharebest\Webtrees\I18N;
@@ -40,6 +44,7 @@ use Fisharebest\Webtrees\Module\ModuleConfigInterface;
 use Fisharebest\Webtrees\Module\ModuleConfigTrait;
 use Fisharebest\Webtrees\Module\ModuleCustomInterface;
 use Fisharebest\Webtrees\Module\ModuleCustomTrait;
+use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\EmailService;
 use Fisharebest\Webtrees\Services\MigrationService;
@@ -48,6 +53,7 @@ use Fisharebest\Webtrees\Services\RateLimitService;
 use Fisharebest\Webtrees\Services\RelationshipService;
 use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Services\UserService;
+use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\Validator;
 use Fisharebest\Webtrees\View;
 use Psr\Http\Message\ResponseInterface;
@@ -55,6 +61,12 @@ use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
 use function error_log;
+use function is_string;
+use function max;
+use function min;
+use function rawurlencode;
+use function rtrim;
+use function trim;
 
 /**
  * The JSON API for the member portal.
@@ -76,7 +88,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.0.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 1;
+    private const int SCHEMA_VERSION = 2;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -87,6 +99,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_RATE_LIMIT_IP       = 'rate_limit_ip';
     public const string SETTING_RATE_LIMIT_USER     = 'rate_limit_user';
     public const string SETTING_RATE_LIMIT_WINDOW   = 'rate_limit_window';
+    public const string SETTING_INVITATION_DAYS     = 'invitation_days';
 
     public const int DEFAULT_RATE_LIMIT_IP     = 30;
     public const int DEFAULT_RATE_LIMIT_USER   = 5;
@@ -174,6 +187,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $members        = new MemberService($user_service);
         $rate_limiter   = new LoginRateLimiter($this);
         $gedcom_editor  = new GedcomEditor($pending);
+        $invitations    = new InvitationService();
         $me             = new MeAssembler($portal_trees, $presenter, $members);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -186,6 +200,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MeAssembler::class, $me);
         $container->set(PendingChanges::class, $pending);
         $container->set(GedcomEditor::class, $gedcom_editor);
+        $container->set(InvitationService::class, $invitations);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope());
         $container->set(UsePortalLanguage::class, new UsePortalLanguage($container->get(ModuleService::class)));
@@ -212,6 +227,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $container->get(RateLimitService::class),
         ));
         $container->set(PasswordResetCreate::class, new PasswordResetCreate($user_service, $me));
+
+        // Phase 5 — invitations. Unauthenticated by necessity: the whole
+        // point is that the person holding the link does not have an account
+        // yet.
+        $container->set(InvitationRead::class, new InvitationRead($portal_trees, $invitations, $rate_limiter));
+        $container->set(InvitationAccept::class, new InvitationAccept($portal_trees, $invitations, $user_service, $rate_limiter, $me));
     }
 
     private function registerRoutes(): void
@@ -303,6 +324,15 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $map->post(PasswordResetCreate::class, self::ROUTE_PREFIX . '/password/reset', PasswordResetCreate::class)
             ->extras(['middleware' => $unsafe]);
+
+        // Both are POST, including the one that only reads: the token must
+        // travel in the body rather than in a path that a webserver log, a
+        // proxy or a `Referer` header would keep. See InvitationRead.
+        $map->post(InvitationRead::class, self::ROUTE_PREFIX . '/invitation/preview', InvitationRead::class)
+            ->extras(['middleware' => $unsafe]);
+
+        $map->post(InvitationAccept::class, self::ROUTE_PREFIX . '/invitation/accept', InvitationAccept::class)
+            ->extras(['middleware' => $unsafe]);
     }
 
     /** The administrator's settings page. */
@@ -322,6 +352,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'rate_limit_ip'     => $this->getPreference(self::SETTING_RATE_LIMIT_IP, (string) self::DEFAULT_RATE_LIMIT_IP),
             'rate_limit_user'   => $this->getPreference(self::SETTING_RATE_LIMIT_USER, (string) self::DEFAULT_RATE_LIMIT_USER),
             'rate_limit_window' => $this->getPreference(self::SETTING_RATE_LIMIT_WINDOW, (string) self::DEFAULT_RATE_LIMIT_WINDOW),
+            'invitation_days'   => $this->getPreference(self::SETTING_INVITATION_DAYS, (string) InvitationService::DEFAULT_VALIDITY_DAYS),
+            'invitations_url'   => $this->invitationsUrl(),
         ]);
     }
 
@@ -335,9 +367,136 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_RATE_LIMIT_IP, (string) max(0, $body->integer(self::SETTING_RATE_LIMIT_IP, self::DEFAULT_RATE_LIMIT_IP)));
         $this->setPreference(self::SETTING_RATE_LIMIT_USER, (string) max(0, $body->integer(self::SETTING_RATE_LIMIT_USER, self::DEFAULT_RATE_LIMIT_USER)));
         $this->setPreference(self::SETTING_RATE_LIMIT_WINDOW, (string) max(60, $body->integer(self::SETTING_RATE_LIMIT_WINDOW, self::DEFAULT_RATE_LIMIT_WINDOW)));
+        $this->setPreference(self::SETTING_INVITATION_DAYS, (string) $this->validityDays($body->integer(self::SETTING_INVITATION_DAYS, InvitationService::DEFAULT_VALIDITY_DAYS)));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 
         return redirect($this->getConfigLink());
+    }
+
+    // -----------------------------------------------------------------
+    // Invitations (administrators only)
+    //
+    // webtrees' own ModuleAction handler refuses any action whose name
+    // contains "Admin" to anyone who is not an administrator, before the
+    // method is called. That is the access check for everything below; there
+    // is no second one, and the names must keep the word.
+    // -----------------------------------------------------------------
+
+    /** The screen where invitations are issued, listed and withdrawn. */
+    public function getAdminInvitationsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container   = Registry::container();
+        $invitations = $container->get(InvitationService::class);
+        $members     = $container->get(MemberService::class);
+        $tree        = $container->get(PortalTreeService::class)->tree();
+
+        // Shown once and then forgotten. It travels through the session
+        // rather than through the redirect, because a token in a URL is a
+        // token in the webserver's access log.
+        $new_link = Session::get('portal_api_new_invitation', '');
+        Session::forget('portal_api_new_invitation');
+
+        return $this->viewResponse($this->name() . '::invitations', [
+            'title'       => I18N::translate('Invitations'),
+            'module'      => $this,
+            'tree'        => $tree,
+            'invitations' => $invitations->outstanding($tree),
+            'unlinked'    => $members->accountsWithoutRecord($tree),
+            'valid_days'  => (int) $this->getPreference(self::SETTING_INVITATION_DAYS, (string) InvitationService::DEFAULT_VALIDITY_DAYS),
+            'new_link'    => is_string($new_link) ? $new_link : '',
+            'portal_url'  => $this->getPreference(self::SETTING_PORTAL_URL, ''),
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    /** Issue or withdraw one invitation, then redirect back to the screen. */
+    public function postAdminInvitationsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = Validator::parsedBody($request);
+
+        if ($body->string('invitation_action', '') === 'revoke') {
+            $this->revokeInvitation($body->integer('invitation_id', 0));
+        } else {
+            $this->issueInvitation($body->string('xref', ''), $body->string('email', ''));
+        }
+
+        return redirect($this->invitationsUrl());
+    }
+
+    private function issueInvitation(string $xref, string $email): void
+    {
+        $container   = Registry::container();
+        $invitations = $container->get(InvitationService::class);
+        $tree        = $container->get(PortalTreeService::class)->tree();
+
+        // The select sends "@X123@" when the tree uses the "at" form, and
+        // "X123" otherwise. Either way the XREF is what is between them.
+        $xref       = trim($xref, '@ ');
+        $individual = $xref === '' ? null : Registry::individualFactory()->make($xref, $tree);
+
+        if ($xref !== '' && !$individual instanceof Individual) {
+            FlashMessages::addMessage(I18N::translate('This individual does not exist.'), 'danger');
+
+            return;
+        }
+
+        if ($this->getPreference(self::SETTING_PORTAL_URL, '') === '') {
+            FlashMessages::addMessage(I18N::translate('The portal address is not set, so an invitation link cannot be built. Set it in the module preferences first.'), 'danger');
+
+            return;
+        }
+
+        $name = $individual instanceof Individual
+            ? $container->get(RecordPresenter::class)->plainName($individual)
+            : '';
+
+        $token = $invitations->create(
+            $tree,
+            $individual?->xref() ?? '',
+            $name,
+            $email,
+            Auth::user(),
+            $this->validityDays((int) $this->getPreference(self::SETTING_INVITATION_DAYS, (string) InvitationService::DEFAULT_VALIDITY_DAYS))
+        );
+
+        // Old invitations are cleared out here rather than by a scheduled
+        // job: this is the one page where somebody is thinking about
+        // invitations anyway, and there is nothing else to hang a cron on.
+        $invitations->prune();
+
+        Session::put('portal_api_new_invitation', $this->invitationLink($token));
+    }
+
+    private function revokeInvitation(int $id): void
+    {
+        if ($id <= 0) {
+            return;
+        }
+
+        $container = Registry::container();
+        $container->get(InvitationService::class)->revoke($id, $container->get(PortalTreeService::class)->tree());
+
+        FlashMessages::addMessage(I18N::translate('The invitation has been withdrawn.'), 'success');
+    }
+
+    /** Where the invited person goes. The portal, never webtrees. */
+    private function invitationLink(string $token): string
+    {
+        $base = rtrim($this->getPreference(self::SETTING_PORTAL_URL, ''), '/');
+
+        return $base . '/invitation?token=' . rawurlencode($token);
+    }
+
+    private function invitationsUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminInvitations']);
+    }
+
+    private function validityDays(int $days): int
+    {
+        return max(1, min(InvitationService::MAX_VALIDITY_DAYS, $days));
     }
 }

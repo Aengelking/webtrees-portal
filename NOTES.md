@@ -41,15 +41,26 @@ editing is per-record, so a member with a record in each tree would need to
 choose which one they are editing, and the directory would need to say which
 tree an entry refers to.
 
-### 1.3 Do members self-register, or does an editor create accounts?
+### 1.3 Do members self-register? — **answered, and built in Phase 5**
 
-**Not decided; nothing was built either way.** Phase 1 has no registration
-endpoint at all. webtrees' own registration page is untouched and behaves
-however it is currently configured on the host.
+**Neither. An administrator invites them, and they set their own password.**
 
-Recommendation, unchanged from the handoff: invitation-only. It removes the
-registration surface, the spam problem, and the "who is this person and are
-they really family" question that no software can answer.
+Self-registration was the wrong answer for the reason it was always going to
+be: it puts a form on the internet that anybody can fill in, and the question
+it has to answer — is this person really family — is not one software can. An
+administrator creating each account by hand was the other option, and it is
+what the first four phases lived with; it does not scale past a handful of
+people and it fails in a quiet way, because the second step (linking the
+account to a genealogy record) is easy to forget and nothing says so.
+
+So: an administrator picks the person out of the tree, gets a one-time link,
+and sends it. The invitee chooses their own username and password. The account
+arrives verified, approved, `member` on the portal's tree, and already linked.
+See §2.22.
+
+webtrees' own registration page is still untouched and still behaves however
+it is configured on the host. If it is switched on, it is a second way in that
+this module knows nothing about — worth turning off.
 
 ### 1.4 Password reset — **answered, and built in Phase 2**
 
@@ -809,6 +820,99 @@ be restricted without its links being.
 server. Proxying those would make the portal a fetcher of arbitrary URLs;
 linking them directly would leak the member's address to that server. Neither
 is worth a photograph, so they are omitted.
+
+### 2.22 Phase 5: an invitation is a credential, and is treated like one
+
+An invitation link is enough, on its own, to become somebody in this family's
+portal. That makes it a password, and the three properties it needs are the
+ones a password needs.
+
+**It is never stored.** `portal_invitation` holds a SHA-256 of the token and
+nothing else that could be used. A database is backed up, dumped, and read by
+hosting support and by whoever inherits the server; a stored token is a
+working account for every one of them. The raw value exists once, in the
+administrator's browser, at the moment it is created — which is why the screen
+says so, and why losing it means issuing a new one rather than looking it up.
+
+A plain SHA-256 rather than a password hash, deliberately: the input is 256
+bits from `random_bytes()`, so there is no dictionary to run and nothing a
+work factor would buy.
+
+**It is usable once, and the check is atomic.** `InvitationService::claim()`
+is a single conditional `UPDATE` — `WHERE id = ? AND redeemed_at IS NULL AND
+expires_at > ?`. Two requests arriving together cannot both match a row, so
+they cannot both produce an account. A read followed by a write would look
+identical in a test and be wrong exactly once, under load, for a link somebody
+forwarded to two people.
+
+**A failure that creates nothing gives it back.** Everything checkable is
+checked before the claim; if account creation still throws, `release()` puts
+the invitation back. Burning an invitation over a duplicate username would
+lock out the very person it was sent to, and they cannot tell that from a
+malicious link.
+
+**Both endpoints are `POST`, including the one that only reads.** The token
+has to travel in the body. `GET /invitation/{token}` would write the
+credential into the webserver's access log, into any proxy in front of it, and
+into the `Referer` of every request the resulting page goes on to make. The
+same reasoning as `POST /password/reset` (§2.0.2).
+
+**The preview does not read the family tree.** It answers with the tree's
+title and the name the invitation was issued for — and that name is a snapshot
+taken by the administrator's screen when the invitation was created, stored on
+the row. So the one endpoint a stranger can reach with a guessed token never
+touches genealogy data at all. `InvitationTest::testThePreviewDisclosesNoRecord`
+pins that no XREF appears in the response.
+
+Showing the name is deliberate, not an oversight: it is how the reader tells
+"my family's portal, and it knows who I am" from "a form on the internet". The
+disclosure is one name, to whoever holds a 256-bit secret that an
+administrator addressed to that person.
+
+**The XREF on the invitation is a payload, not a key** (§2.8). It is
+re-resolved through the record factory at redemption. If a re-import has
+renumbered the tree in between, the account is still created — locking someone
+out because the genealogist reloaded the GEDCOM would be a strange thing to do
+— just without a link, and the administrator's new "accounts with no linked
+record" list picks it up.
+
+**The account has nothing it was not given.** `canadmin`, `auto_accept` and
+the tree role are written explicitly rather than left to default.
+`auto_accept` matters most: an account that accepted its own edits would walk
+straight around the pending-changes queue that the whole of Phase 2 rests on.
+The role is `member`, never `editor` — an editor could change anybody's record
+in webtrees, bypassing the portal entirely.
+
+**Verified and approved on arrival.** webtrees' email round-trip and approval
+queue both exist to answer "is this a real person we meant to let in". An
+administrator picking this person out of the family tree by hand and sending
+them a link answers it more strongly, so asking again would only add a step to
+get stuck on.
+
+**A username may not contain `@` or a space.** webtrees signs people in with
+`UserService::findByIdentifier()`, which matches a username *or* an email
+address in one query. A username shaped like an address could therefore stand
+in front of somebody else's account at the login form.
+
+**`username_taken` and `email_taken` are the one place the API names
+something about the installation.** That is unavoidable — a registration form
+that cannot say why it will not accept a name is a form nobody can complete —
+and it is reachable only while holding a valid invitation, which is what keeps
+it from being a way to enumerate accounts.
+
+**The admin screen's access control is its method name.** webtrees'
+`ModuleAction` refuses any module action whose name *contains the word
+"Admin"* to a non-administrator, before the method runs. There is no
+annotation and no second check. Renaming `getAdminInvitationsAction()` to
+`getInvitationsAction()` would publish the invitation list, and the list of
+accounts without a record, to anyone who could guess the URL, with nothing
+failing to say so. `ConfigurationTest::testEveryModuleActionIsForAdministratorsOnly`
+asserts that every action this module declares keeps the word.
+
+**The module does not send the email.** The administrator copies the link and
+sends it however they normally reach that person. Sending it would mean
+guessing which address is right, and being wrong means mailing a working
+credential to a stranger.
 
 ---
 
