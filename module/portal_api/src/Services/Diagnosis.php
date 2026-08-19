@@ -1,0 +1,291 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Engelking\Webtrees\PortalApi\Services;
+
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Site;
+use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
+use Throwable;
+
+use function time;
+
+/**
+ * Everything that has to be true for the portal to work, checked in one place.
+ *
+ * Each of these has already been the cause of a confusing morning at least
+ * once: a tree setting still pointing at a test import, an upload that landed
+ * but whose migrations had not run, a `boot()` that threw and took the API
+ * with it while webtrees carried on looking perfectly healthy.
+ *
+ * The value of putting them together is that they fail in similar-looking
+ * ways from the outside. "The portal says 503" is the same sentence for a
+ * missing tree, a missing table and a module that did not start, and the
+ * three have nothing to do with each other.
+ *
+ * A check never throws. A diagnosis screen that breaks on a broken
+ * installation is no use to anybody.
+ */
+class Diagnosis
+{
+    public const string OK      = 'ok';
+    public const string WARNING = 'warning';
+    public const string PROBLEM = 'problem';
+
+    public function __construct(
+        private readonly PortalApiModule $module,
+        private readonly PortalTreeService $trees,
+        private readonly MemberService $members,
+        private readonly ErrorLog $errors,
+    ) {
+    }
+
+    /**
+     * @return Collection<int,DiagnosisCheck>
+     */
+    public function run(): Collection
+    {
+        return new Collection([
+            $this->tree(),
+            $this->schema(),
+            $this->routes(),
+            $this->portalAddress(),
+            $this->proxySecret(),
+            $this->ownRegistration(),
+            $this->unlinkedAccounts(),
+            $this->recentErrors(),
+        ]);
+    }
+
+    private function tree(): DiagnosisCheck
+    {
+        try {
+            $tree = $this->trees->tree();
+
+            return new DiagnosisCheck(
+                'tree',
+                self::OK,
+                I18N::translate('Family tree'),
+                $tree->title() . ' (' . $tree->name() . ')',
+                // Said even when it is fine, because "fine" here means "the
+                // portal is serving whichever tree this is" — and after a
+                // rehearsal on a test import, that is the setting most likely
+                // to be quietly wrong.
+                I18N::translate('Members see records from this tree and no other. Check that it is the right one, especially after testing against a second tree.')
+            );
+        } catch (Throwable $exception) {
+            return new DiagnosisCheck(
+                'tree',
+                self::PROBLEM,
+                I18N::translate('Family tree'),
+                $exception->getMessage(),
+                I18N::translate('Every endpoint answers 503 until this is set. Choose the tree in the module preferences.')
+            );
+        }
+    }
+
+    private function schema(): DiagnosisCheck
+    {
+        $expected  = $this->module->schemaVersion();
+        $installed = $this->module->installedSchemaVersion();
+
+        if ($installed === $expected) {
+            return new DiagnosisCheck(
+                'schema',
+                self::OK,
+                I18N::translate('Database tables'),
+                I18N::translate('Version %s', I18N::number($installed)),
+                ''
+            );
+        }
+
+        return new DiagnosisCheck(
+            'schema',
+            self::PROBLEM,
+            I18N::translate('Database tables'),
+            I18N::translate('The code expects version %1$s, the database has version %2$s.', I18N::number($expected), I18N::number($installed)),
+            // The distinction that matters: new files can be on the server
+            // while their tables are not, and from the outside that looks
+            // like a deployment that worked.
+            $installed < $expected
+                ? I18N::translate('The migrations have not run. Open any page of this website once; if that does not help, the module could not start — see below.')
+                : I18N::translate('The database is newer than the code. An older copy of the module has been uploaded over a newer one.')
+        );
+    }
+
+    /**
+     * Did `boot()` finish?
+     *
+     * This is the check that is hard to make any other way. `boot()` catches
+     * everything it throws, on purpose, so that a broken module cannot take
+     * the family's genealogy site down with it — which means a module that
+     * failed to start looks exactly like one that started, from every page of
+     * webtrees except this one. Its routes are simply absent.
+     */
+    private function routes(): DiagnosisCheck
+    {
+        try {
+            Registry::routeFactory()->routeMap()->getRoute(MeRead::class);
+
+            return new DiagnosisCheck(
+                'routes',
+                self::OK,
+                I18N::translate('API routes'),
+                I18N::translate('Registered.'),
+                ''
+            );
+        } catch (Throwable) {
+            return new DiagnosisCheck(
+                'routes',
+                self::PROBLEM,
+                I18N::translate('API routes'),
+                I18N::translate('Not registered — the module did not start.'),
+                I18N::translate('webtrees itself is unaffected, which is why nothing else looks wrong. The reason is in the server’s error log, on a line beginning “portal_api:”.')
+            );
+        }
+    }
+
+    private function portalAddress(): DiagnosisCheck
+    {
+        $url = $this->module->getPreference(PortalApiModule::SETTING_PORTAL_URL, '');
+
+        if ($url !== '') {
+            return new DiagnosisCheck('portal_url', self::OK, I18N::translate('Portal address'), $url, '');
+        }
+
+        return new DiagnosisCheck(
+            'portal_url',
+            self::PROBLEM,
+            I18N::translate('Portal address'),
+            I18N::translate('Not set.'),
+            I18N::translate('Password reset emails and invitation links both need it, and both are switched off without it.')
+        );
+    }
+
+    private function proxySecret(): DiagnosisCheck
+    {
+        $secret = $this->module->getPreference(PortalApiModule::SETTING_PROXY_SECRET, '');
+
+        if ($secret !== '') {
+            return new DiagnosisCheck(
+                'proxy_secret',
+                self::OK,
+                I18N::translate('Proxy secret'),
+                I18N::translate('Set.'),
+                ''
+            );
+        }
+
+        return new DiagnosisCheck(
+            'proxy_secret',
+            self::WARNING,
+            I18N::translate('Proxy secret'),
+            I18N::translate('Not set.'),
+            I18N::translate('The API accepts requests from anywhere, not only from the portal. Fine while developing; set it once the portal is live, with the same value on the Cloudflare Worker.')
+        );
+    }
+
+    /**
+     * webtrees' own registration page is a second front door that this module
+     * knows nothing about: an account created there is not linked to anybody
+     * and was vouched for by no one.
+     */
+    private function ownRegistration(): DiagnosisCheck
+    {
+        if (Site::getPreference('USE_REGISTRATION_MODULE') !== '1') {
+            return new DiagnosisCheck(
+                'registration',
+                self::OK,
+                I18N::translate('webtrees’ own registration'),
+                I18N::translate('Switched off.'),
+                ''
+            );
+        }
+
+        return new DiagnosisCheck(
+            'registration',
+            self::WARNING,
+            I18N::translate('webtrees’ own registration'),
+            I18N::translate('Switched on.'),
+            I18N::translate('Anybody can request an account there, and this module knows nothing about it. With invitations in place there is no reason to leave it on.')
+        );
+    }
+
+    private function unlinkedAccounts(): DiagnosisCheck
+    {
+        try {
+            $tree  = $this->trees->tree();
+            $count = $this->members->accountsWithoutRecord($tree)->count();
+        } catch (Throwable) {
+            // The tree check above already says what is wrong; saying it
+            // twice would only make the screen harder to read.
+            return new DiagnosisCheck(
+                'unlinked',
+                self::OK,
+                I18N::translate('Accounts with no linked record'),
+                I18N::translate('Cannot be counted without a family tree.'),
+                ''
+            );
+        }
+
+        if ($count === 0) {
+            return new DiagnosisCheck(
+                'unlinked',
+                self::OK,
+                I18N::translate('Accounts with no linked record'),
+                I18N::translate('None.'),
+                ''
+            );
+        }
+
+        return new DiagnosisCheck(
+            'unlinked',
+            self::WARNING,
+            I18N::translate('Accounts with no linked record'),
+            I18N::plural('%s account', '%s accounts', $count, I18N::number($count)),
+            I18N::translate('They can sign in, but the portal has nothing of their own to show them. They are listed on the invitations screen.')
+        );
+    }
+
+    private function recentErrors(): DiagnosisCheck
+    {
+        $day = $this->errors->countSince(time() - 86400);
+
+        if ($day === 0) {
+            return new DiagnosisCheck(
+                'errors',
+                self::OK,
+                I18N::translate('Errors in the last 24 hours'),
+                I18N::translate('None.'),
+                ''
+            );
+        }
+
+        return new DiagnosisCheck(
+            'errors',
+            self::PROBLEM,
+            I18N::translate('Errors in the last 24 hours'),
+            I18N::plural('%s error', '%s errors', $day, I18N::number($day)),
+            I18N::translate('Each one is a request that failed for a member. They are listed below.')
+        );
+    }
+
+    /**
+     * The worst status among the checks, for a one-line answer at the top.
+     */
+    public function worst(Collection $checks): string
+    {
+        foreach ([self::PROBLEM, self::WARNING] as $status) {
+            if ($checks->contains(static fn (DiagnosisCheck $check): bool => $check->status === $status)) {
+                return $status;
+            }
+        }
+
+        return self::OK;
+    }
+}

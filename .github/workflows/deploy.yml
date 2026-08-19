@@ -234,3 +234,54 @@ jobs:
           SFTP_RETRY_DELAY: ${{ vars.SFTP_RETRY_DELAY }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: module/tools/deploy-sftp.sh portal/dist
+
+      # One request that proves the whole chain: the Cloudflare Worker, its
+      # proxy secret, whatever URL form webtrees needs, PHP, webtrees'
+      # bootstrap, the module's boot(), the database and the tree setting.
+      #
+      # It compares the version the endpoint reports against the version in
+      # the checkout, which is the assertion that matters: an SFTP upload can
+      # report success and leave the old files in place, and nothing else
+      # here would notice. A mismatch is reported as a warning rather than a
+      # failure, because a deployment that only bumps the portal legitimately
+      # leaves the module's version alone.
+      #
+      # Skipped entirely when PORTAL_URL is not set as a repository variable.
+      - name: Check the portal is answering
+        if: vars.PORTAL_URL != '' && inputs.dry_run != true
+        env:
+          PORTAL_URL: ${{ vars.PORTAL_URL }}
+        run: |
+          set -u
+
+          expected=$(grep -oP "CUSTOM_VERSION = '\K[^']+" module/portal_api/src/PortalApiModule.php)
+          url="${PORTAL_URL%/}/api/v1/health"
+
+          echo "==> ${url}"
+
+          # Cloudflare and PHP-FPM both take a moment to pick up new files.
+          # Five tries over roughly a minute, then give up and fail.
+          for attempt in 1 2 3 4 5; do
+            body=$(curl --silent --show-error --max-time 20 --write-out '\n%{http_code}' "$url" || true)
+            status=$(printf '%s' "$body" | tail -n1)
+            payload=$(printf '%s' "$body" | sed '$d')
+
+            if [ "$status" = "200" ]; then
+              echo "$payload"
+              reported=$(printf '%s' "$payload" | grep -oP '"version"\s*:\s*"\K[^"]+' || true)
+
+              if [ "$reported" != "$expected" ]; then
+                echo "::warning title=Version mismatch::The portal reports module version '${reported:-unknown}'; this checkout is ${expected}. If this run only deployed the portal, that is expected."
+              fi
+
+              echo "The portal answered."
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}: HTTP ${status:-none}"
+            printf '%s\n' "$payload" | head -c 500
+            [ "$attempt" -lt 5 ] && sleep 15
+          done
+
+          echo "::error title=The portal is not answering::GET ${url} did not return 200 after five attempts. The upload finished, so this is the module, the proxy secret or the tree setting — the module's Diagnosis screen in the control panel says which."
+          exit 1

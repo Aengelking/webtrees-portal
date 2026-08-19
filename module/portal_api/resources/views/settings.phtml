@@ -21,6 +21,7 @@ use Illuminate\Support\Collection;
  * @var string               $rate_limit_window
  * @var string               $invitation_days
  * @var string               $invitations_url
+ * @var string               $diagnosis_url
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -42,6 +43,9 @@ foreach ($trees as $a_tree) {
 <p>
     <a class="btn btn-outline-primary" href="<?= e($invitations_url) ?>">
         <?= I18N::translate('Invitations') ?>
+    </a>
+    <a class="btn btn-outline-primary" href="<?= e($diagnosis_url) ?>">
+        <?= I18N::translate('Diagnosis') ?>
     </a>
 </p>
 

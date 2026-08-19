@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\Diagnosis;
+use Engelking\Webtrees\PortalApi\Services\DiagnosisCheck;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<int,DiagnosisCheck> $checks
+ * @var Collection<int,object>         $errors
+ * @var PortalApiModule                $module
+ * @var int                            $error_count
+ * @var string                         $settings_url
+ * @var string                         $title
+ * @var string                         $worst
+ */
+
+$row_class = [
+    Diagnosis::OK      => '',
+    Diagnosis::WARNING => 'table-warning',
+    Diagnosis::PROBLEM => 'table-danger',
+];
+
+$status_label = [
+    Diagnosis::OK      => I18N::translate('OK'),
+    Diagnosis::WARNING => I18N::translate('Worth a look'),
+    Diagnosis::PROBLEM => I18N::translate('Problem'),
+];
+
+$summary = [
+    Diagnosis::OK      => ['alert-success', I18N::translate('Everything the portal needs is in place.')],
+    Diagnosis::WARNING => ['alert-warning', I18N::translate('The portal works, but something below is worth a look.')],
+    Diagnosis::PROBLEM => ['alert-danger', I18N::translate('Something is wrong. The portal is not working properly for members.')],
+];
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<div class="alert <?= e($summary[$worst][0]) ?>">
+    <?= e($summary[$worst][1]) ?>
+</div>
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col"><?= I18N::translate('Check') ?></th>
+                <th scope="col"><?= I18N::translate('Status') ?></th>
+                <th scope="col"><?= I18N::translate('Found') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($checks as $check) : ?>
+                <tr class="<?= e($row_class[$check->status] ?? '') ?>">
+                    <th scope="row"><?= e($check->label) ?></th>
+                    <td><?= e($status_label[$check->status] ?? $check->status) ?></td>
+                    <td>
+                        <?= e($check->detail) ?>
+                        <?php if ($check->advice !== '') : ?>
+                            <div class="form-text"><?= e($check->advice) ?></div>
+                        <?php endif ?>
+                    </td>
+                </tr>
+            <?php endforeach ?>
+        </tbody>
+    </table>
+</div>
+
+<h2 class="h5 mt-5"><?= I18N::translate('Recent errors') ?></h2>
+
+<p>
+    <?= I18N::translate('Requests that failed for a member. Each one shows the member a short reference; if somebody quotes one, look for it here.') ?>
+</p>
+
+<p class="text-muted">
+    <?= I18N::translate('Only the endpoint and the error are recorded — never what was sent or asked for, because that would be somebody’s date of birth or whom they searched for. Entries are deleted after 30 days.') ?>
+</p>
+
+<?php if ($errors->isEmpty()) : ?>
+    <p class="text-muted"><?= I18N::translate('Nothing has failed.') ?></p>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Reference') ?></th>
+                    <th scope="col"><?= I18N::translate('When') ?></th>
+                    <th scope="col"><?= I18N::translate('Endpoint') ?></th>
+                    <th scope="col"><?= I18N::translate('Error') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($errors as $error) : ?>
+                    <tr>
+                        <td><code><?= e($error->reference) ?></code></td>
+                        <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make((int) $error->occurred_at)]) ?></td>
+                        <td><?= e((string) ($error->method ?? '')) ?> <?= e((string) ($error->route ?? '')) ?></td>
+                        <td>
+                            <?= e((string) ($error->error_class ?? '')) ?>
+                            <div class="form-text">
+                                <?= e((string) ($error->message ?? '')) ?>
+                                <?php if (($error->file ?? '') !== '') : ?>
+                                    <br><?= e((string) $error->file) ?>:<?= (int) $error->line ?>
+                                <?php endif ?>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+
+    <form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminDiagnosis'])) ?>">
+        <button type="submit" class="btn btn-outline-danger">
+            <?= I18N::plural('Clear the error log (%s entry)', 'Clear the error log (%s entries)', $error_count, I18N::number($error_count)) ?>
+        </button>
+        <?= csrf_field() ?>
+    </form>
+<?php endif ?>

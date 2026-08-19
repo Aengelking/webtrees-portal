@@ -22,6 +22,7 @@ describe('openapi.yaml and the API client agree', () => {
   it('documents exactly the endpoints the portal uses', () => {
     expect(specPaths()).toEqual([
       '/csrf',
+      '/health',
       '/individuals/{xref}',
       '/individuals/{xref}/ancestors',
       '/invitation/accept',
@@ -41,6 +42,7 @@ describe('openapi.yaml and the API client agree', () => {
   it('has a client call for every documented path', () => {
     const templates: Record<string, string> = {
       '/csrf': "'/csrf'",
+      '/health': "'/health'",
       '/session': "'/session'",
       '/me': "'/me'",
       '/members': "'/members'",

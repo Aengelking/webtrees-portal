@@ -524,6 +524,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /health:
+    get:
+      tags: [session]
+      summary: Is the chain working?
+      description: |
+        Answering this at all takes a request through the Cloudflare Worker,
+        its proxy secret, whatever URL form webtrees needs, PHP, webtrees'
+        bootstrap, this module's `boot()`, the database and the tree
+        configuration. One request either proves all of that or reports the
+        first thing that is wrong.
+
+        Unauthenticated on purpose — a health check that needs credentials is
+        a health check nobody runs. The payload is deliberately dull: no tree
+        name, no counts, nothing that would make the endpoint worth finding.
+
+        `version` is the one thing it does disclose, and it is what turns "the
+        upload reported success" into "the new code is actually running".
+      security: []
+      operationId: health
+      responses:
+        '200':
+          description: Everything the portal needs is in place.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: |
+            The module is running but cannot serve a family tree. Deliberately
+            *not* recorded in the module's error log: an uptime monitor
+            polling a half-configured installation would otherwise fill it.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -882,6 +926,28 @@ components:
             A human-readable message in the server's language. The portal
             renders its own translated text keyed off `error` and uses this
             only for logging.
+        reference:
+          type: string
+          description: |
+            Present only on failures the module recorded — that is, on
+            `server_error`, never on a refusal it meant to give. The member
+            is shown it so they can quote it, and an administrator finds the
+            matching row on the module's diagnosis screen.
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, version, schema_version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+          description: The module's version, so a deployment can prove itself.
+        schema_version:
+          type: integer
+          description: The schema version this code expects.
 
     InvitationPreview:
       type: object

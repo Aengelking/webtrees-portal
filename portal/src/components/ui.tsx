@@ -191,10 +191,21 @@ export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () =
       ? error.code.replace('network_error', 'network')
       : 'unknown'
 
+  const reference = error instanceof ApiError ? error.reference : null
+
   return (
     <div role="alert" className="rounded-xl border border-amber-400 bg-amber-50 p-5">
       <p className="text-lg font-semibold text-slate-900">{t('error.title')}</p>
       <p className="mt-2 text-base text-slate-800">{t(`error.${key}`)}</p>
+      {/*
+        Shown only when the server actually recorded something. A code the
+        member could quote and nobody could look up would be worse than none.
+      */}
+      {reference !== null && reference !== '' && (
+        <p className="mt-3 text-base text-slate-700">
+          {t('error.reference')} <code className="font-mono font-semibold">{reference}</code>
+        </p>
+      )}
       {onRetry !== undefined && (
         <Button variant="secondary" className="mt-4" onClick={onRetry}>
           {t('error.retry')}

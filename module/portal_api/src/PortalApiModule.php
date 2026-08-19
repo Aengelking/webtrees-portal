@@ -11,6 +11,7 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\HealthRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
@@ -25,6 +26,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ProfileUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
+use Engelking\Webtrees\PortalApi\Services\Diagnosis;
+use Engelking\Webtrees\PortalApi\Services\ErrorLog;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
 use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
@@ -54,6 +57,7 @@ use Fisharebest\Webtrees\Services\RelationshipService;
 use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\Session;
+use Fisharebest\Webtrees\Site;
 use Fisharebest\Webtrees\Validator;
 use Fisharebest\Webtrees\View;
 use Psr\Http\Message\ResponseInterface;
@@ -88,9 +92,28 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.0.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 2;
+    private const int SCHEMA_VERSION = 3;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
+
+    /**
+     * The schema version this code expects.
+     *
+     * Read by the health endpoint and the diagnosis screen, so that a
+     * deployment can tell "the new files are there" from "the new files are
+     * there and their migrations have run" — which are different things, and
+     * only the second one means the portal works.
+     */
+    public function schemaVersion(): int
+    {
+        return self::SCHEMA_VERSION;
+    }
+
+    /** What the database actually has, which may lag the constant above. */
+    public function installedSchemaVersion(): int
+    {
+        return (int) Site::getPreference(self::SCHEMA_SETTING_NAME);
+    }
 
     /** Module settings. */
     public const string SETTING_TREE                = 'portal_tree';
@@ -188,6 +211,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $rate_limiter   = new LoginRateLimiter($this);
         $gedcom_editor  = new GedcomEditor($pending);
         $invitations    = new InvitationService();
+        $errors         = new ErrorLog();
         $me             = new MeAssembler($portal_trees, $presenter, $members);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -201,14 +225,17 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PendingChanges::class, $pending);
         $container->set(GedcomEditor::class, $gedcom_editor);
         $container->set(InvitationService::class, $invitations);
+        $container->set(ErrorLog::class, $errors);
+        $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
 
-        $container->set(ApiEnvelope::class, new ApiEnvelope());
+        $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
         $container->set(UsePortalLanguage::class, new UsePortalLanguage($container->get(ModuleService::class)));
         $container->set(RequireProxySecret::class, new RequireProxySecret($this));
         $container->set(RequireCsrfToken::class, new RequireCsrfToken());
         $container->set(RequireAuthentication::class, new RequireAuthentication());
 
         $container->set(CsrfTokenRead::class, new CsrfTokenRead());
+        $container->set(HealthRead::class, new HealthRead($this, $portal_trees));
         $container->set(SessionCreate::class, new SessionCreate($user_service, $rate_limiter, $me));
         $container->set(SessionDelete::class, new SessionDelete());
         $container->set(MeRead::class, new MeRead($me));
@@ -266,6 +293,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         ];
 
         $map->get(CsrfTokenRead::class, self::ROUTE_PREFIX . '/csrf', CsrfTokenRead::class)
+            ->extras(['middleware' => $public]);
+
+        // Unauthenticated on purpose: a health check that needs credentials
+        // is a health check nobody runs. The proxy secret still applies, and
+        // the payload says nothing worth having.
+        $map->get(HealthRead::class, self::ROUTE_PREFIX . '/health', HealthRead::class)
             ->extras(['middleware' => $public]);
 
         $map->post(SessionCreate::class, self::ROUTE_PREFIX . '/session', SessionCreate::class)
@@ -354,6 +387,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'rate_limit_window' => $this->getPreference(self::SETTING_RATE_LIMIT_WINDOW, (string) self::DEFAULT_RATE_LIMIT_WINDOW),
             'invitation_days'   => $this->getPreference(self::SETTING_INVITATION_DAYS, (string) InvitationService::DEFAULT_VALIDITY_DAYS),
             'invitations_url'   => $this->invitationsUrl(),
+            'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
     }
 
@@ -493,6 +527,42 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     private function invitationsUrl(): string
     {
         return route('module', ['module' => $this->name(), 'action' => 'AdminInvitations']);
+    }
+
+    /** Is anything wrong, and what should be done about it? */
+    public function getAdminDiagnosisAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $diagnosis = $container->get(Diagnosis::class);
+        $errors    = $container->get(ErrorLog::class);
+        $checks    = $diagnosis->run();
+
+        return $this->viewResponse($this->name() . '::diagnosis', [
+            'title'        => I18N::translate('Diagnosis'),
+            'module'       => $this,
+            'checks'       => $checks,
+            'worst'        => $diagnosis->worst($checks),
+            'errors'       => $errors->recent(),
+            'error_count'  => $errors->count(),
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    /** The only thing to post here is "forget the errors I have dealt with". */
+    public function postAdminDiagnosisAction(ServerRequestInterface $request): ResponseInterface
+    {
+        Registry::container()->get(ErrorLog::class)->clear();
+
+        FlashMessages::addMessage(I18N::translate('The error log has been cleared.'), 'success');
+
+        return redirect($this->diagnosisUrl());
+    }
+
+    private function diagnosisUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminDiagnosis']);
     }
 
     private function validityDays(int $days): int

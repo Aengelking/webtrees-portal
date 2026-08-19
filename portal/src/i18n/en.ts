@@ -221,6 +221,7 @@ export const en: Translations = {
   },
   error: {
     title: 'Something went wrong',
+    reference: 'If you report this, please quote this reference:',
     retry: 'Try again',
     network: 'The portal could not reach the server. Please check your internet connection.',
     not_found: 'That entry was not found. It may no longer be shared with you.',

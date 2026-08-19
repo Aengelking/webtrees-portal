@@ -31,12 +31,24 @@ final class Json
         return Registry::responseFactory()->response($payload, $status);
     }
 
-    public static function error(ApiException $exception): ResponseInterface
+    /**
+     * A `reference` is added only when there is one — that is, only for the
+     * failures the module recorded (see `Services/ErrorLog`). A member reads
+     * it off the screen and an administrator finds the exact row; adding an
+     * empty one to every 404 would just be noise on the screen.
+     */
+    public static function error(ApiException $exception, string $reference = ''): ResponseInterface
     {
-        return self::response([
+        $body = [
             'error'   => $exception->error,
             'message' => $exception->getMessage(),
-        ], $exception->status);
+        ];
+
+        if ($reference !== '') {
+            $body['reference'] = $reference;
+        }
+
+        return self::response($body, $exception->status);
     }
 
     /**

@@ -220,6 +220,7 @@ export const de = {
   },
   error: {
     title: 'Da ist etwas schiefgelaufen',
+    reference: 'Wenn Sie nachfragen, nennen Sie bitte diese Kennung:',
     retry: 'Noch einmal versuchen',
     network: 'Das Portal konnte den Server nicht erreichen. Bitte prüfen Sie Ihre Internetverbindung.',
     not_found: 'Dieser Eintrag wurde nicht gefunden. Vielleicht ist er nicht mehr für Sie freigegeben.',

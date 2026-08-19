@@ -11,6 +11,7 @@ import type {
   ApiErrorCode,
   Credentials,
   CsrfToken,
+  Health,
   Individual,
   IndividualUpdate,
   InvitationAcceptance,
@@ -30,6 +31,13 @@ export class ApiError extends Error {
     readonly code: ApiErrorCode,
     readonly status: number,
     message: string,
+    /**
+     * A short code the server recorded alongside the failure, present only on
+     * the failures that are the portal's own fault. It is shown to the member
+     * so they can quote it, and it is the only thing that connects "it did not
+     * work" to a particular row in the administrator's error log.
+     */
+    readonly reference: string | null = null,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -154,6 +162,7 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
       body?.error ?? 'server_error',
       response.status,
       body?.message ?? response.statusText,
+      body?.reference ?? null,
     )
   }
 
@@ -228,6 +237,16 @@ export const api = {
       // way; the session cookie is httpOnly and short-lived.
       forgetCsrfToken()
     }
+  },
+
+  /**
+   * Not used by any screen. It exists so that the deployment smoke check and
+   * an uptime monitor have one request that proves the whole chain, and so
+   * that the endpoint stays in step with openapi.yaml rather than drifting
+   * because nothing in the client references it.
+   */
+  health(signal?: AbortSignal): Promise<Health> {
+    return request<Health>('/health', signal === undefined ? {} : { signal })
   },
 
   me(signal?: AbortSignal): Promise<Me> {

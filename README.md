@@ -36,7 +36,7 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 5 are built.** Members can be invited, read the tree within
+**Phases 1 to 6 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, and reset their own password. The social graph — messages
 between members, shared contact details — is not in scope.
@@ -50,7 +50,7 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET /members`, `GET /members/{id}`, `GET /individuals/{xref}/ancestors`,
 `GET /media/{xref}/{fact}/{size}`, `POST /password/request`,
 `POST /password/reset`, `POST /invitation/preview`,
-`POST /invitation/accept`.
+`POST /invitation/accept`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Members, member detail,
@@ -72,6 +72,12 @@ job, and every record still links out for them.
 Members get in by invitation. An administrator picks the person out of the
 tree and gets a one-time link to send; the invitee chooses their own username
 and password. Nobody registers who was not asked.
+
+When something breaks for a member, somebody finds out: the failure is
+recorded with a short reference the member is shown, and the control panel has
+a Diagnosis screen that checks everything the portal needs and says what to
+fix. `GET /health` proves the whole chain in one request, and the deployment
+uses it.
 
 ---
 
@@ -180,6 +186,65 @@ If webtrees' own registration page is switched on
 (*Control panel → Website preferences → Allow visitors to request a new user
 account*), it is a second way in that this module knows nothing about. With
 invitations in place there is no reason to leave it on.
+
+### When something goes wrong
+
+*Control panel → Modules → Member portal API → Diagnosis.*
+
+Two decisions in this module make failures quiet on purpose: `boot()` swallows
+whatever it throws so a broken portal cannot take webtrees down with it, and
+every unhandled exception reaches the member as "please try again later"
+rather than as an internal message. Both are right, and together they mean an
+installation can be broken for one person with nothing anywhere looking wrong.
+This screen is where it shows.
+
+**The checks.** Which tree is being served (worth reading even when it is
+green — after a rehearsal against a test tree, that is the setting most likely
+to be quietly wrong), whether the database tables match the code, whether the
+module's routes registered at all, the portal address, the proxy secret,
+whether webtrees' own registration page is still open, accounts with no linked
+record, and errors in the last 24 hours.
+
+Two of them are hard to notice any other way:
+
+* **API routes — not registered.** The module did not start. webtrees is
+  unaffected, which is exactly why nothing else looks wrong. The reason is in
+  the server's error log on a line beginning `portal_api:`.
+* **Database tables — the code expects a newer version.** The files were
+  uploaded but the migrations have not run. From the deployment's point of
+  view this looks like success.
+
+**The error list.** Every request that failed for a member, newest first. Each
+one showed that member a short reference — if somebody quotes one, search for
+it here.
+
+Only the endpoint and the error are recorded. Never the request body, the
+query string or the path: those are somebody's date of birth, whom they
+searched for, and which record they were reading. Entries are deleted after
+30 days.
+
+### Checking the portal from outside
+
+`GET /api/v1/health` answers `{"status":"ok","version":…,"schema_version":…}`.
+Answering it at all takes a request through the Cloudflare Worker, the proxy
+secret, whatever URL form webtrees needs, PHP, webtrees' bootstrap, the
+module's `boot()`, the database and the tree setting — so one request either
+proves all of that or reports the first thing that is wrong.
+
+It needs no sign-in (a health check that needs credentials is a health check
+nobody runs), and the payload is deliberately dull. Point an uptime monitor at
+it if you have one.
+
+`deploy.yml` calls it after every upload and compares the reported version
+against the one in the checkout, which is what turns "the upload reported
+success" into "the new code is actually running". Set a repository **variable**
+(not a secret) called `PORTAL_URL` to switch that on:
+
+```
+PORTAL_URL = https://portal.example.org
+```
+
+Without it the step is skipped.
 
 ### Trying the write path safely
 
@@ -791,6 +856,17 @@ form that cannot work.
 **Module actions** (`module/tests/ConfigurationTest.php`) — every action this
 module exposes through webtrees' `/module/{name}/{action}` route has "Admin"
 in its name, which is the only thing that restricts it to administrators.
+
+**Operations** (`module/tests/OperationsTest.php`, `portal/src/Errors.test.tsx`)
+— an unhandled failure is recorded and answered with a reference that matches
+the recorded row, while the member is still told nothing about what broke; the
+recorded row names the endpoint and never the request; a refusal the module
+meant to give, including the 503 for a portal with no tree, is not recorded at
+all; the health endpoint reports the running version and discloses nothing
+about the family; and the diagnosis screen reports a missing tree, a schema
+behind the code, a database ahead of it, an open registration page and a
+missing proxy secret — and survives an installation where nothing is
+configured.
 
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the

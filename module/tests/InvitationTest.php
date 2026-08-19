@@ -458,9 +458,15 @@ class InvitationTest extends PortalTestCase
             'rate_limit_window' => '900',
             'invitation_days'   => '14',
             'invitations_url'   => '/invitations',
+            'diagnosis_url'     => '/diagnosis',
         ]);
 
         self::assertStringContainsString('invitation_days', $html);
+
+        // Asserted rather than left to the render succeeding: an undefined
+        // variable in a `.phtml` is a warning and an empty string, so the
+        // page would still render — just without the link.
         self::assertStringContainsString('/invitations', $html);
+        self::assertStringContainsString('/diagnosis', $html);
     }
 }

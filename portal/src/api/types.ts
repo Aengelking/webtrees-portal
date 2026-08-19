@@ -27,6 +27,17 @@ export type ApiErrorCode =
 export interface ApiErrorBody {
   error: ApiErrorCode
   message: string
+  /**
+   * Present only when the server recorded the failure — that is, only when it
+   * was the portal's own fault rather than a refusal it meant to give.
+   */
+  reference?: string
+}
+
+export interface Health {
+  status: 'ok'
+  version: string
+  schema_version: number
 }
 
 export interface CsrfToken {

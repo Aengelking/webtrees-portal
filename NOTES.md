@@ -914,6 +914,78 @@ sends it however they normally reach that person. Sending it would mean
 guessing which address is right, and being wrong means mailing a working
 credential to a stranger.
 
+### 2.23 Phase 6: a module that cannot fail loudly has to report
+
+Two decisions taken earlier were both right and, together, produced a blind
+spot. `boot()` swallows everything it throws (§2.15.3), so that a broken
+portal cannot take the family's genealogy site down with it. `ApiEnvelope`
+turns every unhandled exception into a polite "please try again later"
+(§2.9), so that no internal message reaches a member. The result is an
+installation that can be broken for one person for weeks with nothing
+anywhere looking wrong: webtrees is fine, the portal loads, and the only
+record of the failure is a line in a server log that on shared hosting is
+somewhere between hard to find and not readable at all.
+
+So Phase 6 adds no feature. It adds the three places where the truth shows up.
+
+**`portal_error`, and a reference the member can read aloud.** Every
+unhandled exception is recorded and answered with an eight-character
+reference, which also goes into the JSON body and onto the screen. That is
+the whole mechanism: without it a report reads "it did not work yesterday, on
+my phone" and there is nothing to look up.
+
+What is deliberately *not* recorded is the request. Not the body — for
+`PUT /me/individual` that is somebody's date of birth. Not the query string —
+for the directory that is whom they searched for. Not the path — for
+`/individuals/X123` that names a record. The route's **name** is stored
+instead, which is the handler class: enough to find the bug, and the
+difference between a diagnostic table and a second copy of the family's data.
+`OperationsTest::testTheRecordDoesNotNameWhatWasAskedFor` pins it.
+
+**Only genuine bugs are recorded.** An `ApiException` is a refusal this module
+wrote on purpose and worded for the member; a 404 for a record somebody may
+not see is ordinary traffic, and recording those would bury the handful of
+rows that are actually bugs. The 503 for an unconfigured portal is excluded
+for a second reason as well: an uptime monitor polling a half-configured
+installation would add a row a minute, for a condition the diagnosis screen
+reports far better.
+
+Entries are deleted after 30 days. An exception message can quote the value it
+was choking on, and nothing that might carry personal data should sit around
+indefinitely.
+
+**A diagnosis screen, because these failures all look alike from outside.**
+"The portal says 503" is the same sentence for a tree setting still pointing
+at a test import, for tables whose migrations never ran, and for a `boot()`
+that threw — and the three have nothing to do with each other. The screen
+checks each one and says what to do about it.
+
+The check that could not be made any other way is **"did `boot()` finish?"**.
+Because it catches everything, a module that failed to start looks exactly
+like one that started, from every page of webtrees. Its routes are simply
+absent — so the screen looks for one of them in the route map.
+
+The one next to it in value is **schema version expected vs installed**. New
+files on the server with their migrations not run is a deployment that
+succeeded by every measure the deployment itself can take.
+
+**`GET /health`, and one request that proves the chain.** Answering it at all
+takes a request through the Worker, the proxy secret, the URL form webtrees
+needs, PHP, webtrees' bootstrap, `boot()`, the database and the tree setting.
+It is unauthenticated on purpose — a health check that needs credentials is a
+health check nobody runs — so its payload is deliberately dull: no tree name,
+no counts, nothing worth finding.
+
+The exception is `version`, and it is the point. `deploy.yml` compares what
+the endpoint reports against the version in the checkout, which turns "the
+upload reported success" into "the new code is actually running". An SFTP
+upload that leaves the old files in place is the deployment failure that is
+otherwise invisible. It is a warning rather than a failure, because a run
+that only deploys the portal legitimately leaves the module's version alone.
+
+The step is skipped unless a `PORTAL_URL` repository variable is set, so an
+installation that is not reachable from GitHub does not fail every deploy.
+
 ---
 
 ## 3. Things that were guessed
