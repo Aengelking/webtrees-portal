@@ -6,6 +6,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\Invitation;
 use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
@@ -71,6 +72,7 @@ class InvitationAccept implements RequestHandlerInterface
     private const int MIN_USERNAME_LENGTH = 3;
 
     public function __construct(
+        private readonly PortalApiModule $module,
         private readonly PortalTreeService $trees,
         private readonly InvitationService $invitations,
         private readonly UserService $user_service,
@@ -210,6 +212,20 @@ class InvitationAccept implements RequestHandlerInterface
         }
 
         $tree->setUserPreference($user, UserInterface::PREF_TREE_ACCOUNT_XREF, $individual->xref());
+
+        // Set together with the link, and only when there is one, because
+        // webtrees measures the limit *from* that record — `UserEditAction`
+        // forces the value back to zero for an account without one, and so
+        // does this module rather than storing a number that does nothing.
+        //
+        // Zero means the administrator has chosen not to restrict, which is
+        // webtrees' own default and means this member will see every living
+        // person in the tree. The diagnosis screen says so.
+        $path_length = $this->module->memberPathLength();
+
+        if ($path_length > 0) {
+            $tree->setUserPreference($user, UserInterface::PREF_TREE_PATH_LENGTH, (string) $path_length);
+        }
     }
 
     // -----------------------------------------------------------------

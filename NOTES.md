@@ -1064,6 +1064,75 @@ destinations, no more", and that was a decision rather than an accident.
 Inviting somebody is a thing a member does once or twice; it lives on
 Settings, where the rest of "my own participation" already is.
 
+### 2.25 Phase 8: what a member may *see*, which is a separate question
+
+Phase 7 answered "whom may I invite" and had to compute the answer itself,
+because `canShow()` was too wide to lean on. The obvious follow-up is whether
+the visibility should be narrowed to match — and it should, but it is a
+different mechanism with different consequences, so it is worth being precise
+about what it does.
+
+**It restricts living people and nothing else.** In `canShowByType()` the
+dead are checked *first*:
+
+```php
+if ((int) $this->tree->getPreference('SHOW_DEAD_PEOPLE') >= $access_level && $this->isDead()) {
+    ...
+    if (!$keep_alive) {
+        return true;
+    }
+}
+// Consider relationship privacy
+```
+
+`SHOW_DEAD_PEOPLE` defaults to `'2'` (`app/Tree.php`), so a limit never
+touches an ancestor. The genealogy — the part a family portal is *for* —
+stays whole. That is what makes this safe to switch on.
+
+**The number means the same as ours.** `isRelated()` does `$distance *= 2`
+before walking, because it counts INDI→FAM and FAM→INDI as separate links. So
+webtrees' "2" is the same reach as this module's two steps, and the two
+settings can be read side by side without conversion.
+
+**It needs both halves, and webtrees enforces that.** Relationship privacy
+applies only when the account has a linked record *and* a path length above
+zero; `UserEditAction` even forces the value back to zero when the record is
+missing, since the distance is measured from it. `MemberService::applyPathLength()`
+skips such accounts for the same reason rather than storing a number that does
+nothing — they belong in the "no linked record" list instead.
+
+**There is no default to inspect.** Not per site, not per tree — every
+account, one at a time, in *Control panel → Users → edit*. So the state was
+invisible: nothing anywhere said "every member currently sees every living
+person". The diagnosis screen now does, which is most of the value of this
+phase.
+
+**New accounts get it, existing ones do not — until asked.** An invitation
+sets the limit at the moment it sets the link. Existing accounts are changed
+only by a button, because it changes what people who are already signed in
+can see, and that is not a thing to do behind an administrator's back.
+Editors, moderators, managers and administrators are never touched: they need
+the whole tree to maintain it.
+
+**Zero is written as absence.** Zero and unset mean the same thing to
+webtrees, but only one of them reads as a decision, so the module writes
+nothing rather than a zero.
+
+**A trap that cost a test.** `Tree::getUserPreference()` fetches a user's
+preferences once and caches them *on the instance*, and `setUserPreference()`
+updates only that instance's copy. Two `Tree` objects for the same tree
+therefore disagree until the next request. Harmless in webtrees, where a
+request holds one of them and the admin action redirects afterwards; a trap
+in a test that writes through its own `Tree` and then asks a service holding
+another. `VisibilityTest::portalTree()` exists to say so.
+
+**Left alone deliberately:** `isRelated()` keeps its results in a
+function-level `static $cache` that is keyed by neither user nor tree. In a
+web request there is one signed-in user, so it is correct there. It would be
+wrong in a process that evaluated privacy for two different users in turn —
+worth knowing before writing a test that logs in twice and asks about living
+people both times.
+
 ---
 
 ## 3. Things that were guessed

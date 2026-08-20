@@ -275,6 +275,10 @@ class OperationsTest extends PortalTestCase
     {
         $this->module()->setPreference(PortalApiModule::SETTING_PORTAL_URL, 'https://portal.example.test');
         $this->module()->setPreference(PortalApiModule::SETTING_PROXY_SECRET, 'shared-secret');
+        // Left at webtrees' own default ("no limit"), this is reported as
+        // worth a look — correctly, because it means every member sees every
+        // living person. A healthy installation has made a choice about it.
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_PATH_LENGTH, '2');
         Site::setPreference('USE_REGISTRATION_MODULE', '0');
 
         $diagnosis = Registry::container()->get(Diagnosis::class);
@@ -374,7 +378,7 @@ class OperationsTest extends PortalTestCase
 
         $checks = $this->diagnose();
 
-        self::assertCount(8, $checks);
+        self::assertCount(9, $checks);
         self::assertSame(Diagnosis::PROBLEM, Registry::container()->get(Diagnosis::class)->worst($checks));
     }
 
@@ -392,6 +396,7 @@ class OperationsTest extends PortalTestCase
             'worst'        => $diagnosis->worst($checks),
             'errors'       => $this->errors->recent(),
             'error_count'  => $this->errors->count(),
+            'path_length'  => 2,
             'settings_url' => '/settings',
         ]);
 

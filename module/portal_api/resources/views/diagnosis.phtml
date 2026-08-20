@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
  * @var Collection<int,object>         $errors
  * @var PortalApiModule                $module
  * @var int                            $error_count
+ * @var int                            $path_length
  * @var string                         $settings_url
  * @var string                         $title
  * @var string                         $worst
@@ -75,6 +76,26 @@ $summary = [
     </table>
 </div>
 
+<?php if ($path_length > 0) : ?>
+    <h2 class="h5 mt-5"><?= I18N::translate('What members can see') ?></h2>
+
+    <p>
+        <?= I18N::translate('New accounts created by invitation are limited automatically. Accounts that already exist keep what they have until you apply it here.') ?>
+    </p>
+
+    <p class="text-muted">
+        <?= I18N::translate('This changes what people who are already signed in can see, so it does not happen on its own. Deceased people are unaffected; only living people are hidden.') ?>
+    </p>
+
+    <form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminDiagnosis'])) ?>">
+        <input type="hidden" name="diagnosis_action" value="apply_path_length">
+        <button type="submit" class="btn btn-outline-primary">
+            <?= I18N::plural('Limit every member account to %s step', 'Limit every member account to %s steps', $path_length, I18N::number($path_length)) ?>
+        </button>
+        <?= csrf_field() ?>
+    </form>
+<?php endif ?>
+
 <h2 class="h5 mt-5"><?= I18N::translate('Recent errors') ?></h2>
 
 <p>
@@ -120,6 +141,7 @@ $summary = [
     </div>
 
     <form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminDiagnosis'])) ?>">
+        <input type="hidden" name="diagnosis_action" value="clear_errors">
         <button type="submit" class="btn btn-outline-danger">
             <?= I18N::plural('Clear the error log (%s entry)', 'Clear the error log (%s entries)', $error_count, I18N::number($error_count)) ?>
         </button>

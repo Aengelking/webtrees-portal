@@ -25,6 +25,7 @@ use Illuminate\Support\Collection;
  * @var string               $member_invites
  * @var string               $member_invite_steps
  * @var string               $member_invite_quota
+ * @var string               $member_path_length
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -175,6 +176,37 @@ foreach ($trees as $a_tree) {
             <input class="form-control" type="number" min="0" max="20" id="<?= PortalApiModule::SETTING_MEMBER_INVITE_QUOTA ?>" name="<?= PortalApiModule::SETTING_MEMBER_INVITE_QUOTA ?>" value="<?= e($member_invite_quota) ?>">
             <div class="form-text">
                 <?= I18N::translate('Counts only links that have not been used yet. Zero stops members from inviting anybody, the same as switching it off above.') ?>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('What members can see') ?></h2>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_MEMBER_PATH_LENGTH ?>">
+            <?= I18N::translate('How much of the tree a member sees') ?>
+        </label>
+        <div class="col-sm-9">
+            <?= view('components/select', [
+                'name'     => PortalApiModule::SETTING_MEMBER_PATH_LENGTH,
+                'id'       => PortalApiModule::SETTING_MEMBER_PATH_LENGTH,
+                'selected' => $member_path_length,
+                'options'  => [
+                    '0' => I18N::translate('No limit — every living person in the tree'),
+                    '1' => I18N::translate('Parents, brothers and sisters, partners and children'),
+                    '2' => I18N::translate('Also grandparents, grandchildren, nieces and nephews, parents-in-law'),
+                    '3' => I18N::translate('Also first cousins, great-grandparents, great-nieces and great-nephews'),
+                    '4' => I18N::translate('One step further again'),
+                ],
+            ]) ?>
+            <div class="form-text">
+                <?= I18N::translate('This is webtrees’ own per-user “relationship path length”, which this module writes for you. It restricts living people only — everybody who has died stays visible, so the genealogy itself is unaffected.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('webtrees leaves this unset by default, which means a member sees every living person in the family tree. New accounts created by invitation get this value; existing accounts keep what they have until you apply it to them on the Diagnosis screen.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Editors, moderators, managers and administrators are never restricted — they need the whole tree to maintain it.') ?>
             </div>
         </div>
     </div>

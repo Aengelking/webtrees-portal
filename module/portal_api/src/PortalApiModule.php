@@ -131,6 +131,17 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_INVITES      = 'member_invites';
     public const string SETTING_MEMBER_INVITE_STEPS = 'member_invite_steps';
     public const string SETTING_MEMBER_INVITE_QUOTA = 'member_invite_quota';
+    public const string SETTING_MEMBER_PATH_LENGTH  = 'member_path_length';
+
+    /**
+     * How far a member may *see*, as opposed to how far they may invite.
+     *
+     * Zero means "do not restrict", which is webtrees' own default and means
+     * a member sees every living person in the tree. Anything above zero is
+     * written into webtrees' per-user `RELATIONSHIP_PATH_LENGTH` and counts
+     * the same steps this module counts elsewhere.
+     */
+    public const int MAX_PATH_LENGTH = 4;
 
     public const int DEFAULT_RATE_LIMIT_IP     = 30;
     public const int DEFAULT_RATE_LIMIT_USER   = 5;
@@ -275,7 +286,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         // point is that the person holding the link does not have an account
         // yet.
         $container->set(InvitationRead::class, new InvitationRead($portal_trees, $invitations, $rate_limiter));
-        $container->set(InvitationAccept::class, new InvitationAccept($portal_trees, $invitations, $user_service, $rate_limiter, $me));
+        $container->set(InvitationAccept::class, new InvitationAccept($this, $portal_trees, $invitations, $user_service, $rate_limiter, $me));
     }
 
     private function registerRoutes(): void
@@ -418,6 +429,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_invites'    => $this->getPreference(self::SETTING_MEMBER_INVITES, '1'),
             'member_invite_steps' => $this->getPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) CloseFamily::DEFAULT_STEPS),
             'member_invite_quota' => $this->getPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) MemberInvitations::DEFAULT_QUOTA),
+            'member_path_length'  => $this->getPreference(self::SETTING_MEMBER_PATH_LENGTH, '0'),
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -437,6 +449,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_INVITES, $body->boolean(self::SETTING_MEMBER_INVITES, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) max(1, min(CloseFamily::MAX_STEPS, $body->integer(self::SETTING_MEMBER_INVITE_STEPS, CloseFamily::DEFAULT_STEPS))));
         $this->setPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) max(0, min(MemberInvitations::MAX_QUOTA, $body->integer(self::SETTING_MEMBER_INVITE_QUOTA, MemberInvitations::DEFAULT_QUOTA))));
+        $this->setPreference(self::SETTING_MEMBER_PATH_LENGTH, (string) $this->pathLength($body->integer(self::SETTING_MEMBER_PATH_LENGTH, 0)));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 
@@ -602,23 +615,69 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'worst'        => $diagnosis->worst($checks),
             'errors'       => $errors->recent(),
             'error_count'  => $errors->count(),
+            'path_length'  => $this->memberPathLength(),
             'settings_url' => $this->getConfigLink(),
         ]);
     }
 
-    /** The only thing to post here is "forget the errors I have dealt with". */
+    /** Two things can be posted here: clear the errors, or apply the limit. */
     public function postAdminDiagnosisAction(ServerRequestInterface $request): ResponseInterface
     {
-        Registry::container()->get(ErrorLog::class)->clear();
+        $action = Validator::parsedBody($request)->string('diagnosis_action', 'clear_errors');
 
-        FlashMessages::addMessage(I18N::translate('The error log has been cleared.'), 'success');
+        if ($action === 'apply_path_length') {
+            $this->applyPathLength();
+        } else {
+            Registry::container()->get(ErrorLog::class)->clear();
+
+            FlashMessages::addMessage(I18N::translate('The error log has been cleared.'), 'success');
+        }
 
         return redirect($this->diagnosisUrl());
+    }
+
+    /**
+     * Write the configured visibility limit onto every member account.
+     *
+     * Deliberately a button rather than something that happens on its own.
+     * It changes what people who are already signed in can see, which is not
+     * a thing to do behind an administrator's back — and it is reversible
+     * only by choosing a different number and pressing it again.
+     */
+    private function applyPathLength(): void
+    {
+        $steps = $this->memberPathLength();
+
+        if ($steps === 0) {
+            FlashMessages::addMessage(I18N::translate('Choose a limit above “No limit” first, then apply it.'), 'danger');
+
+            return;
+        }
+
+        $container = Registry::container();
+        $tree      = $container->get(PortalTreeService::class)->tree();
+        $changed   = $container->get(MemberService::class)->applyPathLength($tree, $steps);
+
+        FlashMessages::addMessage(
+            I18N::plural('%s member account was updated.', '%s member accounts were updated.', $changed, I18N::number($changed)),
+            'success'
+        );
     }
 
     private function diagnosisUrl(): string
     {
         return route('module', ['module' => $this->name(), 'action' => 'AdminDiagnosis']);
+    }
+
+    /** The configured visibility limit, clamped. Zero means "do not restrict". */
+    public function memberPathLength(): int
+    {
+        return $this->pathLength((int) $this->getPreference(self::SETTING_MEMBER_PATH_LENGTH, '0'));
+    }
+
+    private function pathLength(int $steps): int
+    {
+        return max(0, min(self::MAX_PATH_LENGTH, $steps));
     }
 
     private function validityDays(int $days): int

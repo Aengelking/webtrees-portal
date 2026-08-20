@@ -58,6 +58,7 @@ class Diagnosis
             $this->proxySecret(),
             $this->ownRegistration(),
             $this->unlinkedAccounts(),
+            $this->visibility(),
             $this->recentErrors(),
         ]);
     }
@@ -249,6 +250,67 @@ class Diagnosis
             I18N::translate('Accounts with no linked record'),
             I18N::plural('%s account', '%s accounts', $count, I18N::number($count)),
             I18N::translate('They can sign in, but the portal has nothing of their own to show them. They are listed on the invitations screen.')
+        );
+    }
+
+    /**
+     * What a member can see — which is not the same question as what they may
+     * invite, and is the one most likely to be quietly wider than intended.
+     *
+     * webtrees applies relationship privacy only when an account has both a
+     * linked record and a `RELATIONSHIP_PATH_LENGTH` above zero. Neither is
+     * set by default, so out of the box every member sees every living person
+     * in the tree. Nothing anywhere says so, which is the reason this check
+     * exists: the setting is per user, there is no default to inspect, and
+     * the symptom is invisible.
+     *
+     * Note what a limit does *not* do: the dead are checked before the
+     * relationship test in `Individual::canShowByType()` and stay visible. The
+     * genealogy remains whole; only living people are affected.
+     */
+    private function visibility(): DiagnosisCheck
+    {
+        $configured = $this->module->memberPathLength();
+
+        if ($configured === 0) {
+            return new DiagnosisCheck(
+                'visibility',
+                self::WARNING,
+                I18N::translate('What a member can see'),
+                I18N::translate('Every living person in the family tree.'),
+                I18N::translate('webtrees only limits this for accounts that have both a linked record and a relationship limit, and neither is set by default. Set “How much of the tree a member sees” in the module preferences to restrict it. Deceased people are unaffected either way.')
+            );
+        }
+
+        try {
+            $tree      = $this->trees->tree();
+            $unlimited = $this->members->accountsWithUnlimitedVisibility($tree)->count();
+        } catch (Throwable) {
+            return new DiagnosisCheck(
+                'visibility',
+                self::OK,
+                I18N::translate('What a member can see'),
+                I18N::translate('Cannot be counted without a family tree.'),
+                ''
+            );
+        }
+
+        if ($unlimited === 0) {
+            return new DiagnosisCheck(
+                'visibility',
+                self::OK,
+                I18N::translate('What a member can see'),
+                I18N::plural('Relatives within %s step, and everybody who has died.', 'Relatives within %s steps, and everybody who has died.', $configured, I18N::number($configured)),
+                ''
+            );
+        }
+
+        return new DiagnosisCheck(
+            'visibility',
+            self::WARNING,
+            I18N::translate('What a member can see'),
+            I18N::plural('%s member account still sees every living person.', '%s member accounts still see every living person.', $unlimited, I18N::number($unlimited)),
+            I18N::translate('The limit applies to accounts created by invitation from now on. Existing accounts keep what they had until it is applied to them — there is a button below. An account with no linked record cannot be limited at all, because the limit is measured from that record.')
         );
     }
 

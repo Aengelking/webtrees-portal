@@ -36,7 +36,7 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 7 are built.** Members can be invited, read the tree within
+**Phases 1 to 8 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, and reset their own password. The social graph — messages
 between members, shared contact details — is not in scope.
@@ -231,6 +231,40 @@ account, or who already have an invitation outstanding are simply absent from
 the member's list, with no explanation. That is deliberate: "your sister
 already has an account" would disclose something the portal otherwise treats as
 hers to share.
+
+### How much of the tree a member sees
+
+*Control panel → Modules → Member portal API → preferences → What members can
+see.*
+
+This is a different control from the invitation distance, and the one most
+likely to be wider than you expect. **By default a member sees every living
+person in the family tree.** webtrees limits that only for accounts that have
+both a linked record and a per-user *relationship path length*, and it sets
+neither on its own — there is no site-wide or tree-wide default to inspect,
+which is why nothing anywhere tells you.
+
+Setting a limit here writes that per-user value for you. What it does:
+
+* **Living people only.** Everybody who has died stays visible to everybody.
+  The genealogy is unaffected — this hides living relatives who are further
+  away than the limit, and nothing else.
+* **New accounts created by invitation get it automatically.**
+* **Existing accounts keep what they have** until you press the button on the
+  Diagnosis screen. That button changes what people who are already signed in
+  can see, so it does not happen on its own.
+* **Editors, moderators, managers and administrators are never restricted.**
+  They need the whole tree to maintain it.
+* **An account with no linked record cannot be limited at all** — the distance
+  is measured from that record. Those accounts show up in the "no linked
+  record" list, which is where to fix them.
+
+The steps mean the same thing as in the invitation setting: 1 is parents,
+siblings, partners and children; 2 adds grandparents, grandchildren, nieces,
+nephews and parents-in-law.
+
+The Diagnosis screen reports the current state under *What a member can see*,
+including how many accounts still have no limit.
 
 ### When something goes wrong
 
@@ -901,6 +935,14 @@ form that cannot work.
 **Module actions** (`module/tests/ConfigurationTest.php`) — every action this
 module exposes through webtrees' `/module/{name}/{action}` route has "Admin"
 in its name, which is the only thing that restricts it to administrators.
+
+**Visibility** (`module/tests/VisibilityTest.php`) — the default state
+(every member sees every living person) is reported rather than left silent;
+applying a limit touches member accounts and never editors, managers or
+administrators; an account with no linked record is skipped, because webtrees
+measures the distance from that record; and an account created by invitation
+arrives with the limit already set, or without one when the setting says not
+to restrict.
 
 **Member invitations** (`module/tests/MemberInvitationTest.php`,
 `portal/src/Invite.test.tsx`) — a member is offered only living relatives

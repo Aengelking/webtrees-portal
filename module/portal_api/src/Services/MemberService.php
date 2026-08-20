@@ -180,6 +180,78 @@ class MemberService
     }
 
     /**
+     * The accounts this module considers "a member" of the portal's tree.
+     *
+     * Members only — never editors, moderators, managers or administrators.
+     * Whatever limits are put on what a member may see, the people who
+     * maintain the tree have to be able to see all of it to do that work.
+     *
+     * @return Collection<int,User>
+     */
+    public function memberAccounts(Tree $tree): Collection
+    {
+        return $this->user_service->all()
+            ->reject(static fn (User $user): bool => Auth::isAdmin($user))
+            ->filter(static fn (User $user): bool => $tree->getUserPreference($user, UserInterface::PREF_TREE_ROLE) === UserInterface::ROLE_MEMBER)
+            ->values();
+    }
+
+    /**
+     * Member accounts that can see every living person in the tree.
+     *
+     * webtrees applies relationship privacy only when a user has both a
+     * linked record and a `RELATIONSHIP_PATH_LENGTH` above zero. Miss either
+     * and `Individual::canShowByType()` falls through to its last line —
+     * "show living people to members only" — which for a signed-in member
+     * means everybody. Neither is set by default, so this list starts out
+     * holding every account.
+     *
+     * @return Collection<int,User>
+     */
+    public function accountsWithUnlimitedVisibility(Tree $tree): Collection
+    {
+        return $this->memberAccounts($tree)
+            ->filter(static function (User $user) use ($tree): bool {
+                $linked = $tree->getUserPreference($user, UserInterface::PREF_TREE_ACCOUNT_XREF) !== '';
+                $length = (int) $tree->getUserPreference($user, UserInterface::PREF_TREE_PATH_LENGTH);
+
+                return !$linked || $length <= 0;
+            })
+            ->values();
+    }
+
+    /**
+     * Apply a relationship limit to every member account that can carry one.
+     *
+     * Accounts with no linked record are skipped rather than set: webtrees
+     * forces the value back to zero for them anyway (`UserEditAction` does
+     * the same), because the limit is measured from the account's own record
+     * and there is nothing to measure from. Those accounts appear in the
+     * "no linked record" list instead, which is where they can be fixed.
+     *
+     * @return int How many accounts were changed.
+     */
+    public function applyPathLength(Tree $tree, int $steps): int
+    {
+        $changed = 0;
+
+        foreach ($this->memberAccounts($tree) as $user) {
+            if ($tree->getUserPreference($user, UserInterface::PREF_TREE_ACCOUNT_XREF) === '') {
+                continue;
+            }
+
+            if ((int) $tree->getUserPreference($user, UserInterface::PREF_TREE_PATH_LENGTH) === $steps) {
+                continue;
+            }
+
+            $tree->setUserPreference($user, UserInterface::PREF_TREE_PATH_LENGTH, (string) $steps);
+            $changed++;
+        }
+
+        return $changed;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function profile(object $row): array
