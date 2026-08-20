@@ -66,6 +66,22 @@ export interface IssuedInvitation {
   invitation: MemberInvitation | null
 }
 
+export interface Message {
+  id: number
+  /** The sender's name where it could be resolved, the address where it could not. */
+  from: string
+  subject: string
+  /** The message, without the email webtrees wrapped around it. */
+  body: string
+  sent_at: string
+  read: boolean
+}
+
+export interface Inbox {
+  messages: Message[]
+  unread: number
+}
+
 export interface Health {
   status: 'ok'
   version: string
@@ -252,6 +268,8 @@ export interface Individual extends IndividualRef {
 }
 
 export interface Me {
+  /** Carried on /me so the navigation badge needs no request of its own. */
+  unread_messages: number
   user: User
   profile: MemberProfile | null
   individual: Individual | null

@@ -19,6 +19,7 @@ import type {
   MemberProfileUpdate,
   Me,
   ContactSettings,
+  Inbox,
   InvitationOverview,
   IssuedInvitation,
   OwnContact,
@@ -33,6 +34,7 @@ export const queryKeys = {
   member: (id: number) => ['member', id] as const,
   invitations: ['invitations'] as const,
   contact: ['contact'] as const,
+  messages: ['messages'] as const,
 }
 
 /**
@@ -158,6 +160,45 @@ export function useWithdrawInvitation() {
     mutationFn: (id) => api.withdrawInvitation(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.invitations })
+    },
+  })
+}
+
+/**
+ * The member's own inbox.
+ *
+ * Every mutation returns the whole inbox, so the list and the unread count
+ * cannot disagree after a change — there is one answer and it comes from the
+ * server.
+ */
+export function useMessages() {
+  return useQuery<Inbox>({
+    queryKey: queryKeys.messages,
+    queryFn: ({ signal }) => api.messages(signal),
+  })
+}
+
+export function useMarkMessage() {
+  const queryClient = useQueryClient()
+
+  return useMutation<Inbox, Error, { id: number; read: boolean }>({
+    mutationFn: ({ id, read }) => api.markMessage(id, read),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.messages, result)
+      // `me` carries the badge count for the navigation bar.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+export function useDeleteMessage() {
+  const queryClient = useQueryClient()
+
+  return useMutation<Inbox, Error, number>({
+    mutationFn: (id) => api.deleteMessage(id),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.messages, result)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
     },
   })
 }

@@ -302,3 +302,30 @@ test.describe('phase 9', () => {
     await expect(page.getByRole('radio', { name: 'Nur meine enge Familie' })).toHaveCount(3)
   })
 })
+
+test.describe('phase 10', () => {
+  test('an unread message is badged, opened and cleared', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed inbox.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    // The count is in the link's name, not only in a coloured circle.
+    const inbox = page.getByRole('link', { name: /Nachrichten/ })
+    await expect(inbox).toContainText('1')
+
+    await inbox.click()
+    await expect(page.getByRole('heading', { name: 'Nachrichten' })).toBeVisible()
+
+    // Closed until opened, then the message itself — not webtrees' email
+    // wrapper around it.
+    await expect(page.getByText('Kommst du zum Familientreffen?')).toBeHidden()
+    await page.getByRole('button', { name: /Familientreffen/ }).click()
+    await expect(page.getByText('Kommst du zum Familientreffen?')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Löschen' }).click()
+    await expect(page.getByText('Keine Nachrichten')).toBeVisible()
+  })
+})

@@ -14,6 +14,9 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\HealthRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxList;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
@@ -37,6 +40,7 @@ use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
+use Engelking\Webtrees\PortalApi\Services\Inbox;
 use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
@@ -103,7 +107,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.0.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 4;
+    private const int SCHEMA_VERSION = 5;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -243,8 +247,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
         $contacts       = new ContactDetails($this, $close_family);
+        $inbox          = new Inbox($user_service);
         $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members);
-        $me             = new MeAssembler($portal_trees, $presenter, $members);
+        $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox);
 
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
@@ -261,6 +266,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(CloseFamily::class, $close_family);
         $container->set(MemberInvitations::class, $member_invites);
         $container->set(ContactDetails::class, $contacts);
+        $container->set(Inbox::class, $inbox);
         $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
 
@@ -283,6 +289,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ContactRead::class, new ContactRead($contacts));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
+        $container->set(InboxList::class, new InboxList($inbox));
+        $container->set(InboxUpdate::class, new InboxUpdate($inbox));
+        $container->set(InboxDelete::class, new InboxDelete($inbox));
 
         $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
@@ -398,6 +407,18 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $unsafe_private]);
 
         $map->post(MessageCreate::class, self::ROUTE_PREFIX . '/members/{id}/message', MessageCreate::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        // Phase 10 — the member's own inbox.
+        $map->get(InboxList::class, self::ROUTE_PREFIX . '/messages', InboxList::class)
+            ->extras(['middleware' => $private]);
+
+        $map->patch(InboxUpdate::class, self::ROUTE_PREFIX . '/messages/{id}', InboxUpdate::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(InboxDelete::class, self::ROUTE_PREFIX . '/messages/{id}', InboxDelete::class)
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
 

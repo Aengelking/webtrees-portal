@@ -863,6 +863,115 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /messages:
+    get:
+      tags: [members]
+      summary: My own messages
+      description: |
+        Everything addressed to this member, newest first — not only what the
+        portal sent. webtrees' own contact forms and an administrator's
+        broadcast deliver to the same table, and a member should not have to
+        know which route a message took.
+
+        Two things are done to each row on the way out. `message.body` is not
+        the message: it is webtrees' rendered `emails/message-user-text` view,
+        with a greeting, a line naming the sender, a rule, the message,
+        another rule and a note about the URL. Only the part between the rules
+        is returned — and a body with no rules is returned whole, because
+        losing the wrapper is a nicety and losing the message would be a bug.
+
+        `message.sender` is an email address, not an account, so the name is
+        looked up. When the lookup fails — a changed address, a deleted
+        account, a visitor using a contact form — the address itself is
+        returned. That discloses nothing new: it was already the reply address
+        on the email.
+      operationId: listMessages
+      responses:
+        '200':
+          description: The member's messages and how many are unread.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /messages/{id}:
+    patch:
+      tags: [members]
+      summary: Mark a message read, or unread again
+      description: |
+        Idempotent. Somebody else's message and one that does not exist are
+        both `404`.
+      operationId: updateMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [read]
+              properties:
+                read:
+                  type: boolean
+      responses:
+        '200':
+          description: The inbox as it now stands.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [members]
+      summary: Delete one of my messages
+      description: |
+        Really deleted, from webtrees' own table — an inbox nobody can clear
+        is a nuisance rather than a feature. The read state follows through a
+        foreign key.
+      operationId: deleteMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: The inbox as it now stands.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbox'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -1232,6 +1341,41 @@ components:
             is shown it so they can quote it, and an administrator finds the
             matching row on the module's diagnosis screen.
 
+    Message:
+      type: object
+      additionalProperties: false
+      required: [id, from, subject, body, sent_at, read]
+      properties:
+        id:
+          type: integer
+        from:
+          type: string
+          description: |
+            The sender's name where the address could be resolved to an
+            account, and the address itself where it could not.
+        subject:
+          type: string
+        body:
+          type: string
+          description: The message, without the email webtrees wrapped around it.
+        sent_at:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+
+    Inbox:
+      type: object
+      additionalProperties: false
+      required: [messages, unread]
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        unread:
+          type: integer
+
     ContactEntry:
       type: object
       additionalProperties: false
@@ -1582,7 +1726,7 @@ components:
     Me:
       type: object
       additionalProperties: false
-      required: [user, profile, individual, tree, csrf_token]
+      required: [user, profile, individual, tree, unread_messages, csrf_token]
       properties:
         user:
           $ref: '#/components/schemas/User'

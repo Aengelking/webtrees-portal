@@ -19,6 +19,7 @@ class MeAssembler
         private readonly PortalTreeService $trees,
         private readonly RecordPresenter $presenter,
         private readonly MemberService $members,
+        private readonly Inbox $inbox,
     ) {
     }
 
@@ -51,7 +52,11 @@ class MeAssembler
                 'name'  => $tree->name(),
                 'title' => $tree->title(),
             ],
-            'csrf_token' => Session::getCsrfToken(),
+            // Carried here rather than fetched separately, because the
+            // navigation bar shows it on every screen and `/me` is already
+            // the request every screen makes.
+            'unread_messages' => $this->inbox->unreadCount($user),
+            'csrf_token'      => Session::getCsrfToken(),
         ];
     }
 

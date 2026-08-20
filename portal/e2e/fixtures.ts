@@ -100,6 +100,16 @@ export async function stubApi(page: Page): Promise<void> {
   let pendingChange = false
   let visibleInDirectory = true
   let invitedDieter = false
+  let inbox = [
+    {
+      id: 9,
+      from: 'Dieter Beispiel',
+      subject: 'Familientreffen',
+      body: 'Kommst du zum Familientreffen?',
+      sent_at: '2026-08-01T10:00:00+00:00',
+      read: false,
+    },
+  ]
 
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
@@ -115,7 +125,12 @@ export async function stubApi(page: Page): Promise<void> {
 
       if (body.username === 'anna' && body.password === 'geheim') {
         signedIn = true
-        return json(route, ME)
+
+        // The real handler answers a sign-in with the same payload as `/me`,
+        // unread count included — and the portal keeps that answer rather
+        // than asking again. A stub that dropped the count would make the
+        // badge look broken here and only here.
+        return json(route, { ...ME, unread_messages: inbox.filter((m) => !m.read).length })
       }
 
       return json(
@@ -223,6 +238,22 @@ export async function stubApi(page: Page): Promise<void> {
     }
 
     // Phase 9. Anna shares a telephone number with every member.
+    // Phase 10. One unread message, which the badge counts.
+    if (path === '/messages' && method === 'GET') {
+      return json(route, { messages: inbox, unread: inbox.filter((m) => !m.read).length })
+    }
+
+    if (path.startsWith('/messages/') && method === 'PATCH') {
+      const { read } = route.request().postDataJSON() as { read: boolean }
+      inbox = inbox.map((m) => ({ ...m, read }))
+      return json(route, { messages: inbox, unread: inbox.filter((m) => !m.read).length })
+    }
+
+    if (path.startsWith('/messages/') && method === 'DELETE') {
+      inbox = []
+      return json(route, { messages: inbox, unread: 0 })
+    }
+
     if (path === '/me/contact') {
       if (method === 'PATCH') {
         const sent = route.request().postDataJSON() as { contact: Record<string, unknown> }
@@ -242,6 +273,7 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === '/me') {
       return json(route, {
         ...ME,
+        unread_messages: inbox.filter((m) => !m.read).length,
         profile: { ...ME.profile, visible_in_directory: visibleInDirectory },
         individual: { ...ANNA, pending_change: pendingChange },
       })

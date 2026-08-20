@@ -1232,9 +1232,94 @@ back to. The portal met this trap once before, in `SessionCreate`, where a
 blank preference would have locked a member out of signing in.
 
 **Not built:** a website field (nobody asked, and it is the one contact detail
-that is usually public anyway), and an inbox in the portal. Messages are
-delivered by webtrees, so a member whose contact method is internal-only must
-read them in webtrees. Worth revisiting if that turns out to bite.
+that is usually public anyway). An inbox was not built either, so a member
+whose contact method is internal-only had to read their messages in
+webtrees — which is what Phase 10 went back and fixed (§2.27).
+
+---
+
+### 2.27 Phase 10: reading the messages, and what webtrees stores instead of one
+
+Phase 9 could send a message and then had nowhere to read it. A member whose
+webtrees contact method is "internal messaging only" received their family's
+messages into a mailbox they had no way of opening. That is the gap this
+closes.
+
+**The inbox is webtrees' `message` table, not a portal one.** Everything
+addressed to the member is shown, whatever route it took to get there — a
+message sent from the portal, one sent from webtrees' own contact form, an
+administrator's broadcast. A member should not have to know which system
+delivered something in order to find it, and a second store would have made
+"my messages" mean two different lists depending on where you stood.
+
+Two properties of that table shaped the whole phase, and neither is visible
+from its column names.
+
+**`message.body` is not what the sender typed.** It is the *rendered*
+`emails/message-user-text` view: a greeting, a line naming the sender, a rule
+of sixty hyphens, the message, another rule, and a note about which page the
+sender was looking at. Showing that in an inbox would be showing somebody
+their own email envelope. `Inbox::messageOnly()` therefore takes what lies
+between the first rule and the last and drops the rest — the greeting and the
+sender line are not lost information, because the inbox shows the sender in
+its own column and does it better.
+
+The **fallback** is the part that matters. A body with no rules at all is
+returned whole rather than emptied, so a message stored by another version of
+webtrees, or by a module with its own template, stays readable. Losing the
+wrapper is a nicety; losing the message would be a bug. The rule is matched as
+*a run of ten or more hyphens* rather than as exactly sixty, because the
+number is a detail of a template rather than a promise.
+
+**`message.sender` is an email address, not a user id.** webtrees stores
+`Auth::user()->email()` at the moment of sending, so there is no link back to
+an account. The name has to be looked up by address, and the lookup can fail
+in three ordinary ways: the sender changed their address since, the account
+was deleted, or the message came from a contact form filled in by a visitor
+with no account at all. When it fails the address itself is shown. That
+discloses nothing new — it was already in the recipient's email as the reply
+address, which is the entire reason webtrees stores it (§2.26).
+
+**There is no read flag in that table**, so `portal_message_read` supplies
+one: a row means read, no row means unread. Stored per user as well as per
+message even though webtrees' messages have exactly one recipient — the pair
+is what the unique key is *about*, and a read state that could be written for
+somebody else's message is not a thing worth being able to express. The
+foreign key cascades from `message.message_id`, so deleting a message takes
+its read state with it and there is nothing to tidy up.
+
+**Deleting deletes for real.** The portal is not a second mailbox keeping a
+quiet copy; `DELETE /messages/{id}` removes the row from webtrees' own table.
+The screen says so in a sentence under the list, because a member who expects
+a copy to survive somewhere would be wrong in a way that matters.
+
+**Somebody else's message and a message that does not exist are the same
+`404`.** `Inbox::assertOwn()` checks ownership before every read-state change
+and every delete, and gives the same answer either way. Enumerating the id
+space would otherwise disclose how much traffic the site carries and, by
+timing, when.
+
+#### Two decisions in the interface
+
+**The navigation bar went from three destinations to four**, and the rule it
+broke was one this project made deliberately in Phase 1. That rule was still
+right about what it was aimed at — "invite somebody" stayed off the bar. What
+it got wrong is the test it was really applying: *how often a member comes
+back to a thing*. Inviting happens once or twice; an inbox is checked whenever
+something might have arrived, and an unread badge only does its job somewhere
+permanently visible. Four is the limit — at roughly 80px each they still fit a
+320px screen and a fifth would not.
+
+**The badge digit is `aria-hidden`.** The unread count is already in the
+link's accessible name as words, and without hiding the numeral the link reads
+as "1 Nachrichten — 1 ungelesen". The count is not being hidden from anybody;
+the same fact is being said once instead of twice.
+
+**Opening a message marks it read.** That is what opening a message means, and
+the alternative is asking the member for a second deliberate act purely to
+make a badge go away. Marking one unread again is one button on the open card,
+for the "I will deal with this later" case that is the only real reason to
+want it.
 
 ---
 
@@ -1358,6 +1443,12 @@ Written down rather than acted on, per §2 of the handoff.
   webtrees in production, and nothing in this repository can or should fix it.
 * The Playwright smoke path stubs the API in the browser by default, so it
   runs anywhere. `E2E_BASE_URL` points the same specs at a real deployment.
+* The Playwright API stub answers `POST /session` with the *same* payload as
+  `GET /me`, because the real handler does and the portal keeps that answer
+  rather than asking again. A stub that dropped a field the sign-in response
+  really carries makes the feature look broken in the e2e run and nowhere
+  else — which is how the unread badge appeared to fail while every unit test
+  passed.
 * The web server Playwright starts binds to `127.0.0.1` explicitly. Left to
   itself `vite preview` binds to `localhost`, which on a CI runner can resolve
   to `::1` alone while Playwright polls `127.0.0.1`: the server starts, nothing

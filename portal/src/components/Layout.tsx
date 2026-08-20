@@ -1,19 +1,34 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
+import { useAuth } from '../auth/AuthProvider'
 
 /**
- * Three destinations, no more. Anything that needs a fourth belongs on one of
- * these three or in webtrees.
+ * Four destinations.
+ *
+ * This said "three, no more" until Phase 10, and the rule was a good one: it
+ * kept "invite somebody" off the bar, where it did not belong. Messages are
+ * the case it was wrong about. The test the rule was really applying is *how
+ * often a member comes back to it* — inviting happens once or twice, and an
+ * inbox is checked whenever something might have arrived. A message nobody
+ * notices is worse than a slightly busier bar, and the unread badge only
+ * works somewhere permanently visible.
+ *
+ * Four is the limit. At ~80px each they still fit a 320px screen; a fifth
+ * would not, and anything wanting one belongs on one of these four.
  */
 const DESTINATIONS = [
-  { to: '/me', key: 'nav.profile', icon: PersonIcon },
-  { to: '/members', key: 'nav.members', icon: PeopleIcon },
-  { to: '/settings', key: 'nav.settings', icon: GearIcon },
+  { to: '/me', key: 'nav.profile', icon: PersonIcon, badge: false },
+  { to: '/members', key: 'nav.members', icon: PeopleIcon, badge: false },
+  { to: '/messages', key: 'nav.messages', icon: MessageIcon, badge: true },
+  { to: '/settings', key: 'nav.settings', icon: GearIcon, badge: false },
 ] as const
 
 export function Layout() {
   const { t } = useTranslation()
+  const { me } = useAuth()
+
+  const unread = me?.unread_messages ?? 0
 
   return (
     <div className="min-h-dvh bg-slate-100 text-slate-900">
@@ -33,7 +48,7 @@ export function Layout() {
         className="fixed inset-x-0 bottom-0 border-t border-slate-300 bg-white sm:static sm:mx-auto sm:max-w-2xl sm:border-0"
       >
         <ul className="mx-auto flex max-w-2xl">
-          {DESTINATIONS.map(({ to, key, icon: Icon }) => (
+          {DESTINATIONS.map(({ to, key, icon: Icon, badge }) => (
             <li key={to} className="flex-1">
               <NavLink
                 to={to}
@@ -47,8 +62,31 @@ export function Layout() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon active={isActive} />
-                    <span>{t(key)}</span>
+                    <span className="relative">
+                      <Icon active={isActive} />
+                      {badge && unread > 0 && (
+                        // Hidden from the accessible name on purpose: the
+                        // number is repeated in words below, and without this
+                        // the link reads as "1 Nachrichten — 1 ungelesen".
+                        <span
+                          aria-hidden="true"
+                          className="absolute -right-2 -top-1 min-w-[18px] rounded-full bg-sky-800 px-1 text-center text-xs font-semibold leading-[18px] text-white"
+                        >
+                          {unread > 9 ? '9+' : unread}
+                        </span>
+                      )}
+                    </span>
+                    <span>
+                      {t(key)}
+                      {/*
+                        The badge is a number in a circle, which a screen
+                        reader reads as a stray digit next to a label. The
+                        count belongs in the link's name instead.
+                      */}
+                      {badge && unread > 0 && (
+                        <span className="sr-only"> — {t('nav.unread', { count: unread })}</span>
+                      )}
+                    </span>
                   </>
                 )}
               </NavLink>
@@ -90,6 +128,14 @@ function PeopleIcon({ active }: { active: boolean }): ReactNode {
       <path d="M2 20c0-3.5 3.1-5.5 7-5.5s7 2 7 5.5" />
       <path d="M16 5.5a3.5 3.5 0 0 1 0 7" />
       <path d="M18 14.8c2.4.6 4 2.4 4 5.2" />
+    </svg>
+  )
+}
+
+function MessageIcon({ active }: { active: boolean }): ReactNode {
+  return (
+    <svg {...iconProps(active)}>
+      <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
     </svg>
   )
 }

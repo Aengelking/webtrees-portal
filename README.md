@@ -36,10 +36,11 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 9 are built.** Members can be invited, read the tree within
+**Phases 1 to 10 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, reset their own password, share contact details with an
-audience they choose per entry, and write to each other.
+audience they choose per entry, write to each other, and read their messages
+in the portal.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -52,11 +53,12 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `POST /password/reset`, `POST /invitation/preview`,
 `POST /invitation/accept`, `GET|POST /invitations`,
 `DELETE /invitations/{id}`, `GET|PATCH /me/contact`,
-`POST /members/{id}/message`, `GET /health`.
+`POST /members/{id}/message`, `GET /messages`,
+`PATCH|DELETE /messages/{id}`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
-My profile, edit my details, person, ancestors, Members, member detail, invite
-close family, Settings.
+My profile, edit my details, person, ancestors, Members, member detail,
+Messages, invite close family, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -261,6 +263,35 @@ travels with the message**, as the reply address. webtrees puts it there so a
 reply is possible, and there is no way to allow a reply without it. The portal
 says so on the form, above the send button. Only members who put themselves in
 the directory can be written to, and there is a daily limit per sender.
+
+### Reading messages in the portal
+
+*No setting — this is on whenever the module is.*
+
+**Nachrichten** is the fourth entry in the portal's navigation bar, with a
+badge showing how many messages are unread.
+
+The list is webtrees' own mailbox, not a portal one. Everything addressed to
+the member appears there whatever route it took: a message another member sent
+from the portal, one sent through webtrees' own contact form, an
+administrator's broadcast. This is the answer to the awkward case in the
+previous section — a member whose webtrees contact method is *internal
+messaging only* can now actually read what arrives.
+
+Three things worth knowing:
+
+* **Deleting deletes.** The portal does not keep a copy. Deleting a message
+  here removes it from webtrees as well, and the screen says so under the list.
+* **Opening marks read.** There is a *Als ungelesen markieren* button on the
+  open message for anyone who wants the badge back.
+* **The sender is shown by name where webtrees can work it out.** It stores a
+  reply address rather than a link to an account, so a sender who has since
+  changed their address — or who has no account at all, having used the public
+  contact form — shows as that address instead. Nothing new is disclosed: it
+  was already the reply address on the member's email.
+
+Read state is the portal's own (webtrees does not track it), so marking
+something read here does not change anything in webtrees.
 
 ### How much of the tree a member sees
 
@@ -1017,6 +1048,18 @@ about the family; and the diagnosis screen reports a missing tree, a schema
 behind the code, a database ahead of it, an open registration page and a
 missing proxy secret — and survives an installation where nothing is
 configured.
+
+**Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
+a member sees only messages addressed to them, and somebody else's message id
+is reported exactly as an id that never existed, whether they try to read it,
+mark it or delete it; the email wrapper webtrees stores around a message is
+stripped, and a body that has no wrapper is shown whole rather than emptied; a
+sender whose address matches no account is shown as that address instead of
+vanishing; marking read twice is not an error; deleting a message removes it
+from webtrees' own table and takes its read state with it; and on the client
+opening a message marks it read, an already-read one is not marked again, the
+badge is gone once nothing is unread, and its digit is hidden from screen
+readers because the same count is already in the link's name as words.
 
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the

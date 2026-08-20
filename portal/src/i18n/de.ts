@@ -6,6 +6,8 @@ export const de = {
   nav: {
     profile: 'Mein Profil',
     members: 'Mitglieder',
+    messages: 'Nachrichten',
+    unread: '{{count}} ungelesen',
     settings: 'Einstellungen',
     main: 'Hauptnavigation',
   },
@@ -160,6 +162,18 @@ export const de = {
     sent: 'Ihre Nachricht ist unterwegs.',
     replyAddressNotice:
       'Damit man Ihnen antworten kann, wird Ihre E-Mail-Adresse als Absenderadresse mitgeschickt — auch dann, wenn Sie sie oben nicht freigegeben haben.',
+  },
+  messages: {
+    title: 'Nachrichten',
+    unread: 'ungelesen',
+    markUnread: 'Als ungelesen markieren',
+    delete: 'Löschen',
+    none: {
+      title: 'Keine Nachrichten',
+      body: 'Hier erscheinen Nachrichten, die Ihnen andere Mitglieder oder die Familienverwaltung schicken.',
+    },
+    note:
+      'Das ist Ihr Postfach in webtrees — dieselben Nachrichten, die Sie auch dort sehen. Was Sie hier löschen, ist auch dort gelöscht.',
   },
   profile: {
     title: 'Mein Profil',

@@ -8,6 +8,8 @@ export const en: Translations = {
   nav: {
     profile: 'My profile',
     members: 'Members',
+    messages: 'Messages',
+    unread: '{{count}} unread',
     settings: 'Settings',
     main: 'Main navigation',
   },
@@ -160,6 +162,18 @@ export const en: Translations = {
     sent: 'Your message is on its way.',
     replyAddressNotice:
       'So that they can reply, your email address travels with the message as the reply address — even if you have not shared it above.',
+  },
+  messages: {
+    title: 'Messages',
+    unread: 'unread',
+    markUnread: 'Mark as unread',
+    delete: 'Delete',
+    none: {
+      title: 'No messages',
+      body: 'Messages from other members or from the family administrators appear here.',
+    },
+    note:
+      'This is your webtrees mailbox — the same messages you see there. Anything you delete here is deleted there too.',
   },
   profile: {
     title: 'My profile',

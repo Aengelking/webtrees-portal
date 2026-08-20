@@ -12,6 +12,7 @@ import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
 import { Ancestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
+import { Messages } from './routes/Messages'
 import { PersonDetail } from './routes/PersonDetail'
 import { MyProfile } from './routes/MyProfile'
 import { NotFound } from './routes/NotFound'
@@ -58,6 +59,7 @@ export function App() {
         <Route path="/individuals/:xref/ancestors" element={<Ancestors />} />
         <Route path="/invite" element={<Invite />} />
         <Route path="/members" element={<Members />} />
+        <Route path="/messages" element={<Messages />} />
         <Route path="/members/:id" element={<MemberDetail />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />

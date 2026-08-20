@@ -13,6 +13,7 @@ import type {
   CsrfToken,
   Health,
   ContactSettings,
+  Inbox,
   Individual,
   IndividualUpdate,
   InvitationOverview,
@@ -293,6 +294,19 @@ export const api = {
 
   withdrawInvitation(id: number): Promise<InvitationOverview> {
     return request<InvitationOverview>(`/invitations/${id}`, { method: 'DELETE' })
+  },
+
+  /** Everything addressed to me, not only what the portal sent. */
+  messages(signal?: AbortSignal): Promise<Inbox> {
+    return request<Inbox>('/messages', signal === undefined ? {} : { signal })
+  },
+
+  markMessage(id: number, read: boolean): Promise<Inbox> {
+    return request<Inbox>(`/messages/${id}`, { method: 'PATCH', body: { read } })
+  },
+
+  deleteMessage(id: number): Promise<Inbox> {
+    return request<Inbox>(`/messages/${id}`, { method: 'DELETE' })
   },
 
   /** What I share, and with whom. Mine only — the audience does not apply to me. */
