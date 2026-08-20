@@ -246,9 +246,22 @@ which is why nothing anywhere tells you.
 
 Setting a limit here writes that per-user value for you. What it does:
 
-* **Living people only.** Everybody who has died stays visible to everybody.
-  The genealogy is unaffected — this hides living relatives who are further
-  away than the limit, and nothing else.
+* **Living people only.** Everybody webtrees knows has died stays visible to
+  everybody. The genealogy is unaffected — this hides living relatives who are
+  further away than the limit, and nothing else.
+
+  Worth knowing before you switch it on: *living* is webtrees' own guess.
+  `Individual::isDead()` says deceased for a death event, for any dated event
+  more than 120 years old (`MAX_ALIVE_AGE`), or by inference from relatives'
+  dates. **A record with a name and no dates at all counts as living**,
+  however obviously historical the person is — so a limit hides thin records,
+  not recent ones. If your tree has many name-only entries, check a few before
+  applying the limit to everybody.
+
+  One tree setting can widen this further: `KEEP_ALIVE_YEARS_DEATH` makes
+  webtrees go on treating somebody as living for N years after they died, and
+  a person "kept alive" is subject to the limit like anybody else. It is empty
+  by default.
 * **New accounts created by invitation get it automatically.**
 * **Existing accounts keep what they have** until you press the button on the
   Diagnosis screen. That button changes what people who are already signed in

@@ -200,11 +200,15 @@ foreach ($trees as $a_tree) {
                 ],
             ]) ?>
             <div class="form-text">
-                <?= I18N::translate('This is webtrees’ own per-user “relationship path length”, which this module writes for you. It restricts living people only — everybody who has died stays visible, so the genealogy itself is unaffected.') ?>
+                <?= I18N::translate('This is webtrees’ own per-user “relationship path length”, which this module writes for you. It restricts living people only — everybody webtrees knows has died stays visible, so the genealogy itself is unaffected.') ?>
             </div>
             <div class="form-text">
                 <?= I18N::translate('webtrees leaves this unset by default, which means a member sees every living person in the family tree. New accounts created by invitation get this value; existing accounts keep what they have until you apply it to them on the Diagnosis screen.') ?>
             </div>
+            <div class="form-text">
+                <?= I18N::translate('“Living” is webtrees’ own guess: a record counts as deceased if it has a death event, if a dated event is more than %s years old, or if relatives’ dates imply it. A record with a name and no dates at all counts as living, however historical the person clearly is — so thin records are what a limit hides, not recent ones.', I18N::number(120)) ?>
+            </div>
+
             <div class="form-text">
                 <?= I18N::translate('Editors, moderators, managers and administrators are never restricted — they need the whole tree to maintain it.') ?>
             </div>

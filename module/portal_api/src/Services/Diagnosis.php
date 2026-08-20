@@ -265,8 +265,14 @@ class Diagnosis
      * the symptom is invisible.
      *
      * Note what a limit does *not* do: the dead are checked before the
-     * relationship test in `Individual::canShowByType()` and stay visible. The
-     * genealogy remains whole; only living people are affected.
+     * relationship test in `Individual::canShowByType()` and stay visible, so
+     * the genealogy remains whole.
+     *
+     * With one caveat worth knowing before switching it on: "dead" is
+     * `Individual::isDead()`, which is a guess. It is true for a death event,
+     * for a dated event more than `MAX_ALIVE_AGE` years old, or by inference
+     * from relatives' dates — and false for a record with a name and nothing
+     * else. So a limit hides *thin* records, not recent ones.
      */
     private function visibility(): DiagnosisCheck
     {
@@ -278,7 +284,7 @@ class Diagnosis
                 self::WARNING,
                 I18N::translate('What a member can see'),
                 I18N::translate('Every living person in the family tree.'),
-                I18N::translate('webtrees only limits this for accounts that have both a linked record and a relationship limit, and neither is set by default. Set “How much of the tree a member sees” in the module preferences to restrict it. Deceased people are unaffected either way.')
+                I18N::translate('webtrees only limits this for accounts that have both a linked record and a relationship limit, and neither is set by default. Set “How much of the tree a member sees” in the module preferences to restrict it. Everybody webtrees knows has died is unaffected either way.')
             );
         }
 

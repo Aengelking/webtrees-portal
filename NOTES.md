@@ -1088,6 +1088,22 @@ if ((int) $this->tree->getPreference('SHOW_DEAD_PEOPLE') >= $access_level && $th
 `SHOW_DEAD_PEOPLE` defaults to `'2'` (`app/Tree.php`), so a limit never
 touches an ancestor. The genealogy — the part a family portal is *for* —
 stays whole. That is what makes this safe to switch on.
+`VisibilityTest::testALimitHidesLivingPeopleAndLeavesTheDeadAlone` pins it: a
+grandfather two steps away who died in 1929 stays visible under a one-step
+limit, while a living person related to nobody does not.
+
+**But "dead" is a guess, and it errs toward living.** `Individual::isDead()`
+returns true for a death event, for any dated event more than `MAX_ALIVE_AGE`
+(120) years old, or by inference from parents', spouses', children's and
+grandchildren's dates. A record carrying a name and nothing else satisfies
+none of those and is therefore treated as living — so a limit hides *thin*
+records, not recent ones. That is the practical cost, and it is the opposite
+of what "only living people" sounds like it means.
+
+A second, off-by-default caveat: `KEEP_ALIVE_YEARS_BIRTH` and
+`KEEP_ALIVE_YEARS_DEATH` (both `''` by default) make webtrees keep treating
+somebody as living for N years past those events, and a person kept alive
+that way falls through to the relationship test like anybody else.
 
 **The number means the same as ours.** `isRelated()` does `$distance *= 2`
 before walking, because it counts INDI→FAM and FAM→INDI as separate links. So

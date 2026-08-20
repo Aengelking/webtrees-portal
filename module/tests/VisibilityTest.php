@@ -16,7 +16,10 @@ use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\User;
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Tree;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 
 /**
  * Phase 8: how much of the tree a member can see.
@@ -219,5 +222,87 @@ class VisibilityTest extends PortalTestCase
 
         self::assertInstanceOf(User::class, $user);
         self::assertSame(0, $this->pathLength($user));
+    }
+
+    // -----------------------------------------------------------------
+    // What "only living people" actually means
+    // -----------------------------------------------------------------
+
+    /**
+     * The claim this whole phase rests on: a limit hides living relatives and
+     * leaves the genealogy alone.
+     *
+     * Anna is limited to one step. Her grandfather Konrad is two steps away
+     * and died in 1929 — he stays visible, because `canShowByType()` checks
+     * the dead *first* and returns before the relationship test is reached.
+     * Fritz is alive, connected to nobody, and therefore beyond any limit —
+     * he disappears.
+     *
+     * Runs in its own process: `Individual::isRelated()` keeps its results in
+     * a function-level `static` that is keyed by neither user nor tree, so a
+     * second test in the same process would be answered from the first one's
+     * cache.
+     */
+    #[RunInSeparateProcess]
+    public function testALimitHidesLivingPeopleAndLeavesTheDeadAlone(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'correct-horse', UserInterface::ROLE_MEMBER, 'X1');
+        $this->tree->setUserPreference($anna, UserInterface::PREF_TREE_PATH_LENGTH, '1');
+        $this->login($anna);
+
+        $konrad = Registry::individualFactory()->make('X10', $this->tree);
+        $fritz  = Registry::individualFactory()->make('X6', $this->tree);
+
+        self::assertTrue($konrad->isDead(), 'The fixture grandfather should read as deceased.');
+        self::assertFalse($fritz->isDead(), 'The fixture Fritz should read as living.');
+
+        self::assertTrue(
+            $konrad->canShow(Auth::PRIV_USER),
+            'A grandfather two steps away, dead since 1929, was hidden by a one-step limit.'
+        );
+
+        self::assertFalse(
+            $fritz->canShow(Auth::PRIV_USER),
+            'A living person related to nobody was visible despite a one-step limit.'
+        );
+    }
+
+    /**
+     * The caveat, pinned so it is not forgotten: "living" is a *guess*.
+     *
+     * `Individual::isDead()` says yes for a death event, for any dated event
+     * more than `MAX_ALIVE_AGE` (120) years ago, or by inference from
+     * relatives' dates. A record with a name and nothing else satisfies none
+     * of those, so webtrees treats it as living — and a relationship limit
+     * will hide it, however obviously historical the person is.
+     *
+     * That is the practical cost of switching a limit on: thin records, not
+     * recent ones, are what disappear.
+     */
+    public function testARecordWithNoDatesAtAllCountsAsLiving(): void
+    {
+        $undated = Registry::individualFactory()->new(
+            'X900',
+            "0 @X900@ INDI\n1 NAME Ohne /Daten/",
+            null,
+            $this->tree
+        );
+
+        self::assertFalse(
+            $undated->isDead(),
+            'A record with no dates is treated as living, so a relationship limit will hide it.'
+        );
+    }
+
+    /**
+     * The other caveat. `KEEP_ALIVE_YEARS_DEATH` makes webtrees go on treating
+     * somebody as living for N years after they died — and a person "kept
+     * alive" falls through to the relationship test like anybody else. It is
+     * empty by default, so this is off unless the tree sets it, but it is the
+     * one setting that can make a limit reach the recently deceased.
+     */
+    public function testKeepAliveYearsPullTheRecentlyDeadBackIntoTheLimit(): void
+    {
+        self::assertSame('', (new Tree(0, 'x', 'X'))->getPreference('KEEP_ALIVE_YEARS_DEATH', ''));
     }
 }
