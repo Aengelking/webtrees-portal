@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
 import { useMe, useUpdateProfile } from '../api/queries'
+import { ContactSettings as ContactSettingsForm } from '../components/ContactSettings'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import {
   Button,
@@ -53,6 +54,10 @@ export function Settings() {
         — not a place they need to be able to reach from every screen.
         Settings is where the rest of "my own participation" already lives.
       */}
+      <Section title={t('settings.contact')}>
+        <ContactSettingsForm />
+      </Section>
+
       <Section title={t('settings.invite')}>
         <Card>
           <p className="text-base text-slate-700">{t('settings.inviteBody')}</p>

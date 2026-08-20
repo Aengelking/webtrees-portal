@@ -21,6 +21,7 @@ export type ApiErrorCode =
   | 'invalid_token'
   | 'not_allowed'
   | 'quota_reached'
+  | 'not_delivered'
   | 'username_taken'
   | 'email_taken'
   | 'server_error'
@@ -264,8 +265,34 @@ export interface MemberSummary {
   individual: IndividualRef | null
 }
 
+/** The kinds a member may share. Closed, and decided by the server. */
+export type ContactKind = 'email' | 'phone' | 'address'
+
+/** Per entry, never per member: two details can have two different answers. */
+export type ContactAudience = 'nobody' | 'close_family' | 'members'
+
+export interface ContactEntry {
+  value: string
+  audience: ContactAudience
+}
+
+/** A member's own entries, audience and all. Only ever their own. */
+export type OwnContact = Partial<Record<ContactKind, ContactEntry>>
+
+export interface ContactSettings {
+  /** False when the family has switched contact sharing off entirely. */
+  enabled: boolean
+  contact: OwnContact
+}
+
 export interface MemberDetail extends MemberSummary {
   individual_detail: Individual | null
+  /**
+   * Only what this viewer may see, already decided by the server — the values
+   * of the entries that reached them, and nothing about the ones that did not.
+   */
+  contact: Partial<Record<ContactKind, string>>
+  can_message: boolean
 }
 
 export interface MemberPage {

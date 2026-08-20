@@ -18,8 +18,10 @@ import type {
   MemberProfile,
   MemberProfileUpdate,
   Me,
+  ContactSettings,
   InvitationOverview,
   IssuedInvitation,
+  OwnContact,
   PendingIndividual,
 } from './types'
 
@@ -30,6 +32,7 @@ export const queryKeys = {
   members: (q: string, page: number) => ['members', q, page] as const,
   member: (id: number) => ['member', id] as const,
   invitations: ['invitations'] as const,
+  contact: ['contact'] as const,
 }
 
 /**
@@ -156,6 +159,31 @@ export function useWithdrawInvitation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.invitations })
     },
+  })
+}
+
+/** What I share, and with whom. Not language-keyed: these are values I typed. */
+export function useContact() {
+  return useQuery<ContactSettings>({
+    queryKey: queryKeys.contact,
+    queryFn: ({ signal }) => api.contact(signal),
+  })
+}
+
+export function useUpdateContact() {
+  const queryClient = useQueryClient()
+
+  return useMutation<ContactSettings, Error, OwnContact>({
+    mutationFn: (changes) => api.updateContact(changes),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.contact, result)
+    },
+  })
+}
+
+export function useSendMessage(id: number | undefined) {
+  return useMutation<{ status: string }, Error, { subject: string; body: string }>({
+    mutationFn: ({ subject, body }) => api.sendMessage(id as number, subject, body),
   })
 }
 

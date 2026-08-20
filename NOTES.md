@@ -1149,6 +1149,93 @@ wrong in a process that evaluated privacy for two different users in turn —
 worth knowing before writing a test that logs in twice and asks about living
 people both times.
 
+### 2.26 Phase 9: contact details are consent, and one disclosure is unavoidable
+
+Two things members asked for, and they pull in opposite directions: being
+reachable, and not handing a telephone number to sixty relatives.
+
+**The details do not come from the family tree.** `RecordPresenter` still
+withholds `ADDR`, `EMAIL`, `PHON` and `WWW` on everybody's record but their
+own (§2.6, §2.0.1), and Phase 9 does not touch that. What is shared is what
+the member typed into `portal_contact_detail`, about themselves.
+
+The reason is the one §2.7 already gives for the directory: GEDCOM contact
+data is maintained by whoever keeps the tree. Consenting to publish "whatever
+my record happens to say" is not informed consent — the content can change
+afterwards without the member ever knowing, and they cannot correct it. Portal
+data is consent; GEDCOM is genealogy; the two do not mix.
+
+**One row is one decision.** A row carries a value *and* an audience, because
+"my email may go to the whole family" and "my address is for my brother" are
+different answers and one switch forces the narrower onto both. `nobody`,
+`close_family` or `members`, where close family is the same distance as for
+invitations — one definition of "close family" in the module, not three.
+
+**Clearing a field and withdrawing consent are the same act.** An empty value,
+or an audience of `nobody`, deletes the row rather than hiding it. A member
+who deletes their telephone number has plainly finished sharing it, and
+keeping a copy behind a narrower flag would be a way of not listening. The
+client therefore submits every kind on every save, including the empty ones —
+sending only the filled ones would leave the old row standing and the member
+would believe they had deleted it.
+
+**The narrowest answer is the default, everywhere.** An unknown audience, a
+missing row, a viewer with no linked record, a subject with no linked record,
+the whole facility switched off — every one resolves to "not shared" rather
+than to an assumption. `ContactTest::testAnUnknownAudienceSharesNothing` pins
+the one that would otherwise be a guess.
+
+**The directory list carries none of this.** Deciding "close family" means
+walking the tree, and doing that once per row would turn a list into a
+page-load nobody waits for. It is asked on one member's own screen and
+nowhere else.
+
+#### The disclosure that cannot be avoided
+
+`MessageService::deliverMessage()` writes the sender's own address into the
+stored message and sets it as the `Reply-To` of the email:
+
+```php
+'sender' => Auth::check() ? Auth::user()->email() : $sender->email(),
+$this->email_service->send(new SiteUser(), $recipient, $sender, …)
+```
+
+So writing to another member discloses the writer's address, whether or not
+they shared it. There is no version of "write to me and I will answer" that
+avoids it — a reply needs somewhere to go.
+
+The portal therefore says so **on the form, above the send button**, not in a
+confirmation afterwards and not in a help page. An unavoidable disclosure that
+nobody mentions is worse than the disclosure itself, and this is the sentence
+`Contact.test.tsx` calls the most important assertion in the file.
+
+The other direction is genuinely private: the recipient is reached however
+they chose in webtrees, and their address never passes through the portal.
+
+**Only a member listed in the directory can be written to**, and one who
+stayed out is reported as `404` — the same answer as an id that never
+existed, so this is not a way to discover who has an account.
+
+#### A bug the tests found, not a member
+
+`deliverMessage()` opens with `I18N::init($recipient->getPreference(PREF_LANGUAGE))`
+so the message is written in the recipient's language — and `Locale::create('')`
+throws a `DomainException`. An account whose language preference was never set
+therefore **could not be written to at all**; the sender got a 500.
+
+Accounts created by invitation always have one. Accounts created by hand in
+webtrees may not — which is exactly the pre-existing accounts a family would
+be writing to first. `MemberMessages::ensureRecipientHasALanguage()` fills in
+the site default before delivering: a missing default restored, never a choice
+overridden, and the same value webtrees' own `UseLanguage` middleware falls
+back to. The portal met this trap once before, in `SessionCreate`, where a
+blank preference would have locked a member out of signing in.
+
+**Not built:** a website field (nobody asked, and it is the one contact detail
+that is usually public anyway), and an inbox in the portal. Messages are
+delivered by webtrees, so a member whose contact method is internal-only must
+read them in webtrees. Worth revisiting if that turns out to bite.
+
 ---
 
 ## 3. Things that were guessed

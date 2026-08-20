@@ -262,3 +262,43 @@ test.describe('phase 7', () => {
     await expect(page.getByRole('button', { name: 'Zurücknehmen' })).toBeVisible()
   })
 })
+
+test.describe('phase 9', () => {
+  test('a member is warned that their address travels with a message', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Would send a real message.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.getByRole('link', { name: 'Mitglieder' }).click()
+
+    // Dieter, not the first row — the first row is Anna herself, and nobody
+    // writes to themselves.
+    await page.getByRole('listitem').filter({ hasText: 'Dieter' }).first().getByRole('link').click()
+
+    // The warning is above the button, not after the send.
+    await expect(page.getByText(/Ihre E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeVisible()
+
+    await page.getByLabel('Betreff').fill('Hallo')
+    await page.getByLabel('Ihre Nachricht').fill('Wie geht es dir?')
+    await page.getByRole('button', { name: 'Nachricht senden' }).click()
+
+    await expect(page.getByText('Ihre Nachricht ist unterwegs.')).toBeVisible()
+  })
+
+  test('each contact detail has its own audience', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed contact details.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.getByRole('link', { name: 'Einstellungen' }).click()
+
+    await expect(page.getByLabel('Telefonnummer')).toHaveValue('0511 12345')
+    await expect(page.getByRole('radio', { name: 'Nur meine enge Familie' })).toHaveCount(3)
+  })
+})

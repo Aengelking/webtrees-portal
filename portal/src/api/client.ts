@@ -12,6 +12,7 @@ import type {
   Credentials,
   CsrfToken,
   Health,
+  ContactSettings,
   Individual,
   IndividualUpdate,
   InvitationOverview,
@@ -23,6 +24,7 @@ import type {
   MemberPage,
   MemberProfile,
   MemberProfileUpdate,
+  OwnContact,
   PendingIndividual,
 } from './types'
 
@@ -291,6 +293,23 @@ export const api = {
 
   withdrawInvitation(id: number): Promise<InvitationOverview> {
     return request<InvitationOverview>(`/invitations/${id}`, { method: 'DELETE' })
+  },
+
+  /** What I share, and with whom. Mine only — the audience does not apply to me. */
+  contact(signal?: AbortSignal): Promise<ContactSettings> {
+    return request<ContactSettings>('/me/contact', signal === undefined ? {} : { signal })
+  },
+
+  updateContact(changes: OwnContact): Promise<ContactSettings> {
+    return request<ContactSettings>('/me/contact', { method: 'PATCH', body: { contact: changes } })
+  },
+
+  /** The id is a portal member id — only a directory member can be written to. */
+  sendMessage(id: number, subject: string, body: string): Promise<{ status: string }> {
+    return request<{ status: string }>(`/members/${id}/message`, {
+      method: 'POST',
+      body: { subject, body },
+    })
   },
 
   updateProfile(changes: MemberProfileUpdate): Promise<MemberProfile> {

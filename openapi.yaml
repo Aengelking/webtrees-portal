@@ -708,6 +708,161 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /me/contact:
+    get:
+      tags: [members]
+      summary: What am I sharing, and with whom?
+      description: |
+        The member's own entries, audience and all. Only ever their own — you
+        can always see what you have chosen to share, so this is the one place
+        that ignores the audience.
+
+        Nothing here comes from the family tree. `ADDR`, `EMAIL`, `PHON` and
+        `WWW` are still withheld on everybody's record but their own: GEDCOM
+        contact data is maintained by whoever keeps the tree, and nobody can
+        consent to "whatever my record happens to say".
+      operationId: readContact
+      responses:
+        '200':
+          description: The member's own entries.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [members]
+      summary: Change what I share
+      description: |
+        A kind absent from the body is left alone. A kind that arrives with an
+        empty value, or with `nobody` as its audience, is **deleted** —
+        clearing the field and withdrawing consent are deliberately the same
+        act, so nothing is left behind to leak later.
+
+        Unknown kinds and unknown audiences are ignored, and an unrecognised
+        audience resolves to `nobody`.
+      operationId: updateContact
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [contact]
+              properties:
+                contact:
+                  $ref: '#/components/schemas/OwnContact'
+      responses:
+        '200':
+          description: The entries as they now stand.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /members/{id}/message:
+    post:
+      tags: [members]
+      summary: Write to another member
+      description: |
+        Delivered by webtrees' own `MessageService`, so the recipient is
+        reached the way they chose in webtrees — internal message, email, or
+        both. The portal never learns their address.
+
+        **The sender's address does travel**, as the reply address, because
+        there is no way to allow a reply without it. The portal says so on the
+        form before the message is sent.
+
+        Only a member listed in the directory can be written to. One who kept
+        themselves out is reported as `404`, the same answer as an id that
+        never existed.
+      operationId: sendMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: A portal member id, not a webtrees user id.
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [subject, body]
+              properties:
+                subject:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                body:
+                  type: string
+                  minLength: 1
+                  maxLength: 4000
+      responses:
+        '202':
+          description: Handed to webtrees for delivery.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`not_allowed` — members may not write to each other in this tree.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: '`quota_reached` — as many messages as may be sent today.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`not_delivered` — webtrees could not deliver it.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -1059,6 +1214,7 @@ components:
             - invalid_token
             - not_allowed
             - quota_reached
+            - not_delivered
             - username_taken
             - email_taken
             - server_error
@@ -1075,6 +1231,45 @@ components:
             `server_error`, never on a refusal it meant to give. The member
             is shown it so they can quote it, and an administrator finds the
             matching row on the module's diagnosis screen.
+
+    ContactEntry:
+      type: object
+      additionalProperties: false
+      required: [value, audience]
+      properties:
+        value:
+          type: string
+          maxLength: 255
+        audience:
+          type: string
+          description: |
+            Decided per entry, never per member: "my email may go to the whole
+            family" and "my address is for my brother" are different answers.
+            `close_family` is the same distance as for invitations.
+          enum: [nobody, close_family, members]
+
+    OwnContact:
+      type: object
+      additionalProperties: false
+      description: The member's own entries, keyed by kind.
+      properties:
+        email:
+          $ref: '#/components/schemas/ContactEntry'
+        phone:
+          $ref: '#/components/schemas/ContactEntry'
+        address:
+          $ref: '#/components/schemas/ContactEntry'
+
+    ContactSettings:
+      type: object
+      additionalProperties: false
+      required: [enabled, contact]
+      properties:
+        enabled:
+          type: boolean
+          description: False when the family has switched contact sharing off.
+        contact:
+          $ref: '#/components/schemas/OwnContact'
 
     Health:
       type: object
@@ -1706,12 +1901,25 @@ components:
         - $ref: '#/components/schemas/MemberSummary'
         - type: object
           additionalProperties: false
-          required: [individual_detail]
+          required: [individual_detail, contact, can_message]
           properties:
             individual_detail:
               oneOf:
                 - $ref: '#/components/schemas/Individual'
                 - type: 'null'
+            contact:
+              type: object
+              additionalProperties:
+                type: string
+              description: |
+                Only what this reader may see, already decided by the server —
+                the values that reached them, and nothing about the entries
+                that did not. Absent means absent.
+            can_message:
+              type: boolean
+              description: |
+                Whether the message form is worth showing. The endpoint checks
+                again; this only saves the member from a button that refuses.
 
     MemberPage:
       type: object

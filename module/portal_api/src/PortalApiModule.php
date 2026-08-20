@@ -10,6 +10,8 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\RequireCsrfToken;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\HealthRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
@@ -19,6 +21,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationList;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MessageCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
@@ -30,6 +33,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\CloseFamily;
+use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
@@ -37,6 +41,7 @@ use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
 use Engelking\Webtrees\PortalApi\Services\MemberInvitations;
+use Engelking\Webtrees\PortalApi\Services\MemberMessages;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
@@ -55,6 +60,7 @@ use Fisharebest\Webtrees\Module\ModuleCustomTrait;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\EmailService;
+use Fisharebest\Webtrees\Services\MessageService;
 use Fisharebest\Webtrees\Services\MigrationService;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\RateLimitService;
@@ -97,7 +103,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.0.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 3;
+    private const int SCHEMA_VERSION = 4;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -132,6 +138,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_INVITE_STEPS = 'member_invite_steps';
     public const string SETTING_MEMBER_INVITE_QUOTA = 'member_invite_quota';
     public const string SETTING_MEMBER_PATH_LENGTH  = 'member_path_length';
+    public const string SETTING_MEMBER_CONTACT      = 'member_contact';
+    public const string SETTING_MEMBER_MESSAGES     = 'member_messages';
+    public const string SETTING_MESSAGE_LIMIT       = 'message_limit';
 
     /**
      * How far a member may *see*, as opposed to how far they may invite.
@@ -233,6 +242,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
+        $contacts       = new ContactDetails($this, $close_family);
+        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members);
         $me             = new MeAssembler($portal_trees, $presenter, $members);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -249,6 +260,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ErrorLog::class, $errors);
         $container->set(CloseFamily::class, $close_family);
         $container->set(MemberInvitations::class, $member_invites);
+        $container->set(ContactDetails::class, $contacts);
+        $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
@@ -266,7 +279,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
         $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
         $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members));
-        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members));
+        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites));
+        $container->set(ContactRead::class, new ContactRead($contacts));
+        $container->set(ContactUpdate::class, new ContactUpdate($contacts));
+        $container->set(MessageCreate::class, new MessageCreate($member_msgs));
 
         $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
@@ -374,6 +390,17 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $map->patch(ProfileUpdate::class, self::ROUTE_PREFIX . '/me/profile', ProfileUpdate::class)
             ->extras(['middleware' => $unsafe_private]);
 
+        // Phase 9 — contact details, and messages between members.
+        $map->get(ContactRead::class, self::ROUTE_PREFIX . '/me/contact', ContactRead::class)
+            ->extras(['middleware' => $private]);
+
+        $map->patch(ContactUpdate::class, self::ROUTE_PREFIX . '/me/contact', ContactUpdate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->post(MessageCreate::class, self::ROUTE_PREFIX . '/members/{id}/message', MessageCreate::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
         // Phase 7 — a member invites their own close family. Reading the
         // candidate list is safe (it is the walk their own page already does);
         // issuing and withdrawing are unsafe methods and CSRF-checked.
@@ -430,6 +457,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_invite_steps' => $this->getPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) CloseFamily::DEFAULT_STEPS),
             'member_invite_quota' => $this->getPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) MemberInvitations::DEFAULT_QUOTA),
             'member_path_length'  => $this->getPreference(self::SETTING_MEMBER_PATH_LENGTH, '0'),
+            'member_contact'      => $this->getPreference(self::SETTING_MEMBER_CONTACT, '1'),
+            'member_messages'     => $this->getPreference(self::SETTING_MEMBER_MESSAGES, '1'),
+            'message_limit'       => $this->getPreference(self::SETTING_MESSAGE_LIMIT, (string) MemberMessages::DEFAULT_DAILY_LIMIT),
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -450,6 +480,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) max(1, min(CloseFamily::MAX_STEPS, $body->integer(self::SETTING_MEMBER_INVITE_STEPS, CloseFamily::DEFAULT_STEPS))));
         $this->setPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) max(0, min(MemberInvitations::MAX_QUOTA, $body->integer(self::SETTING_MEMBER_INVITE_QUOTA, MemberInvitations::DEFAULT_QUOTA))));
         $this->setPreference(self::SETTING_MEMBER_PATH_LENGTH, (string) $this->pathLength($body->integer(self::SETTING_MEMBER_PATH_LENGTH, 0)));
+        $this->setPreference(self::SETTING_MEMBER_CONTACT, $body->boolean(self::SETTING_MEMBER_CONTACT, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_MEMBER_MESSAGES, $body->boolean(self::SETTING_MEMBER_MESSAGES, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_MESSAGE_LIMIT, (string) max(0, min(MemberMessages::MAX_DAILY_LIMIT, $body->integer(self::SETTING_MESSAGE_LIMIT, MemberMessages::DEFAULT_DAILY_LIMIT))));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 

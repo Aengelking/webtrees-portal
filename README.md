@@ -36,10 +36,10 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 8 are built.** Members can be invited, read the tree within
+**Phases 1 to 9 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
-their own record, and reset their own password. The social graph — messages
-between members, shared contact details — is not in scope.
+their own record, reset their own password, share contact details with an
+audience they choose per entry, and write to each other.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -51,7 +51,8 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET /media/{xref}/{fact}/{size}`, `POST /password/request`,
 `POST /password/reset`, `POST /invitation/preview`,
 `POST /invitation/accept`, `GET|POST /invitations`,
-`DELETE /invitations/{id}`, `GET /health`.
+`DELETE /invitations/{id}`, `GET|PATCH /me/contact`,
+`POST /members/{id}/message`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Members, member detail, invite
@@ -231,6 +232,35 @@ account, or who already have an invitation outstanding are simply absent from
 the member's list, with no explanation. That is deliberate: "your sister
 already has an account" would disclose something the portal otherwise treats as
 hers to share.
+
+### Contact between members
+
+*Control panel → Modules → Member portal API → preferences → Contact between
+members.*
+
+A member enters an email address, a telephone number and a postal address
+under *Einstellungen → Meine Kontaktdaten*, and chooses **for each one
+separately** whether nobody, only their close family, or every member may see
+it. Nothing is shared until they choose it.
+
+**These are not the contact details in the family tree.** Those stay
+unpublished, as they have been since Phase 1. Contact data in a GEDCOM record
+is maintained by whoever keeps the tree, and nobody can meaningfully consent
+to "whatever my record happens to say". What is shared here is what the member
+typed about themselves, and clearing the field deletes it.
+
+*Close family* is the same distance as for invitations — one definition, set
+once.
+
+**Messages.** A member can write to another member from their directory page.
+Delivery is webtrees' own message system, so each person is reached the way
+they chose in webtrees, and the portal never learns their address.
+
+One thing to know before switching it on: **the sender's own email address
+travels with the message**, as the reply address. webtrees puts it there so a
+reply is possible, and there is no way to allow a reply without it. The portal
+says so on the form, above the send button. Only members who put themselves in
+the directory can be written to, and there is a daily limit per sender.
 
 ### How much of the tree a member sees
 
@@ -948,6 +978,17 @@ form that cannot work.
 **Module actions** (`module/tests/ConfigurationTest.php`) — every action this
 module exposes through webtrees' `/module/{name}/{action}` route has "Admin"
 in its name, which is the only thing that restricts it to administrators.
+
+**Contact and messages** (`module/tests/ContactTest.php`,
+`portal/src/Contact.test.tsx`) — an entry set to *nobody* reaches nobody, one
+set to *close family* reaches close family and no one else, and one member can
+hold two entries with two different answers; an unrecognised audience shares
+nothing; switching the facility off silences entries that already exist;
+clearing a value deletes the row rather than hiding it, and the client sends
+the empty field so that it does; the directory *list* carries no contact
+details at all; a member who stayed out of the directory cannot be written to
+and is reported exactly as a member id that never existed; and the member is
+warned that their address travels with a message before they send it.
 
 **Visibility** (`module/tests/VisibilityTest.php`) — the default state
 (every member sees every living person) is reported rather than left silent;

@@ -26,6 +26,9 @@ use Illuminate\Support\Collection;
  * @var string               $member_invite_steps
  * @var string               $member_invite_quota
  * @var string               $member_path_length
+ * @var string               $member_contact
+ * @var string               $member_messages
+ * @var string               $message_limit
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -212,6 +215,45 @@ foreach ($trees as $a_tree) {
             <div class="form-text">
                 <?= I18N::translate('Editors, moderators, managers and administrators are never restricted — they need the whole tree to maintain it.') ?>
             </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('Contact between members') ?></h2>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Members may share contact details'), 'name' => PortalApiModule::SETTING_MEMBER_CONTACT, 'checked' => $member_contact === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('A member can enter an email address, a telephone number and a postal address, and choose for each one separately whether nobody, only close family, or every member may see it. Nothing is shared until they choose it, and switching this off silences entries that already exist.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('These are entered by the member, about themselves. Contact details held in the family tree are never published — they are maintained by whoever keeps the tree, and nobody can consent to “whatever my record happens to say”.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('“Close family” is the same distance as for invitations, set above.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Members may write to each other'), 'name' => PortalApiModule::SETTING_MEMBER_MESSAGES, 'checked' => $member_messages === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('Delivered by webtrees’ own message system, so each member is reached the way they chose in webtrees. Only members who put themselves in the directory can be written to.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('The sender’s own email address travels with the message, as the reply address — there is no way to allow a reply without it. The portal says so on the form before the message is sent.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>">
+            <?= I18N::translate('Messages one member may send per day') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="0" max="200" id="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>" name="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>" value="<?= e($message_limit) ?>">
+            <div class="form-text"><?= I18N::translate('Zero stops members from writing at all, the same as switching it off above.') ?></div>
         </div>
     </div>
 

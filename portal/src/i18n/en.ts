@@ -123,6 +123,44 @@ export const en: Translations = {
         'While your account is not connected to anybody in the family tree, the portal does not know who your family is. Please contact the family administrators.',
     },
   },
+  contact: {
+    intro:
+      'Enter what makes you reachable — and decide for each entry separately who may see it. Anything you leave empty is not shared.',
+    kind: {
+      email: 'Email address',
+      phone: 'Telephone number',
+      address: 'Postal address',
+    },
+    hint: {
+      email: 'May be a different one from the address you sign in with.',
+      phone: 'As you would say it to somebody on the telephone.',
+      address: 'Street, postcode and town.',
+    },
+    audienceLegend: 'Who may see this?',
+    audience: {
+      nobody: 'Nobody',
+      close_family: 'Only my close family',
+      members: 'Every member of the portal',
+    },
+    save: 'Save contact details',
+    saving: 'Saving …',
+    saved: 'Your contact details are saved.',
+    sharedTitle: 'Contact',
+    off: {
+      title: 'Contact details are switched off',
+      body: 'This family does not share contact details through the portal.',
+    },
+  },
+  message: {
+    title: 'Message to {{name}}',
+    subject: 'Subject',
+    body: 'Your message',
+    send: 'Send message',
+    sending: 'Sending …',
+    sent: 'Your message is on its way.',
+    replyAddressNotice:
+      'So that they can reply, your email address travels with the message as the reply address — even if you have not shared it above.',
+  },
   profile: {
     title: 'My profile',
     noRecord: {
@@ -207,6 +245,7 @@ export const en: Translations = {
   },
   settings: {
     title: 'Settings',
+    contact: 'My contact details',
     invite: 'Invite family',
     inviteBody:
       'You can set up portal access for your close family. You get a link and pass it on yourself.',

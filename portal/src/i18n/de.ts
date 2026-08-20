@@ -123,6 +123,44 @@ export const de = {
         'Solange Ihr Konto mit keiner Person im Stammbaum verbunden ist, weiß das Portal nicht, wer Ihre Familie ist. Bitte wenden Sie sich an die Familienverwaltung.',
     },
   },
+  contact: {
+    intro:
+      'Tragen Sie ein, was Sie erreichbar macht — und entscheiden Sie für jeden Eintrag einzeln, wer ihn sehen darf. Was Sie leer lassen, wird nicht geteilt.',
+    kind: {
+      email: 'E-Mail-Adresse',
+      phone: 'Telefonnummer',
+      address: 'Anschrift',
+    },
+    hint: {
+      email: 'Kann eine andere sein als die, mit der Sie sich anmelden.',
+      phone: 'So, wie Sie sie jemandem am Telefon nennen würden.',
+      address: 'Straße, Postleitzahl und Ort.',
+    },
+    audienceLegend: 'Wer darf das sehen?',
+    audience: {
+      nobody: 'Niemand',
+      close_family: 'Nur meine enge Familie',
+      members: 'Alle Mitglieder im Portal',
+    },
+    save: 'Kontaktdaten speichern',
+    saving: 'Wird gespeichert …',
+    saved: 'Ihre Kontaktdaten sind gespeichert.',
+    sharedTitle: 'Kontakt',
+    off: {
+      title: 'Kontaktdaten sind ausgeschaltet',
+      body: 'In dieser Familie werden über das Portal keine Kontaktdaten geteilt.',
+    },
+  },
+  message: {
+    title: 'Nachricht an {{name}}',
+    subject: 'Betreff',
+    body: 'Ihre Nachricht',
+    send: 'Nachricht senden',
+    sending: 'Wird gesendet …',
+    sent: 'Ihre Nachricht ist unterwegs.',
+    replyAddressNotice:
+      'Damit man Ihnen antworten kann, wird Ihre E-Mail-Adresse als Absenderadresse mitgeschickt — auch dann, wenn Sie sie oben nicht freigegeben haben.',
+  },
   profile: {
     title: 'Mein Profil',
     noRecord: {
@@ -207,6 +245,7 @@ export const de = {
   },
   settings: {
     title: 'Einstellungen',
+    contact: 'Meine Kontaktdaten',
     invite: 'Familie einladen',
     inviteBody:
       'Sie können Ihrer engen Familie einen Zugang zum Portal einrichten. Sie bekommen einen Link und schicken ihn selbst weiter.',

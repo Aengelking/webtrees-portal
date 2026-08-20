@@ -222,6 +222,23 @@ export async function stubApi(page: Page): Promise<void> {
       return json(route, { enabled: true, linked: true, quota: 3, remaining: 3, candidates: [], invitations: [] })
     }
 
+    // Phase 9. Anna shares a telephone number with every member.
+    if (path === '/me/contact') {
+      if (method === 'PATCH') {
+        const sent = route.request().postDataJSON() as { contact: Record<string, unknown> }
+        return json(route, { enabled: true, contact: sent.contact })
+      }
+
+      return json(route, {
+        enabled: true,
+        contact: { phone: { value: '0511 12345', audience: 'members' } },
+      })
+    }
+
+    if (path.endsWith('/message') && method === 'POST') {
+      return json(route, { status: 'sent' }, 202)
+    }
+
     if (path === '/me') {
       return json(route, {
         ...ME,
@@ -285,11 +302,32 @@ export async function stubApi(page: Page): Promise<void> {
     }
 
     if (path === '/members/1') {
-      return json(route, { ...MEMBERS[0], individual_detail: ANNA })
+      // Anna is the signed-in member, so this is her own page: the real
+      // endpoint refuses a message to oneself and says so with can_message.
+      return json(route, {
+        ...MEMBERS[0],
+        individual_detail: ANNA,
+        contact: {},
+        can_message: false,
+      })
+    }
+
+    if (path === '/members/2') {
+      return json(route, {
+        ...MEMBERS[1],
+        individual_detail: null,
+        contact: { phone: '0511 12345' },
+        can_message: true,
+      })
     }
 
     if (path === '/members/3') {
-      return json(route, { ...MEMBERS[2], individual_detail: null })
+      return json(route, {
+        ...MEMBERS[2],
+        individual_detail: null,
+        contact: {},
+        can_message: true,
+      })
     }
 
     return json(route, { error: 'not_found', message: 'This item does not exist.' }, 404)
