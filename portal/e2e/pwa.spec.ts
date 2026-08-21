@@ -122,11 +122,14 @@ test.describe('the installed app', () => {
   })
 
   /**
-   * The offer to install, end to end. Chromium decides for itself whether to
-   * fire `beforeinstallprompt`, and a headless browser usually does not, so
-   * the event is dispatched by hand — everything after it (the listener, the
-   * saved prompt, the button, the browser dialogue being asked for) is the
-   * portal's own code doing its real work.
+   * The offer to install, end to end, on the Android device profile this suite
+   * runs as — which is the point: with no prompt in hand the screen must still
+   * say where Chrome's own menu is, and only once a prompt arrives does it
+   * become a button. Chromium decides for itself whether to fire
+   * `beforeinstallprompt` and a headless browser usually does not, so the
+   * event is dispatched by hand; everything after it — the listener, the saved
+   * prompt, the button, the browser dialogue being asked for — is the portal's
+   * own code doing its real work.
    */
   test('offers to install itself, once, in Settings', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Signs in with the fixture account.')
@@ -141,9 +144,11 @@ test.describe('the installed app', () => {
     await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible()
 
     const install = page.getByRole('button', { name: 'Auf den Startbildschirm legen' })
+    const byHand = page.getByText('App installieren')
 
-    // Nothing on offer, nothing said.
+    // No prompt yet — so no button, but not silence either.
     await expect(install).toHaveCount(0)
+    await expect(byHand).toBeVisible()
 
     await page.evaluate(() => {
       const event = new Event('beforeinstallprompt', { cancelable: true })
@@ -159,15 +164,19 @@ test.describe('the installed app', () => {
     })
 
     await expect(install).toBeVisible()
+    // The button replaces the instructions rather than sitting beside them.
+    await expect(byHand).toHaveCount(0)
+
     await install.click()
 
     expect(await page.evaluate(() => (window as { __installPrompted?: boolean }).__installPrompted)).toBe(
       true,
     )
 
-    // Spent: a second `prompt()` on the same event throws, so the offer goes
-    // rather than becoming a button that does nothing.
+    // Spent: a second `prompt()` on the same event throws, so the button goes.
+    // What is left is the way to do it by hand, which still works.
     await expect(install).toHaveCount(0)
+    await expect(byHand).toBeVisible()
   })
 
   /**

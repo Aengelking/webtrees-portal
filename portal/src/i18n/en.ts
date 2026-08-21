@@ -356,11 +356,16 @@ export const en: Translations = {
     },
   },
   install: {
-    title: 'Install the portal',
+    title: 'On the home screen',
     body:
       'You can put the Sack family app on your home screen. It then opens with one tap, without an address bar and without hunting for it in the browser.',
     action: 'Add to home screen',
-    apple: 'Tap the share icon at the bottom, then “Add to Home Screen”.',
+    apple: 'Tap the share icon at the bottom, then "Add to Home Screen".',
+    android:
+      'Tap the three dots at the top right, then "Install app" — depending on the version it may say "Add to Home screen".',
+    webview:
+      'This page was opened inside another app, which cannot do this. Tap the three dots and then "Open in browser", where it works.',
+    done: 'The app is already on this device’s home screen.',
   },
   settings: {
     contacts: 'My contacts',

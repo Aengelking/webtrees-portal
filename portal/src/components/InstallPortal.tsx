@@ -3,25 +3,37 @@ import { installStore, useInstallState } from '../pwa/install'
 import { Button, Card, Section } from './ui'
 
 /**
- * The offer to install, shown only when there is something to offer.
+ * The offer to install, and — where an offer is impossible but installing is
+ * not — the way to do it by hand.
  *
- * It lives in Settings rather than in a bar across the top of every screen.
- * A prompt that follows a member around is the thing that teaches them to
+ * It lives in Settings rather than in a bar across the top of every screen. A
+ * prompt that follows a member around is the thing that teaches them to
  * dismiss whatever appears at the top of this portal, and the next thing to
- * appear there is "no connection" — which they need to read. Settings is one
- * of four destinations, always one tap away, and already the place where "my
- * own participation" is decided.
+ * appear there is "no connection", which they need to read. Settings is one of
+ * four destinations, always one tap away.
  *
- * Nothing is rendered once the portal is installed, or in a browser that will
- * not install it: an explanation of an impossible action is worse than
- * silence.
+ * Only two states render nothing: this window already *is* the app, and a
+ * browser where installing cannot happen at all. Everywhere else there is
+ * either a button or a sentence saying where the member has to tap instead —
+ * because a screen that promises an app and offers no way to get one is the
+ * bug this component was rewritten to fix.
  */
 export function InstallPortal() {
   const { t } = useTranslation()
   const state = useInstallState()
 
-  if (state === 'installed' || state === 'unavailable') {
+  if (state === 'standalone' || state === 'unavailable') {
     return null
+  }
+
+  if (state === 'installed') {
+    return (
+      <Section title={t('install.title')}>
+        <Card>
+          <p className="text-base text-slate-700">{t('install.done')}</p>
+        </Card>
+      </Section>
+    )
   }
 
   return (
@@ -34,9 +46,11 @@ export function InstallPortal() {
             <Button onClick={() => void installStore.prompt()}>{t('install.action')}</Button>
           </div>
         ) : (
-          // iOS, where the portal cannot ask — so it says where the button is
-          // that the member has to press themselves.
-          <p className="mt-4 text-base text-slate-900">{t('install.apple')}</p>
+          // No prompt to show — either because this browser has none to give
+          // (iOS), because it did not give one (Android), or because the page
+          // is inside another app. Each of those has a different way out, and
+          // the sentence is the way out.
+          <p className="mt-4 text-base text-slate-900">{t(`install.${state}`)}</p>
         )}
       </Card>
     </Section>

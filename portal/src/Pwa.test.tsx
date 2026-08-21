@@ -26,6 +26,8 @@ const manifest = JSON.parse(readFileSync('public/manifest.webmanifest', 'utf8'))
   scope: string
   display: string
   icons: { src: string; purpose: string }[]
+  prefer_related_applications: boolean
+  related_applications: { platform: string; url: string }[]
 }
 
 const html = readFileSync('index.html', 'utf8')
@@ -62,6 +64,28 @@ describe('the manifest', () => {
     for (const icon of manifest.icons) {
       expect(existsSync(`public${icon.src}`), icon.src).toBe(true)
     }
+  })
+
+  /**
+   * The only way a page in an ordinary tab can find out whether its own app is
+   * already installed: name yourself, then ask `getInstalledRelatedApps()`
+   * which of the named ones are there.
+   */
+  it('names itself, so the browser can be asked whether the app is installed', () => {
+    expect(manifest.related_applications).toEqual([
+      { platform: 'webapp', url: '/manifest.webmanifest' },
+    ])
+  })
+
+  /**
+   * And the trap that comes with it. `prefer_related_applications: true` tells
+   * a browser to point at a store app *instead of* installing this one — which
+   * would suppress the very prompt the entry above exists to support. It is
+   * asserted rather than assumed because the two lines look like a pair and
+   * are not.
+   */
+  it('does not prefer a related app over itself', () => {
+    expect(manifest.prefer_related_applications).toBe(false)
   })
 
   /**
@@ -201,13 +225,26 @@ describe('losing the connection', () => {
 /**
  * The offer to install.
  *
- * Every branch of this is a guess about a browser, because none of it can be
- * asked directly: there is no "is this installed" to call, only an event
- * Chrome may fire, a media query about the current window, and — on iOS —
- * neither. So the test worth having is the one that proves the portal keeps
- * quiet when it does not know.
+ * Every branch is a guess about a browser, because none of it can be asked
+ * directly: there is no "is this installed" to call from a tab except one API
+ * that answers a narrower question, an event Chrome may fire, a media query
+ * about the current window, and a user-agent string. The tests worth having
+ * are the ones that pin down *which* of those a given situation lands on —
+ * above all that a browser which can install is never left with nothing.
  */
 describe('offering to install', () => {
+  const ANDROID =
+    'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36'
+  const ANDROID_WEBVIEW =
+    'Mozilla/5.0 (Linux; Android 14; Pixel 7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.0.0 Mobile Safari/537.36'
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'
+  const DESKTOP =
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+
+  function browser(userAgent: string, extra: object = {}) {
+    vi.stubGlobal('navigator', { ...navigator, userAgent, maxTouchPoints: 0, ...extra })
+  }
+
   /** Chrome's event, which no browser type definition has, faked as Chrome fires it. */
   function fireInstallPrompt() {
     const event = new Event('beforeinstallprompt', { cancelable: true })
@@ -226,11 +263,8 @@ describe('offering to install', () => {
     return store
   }
 
-  it('says nothing until a browser offers something', () => {
-    expect(watching().state()).toBe('unavailable')
-  })
-
   it('keeps the prompt Chrome offers, and takes Chrome’s own bar off the screen', () => {
+    browser(ANDROID)
     const store = watching()
     const { event } = fireInstallPrompt()
 
@@ -239,6 +273,7 @@ describe('offering to install', () => {
   })
 
   it('shows the browser’s dialogue when asked, and only once', async () => {
+    browser(ANDROID)
     const store = watching()
     const { prompt } = fireInstallPrompt()
 
@@ -246,14 +281,58 @@ describe('offering to install', () => {
     expect(prompt).toHaveBeenCalledTimes(1)
 
     // A spent prompt cannot be shown again — a second `prompt()` on the same
-    // event throws — so the offer goes away rather than becoming a button that
-    // breaks.
+    // event throws — so the offer stops being a button. It does not stop being
+    // an offer: Chrome's own menu still works, and that is what is said next.
     await store.prompt()
     expect(prompt).toHaveBeenCalledTimes(1)
-    expect(store.state()).toBe('unavailable')
+    expect(store.state()).toBe('android')
+  })
+
+  /**
+   * The failure this whole rewrite is about. Chrome hands out
+   * `beforeinstallprompt` when it feels like it and not at all if it thinks
+   * the app is installed, if the page was opened a moment ago, or for reasons
+   * it does not explain. Before, that left the member on a screen that
+   * promised an app and offered no way to get one.
+   */
+  it('tells an Android browser where its own menu is, when no prompt arrives', () => {
+    browser(ANDROID)
+
+    expect(watching().state()).toBe('android')
+  })
+
+  /**
+   * Where the link in the family chat actually opens. Android's embedded
+   * browser can neither install nor reach a home screen, so the only useful
+   * sentence is "leave this app first".
+   */
+  it('recognises another app’s built-in browser, which can only be left', () => {
+    browser(ANDROID_WEBVIEW)
+
+    expect(watching().state()).toBe('webview')
+  })
+
+  it('describes the Share sheet on an iPhone, where there is no prompt to offer', () => {
+    browser(IPHONE)
+
+    expect(watching().state()).toBe('apple')
+  })
+
+  /** An iPad calls itself a Macintosh. Only the touch points give it away. */
+  it('recognises an iPad pretending to be a Mac', () => {
+    browser('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', { maxTouchPoints: 5 })
+
+    expect(watching().state()).toBe('apple')
+  })
+
+  it('says nothing where installing is not a thing that happens', () => {
+    browser(DESKTOP)
+
+    expect(watching().state()).toBe('unavailable')
   })
 
   it('stops offering once the app exists', () => {
+    browser(ANDROID)
     const store = watching()
     fireInstallPrompt()
 
@@ -263,54 +342,73 @@ describe('offering to install', () => {
   })
 
   /**
-   * The window the portal is running in is the home-screen one. Offering to
-   * install it there is like a door with "door" written on it.
+   * The one an ordinary tab cannot work out for itself. `display-mode` only
+   * ever describes the window it is asked in, so a member browsing in Chrome
+   * with the app already on their home screen looks exactly like a member who
+   * has never installed it. The manifest names itself under
+   * `related_applications` so that this question has an answer at all.
    */
-  it('says nothing when it is already the installed app', () => {
+  it('asks the browser whether the app is already on the device', async () => {
+    browser(ANDROID, { getInstalledRelatedApps: async () => [{ platform: 'webapp' }] })
+    const store = watching()
+
+    await vi.waitFor(() => expect(store.state()).toBe('installed'))
+  })
+
+  it('ignores a native app the manifest happens to mention', async () => {
+    browser(ANDROID, { getInstalledRelatedApps: async () => [{ platform: 'play' }] })
+    const store = watching()
+
+    await vi.waitFor(() => expect(store.state()).toBe('android'))
+  })
+
+  it('survives a browser that refuses the question', async () => {
+    browser(ANDROID, {
+      getInstalledRelatedApps: async () => {
+        throw new Error('not a secure context')
+      },
+    })
+
+    expect(watching().state()).toBe('android')
+  })
+
+  /**
+   * The window the portal is running in is the home-screen one. Offering to
+   * install it there is a door with "door" written on it — and so is telling
+   * somebody it is installed.
+   */
+  it('says nothing at all inside the installed app', () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('standalone') }))
 
-    expect(watching().state()).toBe('installed')
+    expect(watching().state()).toBe('standalone')
   })
 
-  it('describes the Share sheet on an iPhone, where there is no prompt to offer', () => {
-    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' })
-
-    expect(watching().state()).toBe('manual')
-  })
-
-  /** An iPad calls itself a Macintosh. Only the touch points give it away. */
-  it('recognises an iPad pretending to be a Mac', () => {
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-      maxTouchPoints: 5,
-    })
-
-    expect(watching().state()).toBe('manual')
-  })
-
-  it('is a desktop Mac when the touch points say so', () => {
-    vi.stubGlobal('navigator', {
-      ...navigator,
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-      maxTouchPoints: 0,
-    })
-
-    expect(watching().state()).toBe('unavailable')
-  })
-
-  it('puts nothing on the settings screen when there is nothing to offer', () => {
+  it('puts nothing on the settings screen where installing cannot happen', () => {
+    browser(DESKTOP)
     const { container } = render(<InstallPortal />)
 
     expect(container.innerHTML).toBe('')
   })
 
   it('describes the two taps on an iPhone rather than showing a button that cannot work', () => {
-    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' })
-
+    browser(IPHONE)
     render(<InstallPortal />)
 
     expect(screen.getByText(/Zum Home-Bildschirm/)).toBeDefined()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('points an Android member at the menu rather than at nothing', () => {
+    browser(ANDROID)
+    render(<InstallPortal />)
+
+    expect(screen.getByText(/App installieren/)).toBeDefined()
+  })
+
+  it('tells somebody in a chat app’s browser to leave it first', () => {
+    browser(ANDROID_WEBVIEW)
+    render(<InstallPortal />)
+
+    expect(screen.getByText(/Im Browser öffnen/)).toBeDefined()
   })
 })
