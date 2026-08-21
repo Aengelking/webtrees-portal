@@ -1487,6 +1487,18 @@ the network anyway. The reason to want them is the bad day — a worker deployed
 to fix or to remove a broken one should take effect when the portal is next
 opened, not when the member happens to close every window.
 
+**The browser-side test asserts the shell, not the bar.** The first version of
+the offline test also expected "Keine Internetverbindung" on screen, passed
+here fifteen times running, and failed twice on CI — because whether
+`navigator.onLine` follows a browser's offline emulation is the browser's
+business and differs between Chromium builds. That assertion was testing
+Playwright. What the bar does with what the browser reports is settled three
+times over in `src/Pwa.test.tsx`, where no browser is in the way; what only a
+real browser can show is that the portal boots at all with the network off,
+and that is what the spec now asserts — polled and read as one object, because
+a locator that goes unfound on a CI runner explains nothing and there is no
+browser there to open and look at.
+
 **The offline bar is not the service worker's doing.** `navigator.onLine` says
 whether there is a network, not whether anything is reachable across it, so it
 never suppresses a request and never decides what is fetched; `network_error`
