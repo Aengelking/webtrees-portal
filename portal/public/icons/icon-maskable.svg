@@ -5,19 +5,44 @@
     Android and iOS both cut an icon to a shape of their own choosing — a
     circle, a squircle, a rounded square — so a maskable icon may not carry
     its own corners, and everything that must survive the cut has to sit
-    inside the middle 80%. This drawing does: the furthest ink from the centre
-    is ~182px of the 205px the safe circle allows.
+    inside the middle 80%. This drawing does: at this scale the furthest ink
+    from the centre is the shield's top corners, ~190px of the 205px the safe
+    circle allows.
+
+    Rasterised by tools/build-icons.mjs. The drawing itself lives in
+    icon.svg; only the background and the transform differ.
   -->
-  <rect width="512" height="512" fill="#075985" />
-  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="176" cy="150" r="44" />
-    <circle cx="336" cy="150" r="44" />
-    <path d="M220 150h72" />
-    <path d="M256 150v110" />
-    <path d="M136 260h240" />
-    <path d="M136 260v44M256 260v44M376 260v44" />
-    <circle cx="136" cy="348" r="40" />
-    <circle cx="256" cy="348" r="40" />
-    <circle cx="376" cy="348" r="40" />
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f56b0"/>
+      <stop offset="1" stop-color="#11265f"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="#efe8da"/>
+
+  <g transform="translate(107.5 107.5) scale(4.64)">
+    <path d="M4.6 4.6h54.8v25.2c0 15.6-10.9 25.4-27.4 29.6C15.5 55.2 4.6 45.4 4.6 29.8Z"
+          fill="url(#field)" stroke="#e9ebf1" stroke-width="3"/>
+
+    <!-- One silhouette: overlapping white shapes leave no seams between
+         wing, body and head. -->
+    <g fill="#f4f6fa">
+      <path d="M29.2 29c-3.6-5.6-9.6-10.4-16.8-12.6 2.2 5 2.8 9.6 2 14 3.8 3.4 9.2 5 14.8 4.6z"/>
+      <path d="M34.8 29c3.6-5.6 9.6-10.4 16.8-12.6-2.2 5-2.8 9.6-2 14-3.8 3.4-9.2 5-14.8 4.6z"/>
+      <path d="M29.4 37.5c-1.4 4.5-1.8 8.5-1 11.5l1.8-2.4 1.8 2.4 1.8-2.4 1.8 2.4c.8-3 .4-7-1-11.5z"/>
+      <path d="M30 19.4c3.8 1.4 6.2 6 6.2 11.6 0 4.4-1.6 8-4.2 10.4-2.6-2.4-4.2-6-4.2-10.4 0-5.2-.6-9.4 2.2-11.6z"/>
+      <path d="M26.8 14.2 22.6 15.4l4.2 2.6z"/>
+      <circle cx="30" cy="15.2" r="4.3"/>
+    </g>
+
+    <!-- Feathering. The first thing to go as the icon shrinks, which is the
+         intended behaviour: at 16px the silhouette carries it alone. -->
+    <g stroke="#12296b" stroke-width="0.85" fill="none" stroke-linecap="round">
+      <path d="M16.2 20.4c3.4 3.6 6.8 6.6 10.6 9M15.6 26c3.4 2.8 6.6 4.6 10.2 6"/>
+      <path d="M47.8 20.4c-3.4 3.6-6.8 6.6-10.6 9M48.4 26c-3.4 2.8-6.6 4.6-10.2 6"/>
+      <path d="M30 39.6c-1 2-1.6 3.8-1.8 5.4M34 39.6c1 2 1.6 3.8 1.8 5.4M32 40.4v5"/>
+    </g>
+    <circle cx="28.9" cy="14.8" r="0.9" fill="#12296b"/>
   </g>
 </svg>

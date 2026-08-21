@@ -1642,6 +1642,57 @@ worth it for a link most members follow rarely. What is fixed is that the sign
 
 ---
 
+### 2.31 The icon is the charge, not the achievement
+
+§2.30 made the portal installable and gave it a mark to be installed *as*: a
+pedigree drawn in the navigation bar's line style, two people above three,
+joined. It was the right placeholder — legible at 48px, consistent with the
+rest of the interface — and it said "a genealogy app" rather than "this
+family". Any of a hundred portals could have worn it.
+
+The family's arms say the second thing, but they cannot be used as they are.
+They are a full achievement: the shield, the helm above it, the mantling
+either side, the crest dove standing on the helm, and a banner carrying the
+foundation's name. That drawing is made for a letterhead. Nothing in it
+survives being redrawn at 48px, and the banner least of all — at that size
+lettering is a grey smear.
+
+So the icon keeps the **charge** and drops the rest: the dove displayed,
+argent on azure, on a shield with a silver border. It is the element a member
+already associates with the family, it appears twice in the arms — on the
+shield and again on the helm — and it is a silhouette, which is the only kind
+of drawing that survives being made small. Calling the result "the coat of
+arms" would be too strong. It is the arms' subject, redrawn to be legible.
+
+**What did not change.** The file names, the manifest, the `<link>` tags, the
+service worker's precache and the tests that hold them together are all
+§2.30's and are untouched. This is an artwork swap inside a structure that
+already worked, which is why the diff is two SVGs, five PNGs and a line on the
+login screen.
+
+**One drawing, two files, five renders.** `icons/icon.svg` and
+`icons/icon-maskable.svg` differ only in their background and one transform —
+the dove is drawn once, in a 64-unit square, and placed by a `transform` in
+each. The PNGs are rendered from them by `tools/build-icons.mjs` and
+committed, because Safari reads none of the manifest's icons and will not take
+an SVG for the home screen. The generator needs `@resvg/resvg-js`, which is
+deliberately *not* a dependency of the portal: it is installed with
+`--no-save` on the rare day the mark changes, rather than downloaded by every
+`npm install` forever after. That script is also the file the old comment in
+`icon.svg` pointed at as `tools/icons.md`, which never existed.
+
+Parchment behind the shield rather than nothing, for two reasons: the arms are
+drawn on paper, and a launcher that puts an "any"-purpose icon on a white tile
+should not be handed a white icon. The maskable variant is the same picture
+inset until its furthest ink — the shield's top corners — sits ~190px from the
+centre, inside the 205px a circular crop leaves.
+
+The login screen shows the same file above the heading, referenced rather than
+redrawn. It is the screen reached from an emailed link, by somebody with a
+fair right to ask whose portal this is.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

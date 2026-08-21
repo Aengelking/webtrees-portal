@@ -34,6 +34,7 @@ users; there is no second identity system.
 | `portal/` | The React app. |
 | `portal/edge/` | The Cloudflare Worker that serves it and proxies `/api/*`. |
 | `portal/sw/` | The service worker that makes it installable. Built separately, to `/sw.js`. |
+| `portal/public/icons/` | The app's mark, taken from the family arms. Two SVGs; the PNGs beside them are rendered by `portal/tools/build-icons.mjs`. |
 
 ## Scope
 

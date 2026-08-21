@@ -56,6 +56,14 @@ export function Login() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
+      {/*
+        The one screen that has to say whose portal this is. It is reached by
+        people who followed a link in an email, so the arms do the work a
+        letterhead would: /icon.svg is the same file the browser uses for the
+        tab and the home screen, referenced rather than redrawn.
+      */}
+      <img src="/icons/icon.svg" alt="" aria-hidden="true" width="56" height="56" className="mb-5 h-14 w-14" />
+
       <PageHeading>{t('app.name')}</PageHeading>
       <p className="mt-2 text-base text-slate-700">{t('login.intro')}</p>
 
