@@ -192,7 +192,6 @@ export const en: Translations = {
       body: 'Your account is not linked to a person in the family tree yet. The family administrator can set that up.',
     },
     edit: 'Change my details',
-    openInWebtrees: 'Open the family tree and charts',
     pending: {
       title: 'Your change is being reviewed',
       body:

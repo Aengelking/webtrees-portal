@@ -99,12 +99,12 @@ export function IndividualView({ individual }: { individual: Individual }) {
   const { t } = useTranslation()
   const { me } = useAuth()
 
-  // A signpost, not a permission boundary. `webtrees_url` goes to every
-  // member — it is the same public record address the bottom link has always
-  // used — and webtrees decides for itself what the person following it may
-  // do when they arrive. What this check buys is that a member is not sent to
-  // an editing screen they have no business on, and that an editor does not
-  // have to hunt for the way back to the tree they maintain.
+  // A signpost, not a permission boundary. `webtrees_url` is in the payload
+  // every member receives — it is the public record address, built by
+  // webtrees from its own base_url — and webtrees decides for itself what the
+  // person following it may do on arrival. Nothing is kept from a member by
+  // not drawing this link; the portal simply stops offering a door that leads
+  // somewhere they were not going.
   const mayEdit = me !== null && EDITING_ROLES.includes(me.user.role)
 
   const headline = [
@@ -131,6 +131,14 @@ export function IndividualView({ individual }: { individual: Individual }) {
         </div>
       </div>
 
+      {/*
+        The only way out of the portal to webtrees, and only for the people
+        who have something to do when they arrive.
+
+        It is an absolute URL on the webtrees host, built by webtrees from its
+        own configured base_url — so a plain anchor rather than a router link:
+        this leaves the portal.
+      */}
       {mayEdit && (
         <p className="mt-5">
           <a
@@ -181,26 +189,6 @@ export function IndividualView({ individual }: { individual: Individual }) {
       <RelativeList title={t('individual.spouses')} people={individual.spouses} />
       <RelativeList title={t('individual.children')} people={individual.children} />
 
-      {/*
-        An absolute URL on the webtrees host, built by webtrees from its own
-        configured base_url — so a plain anchor, not a router link: this
-        leaves the portal.
-
-        Not shown to an editor, who already has the link above. It is the same
-        address; two links to one page, differing only in wording, is the kind
-        of thing that makes people wonder which is the right one.
-      */}
-      {!mayEdit && (
-        <p className="mt-8">
-          <a
-            className="inline-flex min-h-[44px] items-center text-base font-semibold text-sky-800 underline underline-offset-4 hover:text-sky-900"
-            href={individual.webtrees_url}
-            rel="noopener noreferrer"
-          >
-            {t('profile.openInWebtrees')}
-          </a>
-        </p>
-      )}
     </article>
   )
 }

@@ -192,7 +192,6 @@ export const de = {
       body: 'Ihr Konto ist noch mit keiner Person im Stammbaum verknüpft. Die Familienverwaltung kann das einrichten.',
     },
     edit: 'Meine Daten ändern',
-    openInWebtrees: 'Stammbaum und Diagramme öffnen',
     pending: {
       title: 'Ihre Änderung wird geprüft',
       body:

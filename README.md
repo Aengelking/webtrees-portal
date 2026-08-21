@@ -315,22 +315,19 @@ something read here does not change anything in webtrees.
 
 *No setting.*
 
-Every person screen in the portal links out to that person's page in webtrees.
-Which link, and where it sits, depends on the role the signed-in account holds
-**in the configured tree**:
+**Editors, moderators, managers and administrators** get a link at the top of
+every person screen — *In webtrees öffnen und bearbeiten* — straight to that
+record in webtrees, with one line saying it is their role showing.
 
-* **Members** get it at the foot of the record, worded for what they would go
-  there for: *Stammbaum und Diagramme öffnen*.
-* **Editors, moderators, managers and administrators** get it at the top
-  instead, worded for what *they* go there for: *In webtrees öffnen und
-  bearbeiten* — with one line saying it is their role showing.
+**Members get no link out at all.** The portal is the whole of what they use;
+sending them to webtrees means a different interface, a different navigation
+and, for most of what they might click, a refusal. Charts are the one thing
+they lose, and they were never the reason anyone opened the portal.
 
-It is the same address either way, and it always was: the record URL webtrees
-builds from its own `base_url`. Nothing is unlocked by the wording, and
-nothing is hidden by it — webtrees decides what the person arriving may do.
-What the distinction buys is that a member is not pointed at an editing screen
-they have no business on, an editor does not hunt for the tree they maintain,
-and neither is shown two links to one page.
+The address is the record URL webtrees builds from its own `base_url`, and it
+is still in the API response every member receives. Not drawing the link keeps
+nothing from anybody — webtrees decides what the person arriving may do. It
+stops offering members a door that leads somewhere they were not going.
 
 ### How much of the tree a member sees
 
@@ -1120,9 +1117,10 @@ badge is gone once nothing is unread, and its digit is hidden from screen
 readers because the same count is already in the link's name as words.
 
 **The link to webtrees** (`portal/src/EditorLink.test.tsx`) — an editor,
-moderator, manager and administrator each get the editing link, a member gets
-the member's link and not the editing one, nobody gets both, and an editor is
-told the link is there because of their role.
+moderator, manager and administrator each get the link; a member's record
+screen carries no link to the webtrees host at all, asserted on the address
+rather than on a label so that one reintroduced under different wording still
+fails; and an editor is told the link is there because of their role.
 
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the
