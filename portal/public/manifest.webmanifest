@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Familienportal",
-  "short_name": "Familie",
+  "name": "Sack Familienapp",
+  "short_name": "Sack",
   "description": "Das Mitgliederportal der Familie: eigenes Profil, Verwandtschaft, Mitgliederverzeichnis und Nachrichten.",
   "lang": "de",
   "dir": "ltr",

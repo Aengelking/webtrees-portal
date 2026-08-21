@@ -1528,8 +1528,26 @@ iOS's older `navigator.standalone`, since there is no API that answers the
 question directly.
 
 **The manifest is German only.** The portal has a language switch, a manifest
-does not — the name under the icon is fixed when the app is installed. German
-is what `index.html` and the default language already say.
+does not — what is written under the icon is fixed when the app is installed.
+German is what `index.html` and the default language already say.
+
+**Two names, and which one goes where.** The app is **Sack Familienapp** in
+full and **Sack** under the icon. That is not a shortening for its own sake: a
+home-screen label gets about a dozen characters before a launcher truncates
+it, and the word worth keeping is the family's. So the short one goes to the
+manifest's `short_name` and to `apple-mobile-web-app-title` — which is iOS's
+`short_name`, since iOS reads no manifest at all — and the full one to the
+manifest's `name`, the page title, and the sign-in heading, which are the
+places with room for it.
+
+"Sack" survives translation and "Familienapp" does not, so the English is
+*Sack Family App*. The rule the test enforces is therefore not that the two
+languages agree — it is that neither loses the family's name, that the full
+name begins with the short one, and that the two platforms label the icon
+identically. All of it lives in files that cannot read each other: the
+manifest, `index.html` twice, both translations, and the service worker's
+offline page, which has no i18n to ask and is where a rename goes to be
+forgotten.
 
 ---
 

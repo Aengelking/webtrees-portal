@@ -202,8 +202,8 @@ p.en{color:#475569}
 <body>
 <main>
 <h1>Keine Verbindung</h1>
-<p>Das Familienportal braucht eine Internetverbindung. Bitte versuchen Sie es noch einmal, sobald Sie wieder online sind.</p>
-<p class="en" lang="en">The family portal needs an internet connection. Please try again once you are back online.</p>
+<p>Die Sack Familienapp braucht eine Internetverbindung. Bitte versuchen Sie es noch einmal, sobald Sie wieder online sind.</p>
+<p class="en" lang="en">The Sack family app needs an internet connection. Please try again once you are back online.</p>
 </main>
 </body>
 </html>

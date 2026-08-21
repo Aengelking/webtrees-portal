@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light" />
-    <title>Familienportal</title>
+    <title>Sack Familienapp</title>
 
     <!--
       Installable, so the portal can live on a home screen next to WhatsApp
@@ -25,14 +25,15 @@
       iOS reads none of the manifest's icons. It wants apple-touch-icon, it
       wants a PNG, and it will happily fall back to a screenshot of the page
       if it does not find one. `apple-mobile-web-app-title` is what ends up
-      under the icon; without it iOS uses <title>, which is the same word here
-      but would not stay that way.
+      under the icon — iOS's `short_name`, in effect, which is why it is the
+      short one. Without it iOS falls back to <title>, and the full name does
+      not fit under an icon.
     -->
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Familienportal" />
+    <meta name="apple-mobile-web-app-title" content="Sack" />
   </head>
   <body>
     <div id="root"></div>
