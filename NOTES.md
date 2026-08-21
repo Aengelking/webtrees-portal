@@ -1930,6 +1930,78 @@ belongs *inside*.
 
 ---
 
+### 2.33 Phase 12: a conversation, because webtrees keeps half of one
+
+The messaging built in Phases 9 and 10 was as good as its store allowed, and
+its store is webtrees' `message` table: **one row per message, owned by the
+recipient**. §2.28 wrote the consequence on the screen — "there is no sent
+folder, and the screen says so" — because that was the honest thing to say
+about what existed. It also means a transcript was never merely hard to
+assemble. Half of every exchange, the half a member wrote themselves, was not
+written down anywhere.
+
+Three more things that table cannot do, each of which a conversation needs:
+nothing ties two messages together but the string `RE: ` in a subject;
+`sender` is an e-mail address rather than an account, so the link back to a
+person fails in three ordinary ways (§2.27); and `body` is a rendered e-mail
+template rather than what somebody typed.
+
+**So a second store, beside webtrees' rather than instead of it.** The old
+inbox keeps doing the thing only it can: messages from webtrees' own contact
+form, an administrator's broadcast, anything that did not come from the
+portal. The Nachrichten screen shows conversations above it and calls the rest
+*Sonstige Nachrichten*. Two lists, because they are two different things — one
+is an exchange that continues, the other is post that arrives and is read
+once.
+
+**Two people, and the pair is the identity.** The smaller webtrees user id is
+always `user_one`, so a pair has exactly one row and the unique key can say so:
+two members opening a conversation at the same moment cannot produce two.
+Groups were considered and declined for now — they need a membership table and
+a different answer to every question below, starting with what "read" means
+when there are five of you.
+
+**The rules are the ones already settled, not new ones.** Opening a
+conversation applies `MemberMessages::send()`'s rule exactly (listed in the
+directory, or connected to me), because opening one is *finding* somebody.
+Writing into an existing one applies no such rule, which is §2.28's argument
+about replies and holds harder here: the transcript on the screen is proof
+these two know each other. A member who leaves the directory stops being
+findable; they do not stop being someone you were in the middle of talking to,
+and their name is still shown for the same reason. Somebody else's
+conversation is a 404 rather than a 403, as everywhere else.
+
+**Deleting is for oneself, and both sides deleting is a real deletion.** Two
+nullable columns on the message row, one per side of the pair — enough because
+the participants are fixed. A message hidden by both is removed from the
+database outright: the portal does not keep what nobody can see. Clearing a
+whole conversation hides the messages, not the conversation; the other side
+still has it and a new message brings it back, which is the only honest
+meaning "delete for me" can have when two people share a transcript.
+
+**One notification, not one per line.** A chat that e-mails on every message
+is a chat nobody stays in. So the other side is told through the path Phase 9
+already built and tested — `MemberMessages`, which respects the recipient's
+contact preference and files webtrees' own copy — but only when they have
+nothing unread from this member already. Once something is waiting, they have
+been told; telling them again says nothing new. A failure to notify is logged
+and swallowed: the message is in the conversation, which is where it will be
+read, and a courtesy that fails must not fail the message.
+
+**One quota for both ways of writing**, so `refuseIfDisabled()` and
+`refuseIfTooMany()` moved from private to public rather than being duplicated.
+A message is a message and the limit is about volume — the same reasoning
+§2.28 gives for counting replies.
+
+**What is now unused.** `POST /members/{id}/message` still exists, is still
+tested and is still what `Conversations` notifies through — but nothing in the
+portal's interface calls it any more: the member page opens a conversation
+instead. It should probably go in a later phase, together with `useSendMessage`
+in the client. Left standing here because removing a working, tested path is a
+separate change from adding this one.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

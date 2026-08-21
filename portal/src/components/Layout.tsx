@@ -38,7 +38,9 @@ export function Layout() {
   const { t } = useTranslation()
   const { me } = useAuth()
 
-  const unread = me?.unread_messages ?? 0
+  // Both lists, added: the badge answers "is there something for me", and a
+  // member who has one message and one conversation message has two things.
+  const unread = (me?.unread_messages ?? 0) + (me?.unread_conversations ?? 0)
   // Optional on `Me`: the module and the portal deploy separately, so a
   // server that predates connections simply has no number to show.
   const requests = me?.connection_requests ?? 0

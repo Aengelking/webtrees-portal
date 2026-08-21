@@ -166,6 +166,30 @@ export async function stubApi(page: Page): Promise<void> {
     outgoing: [],
   })
 
+  const transcript: {
+    id: number
+    mine: boolean
+    body: string
+    sent_at: string
+    read: boolean
+  }[] = [
+    {
+      id: 1,
+      mine: false,
+      body: 'Hast du die Fotos von Oma gesehen?',
+      sent_at: '2026-08-01T10:00:00+00:00',
+      read: true,
+    },
+  ]
+
+  const conversationSummary = () => ({
+    id: 3,
+    member_id: 2,
+    name: 'Dieter Beispiel',
+    unread: 0,
+    last_message: transcript[transcript.length - 1],
+  })
+
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const path = url.pathname.replace('/api/v1', '')
@@ -188,6 +212,7 @@ export async function stubApi(page: Page): Promise<void> {
         return json(route, {
           ...ME,
           unread_messages: inbox.filter((m) => !m.read).length,
+          unread_conversations: 0,
           connection_requests: incoming.length,
         })
       }
@@ -297,6 +322,33 @@ export async function stubApi(page: Page): Promise<void> {
     }
 
     // Phase 9. Anna shares a telephone number with every member.
+    // Phase 12. One conversation, which starts with one thing said.
+    if (path === '/conversations' && method === 'GET') {
+      return json(route, { conversations: [conversationSummary()] })
+    }
+
+    if (path === '/conversations' && method === 'POST') {
+      return json(route, { conversation: conversationSummary() })
+    }
+
+    if (path === '/conversations/3/messages' && method === 'POST') {
+      const body = route.request().postDataJSON() as { body: string }
+
+      transcript.push({
+        id: transcript.length + 1,
+        mine: true,
+        body: body.body,
+        sent_at: '2026-08-01T12:00:00+00:00',
+        read: false,
+      })
+
+      return json(route, { message: transcript[transcript.length - 1] }, 201)
+    }
+
+    if (path.startsWith('/conversations/3')) {
+      return json(route, { conversation: conversationSummary(), messages: transcript, before: null })
+    }
+
     // Phase 10. One unread message, which the badge counts.
     if (path === '/messages' && method === 'GET') {
       return json(route, { messages: inbox, unread: inbox.filter((m) => !m.read).length })
@@ -337,6 +389,7 @@ export async function stubApi(page: Page): Promise<void> {
       return json(route, {
         ...ME,
         unread_messages: inbox.filter((m) => !m.read).length,
+        unread_conversations: 0,
         connection_requests: incoming.length,
         profile: { ...ME.profile, visible_in_directory: visibleInDirectory },
         individual: { ...ANNA, pending_change: pendingChange },

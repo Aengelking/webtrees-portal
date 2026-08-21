@@ -1061,6 +1061,256 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /conversations:
+    get:
+      tags: [members]
+      summary: My conversations
+      description: |
+        The exchanges the portal keeps a transcript of, newest first.
+
+        Not the same list as `/messages`, and deliberately not merged with it.
+        That one is webtrees' inbox: everything addressed to this member from
+        anywhere, including its own contact form and an administrator's
+        broadcast. This one is the portal's own store, and it exists because
+        webtrees' table cannot hold a conversation — it keeps one row per
+        message, owned by the recipient, so the half a member wrote themselves
+        was never written down anywhere.
+
+        A conversation whose messages this member has deleted is absent, not
+        empty. It is not deleted for the other side, and a new message brings
+        it back.
+      operationId: listConversations
+      responses:
+        '200':
+          description: Every conversation with something in it.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [conversations]
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [members]
+      summary: Open the conversation with a member
+      description: |
+        Idempotent: asking twice returns the one conversation the pair has.
+
+        This is the step the directory rule guards, because opening a
+        conversation is *finding* somebody. The rule is the one `POST
+        /members/{id}/message` already applies — listed in the directory, or
+        connected to me — and a member who is neither is reported as **404**,
+        exactly as a member id that never existed. Writing *into* a
+        conversation afterwards asks a different question and is not guarded
+        this way: the transcript is proof the two know each other.
+      operationId: openConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [member_id]
+              properties:
+                member_id:
+                  type: integer
+                  description: A portal member id, not a webtrees user id.
+      responses:
+        '200':
+          description: The conversation, new or already there.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [conversation]
+                properties:
+                  conversation:
+                    $ref: '#/components/schemas/Conversation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Members cannot write to each other in this family tree.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /conversations/{id}:
+    get:
+      tags: [members]
+      summary: Read a conversation
+      description: |
+        Reading marks the other side's messages read — that is what opening a
+        conversation means, and the alternative is a second deliberate act
+        whose only purpose is to make a badge go away.
+
+        Somebody else's conversation and one that never existed give the same
+        **404**.
+      operationId: readConversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: |
+            Ask for the page before this message id. Absent means the newest
+            page. `before` in the response is the id to send next, or null when
+            the beginning has been reached.
+      responses:
+        '200':
+          description: The transcript, oldest message first.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcript'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [members]
+      summary: Clear a conversation, for me
+      description: |
+        Hides every message this member can currently see. The other side
+        keeps theirs, and a new message brings the conversation back — that is
+        the only meaning "delete for me" can honestly have when two people
+        share a transcript. A message both sides have hidden is removed from
+        the database outright.
+      operationId: clearConversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The remaining conversations.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [conversations]
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Conversation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /conversations/{id}/messages:
+    post:
+      tags: [members]
+      summary: Say something
+      description: |
+        No subject: a conversation is one thread with one other person.
+
+        Counted against the same daily limit as `POST /members/{id}/message` —
+        a message is a message, and the limit is about volume.
+
+        The other side is told by e-mail only when they have nothing unread
+        from this member already. A chat that sends an e-mail per line is a
+        chat nobody stays in; once something is waiting, they have been told.
+      operationId: postConversationMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  maxLength: 4000
+      responses:
+        '201':
+          description: The message, as it now stands in the transcript.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [message]
+                properties:
+                  message:
+                    $ref: '#/components/schemas/ConversationMessage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Members cannot write to each other in this family tree.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The daily limit for this member has been reached.
+
+  /conversations/{id}/messages/{message}:
+    delete:
+      tags: [members]
+      summary: Delete one message, for me
+      description: |
+        The other side keeps their copy. A message once read cannot be unsaid,
+        and a portal that let one member reach into another's transcript would
+        be promising something it cannot deliver.
+      operationId: deleteConversationMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: message
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: The refreshed transcript.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transcript'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /connections:
     get:
       tags: [members]
@@ -1753,6 +2003,69 @@ components:
         unread:
           type: integer
 
+    Conversation:
+      type: object
+      additionalProperties: false
+      required: [id, member_id, name, unread, last_message]
+      properties:
+        id:
+          type: integer
+        member_id:
+          type: integer
+          nullable: true
+          description: |
+            The other person's portal member id, for linking to their page.
+            Null when they have no member profile at all.
+        name:
+          type: string
+          description: |
+            Looked up by account rather than through the directory rule: an
+            existing conversation is its own proof the two know each other, so
+            a partner who has since left the directory keeps their name here.
+        unread:
+          type: integer
+        last_message:
+          allOf:
+            - $ref: '#/components/schemas/ConversationMessage'
+          nullable: true
+
+    ConversationMessage:
+      type: object
+      additionalProperties: false
+      required: [id, mine, body, sent_at, read]
+      properties:
+        id:
+          type: integer
+        mine:
+          type: boolean
+        body:
+          type: string
+          description: What was typed. Not a rendered email template.
+        sent_at:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+          description: |
+            Only meaningful on one's own messages, where it says the other side
+            has read it.
+
+    Transcript:
+      type: object
+      additionalProperties: false
+      required: [conversation, messages, before]
+      properties:
+        conversation:
+          $ref: '#/components/schemas/Conversation'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationMessage'
+        before:
+          type: integer
+          nullable: true
+          description: The id to ask `?before=` with, or null at the beginning.
+
     ContactEntry:
       type: object
       additionalProperties: false
@@ -2139,6 +2452,14 @@ components:
           type: integer
           description: |
             Carried here so the navigation badge needs no request of its own.
+            The inbox only — conversations are counted separately, because a
+            member with one of each should not be told "2 unread" and then find
+            a single message.
+        unread_conversations:
+          type: integer
+          description: |
+            Unread messages across every conversation. The badge shows the two
+            added together; the two lists show their own.
         connection_requests:
           type: integer
           description: |

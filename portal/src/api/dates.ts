@@ -81,3 +81,24 @@ export function isoToGedcom(iso: string): string | null {
 function pad(value: number, width: number): string {
   return String(value).padStart(width, '0')
 }
+
+/**
+ * One timestamp, formatted by the browser.
+ *
+ * Everything genealogical is formatted by webtrees — see the note at the top
+ * of this file — but when a message was sent is not genealogy. It has no
+ * calendar, no partial dates and nothing for the server to know better, so it
+ * does not need a round trip.
+ */
+export function formatTimestamp(iso: string, language?: string): string {
+  const date = new Date(iso)
+
+  if (Number.isNaN(date.getTime())) {
+    return iso
+  }
+
+  // The portal's language, not the browser's. A member who switched this
+  // portal to German on an English phone has said which language they want to
+  // read, and 8/1/2026 is not it.
+  return date.toLocaleString(language)
+}

@@ -21,6 +21,7 @@ class MeAssembler
         private readonly MemberService $members,
         private readonly Inbox $inbox,
         private readonly Connections $connections,
+        private readonly Conversations $conversations,
     ) {
     }
 
@@ -57,6 +58,10 @@ class MeAssembler
             // navigation bar shows it on every screen and `/me` is already
             // the request every screen makes.
             'unread_messages' => $this->inbox->unreadCount($user),
+            // Counted apart from the inbox rather than folded into it: they
+            // are two lists on the screen and a member who has one of each
+            // should not be told "2 unread" and then find one message.
+            'unread_conversations' => $this->conversations->unreadCount($user),
             // The other thing the navigation bar has to be able to show
             // without asking: somebody is waiting for this member to say
             // whether they know them.

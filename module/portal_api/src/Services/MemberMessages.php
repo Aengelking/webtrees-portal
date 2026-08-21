@@ -181,6 +181,27 @@ class MemberMessages
         string $ip
     ): void {
         $this->refuseIfTooMany($sender);
+
+        $this->notify($sender, $recipient, $subject, $body, $ip);
+    }
+
+    /**
+     * Deliver, without spending any of the daily allowance.
+     *
+     * The same delivery `deliver()` does — webtrees' own, respecting the
+     * recipient's contact preference — for the one caller that has already
+     * counted the message: `Conversations`, which announces the start of a
+     * conversation. Splitting it here rather than duplicating it means the two
+     * traps below (a missing language, a missing contact method) are fixed
+     * once for both.
+     */
+    public function notify(
+        UserInterface $sender,
+        UserInterface $recipient,
+        string $subject,
+        string $body,
+        string $ip
+    ): void {
         $this->ensureRecipientHasALanguage($recipient);
         $this->ensureRecipientCanBeReached($recipient);
 
@@ -247,7 +268,7 @@ class MemberMessages
         }
     }
 
-    private function refuseIfDisabled(): void
+    public function refuseIfDisabled(): void
     {
         if (!$this->enabled()) {
             throw new ApiException(
@@ -298,7 +319,7 @@ class MemberMessages
      * here is one member writing to everybody, not one household writing at
      * all.
      */
-    private function refuseIfTooMany(UserInterface $sender): void
+    public function refuseIfTooMany(UserInterface $sender): void
     {
         $limit = $this->dailyLimit();
 

@@ -15,6 +15,7 @@ import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
 import { Ancestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
+import { Conversation } from './routes/Conversation'
 import { Messages } from './routes/Messages'
 import { PersonDetail } from './routes/PersonDetail'
 import { MyProfile } from './routes/MyProfile'
@@ -78,6 +79,7 @@ export function App() {
           */}
           <Route path="/connect" element={<Connect />} />
           <Route path="/messages" element={<Messages />} />
+          <Route path="/conversations/:id" element={<Conversation />} />
           <Route path="/members/:id" element={<MemberDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />

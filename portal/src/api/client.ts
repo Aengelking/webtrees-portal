@@ -17,6 +17,8 @@ import type {
   CsrfToken,
   Health,
   ContactSettings,
+  Conversation,
+  ConversationMessage,
   Inbox,
   Individual,
   IndividualUpdate,
@@ -31,6 +33,7 @@ import type {
   MemberProfileUpdate,
   OwnContact,
   PendingIndividual,
+  Transcript,
 } from './types'
 
 const BASE = '/api/v1'
@@ -316,6 +319,51 @@ export const api = {
   /** No subject: a reply carries webtrees' `RE: ` on the original, server-side. */
   replyToMessage(id: number, body: string): Promise<{ status: string }> {
     return request<{ status: string }>(`/messages/${id}/reply`, { method: 'POST', body: { body } })
+  },
+
+  /** The exchanges the portal keeps a transcript of. Not the webtrees inbox. */
+  conversations(signal?: AbortSignal): Promise<{ conversations: Conversation[] }> {
+    return request<{ conversations: Conversation[] }>(
+      '/conversations',
+      signal === undefined ? {} : { signal },
+    )
+  },
+
+  /**
+   * Open the conversation with a member, or find the one already there.
+   *
+   * This is the call the directory rule guards — opening a conversation is
+   * finding somebody. Writing into one afterwards is not guarded that way.
+   */
+  openConversation(memberId: number): Promise<{ conversation: Conversation }> {
+    return request<{ conversation: Conversation }>('/conversations', {
+      method: 'POST',
+      body: { member_id: memberId },
+    })
+  },
+
+  /** Reading marks the other side's messages read, which is what opening means. */
+  conversation(id: number, before?: number, signal?: AbortSignal): Promise<Transcript> {
+    const query = before === undefined ? '' : `?before=${before}`
+
+    return request<Transcript>(`/conversations/${id}${query}`, signal === undefined ? {} : { signal })
+  },
+
+  /** No subject: a conversation is one thread with one other person. */
+  sendConversationMessage(id: number, body: string): Promise<{ message: ConversationMessage }> {
+    return request<{ message: ConversationMessage }>(`/conversations/${id}/messages`, {
+      method: 'POST',
+      body: { body },
+    })
+  },
+
+  /** For me. The other side keeps their copy — see openapi.yaml. */
+  deleteConversationMessage(id: number, message: number): Promise<Transcript> {
+    return request<Transcript>(`/conversations/${id}/messages/${message}`, { method: 'DELETE' })
+  },
+
+  clearConversation(id: number): Promise<{ conversations: Conversation[] }> {
+    return request<{ conversations: Conversation[] }>(`/conversations/${id}`, { method: 'DELETE' })
   },
 
   /** Whom I know, who is waiting for an answer, and whom I have asked. */

@@ -44,6 +44,7 @@ function me(unread: number) {
     individual: null,
     tree: { name: 'portal', title: 'Familie Beispiel' },
     unread_messages: unread,
+    unread_conversations: 0,
     csrf_token: 'token-1',
   }
 }
@@ -60,6 +61,10 @@ function stub(inbox: Inbox = INBOX) {
     const method = init?.method ?? 'GET'
 
     if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+    // The conversations list sits above the inbox on this screen and asks for
+    // itself. Empty here: what it does with content is `Conversations.test.tsx`.
+    if (url.includes('/conversations')) return jsonResponse({ conversations: [] })
 
     if (url.includes('/reply')) {
       replied.push(JSON.parse(String(init?.body)) as { body: string })

@@ -1,20 +1,22 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAcceptConnection, useConnect, useMember, useRemoveConnection, useSendMessage } from '../api/queries'
+import {
+  useAcceptConnection,
+  useConnect,
+  useMember,
+  useOpenConversation,
+  useRemoveConnection,
+} from '../api/queries'
 import type { ContactKind, MemberDetail as Member } from '../api/types'
 import { IndividualView } from '../components/IndividualView'
 import {
   Button,
   Card,
   ErrorNotice,
-  Field,
   Loading,
   Notice,
   PageHeading,
   Section,
-  SuccessNote,
 } from '../components/ui'
 
 const KINDS: ContactKind[] = ['email', 'phone', 'address']
@@ -234,32 +236,29 @@ function ContactValue({ kind, value }: { kind: ContactKind; value: string }) {
 }
 
 /**
- * Writing to another member.
+ * The way in to a conversation.
  *
- * The sentence above the button is the important part of this component.
- * webtrees delivers the message with the sender's own address as the reply
- * address — there is no way to make a reply possible without it — so the
- * member is told before they send, not after. An unavoidable disclosure that
+ * This was a form with a subject and a body that sent one message and kept no
+ * copy — which was the honest shape while webtrees' table was the only store,
+ * because that is exactly what it held. Now there is a transcript, and writing
+ * to somebody means opening it.
+ *
+ * The button is the step the directory rule guards, so it can fail with a 404
+ * for a member who is neither listed nor connected. The sentence about the
+ * reply address stays: webtrees' notification to the other side carries the
+ * sender's own address, exactly as it did, and an unavoidable disclosure that
  * nobody mentions is worse than the disclosure.
  */
 function MessageForm({ id, name }: { id: number; name: string }) {
   const { t } = useTranslation()
-  const mutation = useSendMessage(id)
+  const navigate = useNavigate()
+  const open = useOpenConversation()
 
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
-  const [sent, setSent] = useState(false)
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSent(false)
-
+  async function onOpen() {
     try {
-      await mutation.mutateAsync({ subject: subject.trim(), body: body.trim() })
+      const result = await open.mutateAsync(id)
 
-      setSent(true)
-      setSubject('')
-      setBody('')
+      void navigate(`/conversations/${result.conversation.id}`)
     } catch {
       // Rendered from the mutation below.
     }
@@ -267,47 +266,19 @@ function MessageForm({ id, name }: { id: number; name: string }) {
 
   return (
     <Section title={t('message.title', { name })}>
-      <form onSubmit={onSubmit} noValidate>
-        {mutation.isError && (
-          <div className="mb-5">
-            <ErrorNotice error={mutation.error} />
-          </div>
-        )}
-
-        {sent && <SuccessNote>{t('message.sent')}</SuccessNote>}
-
-        <Field
-          label={t('message.subject')}
-          required
-          value={subject}
-          onChange={(event) => setSubject(event.target.value)}
-        />
-
+      {open.isError && (
         <div className="mb-5">
-          <label htmlFor="message-body" className="mb-2 block text-base font-medium text-slate-900">
-            {t('message.body')}
-          </label>
-          <textarea
-            id="message-body"
-            rows={6}
-            required
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            className="w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
-          />
+          <ErrorNotice error={open.error} />
         </div>
+      )}
 
-        <p className="mb-5 rounded-lg border border-slate-300 bg-slate-50 p-4 text-base text-slate-800">
-          {t('message.replyAddressNotice')}
-        </p>
+      <p className="mb-5 rounded-lg border border-slate-300 bg-slate-50 p-4 text-base text-slate-800">
+        {t('message.replyAddressNotice')}
+      </p>
 
-        <Button
-          type="submit"
-          disabled={mutation.isPending || subject.trim() === '' || body.trim() === ''}
-        >
-          {mutation.isPending ? t('message.sending') : t('message.send')}
-        </Button>
-      </form>
+      <Button disabled={open.isPending} onClick={() => void onOpen()}>
+        {open.isPending ? t('message.opening') : t('message.open')}
+      </Button>
     </Section>
   )
 }

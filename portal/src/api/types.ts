@@ -274,9 +274,42 @@ export interface Individual extends IndividualRef {
   webtrees_url: string
 }
 
+/**
+ * One exchange with one other member — the thing webtrees' message table
+ * cannot hold, because it keeps a single row per message owned by whoever
+ * received it. See `openapi.yaml` and NOTES §2.33.
+ */
+export interface Conversation {
+  id: number
+  /** For linking to their page. Null when they have no member profile. */
+  member_id: number | null
+  name: string
+  unread: number
+  last_message: ConversationMessage | null
+}
+
+export interface ConversationMessage {
+  id: number
+  mine: boolean
+  /** What was typed, not a rendered email template. */
+  body: string
+  sent_at: string
+  /** Only meaningful on one's own: the other side has read it. */
+  read: boolean
+}
+
+export interface Transcript {
+  conversation: Conversation
+  messages: ConversationMessage[]
+  /** The id to ask `before` with, or null at the beginning of the exchange. */
+  before: number | null
+}
+
 export interface Me {
   /** Carried on /me so the navigation badge needs no request of its own. */
   unread_messages: number
+  /** Counted apart from the inbox: they are two lists on the screen. */
+  unread_conversations: number
   /** The same, for members waiting to hear whether they are known. Optional. */
   connection_requests?: number
   user: User

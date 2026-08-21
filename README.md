@@ -278,6 +278,43 @@ reply is possible, and there is no way to allow a reply without it. The portal
 says so on the form, above the send button. Only members who put themselves in
 the directory can be written to, and there is a daily limit per sender.
 
+### Conversations
+
+Members write to each other in a conversation: one thread with one person,
+both halves on one screen, no subject line. It sits at the top of
+**Nachrichten**; below it, under *Sonstige Nachrichten*, is the inbox that
+holds everything arriving from elsewhere — webtrees' own contact form, an
+administrator's broadcast.
+
+The way in is on the other person's page: **Nachricht schreiben** opens the
+conversation and goes to it.
+
+**Why there are two lists.** webtrees' `message` table keeps one row per
+message, owned by whoever received it. Nothing is stored for the sender — so a
+transcript could not be built from it at all, and the portal keeps its own
+store (`portal_conversation`, `portal_message`) beside webtrees' rather than
+instead of it. Nothing that arrives from webtrees is lost or moved.
+
+**Who may start one** is the rule that already governed writing to a member:
+listed in the directory, or connected to you. A member who is neither is
+reported as not found, exactly as a member id that never existed. Once a
+conversation exists, either side may write in it whatever changes afterwards —
+the transcript is proof they know each other.
+
+**Notification.** The other side is told by e-mail, through webtrees and
+respecting their contact preference, when a conversation has something new and
+they have nothing unread from that person already. Not once per message: a
+chat that e-mails every line is a chat nobody stays in.
+
+**Deleting is for yourself.** A message you delete leaves the other person's
+copy alone, and the screen says so before you confirm. A message both sides
+have deleted is removed from the database. Clearing a conversation empties your
+copy; the other side keeps theirs, and a new message brings it back.
+
+**The daily message limit counts conversation messages too**, and switching
+member messages off in the module's settings switches conversations off with
+them.
+
 ### Reading messages in the portal
 
 *No setting — this is on whenever the module is.*
@@ -1383,6 +1420,22 @@ copy only for a contact method it recognises, and the empty string is not one,
 so the message went nowhere and the call still reported success. This test was
 green before the fix for the wrong reason — nothing was being sent, so nothing
 could fail — and now asserts the copy rather than the status code.
+
+**Conversations** (`module/tests/ConversationTest.php`,
+`portal/src/Conversations.test.tsx`, `portal/e2e/smoke.spec.ts`) — a
+conversation keeps both halves of an exchange, which is the thing webtrees'
+table cannot do; opening one twice finds the same one; a member who is neither
+listed nor connected cannot be written to first, and is reported as missing
+rather than refused; a connection lifts that, and a conversation survives the
+other person leaving the directory, name included; somebody else's
+conversation and one that never existed give the same 404, for reading,
+writing and deleting alike; deleting a message takes it off one screen and
+leaves it on the other, and a message both sides deleted is gone from the
+database; clearing a conversation does not end it for the other side, and a new
+message brings it back; the daily limit and the family's off switch apply. On
+the client: both halves are told apart, what was typed is given back when
+sending fails, and the sentence about whose copy a deletion removes is on
+screen before the button.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id

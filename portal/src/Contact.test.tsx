@@ -61,6 +61,19 @@ function stub(options: {
     const method = init?.method ?? 'GET'
 
     if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+    if (url.includes('/conversations')) {
+      const conversation = { id: 3, member_id: 7, name: 'Dieter Beispiel', unread: 0, last_message: null }
+
+      // Opening answers with the conversation; the screen it lands on then
+      // asks for the transcript, which is a different shape.
+      return (
+        options.message?.() ??
+        (method === 'POST'
+          ? jsonResponse({ conversation })
+          : jsonResponse({ conversation, messages: [], before: null }))
+      )
+    }
+
     if (url.includes('/message')) return options.message?.() ?? jsonResponse({ status: 'sent' }, 202)
     if (url.endsWith('/me/contact')) {
       if (method === 'PATCH') {
@@ -234,28 +247,24 @@ describe('writing to another member', () => {
     expect(await screen.findByText(/Ihre E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeDefined()
   })
 
-  it('sends the message and says so', async () => {
-    stub()
-    renderAt('/members/7')
-
-    const user = userEvent.setup()
-    await user.type(await screen.findByLabelText('Betreff'), 'Hallo')
-    await user.type(screen.getByLabelText('Ihre Nachricht'), 'Wie geht es dir?')
-    await user.click(screen.getByRole('button', { name: 'Nachricht senden' }))
-
-    expect(await screen.findByText('Ihre Nachricht ist unterwegs.')).toBeDefined()
-  })
-
-  it('will not send an empty message', async () => {
+  /**
+   * Writing used to be a form here that sent one message and kept no copy.
+   * It now opens a conversation, which is the step the directory rule guards —
+   * so this asks the server for one and goes to it.
+   */
+  it('opens the conversation and goes there', async () => {
     const fetchMock = stub()
     renderAt('/members/7')
 
-    const send = await screen.findByRole('button', { name: 'Nachricht senden' })
-
-    expect(send.hasAttribute('disabled')).toBe(true)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Nachricht schreiben' }))
 
     await waitFor(() => {
-      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/message'))).toBe(false)
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => String(url).includes('/conversations') && init?.method === 'POST',
+        ),
+      ).toBe(true)
     })
   })
 
@@ -264,19 +273,17 @@ describe('writing to another member', () => {
     renderAt('/members/7')
 
     const user = userEvent.setup()
-    await user.type(await screen.findByLabelText('Betreff'), 'Hallo')
-    await user.type(screen.getByLabelText('Ihre Nachricht'), 'Wie geht es dir?')
-    await user.click(screen.getByRole('button', { name: 'Nachricht senden' }))
+    await user.click(await screen.findByRole('button', { name: 'Nachricht schreiben' }))
 
     expect(await screen.findByRole('alert')).toBeDefined()
   })
 
-  it('offers no form when the family has switched messages off', async () => {
+  it('offers no way in when the family has switched messages off', async () => {
     stub({ member: { can_message: false } })
     renderAt('/members/7')
 
     await screen.findByRole('heading', { name: 'Dieter Beispiel' })
 
-    expect(screen.queryByRole('button', { name: 'Nachricht senden' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Nachricht schreiben' })).toBeNull()
   })
 })

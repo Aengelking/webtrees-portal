@@ -23,6 +23,10 @@ describe('openapi.yaml and the API client agree', () => {
     expect(specPaths()).toEqual([
       '/connections',
       '/connections/{id}',
+      '/conversations',
+      '/conversations/{id}',
+      '/conversations/{id}/messages',
+      '/conversations/{id}/messages/{message}',
       '/csrf',
       '/health',
       '/individuals/{xref}',
@@ -53,6 +57,10 @@ describe('openapi.yaml and the API client agree', () => {
     const templates: Record<string, string> = {
       '/connections': "'/connections'",
       '/connections/{id}': '`/connections/${',
+      '/conversations': "'/conversations'",
+      '/conversations/{id}': '`/conversations/${',
+      '/conversations/{id}/messages': '}/messages`',
+      '/conversations/{id}/messages/{message}': '}/messages/${',
       '/csrf': "'/csrf'",
       '/health': "'/health'",
       '/session': "'/session'",
