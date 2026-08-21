@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
 import { ApiError } from './api/client'
+import { installStore } from './pwa/install'
 import { registerServiceWorker } from './pwa/register'
 import './i18n'
 import './index.css'
@@ -50,3 +51,8 @@ createRoot(container).render(
 // Makes the portal installable: a home screen icon that opens without
 // browser furniture, and says something useful when there is no connection.
 registerServiceWorker()
+
+// Here rather than in the screen that shows the offer: a browser fires
+// `beforeinstallprompt` once, early, and whoever is not listening by then does
+// not get a second chance.
+installStore.watch()

@@ -122,6 +122,55 @@ test.describe('the installed app', () => {
   })
 
   /**
+   * The offer to install, end to end. Chromium decides for itself whether to
+   * fire `beforeinstallprompt`, and a headless browser usually does not, so
+   * the event is dispatched by hand — everything after it (the listener, the
+   * saved prompt, the button, the browser dialogue being asked for) is the
+   * portal's own code doing its real work.
+   */
+  test('offers to install itself, once, in Settings', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Signs in with the fixture account.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.getByRole('link', { name: 'Einstellungen' }).click()
+    await expect(page.getByRole('heading', { name: 'Einstellungen' })).toBeVisible()
+
+    const install = page.getByRole('button', { name: 'Auf den Startbildschirm legen' })
+
+    // Nothing on offer, nothing said.
+    await expect(install).toHaveCount(0)
+
+    await page.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable: true })
+
+      Object.assign(event, {
+        prompt: () => {
+          Object.assign(window, { __installPrompted: true })
+          return Promise.resolve()
+        },
+      })
+
+      window.dispatchEvent(event)
+    })
+
+    await expect(install).toBeVisible()
+    await install.click()
+
+    expect(await page.evaluate(() => (window as { __installPrompted?: boolean }).__installPrompted)).toBe(
+      true,
+    )
+
+    // Spent: a second `prompt()` on the same event throws, so the offer goes
+    // rather than becoming a button that does nothing.
+    await expect(install).toHaveCount(0)
+  })
+
+  /**
    * What a home-screen icon is for. Offline, the portal has nothing to show —
    * but it has to say so itself, in its own words, rather than hand the member
    * to the browser's error page. Nothing here is signed in: the shell is all

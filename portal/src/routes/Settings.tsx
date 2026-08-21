@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
 import { useMe, useUpdateProfile } from '../api/queries'
 import { ContactSettings as ContactSettingsForm } from '../components/ContactSettings'
+import { InstallPortal } from '../components/InstallPortal'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import {
   Button,
@@ -43,6 +44,16 @@ export function Settings() {
   return (
     <>
       <PageHeading>{t('settings.title')}</PageHeading>
+
+      {/*
+        First, and above the language switch, which is the only thing here that
+        gets used twice. Nothing is rendered at all once the portal is
+        installed, or in a browser that will not install it — so this is a row
+        a member sees a handful of times and then never again, and it can have
+        the top of the screen for as long as that lasts. Everything below it is
+        permanent and can afford the scroll.
+      */}
+      <InstallPortal />
 
       <Section title={t('settings.language')}>
         <LanguageSwitcher />
