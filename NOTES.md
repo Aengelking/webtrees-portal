@@ -1791,10 +1791,16 @@ than a screen reader can make of a punctuation mark between two boxes.
 Left out entirely, the number is still looked up — somebody reading one off a
 letterhead should not have to know that the portal cares — but only on a
 second pass, and only while it picks out exactly one person. Guessing between
-two cousins is worse than saying nothing was found. Thirty-four is in the
+two cousins is worse than saying nothing was found.
+
+Every number in this family has a branch, so the wheel offers no way to omit
+one: its dash means "not chosen yet" and cannot be sent. A number without a
+branch is not one anybody carries, and letting it go would buy a round trip
+to be told nobody was found — true, and useless. Thirty-four is in the
 client, which is where it will be wrong first if the family ever grows a
-thirty-fifth branch; typing the whole number into the field still works, and
-is the escape hatch until somebody changes the constant.
+thirty-fifth branch; a number typed whole into the field, slash and all, is
+passed through untouched, and is the escape hatch until somebody changes the
+constant.
 
 **The QR code holds a link, not a token to interpret.** That decision removed
 the whole scanning half of the feature: every telephone's camera app reads a

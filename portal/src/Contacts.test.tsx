@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
-import { composeReference } from './routes/Contacts'
+import { composeReference, isCompleteReference } from './routes/Contacts'
 import type { Connection, ConnectionOverview } from './api/types'
 import './i18n'
 
@@ -226,11 +226,30 @@ describe('my contacts', () => {
     expect(await screen.findByText(/Emil Beispiel/)).toBeDefined()
   })
 
-  it('sends a number without a branch as typed', async () => {
+  /**
+   * Every number in this family has a branch, so a number without one is not
+   * a number anybody carries. The button stays out of reach rather than
+   * sending it and reporting that nobody was found.
+   */
+  it('will not send a number that has no branch', async () => {
+    stub()
+    renderAt()
+
+    await userEvent.type(await screen.findByLabelText('Nummer'), '1335.21')
+
+    expect(screen.getByRole('button', { name: 'Anfrage senden' })).toHaveProperty('disabled', true)
+  })
+
+  /**
+   * Unless it carries its own slash: somebody who typed the whole number
+   * meant it, and that is the way in if the family ever grows a
+   * thirty-fifth branch.
+   */
+  it('sends a number typed whole, without touching the wheel', async () => {
     const fetchMock = stub()
     renderAt()
 
-    await userEvent.type(await screen.findByLabelText('Nummer'), 'SB 4714')
+    await userEvent.type(await screen.findByLabelText('Nummer'), '35/1335.21')
     await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
 
     await waitFor(() => {
@@ -238,15 +257,19 @@ describe('my contacts', () => {
         ([url, init]) => String(url).endsWith('/connections') && init?.method === 'POST',
       )
 
-      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reference: 'SB 4714' })
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reference: '35/1335.21' })
     })
   })
 
-  /** Somebody who typed the whole number meant it; no branch is glued on. */
-  it('leaves a number that already carries a slash alone', () => {
+  it('composes and refuses the right things', () => {
+    // A branch is never glued onto a number that already has one.
     expect(composeReference('10', '4/99')).toBe('4/99')
     expect(composeReference('10', ' 1335.21 ')).toBe('10/1335.21')
-    expect(composeReference('', '1335.21')).toBe('1335.21')
+
+    expect(isCompleteReference('10', '1335.21')).toBe(true)
+    expect(isCompleteReference('', '35/1335.21')).toBe(true)
+    expect(isCompleteReference('', '1335.21')).toBe(false)
+    expect(isCompleteReference('10', '')).toBe(false)
   })
 
   it('answers a request in one tap', async () => {
