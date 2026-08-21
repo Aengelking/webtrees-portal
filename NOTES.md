@@ -1505,6 +1505,43 @@ worth it for a link most members follow rarely. What is fixed is that the sign
 
 ---
 
+### 2.31 The icon is the charge, not the achievement
+
+The portal had no icon at all: a blank page in a browser tab and, on a phone
+home screen, a screenshot of whatever was on the screen when it was added.
+
+The family's arms are a full achievement — the shield, the helm above it, the
+mantling either side, the crest dove standing on the helm, and a banner
+carrying the foundation's name. That drawing is made for a letterhead. Nothing
+in it survives being drawn at 16 pixels, and the banner least of all: at that
+size lettering becomes a grey smear.
+
+So the icon keeps the **charge** and drops the rest — the dove displayed,
+argent on azure, on a shield with a silver border. It is the one element a
+member already associates with the family, it appears twice in the arms, and
+it is a silhouette, which is the only kind of drawing that survives being made
+small. Calling it "the coat of arms" would be too strong; it is the coat of
+arms' subject, redrawn to be legible.
+
+**One drawing, five files.** `public/icon.svg` is the drawing. The `.ico` and
+the four PNGs beside it are rendered from it by `tools/build-icons.mjs` and
+committed, because Safari takes an SVG neither for the home screen nor inside
+a `.ico`, and a second hand-drawn copy is a second thing to forget. The
+generator needs `@resvg/resvg-js`, which is deliberately *not* a dependency of
+the portal — it is installed with `--no-save` on the rare day the mark
+changes, rather than downloaded by every `npm install` forever after.
+
+The rasters sit on parchment rather than on nothing, because a home-screen
+icon is composited onto whatever wallpaper is behind it and a transparent one
+would lose its silver border against a light one. The maskable variant is the
+same picture inset far enough that Android's circular crop misses the shield.
+
+The `.svg` is also what the login screen shows above the heading — referenced,
+not redrawn — since that is the screen reached from an emailed link, by
+somebody who has a fair right to ask whose portal this is.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

@@ -33,6 +33,7 @@ users; there is no second identity system.
 | `.github/workflows/deploy.yml` | Runs the tests, then that script. |
 | `portal/` | The React app. |
 | `portal/edge/` | The Cloudflare Worker that serves it and proxies `/api/*`. |
+| `portal/public/icon.svg` | The portal's mark, taken from the family arms. The `.ico` and the PNGs beside it are rendered from it by `portal/tools/build-icons.mjs`. |
 
 ## Scope
 
