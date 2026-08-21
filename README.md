@@ -375,11 +375,11 @@ connects anybody by itself.
 **The branch is picked, not typed.** A number is a branch, a slash and the
 number within it, and "/" on a telephone keyboard is two taps into a second
 layout for a mark whose only job is to separate two numbers the form already
-keeps apart. So the form is a wheel of the thirty-four branches and a field
-for the rest, and it shows the number it composed — `10/1335.21` — before
-sending it. A number typed whole into the second field, slash and all, is
-passed through as typed; picking no branch sends what was typed, which is what
-a bare number needs.
+keeps apart. So the form is laid out the way the number is written — a wheel
+of the thirty-four branches, a printed slash, a field for the rest — and what
+is on screen reads as the number itself. A number typed whole into the field,
+slash and all, is passed through as typed; picking no branch (`—`) sends what
+was typed, which is what a bare number needs.
 
 Everything else about the number is read generously, because it is read off
 letterheads and out of Christmas cards:

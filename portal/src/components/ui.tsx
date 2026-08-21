@@ -7,12 +7,7 @@
  * own than to fight a design system for.
  */
 
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-} from 'react'
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../api/client'
@@ -72,45 +67,6 @@ export function Field({ label, hint, ...props }: FieldProps) {
         {...(hint === undefined ? {} : { 'aria-describedby': hintId })}
         {...props}
       />
-      {hint !== undefined && (
-        <p id={hintId} className="mt-2 text-base text-slate-700">
-          {hint}
-        </p>
-      )}
-    </div>
-  )
-}
-
-/**
- * A dropdown, for the one case where a list is too long to lay out as buttons
- * and too short to search: the family's thirty-four branches.
- *
- * A native `<select>` rather than a drawn one — on a phone it is the wheel the
- * reader already knows, it works with the accessibility tools they already
- * have, and nothing here would be improved by re-implementing it.
- */
-export function Select({
-  label,
-  hint,
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & { label: string; hint?: string }) {
-  const id = useId()
-  const hintId = `${id}-hint`
-
-  return (
-    <div className="mb-5">
-      <label htmlFor={id} className="mb-2 block text-base font-medium text-slate-900">
-        {label}
-      </label>
-      <select
-        id={id}
-        className="min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
-        {...(hint === undefined ? {} : { 'aria-describedby': hintId })}
-        {...props}
-      >
-        {children}
-      </select>
       {hint !== undefined && (
         <p id={hintId} className="mt-2 text-base text-slate-700">
           {hint}

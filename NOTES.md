@@ -1759,9 +1759,11 @@ in the whole portal that a member would have to change keyboard layouts for.
 It is also the only character in the number that carries meaning: strip it
 with the rest of the punctuation, as the first version did, and `10/1335.21`
 and `101/335.21` become one string, which is two relatives wearing one number.
-So the slash survives normalisation and the form composes it: a wheel of the
-thirty-four branches, a field for the rest, and a line showing the number the
-two amount to before it is sent.
+So the slash survives normalisation, and the form is laid out the way the
+number is written: a wheel of the thirty-four branches, the slash printed
+between them, a field for the rest. The slash on screen is `aria-hidden` and
+each control names itself instead — "Zweig, 10" and "Nummer, 1335.21" is more
+than a screen reader can make of a punctuation mark between two boxes.
 
 Left out entirely, the number is still looked up — somebody reading one off a
 letterhead should not have to know that the portal cares — but only on a
