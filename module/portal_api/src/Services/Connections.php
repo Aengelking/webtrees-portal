@@ -301,25 +301,26 @@ class Connections
         $reference = mb_substr(trim($reference), 0, self::MAX_REFERENCE_LENGTH);
 
         if ($reference === '') {
-            throw ApiException::badRequest(I18N::translate('Please enter the reference number of the person you want to connect with.'));
+            throw ApiException::badRequest(I18N::translate('Please enter the SB number of the person you want to connect with.'));
         }
 
         $member = $this->memberByReference($user, $reference);
 
         if (!$member instanceof Member) {
             // Not "no such number": a member who mistyped is told what to do
-            // about it. Nothing is disclosed by saying so — the numbers this
-            // searches are the ones already printed under the names in the
-            // directory this member can read.
+            // about it, and the *second* reason is named as well, because
+            // "the number is wrong" and "they are not listed" need different
+            // things done about them and look identical from here. Nothing is
+            // disclosed by saying so — it is the rule, not the answer.
             throw new ApiException(
                 'not_found',
                 StatusCodeInterface::STATUS_NOT_FOUND,
-                I18N::translate('No member of the directory carries that reference number. Please check the number, or ask them to show you their connection code.')
+                I18N::translate('Nobody was found under that SB number. This searches the member directory, so it only finds members who chose to be listed there — anybody else can still connect by showing you their connection code.')
             );
         }
 
         if ($member->user->id() === $user->id()) {
-            throw ApiException::badRequest(I18N::translate('That is your own reference number.'));
+            throw ApiException::badRequest(I18N::translate('That is your own SB number.'));
         }
 
         $status = $this->link($user, $member->user, self::SOURCE_REFERENCE, false);
@@ -753,8 +754,21 @@ class Connections
 
     /**
      * "SB 4711", "sb4711" and "4711" are the same number typed by three
-     * people. Everything that is not a letter or a digit goes, and the type
-     * may be there or not.
+     * people. Everything that is not a letter or a digit goes.
+     *
+     * The third case is the one this got wrong at first, and it is the common
+     * one: **the record often carries no `TYPE` at all.** GEDCOM does not
+     * require one, the family's own numbering is called "SB" whether or not
+     * anybody wrote that into the file, and the module that shows the number
+     * as a badge in webtrees supplies the prefix itself. So a member reads
+     * "SB 4711" off a letterhead, types it, and a strict comparison answers
+     * that nobody carries it — while "4711" alone finds them. Telling
+     * somebody the prefix their own family uses is wrong would be pedantry
+     * with nothing behind it.
+     *
+     * So a typed prefix is allowed to fall away, but **only where the record
+     * does not disagree**. A record that says `TYPE Intern` is a different
+     * numbering, and "SB 9999" must not find it.
      */
     private function matches(Fact $fact, string $wanted): bool
     {
@@ -764,7 +778,19 @@ class Connections
             return false;
         }
 
-        return $wanted === $number || $wanted === $this->normalise($fact->attribute('TYPE')) . $number;
+        $type = $this->normalise($fact->attribute('TYPE'));
+
+        if ($wanted === $number || $wanted === $type . $number) {
+            return true;
+        }
+
+        if ($type !== '') {
+            return false;
+        }
+
+        $without_prefix = (string) preg_replace('/^[A-Z]+/', '', $wanted);
+
+        return $without_prefix !== '' && $without_prefix === $number;
     }
 
     private function normalise(string $value): string

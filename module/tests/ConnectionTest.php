@@ -292,6 +292,29 @@ class ConnectionTest extends PortalTestCase
         self::assertSame('requested', $this->json($this->connect(['reference' => 'SB 4714']))['status']);
     }
 
+    /**
+     * The common case, and the one a strict comparison got wrong: the record
+     * carries no `TYPE` at all. GEDCOM does not require one and the family
+     * calls its numbering "SB" either way, so a member reading "SB 4712" off
+     * a letterhead must find Bertha, who is stored as a bare `1 REFN 4712`.
+     */
+    public function testTheFamilysPrefixFindsARecordThatCarriesNoTypeOfItsOwn(): void
+    {
+        $bertha = $this->createUser('bertha', 'Bertha Beispiel', 'fuenftes-pferd', UserInterface::ROLE_MEMBER, 'X2');
+        $this->createProfile($bertha, true);
+
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => 'SB 4712'])->getStatusCode());
+    }
+
+    /**
+     * But only where the record does not disagree. A number that says it
+     * belongs to another numbering is another number.
+     */
+    public function testAPrefixThatContradictsTheRecordFindsNobody(): void
+    {
+        self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $this->connect(['reference' => 'XY 4714'])->getStatusCode());
+    }
+
     public function testTheRequestReachesTheOtherMemberAndConnectsWhenAccepted(): void
     {
         $this->connect(['reference' => '4714']);

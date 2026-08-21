@@ -196,11 +196,11 @@ describe('my contacts', () => {
     ).toBe(true)
   })
 
-  it('sends a request for a reference number as typed', async () => {
+  it('sends the SB number as typed, prefix and all', async () => {
     const fetchMock = stub()
     renderAt()
 
-    await userEvent.type(await screen.findByLabelText('Kennnummer'), 'SB 4714')
+    await userEvent.type(await screen.findByLabelText('SB-Nummer'), 'SB 4714')
     await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
 
     await waitFor(() => {

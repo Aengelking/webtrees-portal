@@ -264,11 +264,11 @@ export const de = {
     codeHidden: 'Der Code ist ungültig. Sie können jederzeit einen neuen erzeugen.',
     codeValid: 'Gilt noch etwa {{count}} Minuten. Danach brauchen Sie einen neuen Code.',
     codeAlt: 'QR-Code, mit dem sich jemand mit Ihnen verbinden kann',
-    byReference: 'Mit der Kennnummer verbinden',
+    byReference: 'Mit der SB-Nummer verbinden',
     referenceBody:
-      'Die Kennnummer steht im Portal unter dem Namen der Person, zum Beispiel „SB 4711“. Die andere Person bekommt eine Anfrage und entscheidet selbst.',
-    referenceLabel: 'Kennnummer',
-    referenceHint: 'Mit oder ohne Kürzel — „SB 4711“ und „4711“ sind dasselbe.',
+      'Die SB-Nummer steht im Portal unter dem Namen der Person, zum Beispiel „SB 4711“. Die andere Person bekommt eine Anfrage und entscheidet selbst.',
+    referenceLabel: 'SB-Nummer',
+    referenceHint: 'Mit oder ohne „SB“ — „SB 4711“ und „4711“ sind dasselbe.',
     ask: 'Anfrage senden',
     askThis: 'Verbinden',
     asking: 'Einen Moment …',
@@ -297,7 +297,7 @@ export const de = {
     },
     none: {
       title: 'Noch keine Kontakte',
-      body: 'Verbinden Sie sich beim nächsten Familientreffen mit dem Code oben — oder über die Kennnummer, wenn Ihnen jemand seine genannt hat.',
+      body: 'Verbinden Sie sich beim nächsten Familientreffen mit dem Code oben — oder über die SB-Nummer, wenn Ihnen jemand seine genannt hat.',
     },
     off: {
       title: 'Verbindungen sind ausgeschaltet',
@@ -361,7 +361,7 @@ export const de = {
   settings: {
     contacts: 'Meine Kontakte',
     contactsBody:
-      'Verbinden Sie sich mit einzelnen Mitgliedern — beim Familientreffen über einen QR-Code oder über die Kennnummer. Ihre Kontakte sind eine eigene Gruppe, für die Sie Kontaktdaten freigeben können.',
+      'Verbinden Sie sich mit einzelnen Mitgliedern — beim Familientreffen über einen QR-Code oder über die SB-Nummer. Ihre Kontakte sind eine eigene Gruppe, für die Sie Kontaktdaten freigeben können.',
     contactsAction: 'Kontakte verwalten',
     title: 'Einstellungen',
     contact: 'Meine Kontaktdaten',
@@ -394,7 +394,7 @@ export const de = {
     siblings: 'Geschwister',
     spouses: 'Partnerinnen und Partner',
     children: 'Kinder',
-    reference: 'Kennnummer im Familienarchiv',
+    reference: 'SB-Nummer im Familienarchiv',
     relationship: 'Für Sie: {{relationship}}',
     showAncestors: 'Vorfahren anzeigen',
     editInWebtrees: 'In webtrees öffnen und bearbeiten',
