@@ -62,7 +62,7 @@ export function Login() {
         letterhead would: /icon.svg is the same file the browser uses for the
         tab and the home screen, referenced rather than redrawn.
       */}
-      <img src="/icon.svg" alt="" aria-hidden="true" width="56" height="56" className="mb-5 h-14 w-14" />
+      <img src="/icons/icon.svg" alt="" aria-hidden="true" width="56" height="56" className="mb-5 h-14 w-14" />
 
       <PageHeading>{t('app.name')}</PageHeading>
       <p className="mt-2 text-base text-slate-700">{t('login.intro')}</p>

@@ -1,16 +1,61 @@
 {
+  "id": "/",
   "name": "Familienportal",
-  "short_name": "Familienportal",
+  "short_name": "Familie",
+  "description": "Das Mitgliederportal der Familie: eigenes Profil, Verwandtschaft, Mitgliederverzeichnis und Nachrichten.",
   "lang": "de",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#efe8da",
-  "theme_color": "#14306f",
+  "orientation": "portrait",
+  "background_color": "#f1f5f9",
+  "theme_color": "#f1f5f9",
+  "categories": ["lifestyle", "social"],
   "icons": [
-    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any" },
-    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512" },
-    { "src": "/icon-maskable-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+    {
+      "src": "/icons/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nachrichten",
+      "short_name": "Nachrichten",
+      "url": "/messages",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Mitglieder",
+      "short_name": "Mitglieder",
+      "url": "/members",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

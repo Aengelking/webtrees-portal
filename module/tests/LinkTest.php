@@ -73,6 +73,43 @@ class LinkTest extends PortalTestCase
     // Signed out: the login page, carrying the destination
     // -----------------------------------------------------------------
 
+    /**
+     * The bug this route shipped with, and the reason the other tests here
+     * missed it for a day.
+     *
+     * A family portal's tree almost always has `REQUIRE_AUTHENTICATION` on —
+     * that is the point of it. And `TreeService::all()` is filtered by the
+     * current user: for a **visitor** on such a tree the collection is empty,
+     * so `PortalTreeService::tree()` reported the configured tree as missing
+     * and this handler fell back to the home page. webtrees then sent the
+     * visitor from the home page to the login page with no destination at
+     * all, and signing in landed them on their own user page. Which is exactly
+     * what was reported: `?route=/login&url=` and then `/my-page`.
+     *
+     * Every other test in this file passes with the bug present, because the
+     * fixture tree is public and `all()` therefore returns it to a visitor
+     * too. The tree setting is the whole test.
+     */
+    public function testAVisitorReachesSignInOnATreeThatRequiresAuthentication(): void
+    {
+        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+
+        Auth::logout();
+
+        $location = $this->location($this->follow());
+
+        self::assertSame(
+            route(LoginPage::class, [
+                'tree' => $this->tree->name(),
+                'url'  => route(IndividualPage::class, ['tree' => $this->tree->name(), 'xref' => 'X1']),
+            ]),
+            $location,
+            'A visitor was not offered the sign-in page with the record to come back to.'
+        );
+
+        self::assertStringContainsString('X1', $location, 'The destination was lost on the way to sign-in.');
+    }
+
     public function testAVisitorIsSentToSignInAndKeepsTheirDestination(): void
     {
         Auth::logout();
@@ -210,6 +247,11 @@ class LinkTest extends PortalTestCase
         // without one — `I18N::init('')` reaches `Locale::create('')`. That is
         // the same trap §2.26 records for messages, in webtrees' own sign-in.
         $this->anna->setPreference(UserInterface::PREF_LANGUAGE, 'de');
+
+        // The setting a family portal actually runs with, and the one that
+        // hid the bug above: with it off, a visitor can still see the tree in
+        // `TreeService::all()` and the broken path never runs.
+        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
 
         Auth::logout();
 

@@ -33,7 +33,8 @@ users; there is no second identity system.
 | `.github/workflows/deploy.yml` | Runs the tests, then that script. |
 | `portal/` | The React app. |
 | `portal/edge/` | The Cloudflare Worker that serves it and proxies `/api/*`. |
-| `portal/public/icon.svg` | The portal's mark, taken from the family arms. The `.ico` and the PNGs beside it are rendered from it by `portal/tools/build-icons.mjs`. |
+| `portal/sw/` | The service worker that makes it installable. Built separately, to `/sw.js`. |
+| `portal/public/icons/` | The app's mark, taken from the family arms. Two SVGs; the PNGs beside them are rendered by `portal/tools/build-icons.mjs`. |
 
 ## Scope
 
@@ -87,6 +88,10 @@ recorded with a short reference the member is shown, and the control panel has
 a Diagnosis screen that checks everything the portal needs and says what to
 fix. `GET /health` proves the whole chain in one request, and the deployment
 uses it.
+
+The portal installs onto a home screen and opens like an app, under its own
+icon and without an address bar. What it keeps on the device is the app
+itself and nothing about anybody — see *Installing it on a phone* below.
 
 ---
 
@@ -342,6 +347,10 @@ webtrees' login page discards the destination for a reader who is already
 signed in, and a record address for a signed-out reader either loses the
 destination on the way to the login page or, on a tree that does not require
 authentication, reports the record as not existing.
+
+This matters most on a tree with **authentication required**, which is the
+usual setting for a family portal: there, a signed-out visitor cannot see the
+tree at all, so a link straight at a record has nothing to fall back on.
 
 They do still have to sign in on the webtrees side. There is no shared session
 across the two origins, and there is no way to have one short of putting all
@@ -918,6 +927,74 @@ that B never sees A's data. Then check the response headers in the browser's
 network tab: `cache-control: private, no-store` and `cf-cache-status` absent
 or `DYNAMIC`.
 
+### Installing it on a phone
+
+The portal is a progressive web app. `portal/public/manifest.webmanifest`
+makes it installable and `portal/sw/` becomes `/sw.js`, so a member can put it
+on their home screen and open it under its own icon, without an address bar,
+the way they open everything else on that phone.
+
+**What is cached, and what never is.** The service worker keeps the shell —
+`index.html` and the hashed script, stylesheet and icons it names — and
+nothing else. Every request under `/api/` is left entirely alone: not answered
+from a cache, not put into one, not even intercepted. That is the rule from
+[Caching](#caching) one layer further out. A phone is the device most likely
+to be handed to somebody else, and a copy of the family's records sitting on
+it would outlive the session that fetched them.
+
+`portal/e2e/pwa.spec.ts` checks this in a real browser: it signs in, walks two
+screens of family data, then asks the browser what it kept, and fails if a
+single URL under `/api/` is in there.
+
+**There is a button, and only when it can do something.** Settings offers
+*Portal installieren* at the top of the screen — but only in a browser that
+has offered an install prompt to save, and never once the portal is already
+installed. On iPhone and iPad, where Safari has no such prompt and every
+browser is Safari underneath, it describes the Share sheet instead of showing
+a button that cannot work. Everywhere else it renders nothing at all: an
+explanation of an impossible action is worse than silence.
+
+Chrome's own install bar is suppressed (`preventDefault` on
+`beforeinstallprompt`) so the offer appears where it can be explained rather
+than at the foot of the screen at a moment of the browser's choosing. There is
+no banner and no dismissal to remember — the one bar this portal shows at the
+top of a screen is *no connection*, and a member who has learnt to dismiss
+what appears there will dismiss that too.
+
+**Offline it says so, rather than looking broken.** With no address bar there
+is nothing to tell a member that the portal has not forgotten them — the
+network has. So the shell still opens without a connection, and a bar across
+the top says there is none. No genealogy is shown, because none was kept.
+
+**Updating happens by itself.** Pages are fetched from the network first and
+only fall back to the cached copy, so an online member always gets the current
+`index.html` and the assets it names. Each deployment compiles a new build
+stamp into `sw.js`, which is both what makes a browser notice there is a new
+worker and what names its cache — so activating it throws the previous
+deployment's files away rather than piling on top of them.
+
+**Turning it off.** Deleting the file is not how. Deploy a worker that removes
+itself instead: replace the body of `portal/sw/service-worker.ts` with
+
+```ts
+const worker = self as unknown as ServiceWorkerGlobalScope
+
+worker.addEventListener('install', () => worker.skipWaiting())
+worker.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) => Promise.all(names.map((name) => caches.delete(name))))
+      .then(() => worker.registration.unregister()),
+  )
+})
+```
+
+and deploy that. Every phone that opens the portal once picks it up, empties
+its cache and goes back to being an ordinary website. Take
+`registerServiceWorker()` out of `portal/src/main.tsx` at the same time, or the
+next visit installs it again.
+
 ### Preview deployments
 
 Preview URLs must not point at production data. Give the preview environment
@@ -1141,7 +1218,10 @@ badge is gone once nothing is unread, and its digit is hidden from screen
 readers because the same count is already in the link's name as words.
 
 **Getting into webtrees** (`module/tests/LinkTest.php`) — a signed-out reader
-is sent to the login page with the record as the destination, and that
+is sent to the login page with the record as the destination **on a tree that
+requires authentication**, which is the case that matters and the one a public
+fixture tree hides; the whole way is walked once end to end, through webtrees'
+own router, login form and login handler, and ends on the record; and that
 destination survives webtrees' own `isLocalUrl()` check, asserted with
 webtrees' validator rather than by eye; a reader who is already signed in goes
 straight to the record instead of being thrown to their user page; the
@@ -1159,6 +1239,23 @@ told the link is there because of their role.
 unsafe requests and retries once on a stale token; a 401 anywhere resets the
 app to the login screen; nothing but the language preference reaches browser
 storage.
+
+**The installed app** (`portal/sw/strategy.test.ts`, `portal/src/Pwa.test.tsx`,
+`portal/e2e/pwa.spec.ts`) — the offer to install appears only when a browser
+has given the portal a prompt to show, goes away for good once the app is
+installed or the prompt is spent, becomes instructions rather than a button on
+an iPhone (and on an iPad calling itself a Macintosh), and is nothing at all
+in a browser that will not install it; the service worker never touches
+anything under `/api/`, including a photograph, which is indistinguishable from an asset
+except by its path; it refuses to store the SPA fallback's `index.html` under
+the URL of a script that a deployment has removed, which is the one failure
+that would leave a portal unable to start and unable to repair itself; it
+caches the files the shell names and not only the shell, which is the
+difference between an installed app and a blank page; the manifest is linked
+and every icon it names exists; and in a real browser, after signing in and
+walking two screens of family data, nothing under `/api/` is in the browser's
+cache storage — while the portal still opens, and says why it is empty, with
+the network switched off.
 
 ## Troubleshooting
 
@@ -1254,6 +1351,34 @@ Then the same path through the Worker:
 ```bash
 curl -i https://your-worker.your-subdomain.workers.dev/api/v1/csrf
 ```
+
+### A member is seeing an old portal
+
+Almost always the service worker, and almost never on a device you have in
+front of you. Pages come from the network first, so this should not happen at
+all; when it does, it is because `/sw.js` itself is being held somewhere.
+
+Check what the host says about it:
+
+```bash
+curl -sI https://your-portal-host/sw.js | grep -i cache-control
+```
+
+A long `max-age` there is the fault. Cloudflare Workers does the right thing
+on its own; a plain webspace may not, which is what the `sw.js` rule in
+`portal/public/.htaccess` is for. Browsers re-check the script whenever a page
+is opened and cap it at 24 hours regardless, so a wrong header is a delay of
+up to a day, not a portal frozen forever.
+
+On the phone itself: closing every window of the installed app and opening it
+again is enough, because a waiting worker takes over once the last one is
+gone. If you need to prove what is on a particular device, Chrome's remote
+debugging shows the registration and its cache; Safari's Web Inspector does
+the same for an iPhone over a cable.
+
+To stop using a service worker altogether, see
+[Installing it on a phone](#installing-it-on-a-phone) — deploying one that
+unregisters itself is the way, and deleting the file is not.
 
 ---
 

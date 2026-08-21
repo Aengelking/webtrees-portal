@@ -5,16 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#14306f" />
     <title>Familienportal</title>
 
-    <!-- The mark is public/icon.svg; the rest is rendered from it by
-         tools/build-icons.mjs. Safari takes neither an SVG for the home
-         screen nor one in a .ico, which is why both raster forms are here. -->
-    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!--
+      Installable, so the portal can live on a home screen next to WhatsApp
+      rather than behind "the link Uncle Werner sent". Everything a browser
+      needs for that is here or in the manifest; nothing here changes how the
+      portal behaves in an ordinary tab.
+    -->
     <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Slate-100: the page's own background, so the status bar does not draw a seam across the top. -->
+    <meta name="theme-color" content="#f1f5f9" />
+
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
+
+    <!--
+      iOS reads none of the manifest's icons. It wants apple-touch-icon, it
+      wants a PNG, and it will happily fall back to a screenshot of the page
+      if it does not find one. `apple-mobile-web-app-title` is what ends up
+      under the icon; without it iOS uses <title>, which is the same word here
+      but would not stay that way.
+    -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Familienportal" />
   </head>
   <body>
     <div id="root"></div>

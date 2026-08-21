@@ -71,6 +71,40 @@ class PortalTreeService
     }
 
     /**
+     * The *name* of the tree the portal is configured for, whoever is asking.
+     *
+     * `tree()` above cannot answer this, and the difference is what broke the
+     * link out of the portal for signed-out readers. It resolves the tree
+     * through `TreeService::all()`, which is **filtered by the current user**:
+     * on a tree with `REQUIRE_AUTHENTICATION` the collection is empty for a
+     * visitor, `get()` returns null, and `tree()` reports the tree as missing.
+     * That is the right answer for an API request — every one of those is
+     * authenticated, and a caller with no access to the tree has no business
+     * getting data out of it. It is the wrong answer for `IndividualLink`,
+     * which runs *precisely* when nobody is signed in, and whose whole job is
+     * to send that person to the sign-in page.
+     *
+     * So this asks the configuration question and only that. A name is not
+     * access: it goes into a URL that webtrees then enforces on arrival, which
+     * it would do just the same for an address typed by hand.
+     *
+     * No `first()` fallback, unlike `tree()` — picking "some tree" out of a
+     * list needs the list, and the list is the thing that cannot be trusted
+     * here. An installation with neither a configured tree nor a site default
+     * gets an empty string, and the caller decides what to do about it.
+     */
+    public function configuredTreeName(): string
+    {
+        $configured = $this->module->getPreference(PortalApiModule::SETTING_TREE, '');
+
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return Site::getPreference('DEFAULT_GEDCOM');
+    }
+
+    /**
      * Refuse, telling the member nothing and the administrator everything.
      *
      * The member-facing message stays generic — it is shown to whoever is
