@@ -268,6 +268,13 @@ export const de = {
       body: 'Zu diesem Mitglied sind für Sie keine Daten aus dem Stammbaum freigegeben.',
     },
   },
+  install: {
+    title: 'Portal installieren',
+    body:
+      'Sie können das Familienportal wie eine App auf den Startbildschirm legen. Es öffnet sich dann mit einem Tippen, ohne Adresszeile und ohne Suchen im Browser.',
+    action: 'Auf den Startbildschirm legen',
+    apple: 'Tippen Sie unten auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“.',
+  },
   settings: {
     title: 'Einstellungen',
     contact: 'Meine Kontaktdaten',

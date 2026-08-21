@@ -268,6 +268,13 @@ export const en: Translations = {
       body: 'None of this member’s family tree data is shared with you.',
     },
   },
+  install: {
+    title: 'Install the portal',
+    body:
+      'You can put the family portal on your home screen like an app. It then opens with one tap, without an address bar and without hunting for it in the browser.',
+    action: 'Add to home screen',
+    apple: 'Tap the share icon at the bottom, then “Add to Home Screen”.',
+  },
   settings: {
     title: 'Settings',
     contact: 'My contact details',

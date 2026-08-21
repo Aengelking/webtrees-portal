@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { InstallPortal } from './components/InstallPortal'
 import { OfflineNotice } from './components/OfflineNotice'
+import { createInstallStore } from './pwa/install'
 import { registerServiceWorker } from './pwa/register'
 import './i18n'
 
@@ -144,5 +146,122 @@ describe('losing the connection', () => {
     })
 
     expect(screen.queryByText(message)).toBeNull()
+  })
+})
+
+/**
+ * The offer to install.
+ *
+ * Every branch of this is a guess about a browser, because none of it can be
+ * asked directly: there is no "is this installed" to call, only an event
+ * Chrome may fire, a media query about the current window, and — on iOS —
+ * neither. So the test worth having is the one that proves the portal keeps
+ * quiet when it does not know.
+ */
+describe('offering to install', () => {
+  /** Chrome's event, which no browser type definition has, faked as Chrome fires it. */
+  function fireInstallPrompt() {
+    const event = new Event('beforeinstallprompt', { cancelable: true })
+    const prompt = vi.fn().mockResolvedValue(undefined)
+
+    Object.assign(event, { prompt })
+    window.dispatchEvent(event)
+
+    return { event, prompt }
+  }
+
+  function watching() {
+    const store = createInstallStore()
+    store.watch()
+
+    return store
+  }
+
+  it('says nothing until a browser offers something', () => {
+    expect(watching().state()).toBe('unavailable')
+  })
+
+  it('keeps the prompt Chrome offers, and takes Chrome’s own bar off the screen', () => {
+    const store = watching()
+    const { event } = fireInstallPrompt()
+
+    expect(store.state()).toBe('ready')
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('shows the browser’s dialogue when asked, and only once', async () => {
+    const store = watching()
+    const { prompt } = fireInstallPrompt()
+
+    await store.prompt()
+    expect(prompt).toHaveBeenCalledTimes(1)
+
+    // A spent prompt cannot be shown again — a second `prompt()` on the same
+    // event throws — so the offer goes away rather than becoming a button that
+    // breaks.
+    await store.prompt()
+    expect(prompt).toHaveBeenCalledTimes(1)
+    expect(store.state()).toBe('unavailable')
+  })
+
+  it('stops offering once the app exists', () => {
+    const store = watching()
+    fireInstallPrompt()
+
+    window.dispatchEvent(new Event('appinstalled'))
+
+    expect(store.state()).toBe('installed')
+  })
+
+  /**
+   * The window the portal is running in is the home-screen one. Offering to
+   * install it there is like a door with "door" written on it.
+   */
+  it('says nothing when it is already the installed app', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('standalone') }))
+
+    expect(watching().state()).toBe('installed')
+  })
+
+  it('describes the Share sheet on an iPhone, where there is no prompt to offer', () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' })
+
+    expect(watching().state()).toBe('manual')
+  })
+
+  /** An iPad calls itself a Macintosh. Only the touch points give it away. */
+  it('recognises an iPad pretending to be a Mac', () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      maxTouchPoints: 5,
+    })
+
+    expect(watching().state()).toBe('manual')
+  })
+
+  it('is a desktop Mac when the touch points say so', () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      maxTouchPoints: 0,
+    })
+
+    expect(watching().state()).toBe('unavailable')
+  })
+
+  it('puts nothing on the settings screen when there is nothing to offer', () => {
+    const { container } = render(<InstallPortal />)
+
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('describes the two taps on an iPhone rather than showing a button that cannot work', () => {
+    vi.stubGlobal('navigator', { ...navigator, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' })
+
+    render(<InstallPortal />)
+
+    expect(screen.getByText(/Zum Home-Bildschirm/)).toBeDefined()
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })

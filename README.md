@@ -941,6 +941,21 @@ it would outlive the session that fetched them.
 screens of family data, then asks the browser what it kept, and fails if a
 single URL under `/api/` is in there.
 
+**There is a button, and only when it can do something.** Settings offers
+*Portal installieren* at the top of the screen — but only in a browser that
+has offered an install prompt to save, and never once the portal is already
+installed. On iPhone and iPad, where Safari has no such prompt and every
+browser is Safari underneath, it describes the Share sheet instead of showing
+a button that cannot work. Everywhere else it renders nothing at all: an
+explanation of an impossible action is worse than silence.
+
+Chrome's own install bar is suppressed (`preventDefault` on
+`beforeinstallprompt`) so the offer appears where it can be explained rather
+than at the foot of the screen at a moment of the browser's choosing. There is
+no banner and no dismissal to remember — the one bar this portal shows at the
+top of a screen is *no connection*, and a member who has learnt to dismiss
+what appears there will dismiss that too.
+
 **Offline it says so, rather than looking broken.** With no address bar there
 is nothing to tell a member that the portal has not forgotten them — the
 network has. So the shell still opens without a connection, and a bar across
@@ -1218,8 +1233,12 @@ app to the login screen; nothing but the language preference reaches browser
 storage.
 
 **The installed app** (`portal/sw/strategy.test.ts`, `portal/src/Pwa.test.tsx`,
-`portal/e2e/pwa.spec.ts`) — the service worker never touches anything under
-`/api/`, including a photograph, which is indistinguishable from an asset
+`portal/e2e/pwa.spec.ts`) — the offer to install appears only when a browser
+has given the portal a prompt to show, goes away for good once the app is
+installed or the prompt is spent, becomes instructions rather than a button on
+an iPhone (and on an iPad calling itself a Macintosh), and is nothing at all
+in a browser that will not install it; the service worker never touches
+anything under `/api/`, including a photograph, which is indistinguishable from an asset
 except by its path; it refuses to store the SPA fallback's `index.html` under
 the URL of a script that a deployment has removed, which is the one failure
 that would leave a portal unable to start and unable to repair itself; it

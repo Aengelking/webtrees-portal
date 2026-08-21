@@ -1494,6 +1494,27 @@ from the API client remains the truth. All it does is answer the question the
 installed app cannot otherwise answer: with no browser chrome, a portal that
 has stopped working looks broken rather than offline.
 
+**The offer to install is in Settings, not in a banner.** It is the second
+thing that could reasonably want a bar across the top of every screen, and the
+first — *no connection* — is one a member has to actually read. A portal that
+teaches people to dismiss whatever appears up there has spent something it
+needs. Settings is one of four destinations, one tap from anywhere, and the
+offer sits at the very top of it: it is shown a handful of times and then
+never again, so it can have that spot for as long as it lasts. It also means
+no new state — no "dismissed" flag, and so nothing else in browser storage
+beside the language preference.
+
+Three states rather than two, because a browser can be in three positions.
+Chrome hands over a prompt, which is saved (and its own install bar
+suppressed, so the offer appears next to the sentence explaining it). iOS has
+no prompt to hand over — Safari has never implemented `beforeinstallprompt`
+and every browser on iOS is Safari underneath — so the Share sheet is
+described instead. Everything else shows nothing: a button that cannot work,
+or an explanation of an impossible action, is worse than silence. "Already
+installed" is a fourth answer assembled from `display-mode: standalone` and
+iOS's older `navigator.standalone`, since there is no API that answers the
+question directly.
+
 **The manifest is German only.** The portal has a language switch, a manifest
 does not — the name under the icon is fixed when the app is installed. German
 is what `index.html` and the default language already say.
