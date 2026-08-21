@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import type { Individual, IndividualRef, Event, Reference } from '../api/types'
+import type { Individual, IndividualRef, Event, Reference, Role } from '../api/types'
+import { useAuth } from '../auth/AuthProvider'
 import { Gallery, Portrait } from './Photos'
 import { Card, Section } from './ui'
+
+/** The roles webtrees lets change a record. `member` and `visitor` cannot. */
+const EDITING_ROLES: Role[] = ['editor', 'moderator', 'manager', 'administrator']
 
 function EventLine({ event }: { event: Event }) {
   const details = [event.value, event.date?.display, event.place].filter(
@@ -93,6 +97,15 @@ function RelativeList({ title, people }: { title: string; people: IndividualRef[
  */
 export function IndividualView({ individual }: { individual: Individual }) {
   const { t } = useTranslation()
+  const { me } = useAuth()
+
+  // A signpost, not a permission boundary. `webtrees_url` goes to every
+  // member — it is the same public record address the bottom link has always
+  // used — and webtrees decides for itself what the person following it may
+  // do when they arrive. What this check buys is that a member is not sent to
+  // an editing screen they have no business on, and that an editor does not
+  // have to hunt for the way back to the tree they maintain.
+  const mayEdit = me !== null && EDITING_ROLES.includes(me.user.role)
 
   const headline = [
     t(`individual.sex.${individual.sex}`),
@@ -117,6 +130,26 @@ export function IndividualView({ individual }: { individual: Individual }) {
           <p className="mt-1 text-base text-slate-700">{headline.join(' · ')}</p>
         </div>
       </div>
+
+      {mayEdit && (
+        <p className="mt-5">
+          <a
+            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-slate-400 bg-white px-5 py-3 text-base font-semibold text-slate-900 hover:bg-slate-50"
+            href={individual.webtrees_url}
+            rel="noopener noreferrer"
+          >
+            {t('individual.editInWebtrees')}
+          </a>
+          {/*
+            Said once, quietly: an editor who sees a link nobody else mentions
+            should know it is their role showing, not a bug and not something
+            the family can all see.
+          */}
+          <span className="mt-2 block text-base text-slate-600">
+            {t('individual.editInWebtreesHint')}
+          </span>
+        </p>
+      )}
 
       <Gallery photos={individual.photos ?? []} />
 
@@ -152,16 +185,22 @@ export function IndividualView({ individual }: { individual: Individual }) {
         An absolute URL on the webtrees host, built by webtrees from its own
         configured base_url — so a plain anchor, not a router link: this
         leaves the portal.
+
+        Not shown to an editor, who already has the link above. It is the same
+        address; two links to one page, differing only in wording, is the kind
+        of thing that makes people wonder which is the right one.
       */}
-      <p className="mt-8">
-        <a
-          className="inline-flex min-h-[44px] items-center text-base font-semibold text-sky-800 underline underline-offset-4 hover:text-sky-900"
-          href={individual.webtrees_url}
-          rel="noopener noreferrer"
-        >
-          {t('profile.openInWebtrees')}
-        </a>
-      </p>
+      {!mayEdit && (
+        <p className="mt-8">
+          <a
+            className="inline-flex min-h-[44px] items-center text-base font-semibold text-sky-800 underline underline-offset-4 hover:text-sky-900"
+            href={individual.webtrees_url}
+            rel="noopener noreferrer"
+          >
+            {t('profile.openInWebtrees')}
+          </a>
+        </p>
+      )}
     </article>
   )
 }

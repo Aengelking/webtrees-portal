@@ -302,6 +302,8 @@ export const de = {
     reference: 'Kennnummer im Familienarchiv',
     relationship: 'Für Sie: {{relationship}}',
     showAncestors: 'Vorfahren anzeigen',
+    editInWebtrees: 'In webtrees öffnen und bearbeiten',
+    editInWebtreesHint: 'Sie sehen diesen Link, weil Sie den Stammbaum bearbeiten dürfen.',
     photos: 'Fotos',
     photoUntitled: 'Foto ohne Titel',
     photoClose: 'Schließen',

@@ -311,6 +311,27 @@ Three more things worth knowing:
 Read state is the portal's own (webtrees does not track it), so marking
 something read here does not change anything in webtrees.
 
+### The link back to webtrees, for people who edit
+
+*No setting.*
+
+Every person screen in the portal links out to that person's page in webtrees.
+Which link, and where it sits, depends on the role the signed-in account holds
+**in the configured tree**:
+
+* **Members** get it at the foot of the record, worded for what they would go
+  there for: *Stammbaum und Diagramme öffnen*.
+* **Editors, moderators, managers and administrators** get it at the top
+  instead, worded for what *they* go there for: *In webtrees öffnen und
+  bearbeiten* — with one line saying it is their role showing.
+
+It is the same address either way, and it always was: the record URL webtrees
+builds from its own `base_url`. Nothing is unlocked by the wording, and
+nothing is hidden by it — webtrees decides what the person arriving may do.
+What the distinction buys is that a member is not pointed at an editing screen
+they have no business on, an editor does not hunt for the tree they maintain,
+and neither is shown two links to one page.
+
 ### How much of the tree a member sees
 
 *Control panel → Modules → Member portal API → preferences → What members can
@@ -1097,6 +1118,11 @@ from webtrees' own table and takes its read state with it; and on the client
 opening a message marks it read, an already-read one is not marked again, the
 badge is gone once nothing is unread, and its digit is hidden from screen
 readers because the same count is already in the link's name as words.
+
+**The link to webtrees** (`portal/src/EditorLink.test.tsx`) — an editor,
+moderator, manager and administrator each get the editing link, a member gets
+the member's link and not the editing one, nobody gets both, and an editor is
+told the link is there because of their role.
 
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the

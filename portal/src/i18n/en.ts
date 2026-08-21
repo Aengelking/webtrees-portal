@@ -302,6 +302,8 @@ export const en: Translations = {
     reference: 'Reference number in the family archive',
     relationship: 'To you: {{relationship}}',
     showAncestors: 'Show ancestors',
+    editInWebtrees: 'Open and edit in webtrees',
+    editInWebtreesHint: 'You see this link because you may edit the family tree.',
     photos: 'Photographs',
     photoUntitled: 'Untitled photograph',
     photoClose: 'Close',

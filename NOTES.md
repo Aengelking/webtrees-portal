@@ -1403,6 +1403,30 @@ failure and is still reported as one.
 
 ---
 
+### 2.29 A link that is a signpost, not a gate
+
+Every person screen has always linked out to that record in webtrees. It now
+reads differently depending on the role the account holds in the tree:
+editors and above get it at the top, worded for editing; members get it at the
+foot, worded for charts. Nobody gets both, because two links to one address
+differing only in wording is a question nobody needs to answer.
+
+**The role check is presentational and is commented as such**, which matters
+more than the feature. `webtrees_url` is in the payload every member already
+receives — it is the public record address, built by webtrees from its own
+`base_url` — so hiding or showing it grants and withholds nothing. webtrees
+decides what the person arriving may do, as it does for anybody who types the
+address by hand. If this check is ever read as an access control, the reading
+is wrong, and a later change made on that assumption would be a real hole.
+
+What it buys is smaller and worth having anyway: a member is not sent to an
+editing screen that will only tell them no, and an editor is not left hunting
+for the tree they maintain. The role comes from `/me`, where it is already
+computed per tree by `MeAssembler::role()` — `Auth::isEditor()` and friends, in
+the configured tree, not a guess from the account's global flags.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
