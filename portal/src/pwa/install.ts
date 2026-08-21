@@ -1,31 +1,59 @@
 import { useSyncExternalStore } from 'react'
 
 /**
- * "Put this on your home screen" — and the four answers a browser can give.
+ * "Put this on your home screen" — and the seven answers a browser can give.
  *
- * Nothing here can be asked directly. There is no API for "is this app
- * installed"; there is only an event a browser may or may not fire, a media
- * query that says how the current window is being displayed, and — on iOS —
- * neither of those. So the state is assembled from what is observable, and the
- * default is to say nothing at all.
+ * None of this can be asked directly. There is no "is this app installed" to
+ * call; there is an event Chrome may or may not fire, a media query that says
+ * how the *current window* is being displayed, one API that answers a narrower
+ * question than it looks like, and a user-agent string. So the state is
+ * assembled from what is observable.
+ *
+ * The first version had one rule for everything it could not identify: say
+ * nothing. That is right for a browser where installing is impossible, and
+ * wrong for Android, where installing is perfectly possible and Chrome simply
+ * did not hand over a prompt — the member is then looking at a screen that
+ * promises an app and offers no way to get one. Every case below that *can*
+ * install now says how.
  */
 export type InstallState =
-  /** Already on a home screen, or being read from one. Offering again is noise. */
+  /** This window *is* the installed app. Offering it is a door marked "door". */
+  | 'standalone'
+  /** In a tab, but the app is on this device already. Say so, offer nothing. */
   | 'installed'
-  /** The browser offered a prompt and we kept it. One tap does the whole thing. */
+  /** A prompt was offered and kept. One tap does the whole thing. */
   | 'ready'
-  /** iOS: there is no prompt to keep, so the two taps have to be described. */
-  | 'manual'
-  /** Nothing useful to offer. Say nothing rather than something that will not work. */
+  /** iOS: no prompt exists, so the Share sheet has to be described. */
+  | 'apple'
+  /** Android, but no prompt in hand: Chrome's own menu is the way. */
+  | 'android'
+  /** Another app's built-in browser. It cannot install; leaving it can. */
+  | 'webview'
+  /** Installing is not possible here. Say nothing at all. */
   | 'unavailable'
 
 /**
- * Chrome's `beforeinstallprompt`, which is not in the DOM's type definitions
- * because it is not in any specification — it is a Chromium extension that
- * Firefox and Safari have both declined to implement.
+ * Chrome's `beforeinstallprompt`, which is in no browser's type definitions
+ * because it is in no specification — a Chromium extension that Firefox and
+ * Safari have both declined to implement.
  */
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>
+}
+
+/**
+ * `navigator.getInstalledRelatedApps()`, which answers "is one of the apps
+ * this manifest claims kinship with installed?" — and, because the manifest
+ * names *itself* under `related_applications`, therefore also "is this app
+ * installed?". It is the only way to know that from an ordinary tab: the
+ * display-mode query below only ever describes the window it is asked in.
+ *
+ * Chromium-only, and it may quietly answer "no" — in which case the member
+ * gets the ordinary offer, which is a fair thing to show somebody whose
+ * browser will not say.
+ */
+interface RelatedApp {
+  platform?: string
 }
 
 export interface InstallStore {
@@ -78,6 +106,13 @@ export function createInstallStore(): InstallStore {
         installed = true
         announce()
       })
+
+      void alreadyInstalled().then((yes) => {
+        if (yes) {
+          installed = true
+          announce()
+        }
+      })
     },
 
     subscribe(listener) {
@@ -89,7 +124,11 @@ export function createInstallStore(): InstallStore {
     },
 
     state() {
-      if (installed || isInstalled()) {
+      if (isStandalone()) {
+        return 'standalone'
+      }
+
+      if (installed) {
         return 'installed'
       }
 
@@ -97,7 +136,15 @@ export function createInstallStore(): InstallStore {
         return 'ready'
       }
 
-      return isApple() ? 'manual' : 'unavailable'
+      if (isApple()) {
+        return 'apple'
+      }
+
+      if (isAndroid()) {
+        return isWebView() ? 'webview' : 'android'
+      }
+
+      return 'unavailable'
     },
 
     async prompt() {
@@ -109,8 +156,8 @@ export function createInstallStore(): InstallStore {
 
       // A prompt may be shown once; a second `prompt()` on the same event
       // throws. Chrome fires a fresh one on a later visit if the member
-      // dismissed this one, which is also why the offer disappearing after a
-      // dismissal is the right behaviour rather than a bug.
+      // dismissed this one — and until it does, the offer falls back to
+      // describing Chrome's menu rather than disappearing.
       saved = null
       announce()
 
@@ -119,30 +166,47 @@ export function createInstallStore(): InstallStore {
   }
 }
 
-/**
- * Whether the window this is running in was opened from a home screen.
- *
- * `display-mode: standalone` matches the manifest; `minimal-ui` is what some
- * browsers substitute. `navigator.standalone` is iOS's own flag, which
- * predates the media query and is still the only one Safari sets.
- */
-function isInstalled(): boolean {
+/** Whether the window this is running in was opened from a home screen. */
+function isStandalone(): boolean {
   if (typeof window.matchMedia === 'function') {
     if (window.matchMedia('(display-mode: standalone), (display-mode: minimal-ui)').matches) {
       return true
     }
   }
 
+  // iOS's own flag, which predates the media query and is still the only one
+  // Safari sets.
   return (navigator as { standalone?: boolean }).standalone === true
 }
 
+async function alreadyInstalled(): Promise<boolean> {
+  const query = (navigator as { getInstalledRelatedApps?: () => Promise<RelatedApp[]> })
+    .getInstalledRelatedApps
+
+  if (typeof query !== 'function') {
+    return false
+  }
+
+  try {
+    const apps = await query.call(navigator)
+
+    // `webapp` is this portal itself; any other platform would be a native app
+    // that is none of our business.
+    return apps.some((app) => app.platform === 'webapp')
+  } catch {
+    // Not a secure context, not supported, refused — all of which mean the
+    // same thing here: the browser will not say, so do not pretend to know.
+    return false
+  }
+}
+
 /**
- * iPhone and iPad, where installing exists but is not offered: Safari has no
+ * iPhone and iPad, where installing exists but is never offered: Safari has no
  * `beforeinstallprompt`, and every browser on iOS is Safari underneath, so the
  * Share sheet is the only route and describing it is the only help possible.
  *
- * An iPad reports itself as a Macintosh. The touch points are what give it
- * away — a desktop Mac has none.
+ * An iPad reports itself as a Macintosh. The touch points give it away — a
+ * desktop Mac has none.
  */
 function isApple(): boolean {
   const agent = navigator.userAgent
@@ -150,6 +214,25 @@ function isApple(): boolean {
   return (
     /iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)
   )
+}
+
+function isAndroid(): boolean {
+  return /Android/.test(navigator.userAgent)
+}
+
+/**
+ * Android's embedded browser — what WhatsApp, Facebook and half the mailing
+ * apps open a link in. It has no menu to install from and no home screen to
+ * install to, and for this portal's audience it is the single likeliest reason
+ * an install offer never appeared: the link arrived in a family chat and was
+ * tapped there.
+ *
+ * `wv` in the user agent is Android WebView announcing itself, which it has
+ * done since Lollipop. An app that opens links in a Custom Tab is real Chrome
+ * and is not caught here, correctly — a Custom Tab can install.
+ */
+function isWebView(): boolean {
+  return /;\s*wv\)/.test(navigator.userAgent)
 }
 
 export const installStore = createInstallStore()

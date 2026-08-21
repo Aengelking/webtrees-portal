@@ -1077,13 +1077,32 @@ it would outlive the session that fetched them.
 screens of family data, then asks the browser what it kept, and fails if a
 single URL under `/api/` is in there.
 
-**There is a button, and only when it can do something.** Settings offers
-*Portal installieren* at the top of the screen — but only in a browser that
-has offered an install prompt to save, and never once the portal is already
-installed. On iPhone and iPad, where Safari has no such prompt and every
-browser is Safari underneath, it describes the Share sheet instead of showing
-a button that cannot work. Everywhere else it renders nothing at all: an
-explanation of an impossible action is worse than silence.
+**A button where there can be one, and directions where there cannot.**
+Settings offers *Auf den Startbildschirm* at the top of the screen. What it
+shows depends on what the browser will say:
+
+| Situation | What Settings shows |
+| --- | --- |
+| A browser handed over an install prompt | the button — one tap |
+| Android, no prompt handed over | where Chrome's own ⋮ menu is |
+| iPhone, iPad | where the Share sheet is |
+| Inside another app's browser (a link tapped in WhatsApp) | that it has to be opened in a browser first |
+| Already on this device | that it is, and nothing else |
+| Inside the installed app, or a browser that cannot install | nothing at all |
+
+The Android row is the one that matters most and the one the first version got
+wrong. Chrome hands out `beforeinstallprompt` when it feels like it, and not at
+all if it thinks the app is installed or the page was opened a moment ago —
+which used to leave a member on a screen promising an app with no way to get
+one. Only two situations are now silent, and in both of them there is genuinely
+nothing to say.
+
+"Already on this device" cannot be worked out from a tab: `display-mode`
+describes only the window it is asked in. So the manifest names *itself* under
+`related_applications`, which lets `navigator.getInstalledRelatedApps()` answer
+the question on Chrome. If it will not answer — another browser, an insecure
+context — the member simply gets the ordinary offer, which is a fair thing to
+show somebody whose browser will not say.
 
 Chrome's own install bar is suppressed (`preventDefault` on
 `beforeinstallprompt`) so the offer appears where it can be explained rather

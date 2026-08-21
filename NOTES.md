@@ -1516,16 +1516,39 @@ never again, so it can have that spot for as long as it lasts. It also means
 no new state — no "dismissed" flag, and so nothing else in browser storage
 beside the language preference.
 
-Three states rather than two, because a browser can be in three positions.
-Chrome hands over a prompt, which is saved (and its own install bar
-suppressed, so the offer appears next to the sentence explaining it). iOS has
-no prompt to hand over — Safari has never implemented `beforeinstallprompt`
-and every browser on iOS is Safari underneath — so the Share sheet is
-described instead. Everything else shows nothing: a button that cannot work,
-or an explanation of an impossible action, is worse than silence. "Already
-installed" is a fourth answer assembled from `display-mode: standalone` and
-iOS's older `navigator.standalone`, since there is no API that answers the
-question directly.
+Seven states, and the count is the correction. The first version had four and
+one rule for everything it could not identify: say nothing, because a button
+that cannot work is worse than silence. That is right for a browser where
+installing is impossible. It is wrong for Android, where installing is
+perfectly possible and Chrome had merely declined to hand over a prompt — and
+the member was then looking at a screen that promises an app and offers no way
+to get one. It was reported as "the install button does not appear in Chrome
+on Android", and the answer was that there had never been anything to appear.
+
+So every situation that *can* install now says how. Chrome hands over a prompt
+→ a button (with Chrome's own install bar suppressed, so the offer appears
+next to the sentence explaining it). Android without a prompt → where the ⋮
+menu is. iOS → where the Share sheet is, since Safari has never implemented
+`beforeinstallprompt` and every browser on iOS is Safari underneath. Android
+WebView → that the page has to be left first. Only two states are silent: the
+window that *is* the installed app, and a browser where none of this happens.
+
+**The WebView case is not an edge case here.** This portal's members are
+people who open links from a family chat, and a link tapped in WhatsApp opens
+in Android's embedded browser, which has no menu to install from and no home
+screen to install to. It announces itself with `wv` in the user agent, and it
+is the single likeliest reason an offer never appeared. An app that opens
+links in a Custom Tab is real Chrome and is deliberately not caught.
+
+**"Already installed" needs the manifest to name itself.** `display-mode`
+describes only the window it is asked in, so a member browsing in Chrome with
+the app already on their home screen is indistinguishable from one who has
+never installed it. `related_applications: [{platform: "webapp", url:
+"/manifest.webmanifest"}]` makes `navigator.getInstalledRelatedApps()` able to
+answer. `prefer_related_applications` must stay `false` beside it: `true`
+tells a browser to offer a store app *instead of* installing this one, which
+would suppress the very prompt the entry exists to support. The two lines look
+like a pair and are not, so a test asserts the second one.
 
 **The manifest is German only.** The portal has a language switch, a manifest
 does not — what is written under the icon is fixed when the app is installed.

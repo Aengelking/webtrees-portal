@@ -12,6 +12,12 @@
   "background_color": "#f1f5f9",
   "theme_color": "#f1f5f9",
   "categories": ["lifestyle", "social"],
+
+  "//": "The app names itself here so that navigator.getInstalledRelatedApps() can answer whether it is already on this device — the only way to know that from an ordinary tab, since display-mode only ever describes the window it is asked in. prefer_related_applications MUST stay false: true tells the browser to offer a store app instead, which would suppress the very install prompt this exists to support.",
+  "prefer_related_applications": false,
+  "related_applications": [
+    { "platform": "webapp", "url": "/manifest.webmanifest" }
+  ],
   "icons": [
     {
       "src": "/icons/icon.svg",
