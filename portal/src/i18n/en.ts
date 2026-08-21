@@ -2,7 +2,7 @@ import type { Translations } from './de'
 
 export const en: Translations = {
   app: {
-    name: 'Family portal',
+    name: 'Sack Family App',
     skipToContent: 'Skip to content',
     offline: 'No internet connection. Nothing new can be loaded right now.',
   },
@@ -351,7 +351,7 @@ export const en: Translations = {
   install: {
     title: 'Install the portal',
     body:
-      'You can put the family portal on your home screen like an app. It then opens with one tap, without an address bar and without hunting for it in the browser.',
+      'You can put the Sack family app on your home screen. It then opens with one tap, without an address bar and without hunting for it in the browser.',
     action: 'Add to home screen',
     apple: 'Tap the share icon at the bottom, then “Add to Home Screen”.',
   },

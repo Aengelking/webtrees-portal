@@ -3,6 +3,8 @@ import { act, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InstallPortal } from './components/InstallPortal'
 import { OfflineNotice } from './components/OfflineNotice'
+import { de } from './i18n/de'
+import { en } from './i18n/en'
 import { createInstallStore } from './pwa/install'
 import { registerServiceWorker } from './pwa/register'
 import './i18n'
@@ -18,6 +20,8 @@ import './i18n'
  */
 
 const manifest = JSON.parse(readFileSync('public/manifest.webmanifest', 'utf8')) as {
+  name: string
+  short_name: string
   start_url: string
   scope: string
   display: string
@@ -67,6 +71,51 @@ describe('the manifest', () => {
    */
   it('offers a maskable icon', () => {
     expect(manifest.icons.some((icon) => icon.purpose === 'maskable')).toBe(true)
+  })
+})
+
+/**
+ * The portal has two names, and both are written down more than once in files
+ * that cannot read each other. **Sack** is the family's name and the label
+ * under the icon, where there is room for one word; **Sack Familienapp** is
+ * the full one, for an install dialogue, a browser tab and a bookmark. Get the
+ * pairing wrong and the app is called one thing on the home screen and another
+ * on the screen it opens — and nothing else would notice.
+ */
+describe('what the app is called', () => {
+  const appleTitle = /<meta name="apple-mobile-web-app-title" content="([^"]+)" \/>/.exec(html)?.[1]
+
+  it('uses the short name under the icon, on both platforms', () => {
+    // iOS reads none of the manifest; this tag is its `short_name`.
+    expect(appleTitle).toBe(manifest.short_name)
+  })
+
+  it('has a full name that begins with the family’s', () => {
+    expect(manifest.name.startsWith(manifest.short_name)).toBe(true)
+    expect(manifest.name).not.toBe(manifest.short_name)
+  })
+
+  it('puts the full name in the tab and on the sign-in screen', () => {
+    expect(html).toContain(`<title>${manifest.name}</title>`)
+    expect(de.app.name).toBe(manifest.name)
+  })
+
+  /**
+   * "Sack" is a family's name and survives translation; "Familienapp" is an
+   * ordinary word and does what ordinary words do. So the assertion is not
+   * that the two languages agree — it is that neither loses the name.
+   */
+  it('keeps the family’s name in either language', () => {
+    expect(de.app.name).toContain(manifest.short_name)
+    expect(en.app.name).toContain(manifest.short_name)
+  })
+
+  /**
+   * The service worker has no React and no i18n, so it carries its own copy of
+   * the name — which makes the offline page the place a rename is forgotten.
+   */
+  it('is the name the offline page uses', () => {
+    expect(readFileSync('sw/service-worker.ts', 'utf8')).toContain(manifest.short_name)
   })
 })
 

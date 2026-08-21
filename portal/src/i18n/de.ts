@@ -1,6 +1,6 @@
 export const de = {
   app: {
-    name: 'Familienportal',
+    name: 'Sack Familienapp',
     skipToContent: 'Zum Inhalt springen',
     offline: 'Keine Internetverbindung. Es können gerade keine neuen Inhalte geladen werden.',
   },
@@ -351,7 +351,7 @@ export const de = {
   install: {
     title: 'Portal installieren',
     body:
-      'Sie können das Familienportal wie eine App auf den Startbildschirm legen. Es öffnet sich dann mit einem Tippen, ohne Adresszeile und ohne Suchen im Browser.',
+      'Sie können die Sack Familienapp auf den Startbildschirm legen. Sie öffnet sich dann mit einem Tippen, ohne Adresszeile und ohne Suchen im Browser.',
     action: 'Auf den Startbildschirm legen',
     apple: 'Tippen Sie unten auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“.',
   },
