@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
-use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Http\RequestHandlers\HomePage;
@@ -59,17 +58,22 @@ class IndividualLink implements RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        try {
-            $tree = $this->trees->tree();
-        } catch (ApiException) {
-            // No tree configured. Not this route's problem to explain — the
-            // Diagnosis screen says it properly — but a link that dead-ends
-            // in a stack trace is worse than one that lands on the front page.
+        // Deliberately not `PortalTreeService::tree()`, which resolves through
+        // an access-filtered list and therefore reports the tree as missing
+        // for exactly the reader this route exists for. See
+        // `configuredTreeName()` for the whole of that story.
+        $tree = $this->trees->configuredTreeName();
+
+        if ($tree === '') {
+            // Nothing configured at all. Not this route's problem to explain —
+            // the Diagnosis screen says it properly — but a link that
+            // dead-ends in a stack trace is worse than one that lands on the
+            // front page.
             return redirect(route(HomePage::class));
         }
 
         $target = route(IndividualPage::class, [
-            'tree' => $tree->name(),
+            'tree' => $tree,
             'xref' => Validator::attributes($request)->string('xref', ''),
         ]);
 
@@ -77,6 +81,6 @@ class IndividualLink implements RequestHandlerInterface
             return redirect($target);
         }
 
-        return redirect(route(LoginPage::class, ['tree' => $tree->name(), 'url' => $target]));
+        return redirect(route(LoginPage::class, ['tree' => $tree, 'url' => $target]));
     }
 }

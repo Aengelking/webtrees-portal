@@ -342,6 +342,10 @@ signed in, and a record address for a signed-out reader either loses the
 destination on the way to the login page or, on a tree that does not require
 authentication, reports the record as not existing.
 
+This matters most on a tree with **authentication required**, which is the
+usual setting for a family portal: there, a signed-out visitor cannot see the
+tree at all, so a link straight at a record has nothing to fall back on.
+
 They do still have to sign in on the webtrees side. There is no shared session
 across the two origins, and there is no way to have one short of putting all
 of webtrees behind the portal's domain. What the redirect fixes is where that
@@ -1140,7 +1144,10 @@ badge is gone once nothing is unread, and its digit is hidden from screen
 readers because the same count is already in the link's name as words.
 
 **Getting into webtrees** (`module/tests/LinkTest.php`) — a signed-out reader
-is sent to the login page with the record as the destination, and that
+is sent to the login page with the record as the destination **on a tree that
+requires authentication**, which is the case that matters and the one a public
+fixture tree hides; the whole way is walked once end to end, through webtrees'
+own router, login form and login handler, and ends on the record; and that
 destination survives webtrees' own `isLocalUrl()` check, asserted with
 webtrees' validator rather than by eye; a reader who is already signed in goes
 straight to the record instead of being thrown to their user page; the

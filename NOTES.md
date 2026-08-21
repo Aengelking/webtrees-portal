@@ -1475,6 +1475,37 @@ handle. It is registered in the route map rather than as a module action,
 which keeps §2.5's invariant intact: every `get…Action` on the module still
 has "Admin" in its name, because that spelling is the access control.
 
+#### The bug it shipped with, and why every test missed it
+
+`IndividualLink` resolved the tree through `PortalTreeService::tree()`, and
+that method resolves it through `TreeService::all()` — **which is filtered by
+the current user**. On a tree with `REQUIRE_AUTHENTICATION`, which is what a
+family portal's tree almost always has, the collection is empty for a visitor.
+So `get()` returned null, `tree()` reported the configured tree as missing, and
+the handler took its "nothing configured" fallback to the home page. webtrees
+then sent the visitor from the home page to the login page **with no
+destination** — `HomePage` ends with `redirect(route(LoginPage::class, ['url' => '']))`
+when no tree is visible — and signing in landed them on their own user page.
+
+The reported symptom named its own cause once it was written down:
+`?route=/login&url=` has no tree segment and an empty `url`, and nothing in
+this module can produce that. Reading it as *"then this redirect is not mine"*
+is what found it.
+
+`tree()` is right to be filtered: every API route is authenticated, and a
+caller with no access to the tree has no business getting data out of it. It
+is simply the wrong question here. `configuredTreeName()` asks the
+configuration question instead and returns a name — and **a name is not
+access**: it goes into a URL that webtrees enforces on arrival, exactly as it
+would for an address typed by hand.
+
+Two lessons worth more than the fix. The first authenticated-only assumption
+in a module breaks the moment one route runs for a visitor, and this was that
+route. And every test here passed with the bug present, because the fixture
+tree is public — so `all()` returned it to a visitor too. `Auth::logout()` was
+not enough to reproduce being signed out; the *tree setting* was the test.
+Both new tests fail against the old handler.
+
 **Proven end to end, not hop by hop.** `LinkTest::testTheWholeWayFromTheLinkToTheRecord`
 walks the whole thing through webtrees' real router and real middleware: click,
 login page, sign in, arrive. The single-hop tests all passed while the chain
