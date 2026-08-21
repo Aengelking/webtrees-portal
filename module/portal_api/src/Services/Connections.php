@@ -95,6 +95,9 @@ class Connections
     /** 32 bytes of randomness, hex encoded — the same as an invitation. */
     private const int TOKEN_BYTES = 32;
 
+    /** Nothing between these two, which is what a caller defaults to. */
+    public const array NOWHERE = ['status' => 'none', 'id' => null];
+
     private const int MAX_REFERENCE_LENGTH = 40;
 
     public function __construct(
@@ -369,10 +372,38 @@ class Connections
             })
             ->first();
 
-        if ($row === null) {
-            return ['status' => 'none', 'id' => null];
+        return $row === null ? self::NOWHERE : $this->state($row, $user);
+    }
+
+    /**
+     * The same answer for everybody at once, keyed by webtrees user id.
+     *
+     * For the directory, which has to decide what to offer on every row and
+     * must not ask once per row to find out. One query for the whole page —
+     * and for the whole table, which is a member's own handful of rows.
+     * Anybody not in the result is `none`, which is what the caller should
+     * default to rather than asking again.
+     *
+     * @return array<int,array{status:string,id:int|null}>
+     */
+    public function statesFor(UserInterface $user): array
+    {
+        $states = [];
+
+        foreach ($this->rowsFor($user) as $row) {
+            $other = (int) $row->requested_by === $user->id() ? (int) $row->requested_of : (int) $row->requested_by;
+
+            $states[$other] = $this->state($row, $user);
         }
 
+        return $states;
+    }
+
+    /**
+     * @return array{status:string,id:int|null}
+     */
+    private function state(object $row, UserInterface $user): array
+    {
         if ($row->status === self::STATUS_ACCEPTED) {
             return ['status' => 'connected', 'id' => (int) $row->id];
         }

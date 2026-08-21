@@ -332,6 +332,12 @@ export const en: Translations = {
     previous: 'Back',
     next: 'Next',
     page: 'Page {{page}} of {{pages}}',
+    connectWith: 'Connect with {{name}}',
+    acceptFrom: 'Accept the request from {{name}}',
+    state: {
+      requested: 'Requested',
+      connected: 'Connected',
+    },
     noRecord: 'No linked entry in the family tree',
   },
   member: {

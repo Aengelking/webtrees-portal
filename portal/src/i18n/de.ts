@@ -332,6 +332,12 @@ export const de = {
     previous: 'Zurück',
     next: 'Weiter',
     page: 'Seite {{page}} von {{pages}}',
+    connectWith: 'Verbinden mit {{name}}',
+    acceptFrom: 'Anfrage von {{name}} annehmen',
+    state: {
+      requested: 'Angefragt',
+      connected: 'Verbunden',
+    },
     noRecord: 'Kein verknüpfter Eintrag im Stammbaum',
   },
   member: {

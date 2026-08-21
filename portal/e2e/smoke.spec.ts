@@ -385,6 +385,31 @@ test.describe('phase 11', () => {
     await expect(page.getByRole('img', { name: /QR-Code/ })).toBeHidden()
   })
 
+  test('a request is sent from the directory list itself', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed connections.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.getByRole('link', { name: /Mitglieder/ }).click()
+
+    // Each button is named for its row, so twenty-five of them are still a
+    // list somebody can navigate.
+    const row = page.getByRole('button', { name: 'Verbinden mit Nora Ohnesatz' })
+    await expect(row).toBeVisible()
+
+    // Somebody already a contact is a word, not a button, and one's own row
+    // offers nothing at all.
+    await expect(page.getByRole('button', { name: 'Verbinden mit Dieter Beispiel' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Verbinden mit Anna Beispiel' })).toHaveCount(0)
+
+    await row.click()
+
+    await expect(page.getByText('Angefragt')).toBeVisible()
+  })
+
   test('a scanned code asks before it connects anybody', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Depends on the stubbed connections.')
 

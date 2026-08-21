@@ -358,6 +358,67 @@ class ConnectionTest extends PortalTestCase
         self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $this->connect(['reference' => '4711'])->getStatusCode());
     }
 
+    /**
+     * The directory is where a member is already looking for somebody, so it
+     * is where a request should be sendable from. That needs the state on
+     * every row — and one query for the page, not one per row.
+     */
+    public function testEveryRowOfTheDirectorySaysWhereTheTwoStand(): void
+    {
+        $before = $this->json($this->api(MemberList::class));
+
+        self::assertTrue($before['connections_enabled']);
+        self::assertSame(
+            ['none'],
+            $this->statesOf($before, $this->dieter_id),
+            'Nothing between them yet.'
+        );
+
+        // A member's own row offers nothing, because there is nothing to
+        // offer: you cannot connect with yourself.
+        self::assertSame(['self'], $this->statesOf($before, $this->annaMemberId()));
+
+        $this->connect(['member_id' => $this->dieter_id]);
+
+        self::assertSame(['requested'], $this->statesOf($this->json($this->api(MemberList::class)), $this->dieter_id));
+
+        $this->login($this->dieter);
+
+        self::assertSame(['incoming'], $this->statesOf($this->json($this->api(MemberList::class)), $this->annaMemberId()));
+    }
+
+    public function testTheDirectoryOffersNothingWhileTheFacilityIsOff(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_CONNECTIONS, '0');
+
+        self::assertFalse($this->json($this->api(MemberList::class))['connections_enabled']);
+    }
+
+    /**
+     * @param array<string,mixed> $page
+     *
+     * @return array<int,string> The connection status on that member's row.
+     */
+    private function statesOf(array $page, int $member_id): array
+    {
+        $states = [];
+
+        foreach ($page['items'] as $item) {
+            if ($item['id'] === $member_id) {
+                $states[] = $item['connection']['status'];
+            }
+        }
+
+        return $states;
+    }
+
+    private function annaMemberId(): int
+    {
+        $profile = DB::table('portal_member_profile')->where('wt_user_id', '=', $this->anna->id())->first();
+
+        return (int) $profile->id;
+    }
+
     public function testAMemberOfTheDirectoryCanBeAskedFromTheirOwnPage(): void
     {
         $result = $this->json($this->connect(['member_id' => $this->dieter_id]));

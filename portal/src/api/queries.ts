@@ -260,9 +260,11 @@ function useConnectionMutation<TVariables, TResult extends ConnectionOverview>(
       queryClient.setQueryData([...queryKeys.connections, language], result)
       void queryClient.invalidateQueries({ queryKey: queryKeys.connections })
       void queryClient.invalidateQueries({ queryKey: queryKeys.me })
-      // A connection decides what a member's page shows and offers, so the
-      // one that may be open behind this is no longer to be trusted.
+      // A connection decides what a member's page shows and offers, and what
+      // every row of the directory offers, so neither is to be trusted after
+      // one changes.
       void queryClient.invalidateQueries({ queryKey: ['member'] })
+      void queryClient.invalidateQueries({ queryKey: ['members'] })
     },
   })
 }

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\Member;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Validator;
@@ -37,6 +39,7 @@ class MemberList implements RequestHandlerInterface
         private readonly PortalTreeService $trees,
         private readonly RecordPresenter $presenter,
         private readonly MemberService $members,
+        private readonly Connections $connections,
     ) {
     }
 
@@ -51,8 +54,15 @@ class MemberList implements RequestHandlerInterface
 
         $result = $this->members->visibleMembers($query, $page, $per_page);
 
+        // Read once for the whole page rather than once per row. It is the
+        // reason a "connect" button can sit on every line at all: deciding
+        // "close family" walks the tree and is why contact details are not
+        // here (see ContactDetails::visibleTo), but where these two stand is
+        // one row of one table.
+        $states = $this->connections->statesFor(Auth::user());
+
         $items = $result['items']
-            ->map(fn (Member $member): array => $this->summary($member, $tree, $access_level))
+            ->map(fn (Member $member): array => $this->summary($member, $tree, $access_level, $states))
             ->all();
 
         return Json::response([
@@ -60,13 +70,18 @@ class MemberList implements RequestHandlerInterface
             'total'    => $result['total'],
             'page'     => $page,
             'per_page' => $per_page,
+            // So the list can leave the buttons off entirely rather than
+            // offering something the endpoint would refuse.
+            'connections_enabled' => $this->connections->enabled(),
         ]);
     }
 
     /**
+     * @param array<int,array{status:string,id:int|null}> $states
+     *
      * @return array<string,mixed>
      */
-    private function summary(Member $member, Tree $tree, int $access_level): array
+    private function summary(Member $member, Tree $tree, int $access_level, array $states): array
     {
         $individual = $this->trees->linkedIndividual($tree, $member->user);
 
@@ -76,6 +91,12 @@ class MemberList implements RequestHandlerInterface
             'individual'   => $individual instanceof Individual
                 ? $this->presenter->individualRef($individual, $access_level)
                 : null,
+            // Where the reader and this member stand, so the row can offer
+            // the one thing that means something — ask, answer, or nothing,
+            // because they are already in touch or because it is themselves.
+            'connection'   => $member->user->id() === Auth::id()
+                ? ['status' => 'self', 'id' => null]
+                : ($states[$member->user->id()] ?? Connections::NOWHERE),
         ];
     }
 }

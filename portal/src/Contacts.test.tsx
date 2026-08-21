@@ -389,3 +389,123 @@ describe('a member\u2019s own page', () => {
     expect(screen.queryByRole('button', { name: 'Verbinden' })).toBeNull()
   })
 })
+
+/**
+ * The list is where a member is already looking for somebody, so it is where
+ * the request should be sendable from.
+ */
+describe('the directory list', () => {
+  function stubDirectory(connection: unknown, options: { enabled?: boolean } = {}) {
+    const page = {
+      items: [{ id: 3, display_name: 'Dieter Beispiel', individual: null, connection }],
+      total: 1,
+      page: 1,
+      per_page: 25,
+      connections_enabled: options.enabled ?? true,
+    }
+
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/connections')) {
+        return method === 'GET'
+          ? jsonResponse(OVERVIEW)
+          : jsonResponse({ ...OVERVIEW, status: 'requested', name: 'Dieter Beispiel' }, 201)
+      }
+
+      if (url.includes('/members')) return jsonResponse(page)
+
+      return jsonResponse(ME)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    return fetchMock
+  }
+
+  it('sends a request from the row, without opening the person', async () => {
+    const fetchMock = stubDirectory({ status: 'none', id: null })
+    renderAt('/members')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Verbinden mit Dieter Beispiel' }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) => String(url).endsWith('/connections') && init?.method === 'POST',
+      )
+
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ member_id: 3 })
+    })
+  })
+
+  /**
+   * Twenty-five buttons all called "Verbinden" are a list nobody can navigate
+   * by name, so each is named for the person — and the visible word starts
+   * that name, so speaking it still works.
+   */
+  it('names the button for the person it belongs to', async () => {
+    stubDirectory({ status: 'none', id: null })
+    renderAt('/members')
+
+    const button = await screen.findByRole('button', { name: 'Verbinden mit Dieter Beispiel' })
+
+    expect(button.textContent).toBe('Verbinden')
+  })
+
+  it('offers the answer where they asked first', async () => {
+    const fetchMock = stubDirectory({ status: 'incoming', id: 9 })
+    renderAt('/members')
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Anfrage von Dieter Beispiel annehmen' }),
+    )
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => String(url).includes('/connections/9') && init?.method === 'PATCH',
+        ),
+      ).toBe(true)
+    })
+  })
+
+  /** A control that does nothing is worse on a row than a word that says why. */
+  it('states the two settled cases rather than offering a button', async () => {
+    stubDirectory({ status: 'connected', id: 7 })
+    renderAt('/members')
+
+    expect(await screen.findByText('Verbunden')).toBeDefined()
+    expect(screen.queryByRole('button', { name: /Verbinden mit/ })).toBeNull()
+  })
+
+  it('offers nothing on my own row', async () => {
+    stubDirectory({ status: 'self', id: null })
+    renderAt('/members')
+
+    await screen.findByRole('link', { name: /Dieter Beispiel/ })
+
+    expect(screen.queryByRole('button', { name: /Verbinden/ })).toBeNull()
+  })
+
+  it('offers nothing when the family has switched connections off', async () => {
+    stubDirectory({ status: 'none', id: null }, { enabled: false })
+    renderAt('/members')
+
+    await screen.findByRole('link', { name: /Dieter Beispiel/ })
+
+    expect(screen.queryByRole('button', { name: /Verbinden mit/ })).toBeNull()
+  })
+
+  /** An older server sends no state, and then the row is what it always was. */
+  it('offers nothing when the server does not know about connections', async () => {
+    stubDirectory(undefined)
+    renderAt('/members')
+
+    await screen.findByRole('link', { name: /Dieter Beispiel/ })
+
+    expect(screen.queryByRole('button', { name: /Verbinden mit/ })).toBeNull()
+  })
+})

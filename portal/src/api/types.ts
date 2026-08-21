@@ -290,6 +290,16 @@ export interface MemberSummary {
   id: number
   display_name: string
   individual: IndividualRef | null
+  /**
+   * Where the reader and this member stand. Carried on every row of the
+   * directory, so a request can be sent from the list without opening the
+   * person first — it is one row of one table, unlike contact details, which
+   * walk the tree and are deliberately not in the list.
+   *
+   * Optional for the usual reason: the module ships over SFTP and the portal
+   * through CI, so the two can be a version apart.
+   */
+  connection?: ConnectionState
 }
 
 /** The kinds a member may share. Closed, and decided by the server. */
@@ -389,7 +399,6 @@ export interface MemberDetail extends MemberSummary {
    * through CI, so the two can be a version apart and this screen has to
    * survive a server that predates the field.
    */
-  connection?: ConnectionState
   connections_enabled?: boolean
 }
 
@@ -398,4 +407,6 @@ export interface MemberPage {
   total: number
   page: number
   per_page: number
+  /** False when the family has switched connections off. Optional. */
+  connections_enabled?: boolean
 }

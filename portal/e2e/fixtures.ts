@@ -140,6 +140,24 @@ export async function stubApi(page: Page): Promise<void> {
     },
   ]
 
+  const requestedMembers = new Set<number>()
+
+  // Anna is member 1 — herself. Dieter (2) is already a contact, and Nora (3)
+  // is the row the smoke path sends a request from.
+  const connectionOn = (memberId: number) => {
+    if (memberId === 1) {
+      return { status: 'self', id: null }
+    }
+
+    const connected = connections.some((connection) => connection.member_id === memberId)
+
+    if (connected) {
+      return { status: 'connected', id: 7 }
+    }
+
+    return requestedMembers.has(memberId) ? { status: 'requested', id: 11 } : { status: 'none', id: null }
+  }
+
   const connectionOverview = () => ({
     enabled: true,
     code_valid_minutes: 15,
@@ -344,10 +362,20 @@ export async function stubApi(page: Page): Promise<void> {
     }
 
     if (path === '/connections' && method === 'POST') {
-      const body = route.request().postDataJSON() as { code?: string; reference?: string }
+      const body = route.request().postDataJSON() as {
+        code?: string
+        reference?: string
+        member_id?: number
+      }
 
       if (body.code === 'code-fuer-anna') {
         return json(route, { ...connectionOverview(), status: 'connected', name: 'Emil Beispiel' }, 201)
+      }
+
+      if (body.member_id !== undefined) {
+        requestedMembers.add(body.member_id)
+
+        return json(route, { ...connectionOverview(), status: 'requested', name: 'Nora Ohnesatz' }, 201)
       }
 
       return json(route, { ...connectionOverview(), status: 'requested', name: 'Emil Beispiel' }, 201)
@@ -397,9 +425,17 @@ export async function stubApi(page: Page): Promise<void> {
 
     if (path === '/members') {
       const q = (url.searchParams.get('q') ?? '').toLowerCase()
-      const items = MEMBERS.filter((member) => member.display_name.toLowerCase().includes(q))
+      const items = MEMBERS.filter((member) => member.display_name.toLowerCase().includes(q)).map(
+        (member) => ({ ...member, connection: connectionOn(member.id) }),
+      )
 
-      return json(route, { items, total: items.length, page: 1, per_page: 25 })
+      return json(route, {
+        items,
+        total: items.length,
+        page: 1,
+        per_page: 25,
+        connections_enabled: true,
+      })
     }
 
     if (path === '/individuals/X2') {

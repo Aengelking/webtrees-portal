@@ -2437,6 +2437,15 @@ components:
           description: |
             `null` when the member has no linked record, or when the caller
             may not see it.
+        connection:
+          allOf:
+            - $ref: '#/components/schemas/ConnectionState'
+          description: |
+            Carried on every row of the directory, so a request can be sent
+            from the list without opening the person first. Cheap enough to
+            be here — it is one row of one table, unlike contact details,
+            which walk the tree and are deliberately absent from the list.
+            Optional: the module and the portal deploy separately.
 
     MemberDetail:
       allOf:
@@ -2462,21 +2471,6 @@ components:
               description: |
                 Whether the message form is worth showing. The endpoint checks
                 again; this only saves the member from a button that refuses.
-            connection:
-              type: object
-              additionalProperties: false
-              required: [status, id]
-              description: |
-                Where the reader and this member stand, so the page can offer
-                the one button that means something. Optional: the module and
-                the portal deploy separately and can be a version apart.
-              properties:
-                status:
-                  type: string
-                  enum: [none, requested, incoming, connected, self]
-                id:
-                  type: [integer, 'null']
-                  description: The connection's id, for accepting or ending it.
             connections_enabled:
               type: boolean
               description: False when the family has switched connections off.
@@ -2523,6 +2517,21 @@ components:
         since:
           type: string
           format: date-time
+
+    ConnectionState:
+      type: object
+      additionalProperties: false
+      required: [status, id]
+      description: |
+        Where the reader and one other member stand, so a screen can offer the
+        one button that means something. `self` is the reader's own row.
+      properties:
+        status:
+          type: string
+          enum: [none, requested, incoming, connected, self]
+        id:
+          type: [integer, 'null']
+          description: The connection's id, for accepting or ending it.
 
     ConnectionOverview:
       type: object
@@ -2598,6 +2607,12 @@ components:
           type: integer
         per_page:
           type: integer
+        connections_enabled:
+          type: boolean
+          description: |
+            False when the family has switched connections off, in which case
+            the list offers nothing rather than a button the endpoint would
+            refuse. Optional: the module and the portal deploy separately.
 
 security:
   - sessionCookie: []

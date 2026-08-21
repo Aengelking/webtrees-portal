@@ -296,7 +296,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(IndividualRead::class, new IndividualRead($portal_trees, $presenter));
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
         $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
-        $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members));
+        $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections));
         $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));

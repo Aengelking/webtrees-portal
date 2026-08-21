@@ -373,8 +373,20 @@ there:
   `RESN confidential`, or one on a record they may not see, is not there to be
   found.
 
-A member of the directory can also be asked straight from their page, which is
-the same request with nothing to mistype.
+**Or straight from the member list.** Every row of *Mitglieder* carries a
+**Verbinden** button, and the same request goes off without opening the person
+first — the detour bought nothing, because everything needed to decide is on
+the row already. A row for somebody who asked *you* offers **Annehmen**
+instead; one for somebody already asked, or already a contact, says
+*Angefragt* or *Verbunden* rather than offering a button that would do
+nothing. Each button is named for its row ("Verbinden mit Dieter Beispiel"),
+because twenty-five buttons all called *Verbinden* are a list nobody can
+navigate by name. The same offer sits on the member's own page.
+
+This is only affordable because the state is one row of one table: it is read
+once for the whole page, not once per row. Contact details are still not in
+the list, and for the opposite reason — deciding "close family" walks the
+tree.
 
 **What a connection is worth.** Three things, and nothing else:
 
@@ -1225,10 +1237,15 @@ contacts* audience and lets an unlisted member be opened and written to,
 while a third member is told nothing; and switching the feature off silences
 all of that while leaving the lists.
 
+Every row of the directory says where the two members stand, one's own row
+says `self`, and the whole page costs one query.
+
 On the client, no code is issued until the member asks for one, the QR code
 holds the link the *server* issued, ending a connection asks first while
-answering a request does not, and the waiting-request count sits on
-*Mitglieder* rather than on a fifth destination. The QR code itself is
+answering a request does not, a request goes off from a directory row without
+opening the person, each row's button is named for the person it belongs to,
+and the waiting-request count sits on *Mitglieder* rather than on a fifth
+destination. The QR code itself is
 rendered to pixels in the test and read back by an independent decoder, which
 is the only assertion that means a camera would read it.
 

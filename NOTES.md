@@ -1490,6 +1490,18 @@ would eventually be read.
 
 **Two smaller decisions that are easy to get wrong later.**
 
+*The request is sent from the directory row, not only from the person's page.*
+The row already carries everything needed to decide — a name, a record, a
+lifespan — so the detour through a second screen bought nothing. It is
+affordable because where two members stand is one row of one table, read once
+for the whole page; contact details stay out of the list for the opposite
+reason, since deciding "close family" walks the tree per member (§2.26). Only
+two of the five states are a button: *Angefragt* and *Verbunden* are facts,
+and a control that does nothing is worse on a row than a word that says why.
+Each button is named for its row, because twenty-five buttons called
+"Verbinden" are a list nobody can navigate by name — and the visible word
+starts that name, so speaking it still works.
+
 *The badge went on Mitglieder, not on a fifth destination.* §2.16 caps the bar
 at four, and the cap held: a waiting request is counted on the entry that
 already leads to people, and the contacts screen is a link at the top of it.
