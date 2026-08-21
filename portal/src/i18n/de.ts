@@ -2,6 +2,7 @@ export const de = {
   app: {
     name: 'Familienportal',
     skipToContent: 'Zum Inhalt springen',
+    offline: 'Keine Internetverbindung. Es können gerade keine neuen Inhalte geladen werden.',
   },
   nav: {
     profile: 'Mein Profil',
