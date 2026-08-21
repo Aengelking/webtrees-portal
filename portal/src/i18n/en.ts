@@ -269,7 +269,7 @@ export const en: Translations = {
       'The SB number is shown in the portal under the person’s name, for example “10/1335.21”. They receive a request and decide for themselves.',
     referenceGroup: 'SB number',
     branchLabel: 'Branch',
-    branchNone: '—',
+    branchPlaceholder: '—',
     referenceLabel: 'Number',
     referenceHint: 'The part after the slash. A full stop or a comma makes no difference.',
     referencePlaceholder: '1335.21',

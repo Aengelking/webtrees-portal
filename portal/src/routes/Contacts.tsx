@@ -249,6 +249,9 @@ function MyCode({ minutes }: { minutes: number }) {
  * A number is picked here and not typed, because "/" on a telephone keyboard
  * is two taps into a second layout — for a punctuation mark whose only job is
  * to separate two numbers the form already keeps apart.
+ *
+ * There is no "no branch" among them. Every number in this family has one;
+ * the dash at the top of the wheel means "not chosen yet" and cannot be sent.
  */
 const BRANCHES = Array.from({ length: 34 }, (_, index) => String(index + 1))
 
@@ -257,7 +260,8 @@ const BRANCHES = Array.from({ length: 34 }, (_, index) => String(index + 1))
  *
  * A number already carrying a slash is passed through untouched: somebody who
  * typed the whole thing into the second field meant it, and prefixing a
- * branch onto it would produce something nobody has.
+ * branch onto it would produce something nobody has. That is also the escape
+ * hatch if the family ever grows a thirty-fifth branch — see `BRANCHES`.
  */
 export function composeReference(branch: string, number: string): string {
   const typed = number.trim()
@@ -267,6 +271,24 @@ export function composeReference(branch: string, number: string): string {
   }
 
   return `${branch}/${typed}`
+}
+
+/**
+ * Whether the two fields amount to a number worth sending.
+ *
+ * **Every number in this family has a branch.** So a number with neither a
+ * chosen branch nor a slash of its own is not a number anybody carries, and
+ * the button stays out of reach rather than sending it and reporting that
+ * nobody was found — which would be true, and useless.
+ */
+export function isCompleteReference(branch: string, number: string): boolean {
+  const typed = number.trim()
+
+  if (typed === '') {
+    return false
+  }
+
+  return branch !== '' || typed.includes('/')
 }
 
 /**
@@ -307,7 +329,7 @@ function ReferenceInput({
           onChange={(event) => onBranch(event.target.value)}
           className="min-h-[48px] rounded-lg border border-slate-400 bg-white px-3 py-3 text-base text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
-          <option value="">{t('contacts.branchNone')}</option>
+          <option value="">{t('contacts.branchPlaceholder')}</option>
           {BRANCHES.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -386,7 +408,7 @@ function ByReference() {
           onNumber={setNumber}
         />
 
-        <Button type="submit" disabled={connect.isPending || reference === ''}>
+        <Button type="submit" disabled={connect.isPending || !isCompleteReference(branch, number)}>
           {connect.isPending ? t('contacts.asking') : t('contacts.ask')}
         </Button>
       </form>

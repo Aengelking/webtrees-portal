@@ -269,7 +269,7 @@ export const de = {
       'Die SB-Nummer steht im Portal unter dem Namen der Person, zum Beispiel „10/1335.21“. Die andere Person bekommt eine Anfrage und entscheidet selbst.',
     referenceGroup: 'SB-Nummer',
     branchLabel: 'Zweig',
-    branchNone: '—',
+    branchPlaceholder: '—',
     referenceLabel: 'Nummer',
     referenceHint: 'Der Teil nach dem Schrägstrich. Punkt oder Komma ist einerlei.',
     referencePlaceholder: '1335.21',

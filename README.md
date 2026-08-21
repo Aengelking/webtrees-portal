@@ -377,9 +377,11 @@ number within it, and "/" on a telephone keyboard is two taps into a second
 layout for a mark whose only job is to separate two numbers the form already
 keeps apart. So the form is laid out the way the number is written — a wheel
 of the thirty-four branches, a printed slash, a field for the rest — and what
-is on screen reads as the number itself. A number typed whole into the field,
-slash and all, is passed through as typed; picking no branch (`—`) sends what
-was typed, which is what a bare number needs.
+is on screen reads as the number itself. **Every number in this family has a
+branch**, so there is no "no branch" on the wheel: the dash at the top means
+"not chosen yet" and cannot be sent. A number typed whole into the field,
+slash and all, is passed through as typed, which is the way in if the family
+ever grows a thirty-fifth branch.
 
 Everything else about the number is read generously, because it is read off
 letterheads and out of Christmas cards:
