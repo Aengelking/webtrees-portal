@@ -264,11 +264,11 @@ export const en: Translations = {
     codeHidden: 'That code no longer works. You can make a new one whenever you like.',
     codeValid: 'Works for about another {{count}} minutes. After that you need a new code.',
     codeAlt: 'QR code that lets somebody connect with you',
-    byReference: 'Connect using a reference number',
+    byReference: 'Connect using an SB number',
     referenceBody:
-      'The reference number is shown in the portal under the person’s name, for example “SB 4711”. They receive a request and decide for themselves.',
-    referenceLabel: 'Reference number',
-    referenceHint: 'With or without the prefix — “SB 4711” and “4711” are the same.',
+      'The SB number is shown in the portal under the person’s name, for example “SB 4711”. They receive a request and decide for themselves.',
+    referenceLabel: 'SB number',
+    referenceHint: 'With or without the “SB” — “SB 4711” and “4711” are the same.',
     ask: 'Send request',
     askThis: 'Connect',
     asking: 'One moment …',
@@ -297,7 +297,7 @@ export const en: Translations = {
     },
     none: {
       title: 'No contacts yet',
-      body: 'Connect at the next family gathering using the code above — or with a reference number, if somebody has given you theirs.',
+      body: 'Connect at the next family gathering using the code above — or with an SB number, if somebody has given you theirs.',
     },
     off: {
       title: 'Connections are switched off',
@@ -361,7 +361,7 @@ export const en: Translations = {
   settings: {
     contacts: 'My contacts',
     contactsBody:
-      'Connect with individual members — with a QR code at a family gathering, or using a reference number. Your contacts are an audience of their own, and you can share contact details with them.',
+      'Connect with individual members — with a QR code at a family gathering, or using an SB number. Your contacts are an audience of their own, and you can share contact details with them.',
     contactsAction: 'Manage contacts',
     title: 'Settings',
     contact: 'My contact details',
@@ -394,7 +394,7 @@ export const en: Translations = {
     siblings: 'Brothers and sisters',
     spouses: 'Partners',
     children: 'Children',
-    reference: 'Reference number in the family archive',
+    reference: 'SB number in the family archive',
     relationship: 'To you: {{relationship}}',
     showAncestors: 'Show ancestors',
     editInWebtrees: 'Open and edit in webtrees',

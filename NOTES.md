@@ -1734,13 +1734,24 @@ until it expires. So it is short-lived (a quarter of an hour by default),
 stored only as a hash, replaced by asking for another, and withdrawable
 outright — the same treatment §2.22 gives an invitation, for the same reason.
 
-*A reference number only asks.* It reaches only members listed in the
+*An SB number only asks.* It reaches only members listed in the
 directory, and only numbers on a record the asking member may already see. Both
 limits fall out of rules that already exist rather than being new policy:
 listing oneself is what makes a member findable (§2.7), and a `RESN` under a
 `REFN` hides it (§2.5, §2.19). Together they are why an honest "no member
 carries that number" is safe to say — a member who mistyped is told what to do
 instead of waiting forever for an answer that was never coming.
+
+**The prefix is matched loosely, and only in the direction that is safe.**
+The first version compared "SB 4711" against `REFN 4711` + `TYPE SB` and
+nothing else, which is right for the fixture and wrong for the tree: GEDCOM
+does not require a `TYPE`, the module that renders the badge in webtrees
+supplies the "SB" itself, and so most records carry the bare number. A member
+reading "SB 4711" off a letterhead was told nobody carries it, while "4711"
+found them — a rule that punishes people for knowing what their own family
+calls the thing. A typed prefix may now fall away, but only where the record
+carries no type to disagree with; `TYPE Intern` is a different numbering and
+keeps its own numbers to itself.
 
 **The QR code holds a link, not a token to interpret.** That decision removed
 the whole scanning half of the feature: every telephone's camera app reads a

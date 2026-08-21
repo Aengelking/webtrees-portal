@@ -88,7 +88,7 @@ relationship distance and a quota the administrator sets — see *Letting member
 invite their own family* below for what that does and does not allow.
 
 Members can also connect with each other and keep a contact list: a QR code
-held up at a family gathering, or the reference number under somebody's name
+held up at a family gathering, or the SB number under somebody's name
 plus their confirmation. See *Connecting members with each other* below.
 
 When something breaks for a member, somebody finds out: the failure is
@@ -367,11 +367,16 @@ Three things about the code:
   machen* stops the current one at once. Neither touches connections already
   made.
 
-*The reference number, for everybody else.* "Meine Nummer ist SB 4711" is a
-thing that can be said over the telephone or written in a Christmas card. The
-member types it in, and the other member gets a request and answers it — this
-one never connects anybody by itself. Typing it with or without the type
-("SB 4711", "sb4711", "4711") makes no difference.
+*The SB number, for everybody else.* "Meine Nummer ist SB 4711" is a thing
+that can be said over the telephone or written in a Christmas card. The member
+types it in, and the other member gets a request and answers it — this one
+never connects anybody by itself. Typing it with or without the prefix
+("SB 4711", "sb4711", "4711") makes no difference, and the prefix is accepted
+even where the GEDCOM record carries no `TYPE` of its own — which is the usual
+case, since nothing requires one and the family's numbering is called SB
+either way. What is not accepted is a prefix the record *contradicts*: a
+number filed as `TYPE Intern` is a different numbering and "SB 9999" will not
+find it.
 
 Two limits on the number search, and both follow from rules that were already
 there:
@@ -1344,11 +1349,12 @@ address rather than the bare record one.
 connects both members at once and appears on both lists; the raw code is in no
 column of `portal_connection_code`; asking for a new code, withdrawing one and
 letting one expire each stop it working, and all three are refused
-identically; scanning the same code twice is not an error; a reference number
+identically; scanning the same code twice is not an error; an SB number
 *asks* rather than connects, and a request that crosses one coming the other
-way is treated as the answer to it; a member who stayed out of the directory
-cannot be found by number, and a `RESN`-hidden number cannot be searched at
-all; only the member a request was made to can accept it, and a refusal
+way is treated as the answer to it; the family's "SB" prefix finds a record
+stored without a `TYPE` of its own while a prefix the record contradicts finds
+nobody; a member who stayed out of the directory cannot be found by number,
+and a `RESN`-hidden number cannot be searched at all; only the member a request was made to can accept it, and a refusal
 deletes the row rather than recording it; a connection unlocks the *my
 contacts* audience and lets an unlisted member be opened and written to,
 while a third member is told nothing; and switching the feature off silences
