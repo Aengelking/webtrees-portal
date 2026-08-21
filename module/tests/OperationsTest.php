@@ -397,6 +397,7 @@ class OperationsTest extends PortalTestCase
             'errors'       => $this->errors->recent(),
             'error_count'  => $this->errors->count(),
             'path_length'  => 2,
+            'numbers'      => $diagnosis->directoryNumbers(),
             'settings_url' => '/settings',
         ]);
 

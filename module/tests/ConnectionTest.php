@@ -18,12 +18,15 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MessageCreate;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
+use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
+use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use Psr\Http\Message\ResponseInterface;
@@ -373,6 +376,69 @@ class ConnectionTest extends PortalTestCase
             StatusCodeInterface::STATUS_NOT_FOUND,
             $this->connect(['reference' => '10133521'])->getStatusCode()
         );
+    }
+
+    /**
+     * The case that made this feature look broken in an installation where
+     * it was working exactly as written.
+     *
+     * Phase 8 lets an administrator limit what a member *sees* to a few steps
+     * of the tree. Fritz is in the directory, by name, and Anna cannot see
+     * his record — and the number search skipped him, because it read his
+     * `REFN` at her access level and `GedcomRecord::facts()` hands back
+     * nothing at all for a record the reader may not see.
+     *
+     * The number is not tree data in the sense that matters here: it comes
+     * off a letterhead, and the person it belongs to is already published in
+     * the directory under their name. So the search reaches the same people
+     * the directory does.
+     */
+    public function testAListedMemberIsFoundEvenWhereTheirRecordIsHidden(): void
+    {
+        $this->list($this->fritz_id);
+
+        // What an administrator does on the Diagnosis screen, for everybody.
+        $this->tree->setUserPreference($this->anna, UserInterface::PREF_TREE_PATH_LENGTH, '1');
+
+        self::assertNull(
+            $this->trees()->linkedIndividual($this->tree, $this->fritz)?->canShow(Auth::PRIV_PRIVATE) ?: null,
+            'The fixture must actually hide Fritz from Anna, or this proves nothing.'
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '4716'])->getStatusCode());
+    }
+
+    private function trees(): PortalTreeService
+    {
+        return Registry::container()->get(PortalTreeService::class);
+    }
+
+    /**
+     * The three reasons a number finds nobody, told apart on one screen.
+     *
+     * An administrator looking at "it does not work" has no way to see which
+     * of them applies, because all three look the same from the form.
+     */
+    public function testTheDiagnosisScreenSaysWhoCanBeFoundByNumber(): void
+    {
+        $listed_without_record = $this->createUser('nora', 'Nora Ohnesatz', 'sechstes-pferd', UserInterface::ROLE_MEMBER);
+        $this->createProfile($listed_without_record, true);
+
+        $rows = [];
+
+        foreach (Registry::container()->get(Diagnosis::class)->directoryNumbers() as $row) {
+            $rows[$row['name']] = $row;
+        }
+
+        // Listed, with a record, with a number: findable.
+        self::assertSame(['SB 4714', 'SB 10/1335.21'], $rows['Dieter Beispiel']['numbers']);
+
+        // Listed, but the account is linked to nobody: no number to find.
+        self::assertSame([], $rows['Nora Ohnesatz']['numbers']);
+        self::assertNull($rows['Nora Ohnesatz']['xref']);
+
+        // Not in the directory at all, so not in the table either.
+        self::assertArrayNotHasKey('Fritz Beispiel', $rows);
     }
 
     /** Put somebody into the directory who was deliberately left out of it. */

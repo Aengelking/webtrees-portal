@@ -1742,6 +1742,27 @@ listing oneself is what makes a member findable (§2.7), and a `RESN` under a
 carries that number" is safe to say — a member who mistyped is told what to do
 instead of waiting forever for an answer that was never coming.
 
+**The number search reads past the tree's own privacy, and that is the fix
+that made it work at all.** `GedcomRecord::facts()` returns nothing — not a
+filtered list, nothing — for a record the reader may not see, so reading a
+`REFN` at the member's own access level meant the search silently skipped
+every member outside their view of the tree. In an installation with a
+relationship limit (§2.25) that is nearly everybody: the directory listed a
+cousin by name, and the number on that cousin's letterhead found nobody.
+
+So the facts are read at `PRIV_HIDE` and each number is then filtered on its
+own `Fact::canShow()`, which — unlike `facts()` — checks the `RESN` on the
+fact rather than the privacy of the record around it. That keeps the half that
+belongs here (a number marked confidential stays unsearchable) and drops the
+half that never did: the search now reaches exactly the people the directory
+already publishes by name. The number came off a letterhead, not out of the
+tree.
+
+The three ways this can still find nobody — no account, not listed, no `REFN`
+— are indistinguishable from the form and now have a table of their own on the
+Diagnosis screen. An administrator asked "why does it not work?" cannot answer
+it from the portal, and guessing at it twice is what prompted the table.
+
 **The prefix is matched loosely, and only in the direction that is safe.**
 The first version compared "SB 4711" against `REFN 4711` + `TYPE SB` and
 nothing else, which is right for the fixture and wrong for the tree: GEDCOM

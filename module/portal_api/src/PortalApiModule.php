@@ -744,6 +744,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'errors'       => $errors->recent(),
             'error_count'  => $errors->count(),
             'path_length'  => $this->memberPathLength(),
+            'numbers'      => $diagnosis->directoryNumbers(),
             'settings_url' => $this->getConfigLink(),
         ]);
     }
