@@ -2413,8 +2413,21 @@ components:
               type: string
               format: uri
               description: |
-                Absolute URL of this record in webtrees. The portal links out
-                here for charts, which it does not implement.
+                Absolute URL on the webtrees host that lands the reader on this
+                record — signing them in first if they are not signed in there.
+
+                Not the record's own address. The portal and webtrees are
+                separate origins and the session cookie is first-party to the
+                portal, so a member following a link out is always a signed-out
+                visitor on the other side. Sent straight to the record they get
+                a login page that loses the destination, or none at all and a
+                "does not exist" for a private record; sent to the login page
+                they get thrown to their own user page if they happen to be
+                signed in already. This URL is a redirect served by the module
+                that asks the question at the moment it can be answered.
+
+                Treat it as opaque. It grants nothing — webtrees enforces its
+                own privacy on arrival.
 
     MemberSummary:
       type: object

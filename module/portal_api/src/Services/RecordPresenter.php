@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Services;
 
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualLink;
 use Fisharebest\Webtrees\Date;
 use Fisharebest\Webtrees\Fact;
 use Fisharebest\Webtrees\Gedcom;
@@ -12,6 +13,7 @@ use Fisharebest\Webtrees\Individual;
 use Illuminate\Support\Collection;
 
 use function array_values;
+use function route;
 use function html_entity_decode;
 use function in_array;
 use function preg_replace;
@@ -154,8 +156,26 @@ class RecordPresenter
             'spouses'          => $this->spouses($individual, $access_level),
             'children'         => $this->children($individual, $access_level),
             'pending_change'   => $own_record && $this->pending_changes->existsFor($individual),
-            'webtrees_url'     => $individual->url(),
+            'webtrees_url'     => $this->webtreesUrl($individual),
         ];
+    }
+
+    /**
+     * Where the portal sends a reader who wants this record in webtrees.
+     *
+     * **Not `$individual->url()`.** That is the record's own address, and it
+     * only works for somebody who already has a webtrees session — which a
+     * portal member never does, because the portal's session cookie belongs
+     * to the portal's origin and nothing carries it across. Landing there
+     * signed out means a login page that loses the destination, or no login
+     * page at all and a "does not exist" for a private record.
+     *
+     * `IndividualLink` decides at the moment of the click, and that class
+     * explains why neither of the two obvious links can.
+     */
+    private function webtreesUrl(Individual $individual): string
+    {
+        return route(IndividualLink::class, ['xref' => $individual->xref()]);
     }
 
     /**

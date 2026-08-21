@@ -2,6 +2,7 @@ export const de = {
   app: {
     name: 'Familienportal',
     skipToContent: 'Zum Inhalt springen',
+    offline: 'Keine Internetverbindung. Es können gerade keine neuen Inhalte geladen werden.',
   },
   nav: {
     profile: 'Mein Profil',
@@ -346,6 +347,13 @@ export const de = {
       title: 'Keine Daten sichtbar',
       body: 'Zu diesem Mitglied sind für Sie keine Daten aus dem Stammbaum freigegeben.',
     },
+  },
+  install: {
+    title: 'Portal installieren',
+    body:
+      'Sie können das Familienportal wie eine App auf den Startbildschirm legen. Es öffnet sich dann mit einem Tippen, ohne Adresszeile und ohne Suchen im Browser.',
+    action: 'Auf den Startbildschirm legen',
+    apple: 'Tippen Sie unten auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“.',
   },
   settings: {
     contacts: 'Meine Kontakte',

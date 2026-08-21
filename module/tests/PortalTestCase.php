@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Tests;
 
 use Aura\Router\Route;
+use Aura\Router\RouterContainer;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Fig\Http\Message\RequestMethodInterface;
@@ -27,6 +28,7 @@ use Middleland\Dispatcher;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use ReflectionProperty;
 
 use function json_decode;
 use function json_encode;
@@ -52,6 +54,8 @@ abstract class PortalTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->correctTheRouterBasePath();
 
         $this->tree = $this->importPortalTree();
 
@@ -146,6 +150,35 @@ abstract class PortalTestCase extends TestCase
     // -----------------------------------------------------------------
     // Dispatching
     // -----------------------------------------------------------------
+
+    /**
+     * Make `route()` in the harness produce what it produces in production.
+     *
+     * webtrees' own `TestCase` builds its router with a base path of `'/'`.
+     * Production builds it with `parse_url($base_url, PHP_URL_PATH)`, which is
+     * `null` for an installation at a domain root — and the harness's
+     * `base_url` *is* a domain root, `https://webtrees.test`.
+     *
+     * Aura prefixes that base path to every generated path, so `/login/portal`
+     * comes out as `//login/portal`. That is a protocol-relative URL:
+     * `parse_url()` reads `login` as the **host** and `/portal` as the path,
+     * and webtrees' `route()` builds its ugly URL from that path. Every
+     * generated URL in the harness silently loses its first segment.
+     *
+     * Nothing noticed until this module generated a URL and looked at it.
+     * Left in place it would make the `IndividualLink` tests prove something
+     * other than what they claim, so the base path is corrected here rather
+     * than worked around in each assertion. The generator goes with it,
+     * because Aura builds it once and then caches it.
+     */
+    private function correctTheRouterBasePath(): void
+    {
+        $router = Registry::container()->get(RouterContainer::class);
+
+        foreach (['basepath', 'generator'] as $property) {
+            (new ReflectionProperty($router, $property))->setValue($router, null);
+        }
+    }
 
     /**
      * Send a request through the module's real route, with its real middleware.

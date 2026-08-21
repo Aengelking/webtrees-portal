@@ -1425,7 +1425,273 @@ for the tree they maintain. The role comes from `/me`, where it is already
 computed per tree by `MeAssembler::role()` — `Auth::isEditor()` and friends, in
 the configured tree, not a guess from the account's global flags.
 
-### 2.30 Phase 11: a connection is a second kind of consent
+### 2.30 An installable portal whose cache stops at the shell
+
+The portal is a progressive web app: a manifest, icons, and a service worker
+in `portal/sw/` built separately to `/sw.js`. On a home screen it opens under
+its own icon with no address bar, which is most of the point — the audience is
+members who open WhatsApp by tapping a picture, not people who keep bookmarks.
+
+**The interesting decision is what the service worker refuses to do.**
+Everything else in this repository is built around never keeping personal
+data: `gcTime: 0` in React Query, `private, no-store` from the module,
+`privateCacheControl()` in the proxy refusing to let `public` past. A service
+worker is a cache that outlives the tab, the session and the sign-out, on the
+device most likely to be handed to somebody else. Adding one carelessly would
+undo all three at once.
+
+So it keeps the shell and nothing else, and requests under `/api/` are not
+merely uncached but never intercepted: `handlingFor()` returns `bypass` and no
+`respondWith` is called, which leaves the request exactly as it would have
+been with no service worker installed. Photographs are the case that makes
+this worth stating — a portrait is a same-origin GET of an image, identical to
+an asset in every respect except its path.
+
+Four details that are not obvious, each of which was a bug first:
+
+* **Pages are network-first, assets are cache-first.** Asset URLs contain a
+  content hash, so a cached one can never be wrong. `index.html` can: a
+  deployment replaces every hashed file, and a cached page naming files that
+  no longer exist is a portal that will not start. Online, the network always
+  decides what the page is.
+* **The shell is not one file.** Caching `index.html` alone produces something
+  that looks installed and opens blank on the first flight — the document is
+  there and the script it asks for is not. The worker reads the asset list out
+  of the document's own markup at install (`assetsIn()`) rather than having the
+  build write a list, because the markup is the only version of that list that
+  cannot go stale. This was found by the Playwright test, not by reasoning.
+* **A 200 can be a lie.** Both deployment targets answer an unknown path with
+  `index.html` so the router can take it. A request for a hashed file that a
+  deployment has removed therefore returns 200 with HTML in it, and storing
+  that under a `.js` URL is a portal that will not start *and* cannot repair
+  itself. `mayStoreAsset()` refuses anything claiming to be a page.
+* **`Vary: Origin` all but disables the cache, and only offline.** Vite marks
+  its script and stylesheet `crossorigin`, so the browser fetches them as CORS
+  requests with an `Origin` header. A static server that answers those with
+  `Vary: Origin` — `vite preview` does — makes each stored entry match only a
+  request carrying the same `Origin`, and the worker's own `cache.add` carries
+  none. Everything precached correctly, nothing was ever found again, and the
+  symptom was a page with a title and no body. Every lookup therefore passes
+  `ignoreVary`, which is not a shortcut: these URLs contain a content hash, so
+  the URL is the identity of the file and there is no other variant to confuse
+  it with.
+
+**The cache is named after the build**, so a deployment gets a fresh one and
+activation deletes its predecessor. There is no record of which hashed files
+are still referenced, so the only honest way to keep old ones from
+accumulating forever is to start again each time.
+
+**`skipWaiting()` and `clients.claim()` are safe here** in a way they usually
+are not: nothing cached is version-specific except by URL, and pages come from
+the network anyway. The reason to want them is the bad day — a worker deployed
+to fix or to remove a broken one should take effect when the portal is next
+opened, not when the member happens to close every window.
+
+**The browser-side test asserts the shell, not the bar.** The first version of
+the offline test also expected "Keine Internetverbindung" on screen, passed
+here fifteen times running, and failed twice on CI — because whether
+`navigator.onLine` follows a browser's offline emulation is the browser's
+business and differs between Chromium builds. That assertion was testing
+Playwright. What the bar does with what the browser reports is settled three
+times over in `src/Pwa.test.tsx`, where no browser is in the way; what only a
+real browser can show is that the portal boots at all with the network off,
+and that is what the spec now asserts — polled and read as one object, because
+a locator that goes unfound on a CI runner explains nothing and there is no
+browser there to open and look at.
+
+**The offline bar is not the service worker's doing.** `navigator.onLine` says
+whether there is a network, not whether anything is reachable across it, so it
+never suppresses a request and never decides what is fetched; `network_error`
+from the API client remains the truth. All it does is answer the question the
+installed app cannot otherwise answer: with no browser chrome, a portal that
+has stopped working looks broken rather than offline.
+
+**The offer to install is in Settings, not in a banner.** It is the second
+thing that could reasonably want a bar across the top of every screen, and the
+first — *no connection* — is one a member has to actually read. A portal that
+teaches people to dismiss whatever appears up there has spent something it
+needs. Settings is one of four destinations, one tap from anywhere, and the
+offer sits at the very top of it: it is shown a handful of times and then
+never again, so it can have that spot for as long as it lasts. It also means
+no new state — no "dismissed" flag, and so nothing else in browser storage
+beside the language preference.
+
+Three states rather than two, because a browser can be in three positions.
+Chrome hands over a prompt, which is saved (and its own install bar
+suppressed, so the offer appears next to the sentence explaining it). iOS has
+no prompt to hand over — Safari has never implemented `beforeinstallprompt`
+and every browser on iOS is Safari underneath — so the Share sheet is
+described instead. Everything else shows nothing: a button that cannot work,
+or an explanation of an impossible action, is worse than silence. "Already
+installed" is a fourth answer assembled from `display-mode: standalone` and
+iOS's older `navigator.standalone`, since there is no API that answers the
+question directly.
+
+**The manifest is German only.** The portal has a language switch, a manifest
+does not — the name under the icon is fixed when the app is installed. German
+is what `index.html` and the default language already say.
+
+---
+
+### 2.30 Getting from the portal into webtrees, in both directions of the door
+
+The link out was landing people in the wrong place, and it turned out neither
+of the two obvious links can get this right on its own.
+
+**The reason it is hard at all:** the portal and webtrees are separate origins.
+The session cookie is first-party to the portal — that is the whole point of
+the proxy (§2.1) — so a member following a link out arrives at webtrees as a
+**signed-out visitor**, always. Meanwhile an editor reading in two tabs may
+well be signed in there. Both have to land on the person they clicked.
+
+**Linking at the record** — `$individual->url()`, which is what the module sent
+until now — works only for somebody who already has a webtrees session. Without
+one, what happens depends on the tree's settings. On a tree that requires
+authentication, webtrees redirects to its login page carrying the address as
+`url`; but that address then has to survive `Validator::isLocalUrl()`, which
+compares scheme, host, port and path prefix against `base_url` and *silently*
+falls back to the front page when any of them differ — which is what a proxy
+or a mistyped `base_url` will do. On a tree that does not require
+authentication there is no login prompt at all: a private record is simply
+reported as not existing.
+
+**Linking at the login page** with `url` set fixes the signed-out case and
+breaks the other one. `LoginPage` answers an authenticated request with
+`redirect(route(UserPage::class))` and discards `url` entirely, so a reader who
+is already signed in is thrown to a page they did not ask for.
+
+So there is no static link that is right in both states — which is why
+`IndividualLink` exists: `GET /portal/individual/{xref}`, a browser-facing
+redirect that asks the question at the moment it can be answered. Signed in,
+straight to the record; signed out, to the login page carrying the record as
+`url`, which `LoginAction` does honour.
+
+Two properties keep it safe. It takes **an XREF and never a URL**, so there is
+nothing to point at another site whatever the query string says. And it builds
+the destination with `route()`, from the same `base_url` that `isLocalUrl()`
+validates against, so the address it hands to the login page cannot fail that
+check by construction. It grants nothing: the record page enforces its own
+privacy on arrival, exactly as it does for an address typed by hand, so an
+XREF the reader may not see still redirects and webtrees still refuses.
+
+**It is the module's only browser-facing route**, and it carries none of the
+API middleware — no proxy secret (a browser has none), no JSON envelope, no
+authentication requirement, since being signed out is the case it exists to
+handle. It is registered in the route map rather than as a module action,
+which keeps §2.5's invariant intact: every `get…Action` on the module still
+has "Admin" in its name, because that spelling is the access control.
+
+#### The bug it shipped with, and why every test missed it
+
+`IndividualLink` resolved the tree through `PortalTreeService::tree()`, and
+that method resolves it through `TreeService::all()` — **which is filtered by
+the current user**. On a tree with `REQUIRE_AUTHENTICATION`, which is what a
+family portal's tree almost always has, the collection is empty for a visitor.
+So `get()` returned null, `tree()` reported the configured tree as missing, and
+the handler took its "nothing configured" fallback to the home page. webtrees
+then sent the visitor from the home page to the login page **with no
+destination** — `HomePage` ends with `redirect(route(LoginPage::class, ['url' => '']))`
+when no tree is visible — and signing in landed them on their own user page.
+
+The reported symptom named its own cause once it was written down:
+`?route=/login&url=` has no tree segment and an empty `url`, and nothing in
+this module can produce that. Reading it as *"then this redirect is not mine"*
+is what found it.
+
+`tree()` is right to be filtered: every API route is authenticated, and a
+caller with no access to the tree has no business getting data out of it. It
+is simply the wrong question here. `configuredTreeName()` asks the
+configuration question instead and returns a name — and **a name is not
+access**: it goes into a URL that webtrees enforces on arrival, exactly as it
+would for an address typed by hand.
+
+Two lessons worth more than the fix. The first authenticated-only assumption
+in a module breaks the moment one route runs for a visitor, and this was that
+route. And every test here passed with the bug present, because the fixture
+tree is public — so `all()` returned it to a visitor too. `Auth::logout()` was
+not enough to reproduce being signed out; the *tree setting* was the test.
+Both new tests fail against the old handler.
+
+**Proven end to end, not hop by hop.** `LinkTest::testTheWholeWayFromTheLinkToTheRecord`
+walks the whole thing through webtrees' real router and real middleware: click,
+login page, sign in, arrive. The single-hop tests all passed while the chain
+was still an open question, and three things only the whole walk can check —
+that the router matches the route from an ugly URL, that webtrees' login form
+carries the destination in its hidden field, and that `LoginAction` redirects
+to it — are exactly where this kind of thing breaks.
+
+Two harness details cost an hour of wrong diagnosis and are written into that
+test: `doLogin()` refuses outright when `$_COOKIE` is empty, and `CheckCsrf`
+runs after routing for *every* POST, so the form's token has to be posted back.
+Both produce "the username or password is incorrect", which is a misleading
+thing to read while hunting a redirect bug.
+
+A third one is worth recording on its own: **webtrees' own login throws for an
+account with no language preference.** `doLogin()` ends with
+`I18N::init(Auth::user()->getPreference(PREF_LANGUAGE))`, `Locale::create('')`
+throws a `DomainException`, and `LoginAction` catches `Exception` — so the
+sign-in is reported as a failed one. Same trap as §2.26, in webtrees' own front
+door, and not something this module can fix from outside.
+
+**What this does not fix:** the second sign-in itself. A member who follows the
+link still types their password on the webtrees side, because there is no
+shared session across the two origins and building one would mean either
+proxying all of webtrees through the portal or handing out tokens. Neither is
+worth it for a link most members follow rarely. What is fixed is that the sign
+-in now ends where they were going.
+
+---
+
+### 2.31 The icon is the charge, not the achievement
+
+§2.30 made the portal installable and gave it a mark to be installed *as*: a
+pedigree drawn in the navigation bar's line style, two people above three,
+joined. It was the right placeholder — legible at 48px, consistent with the
+rest of the interface — and it said "a genealogy app" rather than "this
+family". Any of a hundred portals could have worn it.
+
+The family's arms say the second thing, but they cannot be used as they are.
+They are a full achievement: the shield, the helm above it, the mantling
+either side, the crest dove standing on the helm, and a banner carrying the
+foundation's name. That drawing is made for a letterhead. Nothing in it
+survives being redrawn at 48px, and the banner least of all — at that size
+lettering is a grey smear.
+
+So the icon keeps the **charge** and drops the rest: the dove displayed,
+argent on azure, on a shield with a silver border. It is the element a member
+already associates with the family, it appears twice in the arms — on the
+shield and again on the helm — and it is a silhouette, which is the only kind
+of drawing that survives being made small. Calling the result "the coat of
+arms" would be too strong. It is the arms' subject, redrawn to be legible.
+
+**What did not change.** The file names, the manifest, the `<link>` tags, the
+service worker's precache and the tests that hold them together are all
+§2.30's and are untouched. This is an artwork swap inside a structure that
+already worked, which is why the diff is two SVGs, five PNGs and a line on the
+login screen.
+
+**One drawing, two files, five renders.** `icons/icon.svg` and
+`icons/icon-maskable.svg` differ only in their background and one transform —
+the dove is drawn once, in a 64-unit square, and placed by a `transform` in
+each. The PNGs are rendered from them by `tools/build-icons.mjs` and
+committed, because Safari reads none of the manifest's icons and will not take
+an SVG for the home screen. The generator needs `@resvg/resvg-js`, which is
+deliberately *not* a dependency of the portal: it is installed with
+`--no-save` on the rare day the mark changes, rather than downloaded by every
+`npm install` forever after. That script is also the file the old comment in
+`icon.svg` pointed at as `tools/icons.md`, which never existed.
+
+Parchment behind the shield rather than nothing, for two reasons: the arms are
+drawn on paper, and a launcher that puts an "any"-purpose icon on a white tile
+should not be handed a white icon. The maskable variant is the same picture
+inset until its furthest ink — the shield's top corners — sits ~190px from the
+centre, inside the 205px a circular crop leaves.
+
+The login screen shows the same file above the heading, referenced rather than
+redrawn. It is the screen reached from an emailed link, by somebody with a
+fair right to ask whose portal this is.
+
+### 2.32 Phase 11: a connection is a second kind of consent
 
 The directory answers "who is in this family". It has never answered "whom do
 I actually know", and a member scrolling two hundred names looking for the
@@ -1592,9 +1858,13 @@ Written down rather than acted on, per §2 of the handoff.
   deployed, checked at that moment, not a green tick from an earlier commit.
 * **Serving the SPA over SFTP assumes the domain root.** The API client asks
   for `/api/v1/…`, so a subdirectory install needs Vite's `base` and the
-  client's `BASE` changed together. Fine for Cloudflare Pages, which is the
-  intended path; noted because the SFTP option makes the other arrangement
-  possible.
+  client's `BASE` changed together. The service worker and the manifest now
+  assume the same thing in three more places — `/sw.js`, the shell it caches,
+  and the manifest's `start_url` and `scope` — and a service worker cannot
+  claim a scope above the path it is served from, so a subdirectory install
+  gets a portal that is not installable rather than one that is subtly wrong.
+  Fine for Cloudflare Pages, which is the intended path; noted because the
+  SFTP option makes the other arrangement possible.
 * **No structured audit log for portal reads.** webtrees logs authentication;
   nothing logs "member A viewed member B's record". Phase 11 brought
   connections, and with them the first reads that are only possible because
@@ -1637,6 +1907,16 @@ Written down rather than acted on, per §2 of the handoff.
   webtrees in production, and nothing in this repository can or should fix it.
 * The Playwright smoke path stubs the API in the browser by default, so it
   runs anywhere. `E2E_BASE_URL` points the same specs at a real deployment.
+* **`route()` inside webtrees' test harness silently loses the first segment
+  of every URL**, and did so until this module generated one and looked at it.
+  webtrees' own `TestCase` builds its router with a base path of `'/'` where
+  production uses `parse_url($base_url, PHP_URL_PATH)` — `null` for an
+  installation at a domain root, which the harness's `https://webtrees.test`
+  is. Aura prefixes that base path, so `/login/portal` comes out as
+  `//login/portal`; `parse_url()` reads that as host `login` with path
+  `/portal`, and the ugly URL is built from the path. `PortalTestCase` corrects
+  the base path (and discards Aura's cached generator with it) so that a test
+  asserting on a generated URL is asserting on the one production would make.
 * The Playwright API stub answers `POST /session` with the *same* payload as
   `GET /me`, because the real handler does and the portal keeps that answer
   rather than asking again. A stub that dropped a field the sign-in response

@@ -6,6 +6,33 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light" />
     <title>Familienportal</title>
+
+    <!--
+      Installable, so the portal can live on a home screen next to WhatsApp
+      rather than behind "the link Uncle Werner sent". Everything a browser
+      needs for that is here or in the manifest; nothing here changes how the
+      portal behaves in an ordinary tab.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Slate-100: the page's own background, so the status bar does not draw a seam across the top. -->
+    <meta name="theme-color" content="#f1f5f9" />
+
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
+
+    <!--
+      iOS reads none of the manifest's icons. It wants apple-touch-icon, it
+      wants a PNG, and it will happily fall back to a screenshot of the page
+      if it does not find one. `apple-mobile-web-app-title` is what ends up
+      under the icon; without it iOS uses <title>, which is the same word here
+      but would not stay that way.
+    -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Familienportal" />
   </head>
   <body>
     <div id="root"></div>
