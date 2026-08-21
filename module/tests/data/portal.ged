@@ -62,6 +62,8 @@
 0 @X4@ INDI
 1 REFN 4714
 2 TYPE SB
+1 REFN 10/1335.21
+2 TYPE SB
 1 NAME Dieter /Beispiel/
 2 GIVN Dieter
 2 SURN Beispiel
@@ -85,6 +87,8 @@
 1 FAMC @F2@
 0 @X6@ INDI
 1 REFN 4716
+2 TYPE SB
+1 REFN 101/335.21
 2 TYPE SB
 1 NAME Fritz /Beispiel/
 2 GIVN Fritz

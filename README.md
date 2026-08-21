@@ -367,16 +367,33 @@ Three things about the code:
   machen* stops the current one at once. Neither touches connections already
   made.
 
-*The SB number, for everybody else.* "Meine Nummer ist SB 4711" is a thing
+*The SB number, for everybody else.* "Meine Nummer ist 10/1335.21" is a thing
 that can be said over the telephone or written in a Christmas card. The member
-types it in, and the other member gets a request and answers it — this one
-never connects anybody by itself. Typing it with or without the prefix
-("SB 4711", "sb4711", "4711") makes no difference, and the prefix is accepted
-even where the GEDCOM record carries no `TYPE` of its own — which is the usual
-case, since nothing requires one and the family's numbering is called SB
-either way. What is not accepted is a prefix the record *contradicts*: a
-number filed as `TYPE Intern` is a different numbering and "SB 9999" will not
-find it.
+enters it, and the other member gets a request and answers it — this one never
+connects anybody by itself.
+
+**The branch is picked, not typed.** A number is a branch, a slash and the
+number within it, and "/" on a telephone keyboard is two taps into a second
+layout for a mark whose only job is to separate two numbers the form already
+keeps apart. So the form is a wheel of the thirty-four branches and a field
+for the rest, and it shows the number it composed — `10/1335.21` — before
+sending it. A number typed whole into the second field, slash and all, is
+passed through as typed; picking no branch sends what was typed, which is what
+a bare number needs.
+
+Everything else about the number is read generously, because it is read off
+letterheads and out of Christmas cards:
+
+* **Punctuation is ignored**, except the slash. `10 / 1335,21` is the same
+  number as `10/1335.21`.
+* **The "SB" may be there or not.** It is accepted even where the GEDCOM
+  record carries no `TYPE` of its own — the usual case, since nothing requires
+  one and the family's numbering is called SB either way. What is not accepted
+  is a prefix the record *contradicts*: a number filed as `TYPE Intern` is a
+  different numbering and "SB 9999" will not find it.
+* **The slash may be left out**, but only while that picks out one person.
+  `10/1335.21` and `101/335.21` are one string once it is gone, and the portal
+  says it found nobody rather than guessing which cousin was meant.
 
 Two limits on the number search, and both follow from rules that were already
 there:
@@ -1353,7 +1370,9 @@ identically; scanning the same code twice is not an error; an SB number
 *asks* rather than connects, and a request that crosses one coming the other
 way is treated as the answer to it; the family's "SB" prefix finds a record
 stored without a `TYPE` of its own while a prefix the record contradicts finds
-nobody; a member who stayed out of the directory cannot be found by number,
+nobody; a branch number is found however it is punctuated, the slash keeps
+`10/1335.21` and `101/335.21` apart, and leaving it out is refused where it
+would be a guess between the two; a member who stayed out of the directory cannot be found by number,
 and a `RESN`-hidden number cannot be searched at all; only the member a request was made to can accept it, and a refusal
 deletes the row rather than recording it; a connection unlocks the *my
 contacts* audience and lets an unlisted member be opened and written to,

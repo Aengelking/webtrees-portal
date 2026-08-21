@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
+import { composeReference } from './routes/Contacts'
 import type { Connection, ConnectionOverview } from './api/types'
 import './i18n'
 
@@ -196,11 +197,39 @@ describe('my contacts', () => {
     ).toBe(true)
   })
 
-  it('sends the SB number as typed, prefix and all', async () => {
+  /**
+   * The branch is picked and the number typed, and what goes to the server is
+   * the number as the family writes it — nobody had to find "/" on a
+   * telephone keyboard.
+   */
+  it('composes the branch and the number into one SB number', async () => {
     const fetchMock = stub()
     renderAt()
 
-    await userEvent.type(await screen.findByLabelText('SB-Nummer'), 'SB 4714')
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
+    await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
+
+    // Shown before it is sent, so nobody has to picture it.
+    expect(screen.getByText('10/1335.21')).toBeDefined()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) => String(url).endsWith('/connections') && init?.method === 'POST',
+      )
+
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reference: '10/1335.21' })
+    })
+
+    expect(await screen.findByText(/Emil Beispiel/)).toBeDefined()
+  })
+
+  it('sends a number without a branch as typed', async () => {
+    const fetchMock = stub()
+    renderAt()
+
+    await userEvent.type(await screen.findByLabelText('Nummer'), 'SB 4714')
     await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
 
     await waitFor(() => {
@@ -210,8 +239,13 @@ describe('my contacts', () => {
 
       expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reference: 'SB 4714' })
     })
+  })
 
-    expect(await screen.findByText(/Emil Beispiel/)).toBeDefined()
+  /** Somebody who typed the whole number meant it; no branch is glued on. */
+  it('leaves a number that already carries a slash alone', () => {
+    expect(composeReference('10', '4/99')).toBe('4/99')
+    expect(composeReference('10', ' 1335.21 ')).toBe('10/1335.21')
+    expect(composeReference('', '1335.21')).toBe('1335.21')
   })
 
   it('answers a request in one tap', async () => {

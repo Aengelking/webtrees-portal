@@ -1753,6 +1753,24 @@ calls the thing. A typed prefix may now fall away, but only where the record
 carries no type to disagree with; `TYPE Intern` is a different numbering and
 keeps its own numbers to itself.
 
+**The branch is a choice, not a keystroke.** The numbers are `10/1335.21` —
+a branch, a slash, the number within it — and the slash is the only character
+in the whole portal that a member would have to change keyboard layouts for.
+It is also the only character in the number that carries meaning: strip it
+with the rest of the punctuation, as the first version did, and `10/1335.21`
+and `101/335.21` become one string, which is two relatives wearing one number.
+So the slash survives normalisation and the form composes it: a wheel of the
+thirty-four branches, a field for the rest, and a line showing the number the
+two amount to before it is sent.
+
+Left out entirely, the number is still looked up — somebody reading one off a
+letterhead should not have to know that the portal cares — but only on a
+second pass, and only while it picks out exactly one person. Guessing between
+two cousins is worse than saying nothing was found. Thirty-four is in the
+client, which is where it will be wrong first if the family ever grows a
+thirty-fifth branch; typing the whole number into the field still works, and
+is the escape hatch until somebody changes the constant.
+
 **The QR code holds a link, not a token to interpret.** That decision removed
 the whole scanning half of the feature: every telephone's camera app reads a
 URL and offers to open it, so there is no scanner in the portal, no camera

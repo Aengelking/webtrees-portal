@@ -18,6 +18,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MessageCreate;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
+use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
@@ -313,6 +314,81 @@ class ConnectionTest extends PortalTestCase
     public function testAPrefixThatContradictsTheRecordFindsNobody(): void
     {
         self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $this->connect(['reference' => 'XY 4714'])->getStatusCode());
+    }
+
+    /**
+     * The family's real shape: a branch, a slash, a number. Dieter carries
+     * "10/1335.21" as well, and the portal composes exactly that string from
+     * the branch the member picked and the number they typed.
+     */
+    public function testANumberWithABranchIsFound(): void
+    {
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '10/1335.21'])->getStatusCode());
+    }
+
+    public function testABranchNumberIsFoundHoweverItIsPunctuated(): void
+    {
+        foreach (['SB 10/1335.21', '10 / 1335,21', '10/133521'] as $typed) {
+            DB::table(Connections::TABLE)->delete();
+
+            self::assertSame(
+                StatusCodeInterface::STATUS_CREATED,
+                $this->connect(['reference' => $typed])->getStatusCode(),
+                $typed . ' should find the same person.'
+            );
+        }
+    }
+
+    /**
+     * Typed without the slash it is still found — somebody reading a number
+     * off a letterhead should not have to know that the portal cares.
+     */
+    public function testTheSlashMayBeLeftOut(): void
+    {
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '10133521'])->getStatusCode());
+    }
+
+    /**
+     * And the slash is what keeps two numbers apart that would otherwise be
+     * one string. Dieter is 10/1335.21 and Fritz is 101/335.21; typed as
+     * they are written, each finds its own person.
+     */
+    public function testTheBranchSeparatorKeepsTwoNumbersApart(): void
+    {
+        $this->list($this->fritz_id);
+
+        self::assertSame($this->dieter_id, $this->askedMemberId('10/1335.21'));
+        self::assertSame($this->fritz_id, $this->askedMemberId('101/335.21'));
+    }
+
+    /**
+     * Typed without it, the two are one string — and then the portal says it
+     * found nobody rather than guessing which cousin was meant.
+     */
+    public function testALeftOutSlashIsRefusedWhereItWouldBeAGuess(): void
+    {
+        $this->list($this->fritz_id);
+
+        self::assertSame(
+            StatusCodeInterface::STATUS_NOT_FOUND,
+            $this->connect(['reference' => '10133521'])->getStatusCode()
+        );
+    }
+
+    /** Put somebody into the directory who was deliberately left out of it. */
+    private function list(int $member_id): void
+    {
+        DB::table(MemberService::TABLE)->where('id', '=', $member_id)->update(['visible_in_directory' => 1]);
+    }
+
+    /** The member a request went to, by portal member id. */
+    private function askedMemberId(string $reference): int
+    {
+        DB::table(Connections::TABLE)->delete();
+
+        $result = $this->json($this->connect(['reference' => $reference]));
+
+        return (int) $result['outgoing'][0]['member_id'];
     }
 
     public function testTheRequestReachesTheOtherMemberAndConnectsWhenAccepted(): void
