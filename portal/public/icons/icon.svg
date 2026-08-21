@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Familienportal">
+  <!--
+    The source of truth for every icon in this directory. The PNGs beside it
+    are rasterised from this file and from icon-maskable.svg; see
+    tools/icons.md before editing one of them by hand.
+
+    A pedigree, drawn in the same line style as the navigation icons: two
+    people above, three below, joined. Legible at 48px, which is how big it
+    actually is on a home screen.
+  -->
+  <rect width="512" height="512" rx="96" fill="#075985" />
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="176" cy="150" r="44" />
+    <circle cx="336" cy="150" r="44" />
+    <path d="M220 150h72" />
+    <path d="M256 150v110" />
+    <path d="M136 260h240" />
+    <path d="M136 260v44M256 260v44M376 260v44" />
+    <circle cx="136" cy="348" r="40" />
+    <circle cx="256" cy="348" r="40" />
+    <circle cx="376" cy="348" r="40" />
+  </g>
+</svg>

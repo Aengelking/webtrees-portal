@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Familienportal">
+  <!--
+    The same mark as icon.svg, on a square that bleeds to the edge.
+
+    Android and iOS both cut an icon to a shape of their own choosing — a
+    circle, a squircle, a rounded square — so a maskable icon may not carry
+    its own corners, and everything that must survive the cut has to sit
+    inside the middle 80%. This drawing does: the furthest ink from the centre
+    is ~182px of the 205px the safe circle allows.
+  -->
+  <rect width="512" height="512" fill="#075985" />
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="176" cy="150" r="44" />
+    <circle cx="336" cy="150" r="44" />
+    <path d="M220 150h72" />
+    <path d="M256 150v110" />
+    <path d="M136 260h240" />
+    <path d="M136 260v44M256 260v44M376 260v44" />
+    <circle cx="136" cy="348" r="40" />
+    <circle cx="256" cy="348" r="40" />
+    <circle cx="376" cy="348" r="40" />
+  </g>
+</svg>
