@@ -453,6 +453,11 @@ PORTAL_URL = https://portal.example.org
 
 Without it the step is skipped.
 
+**Bump `CUSTOM_VERSION` in `PortalApiModule` when you change the module**, or
+that comparison can only ever confirm that *some* build is running. It is also
+the quickest answer to "is the fix actually on the server?" — the version is on
+the Diagnosis screen, in webtrees' own module list, and in `/health`.
+
 ### Trying the write path safely
 
 A second family tree in the same webtrees installation is a sound way to

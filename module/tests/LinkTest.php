@@ -8,14 +8,22 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualLink;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\Http\Middleware\Router;
 use Fisharebest\Webtrees\Http\RequestHandlers\IndividualPage;
 use Fisharebest\Webtrees\Http\RequestHandlers\LoginPage;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\User;
 use Fisharebest\Webtrees\Validator;
+use Fig\Http\Message\RequestMethodInterface;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
+use function html_entity_decode;
 use function parse_str;
+use function preg_match;
 use function parse_url;
 use function route;
 
@@ -171,6 +179,97 @@ class LinkTest extends PortalTestCase
         $unknown = $this->follow('X999');
 
         self::assertSame($known->getStatusCode(), $unknown->getStatusCode());
+    }
+
+    // -----------------------------------------------------------------
+    // The whole way, in one test
+    // -----------------------------------------------------------------
+
+    /**
+     * Click, sign in, arrive — through webtrees' real router, its real
+     * middleware, its own login page and its own login handler.
+     *
+     * The other tests here check one hop each. This one is the only thing
+     * that proves the hops fit together, and it is the claim a member would
+     * make: *I was not signed in, I clicked a person, and I ended up on that
+     * person.* Three things had to be right that no single-hop test sees —
+     * that the router matches the route from an ugly URL, that webtrees' login
+     * form carries the destination in a hidden field, and that `LoginAction`
+     * redirects to it rather than to the front page.
+     *
+     * Two things the harness needs spelled out, both of which cost an hour of
+     * a wrong diagnosis when they were missing. `doLogin()` refuses outright
+     * when `$_COOKIE` is empty, so the browser has to look like one that
+     * accepts cookies; and `CheckCsrf` runs after routing for *every* POST, so
+     * the form's token has to be posted with it.
+     */
+    #[RunInSeparateProcess]
+    public function testTheWholeWayFromTheLinkToTheRecord(): void
+    {
+        // A language, because webtrees' own login throws on an account
+        // without one — `I18N::init('')` reaches `Locale::create('')`. That is
+        // the same trap §2.26 records for messages, in webtrees' own sign-in.
+        $this->anna->setPreference(UserInterface::PREF_LANGUAGE, 'de');
+
+        Auth::logout();
+
+        $_COOKIE = ['WT_SESSION' => 'irrelevant, but not empty'];
+
+        // 1. The visitor follows the link the portal drew.
+        $clicked = $this->routed(RequestMethodInterface::METHOD_GET, '/portal/individual/X1');
+
+        self::assertSame(302, $clicked->getStatusCode());
+
+        $parameters = $this->query($this->location($clicked));
+        $login      = $parameters['route'];
+
+        unset($parameters['route']);
+
+        // 2. webtrees' login page, which must carry the destination onward.
+        $form = $this->routed(RequestMethodInterface::METHOD_GET, $login, $parameters);
+        $form->getBody()->rewind();
+        $html = $form->getBody()->getContents();
+
+        self::assertSame(200, $form->getStatusCode());
+        self::assertMatchesRegularExpression('/name="url" value="[^"]*X1[^"]*"/', $html);
+
+        // 3. Signing in.
+        $signed_in = $this->routed(RequestMethodInterface::METHOD_POST, $login, [], [
+            'username' => 'anna',
+            'password' => 'correct-horse',
+            'url'      => $this->field($html, 'url'),
+            '_csrf'    => $this->field($html, '_csrf'),
+        ]);
+
+        self::assertSame(
+            route(IndividualPage::class, ['tree' => $this->tree->name(), 'xref' => 'X1']),
+            $this->location($signed_in),
+            'Signing in landed somewhere other than the person that was clicked.'
+        );
+    }
+
+    /** Dispatch through webtrees' own router, as an ugly URL would arrive. */
+    private function routed(string $method, string $path, array $query = [], array $post = []): ResponseInterface
+    {
+        $request = self::createRequest($method, ['route' => $path] + $query, $post);
+
+        Registry::container()->set(ServerRequestInterface::class, $request);
+
+        $not_found = new class implements RequestHandlerInterface {
+            public function handle(ServerRequestInterface $request): ResponseInterface
+            {
+                return Registry::responseFactory()->response('no route matched', 404);
+            }
+        };
+
+        return Registry::container()->get(Router::class)->process($request, $not_found);
+    }
+
+    private function field(string $html, string $name): string
+    {
+        preg_match('/name="' . $name . '" value="([^"]*)"/', $html, $matches);
+
+        return html_entity_decode($matches[1] ?? '');
     }
 
     // -----------------------------------------------------------------

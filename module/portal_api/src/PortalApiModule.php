@@ -106,7 +106,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     use ModuleConfigTrait;
     use ViewResponseTrait;
 
-    public const string CUSTOM_VERSION = '1.0.0';
+    public const string CUSTOM_VERSION = '1.1.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
     private const int SCHEMA_VERSION = 5;

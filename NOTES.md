@@ -1475,6 +1475,27 @@ handle. It is registered in the route map rather than as a module action,
 which keeps §2.5's invariant intact: every `get…Action` on the module still
 has "Admin" in its name, because that spelling is the access control.
 
+**Proven end to end, not hop by hop.** `LinkTest::testTheWholeWayFromTheLinkToTheRecord`
+walks the whole thing through webtrees' real router and real middleware: click,
+login page, sign in, arrive. The single-hop tests all passed while the chain
+was still an open question, and three things only the whole walk can check —
+that the router matches the route from an ugly URL, that webtrees' login form
+carries the destination in its hidden field, and that `LoginAction` redirects
+to it — are exactly where this kind of thing breaks.
+
+Two harness details cost an hour of wrong diagnosis and are written into that
+test: `doLogin()` refuses outright when `$_COOKIE` is empty, and `CheckCsrf`
+runs after routing for *every* POST, so the form's token has to be posted back.
+Both produce "the username or password is incorrect", which is a misleading
+thing to read while hunting a redirect bug.
+
+A third one is worth recording on its own: **webtrees' own login throws for an
+account with no language preference.** `doLogin()` ends with
+`I18N::init(Auth::user()->getPreference(PREF_LANGUAGE))`, `Locale::create('')`
+throws a `DomainException`, and `LoginAction` catches `Exception` — so the
+sign-in is reported as a failed one. Same trap as §2.26, in webtrees' own front
+door, and not something this module can fix from outside.
+
 **What this does not fix:** the second sign-in itself. A member who follows the
 link still types their password on the webtrees side, because there is no
 shared session across the two origins and building one would mean either
