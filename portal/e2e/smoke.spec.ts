@@ -36,8 +36,10 @@ test.describe('the smoke path', () => {
       await expect(page.getByText('SB 4711')).toBeVisible()
     }
 
-    // The directory.
-    await page.getByRole('link', { name: 'Mitglieder' }).click()
+    // The directory, which now lives inside Kontakte.
+    await page.getByRole('link', { name: 'Kontakte' }).click()
+    await expect(page.getByRole('heading', { name: 'Meine Kontakte' })).toBeVisible()
+    await page.getByRole('button', { name: 'Im Verzeichnis suchen' }).click()
     await expect(page.getByRole('heading', { name: 'Mitglieder' })).toBeVisible()
     await expect(page.getByRole('listitem').first()).toBeVisible()
 
@@ -272,7 +274,8 @@ test.describe('phase 9', () => {
     await page.getByLabel('Passwort').fill(password)
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
-    await page.getByRole('link', { name: 'Mitglieder' }).click()
+    await page.getByRole('link', { name: 'Kontakte' }).click()
+    await page.getByRole('button', { name: 'Im Verzeichnis suchen' }).click()
 
     // Dieter, not the first row — the first row is Anna herself, and nobody
     // writes to themselves.
@@ -360,12 +363,11 @@ test.describe('phase 11', () => {
     await page.getByLabel('Passwort').fill(password)
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
-    // Somebody waiting for an answer is counted on Mitglieder, not on a
-    // fifth destination — four is still the limit.
-    await expect(page.getByRole('link', { name: /Mitglieder/ })).toContainText('1')
+    // Somebody waiting for an answer is counted on Kontakte, which is the
+    // screen the request is about — and still not on a fifth destination.
+    await expect(page.getByRole('link', { name: /Kontakte/ })).toContainText('1')
 
-    await page.getByRole('link', { name: /Mitglieder/ }).click()
-    await page.getByRole('link', { name: 'Meine Kontakte' }).click()
+    await page.getByRole('link', { name: /Kontakte/ }).click()
 
     await expect(page.getByRole('heading', { name: 'Meine Kontakte' })).toBeVisible()
     await expect(page.getByText('Karla Beispiel')).toBeVisible()
@@ -393,7 +395,8 @@ test.describe('phase 11', () => {
     await page.getByLabel('Passwort').fill(password)
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
-    await page.getByRole('link', { name: /Mitglieder/ }).click()
+    await page.getByRole('link', { name: /Kontakte/ }).click()
+    await page.getByRole('button', { name: 'Im Verzeichnis suchen' }).click()
 
     // Each button is named for its row, so twenty-five of them are still a
     // list somebody can navigate.

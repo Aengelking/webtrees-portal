@@ -62,9 +62,9 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `POST|DELETE /me/connection-code`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
-My profile, edit my details, person, ancestors, Members, member detail,
-Messages, my contacts, connect (where a scanned code lands), invite close
-family, Settings.
+My profile, edit my details, person, ancestors, Contacts (with the directory
+search in it), the member directory, member detail, Messages, connect (where a
+scanned code lands), invite close family, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -331,9 +331,15 @@ something read here does not change anything in webtrees.
 connect with each other.*
 
 **Kontakte** is the member's own address book: the eight people they actually
-know, rather than the two hundred in the directory. It is reached from
-*Mitglieder* — the bottom bar stays at four destinations — and from
-*Einstellungen*.
+know, rather than the two hundred in the directory. It is the second entry in
+the bottom bar — the bar stays at four destinations — and the **member
+directory now lives inside it**, as a search at the top of the screen.
+
+That is the way round it belongs. The directory is everybody, and a member
+looks somebody up now and then; contacts are their own people, and that is the
+screen they come back to. Searching for a name goes straight to the results;
+an empty search shows everybody. *Mitglieder* keeps its own search box, so
+narrowing a result does not mean going back, and a link back to *Kontakte*.
 
 **Two ways to connect, and they are different on purpose.**
 
@@ -379,7 +385,7 @@ there:
   `RESN confidential`, or one on a record they may not see, is not there to be
   found.
 
-**Or straight from the member list.** Every row of *Mitglieder* carries a
+**Or straight from the member list.** Every row of the directory carries a
 **Verbinden** button, and the same request goes off without opening the person
 first — the detour bought nothing, because everything needed to decide is on
 the row already. A row for somebody who asked *you* offers **Annehmen**
@@ -1355,8 +1361,8 @@ On the client, no code is issued until the member asks for one, the QR code
 holds the link the *server* issued, ending a connection asks first while
 answering a request does not, a request goes off from a directory row without
 opening the person, each row's button is named for the person it belongs to,
-and the waiting-request count sits on *Mitglieder* rather than on a fifth
-destination. The QR code itself is
+and the waiting-request count sits on *Kontakte* — the screen the request is
+about — rather than on a fifth destination. The QR code itself is
 rendered to pixels in the test and read back by an independent decoder, which
 is the only assertion that means a camera would read it.
 

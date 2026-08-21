@@ -6,7 +6,7 @@ export const de = {
   },
   nav: {
     profile: 'Mein Profil',
-    members: 'Mitglieder',
+    contacts: 'Kontakte',
     messages: 'Nachrichten',
     badge: {
       unread: '{{count}} ungelesen',
@@ -250,6 +250,11 @@ export const de = {
     title: 'Meine Kontakte',
     intro:
       'Hier stehen die Menschen, mit denen Sie sich verbunden haben. Eine Verbindung entsteht immer zu zweit — und Sie können sie jederzeit wieder lösen.',
+    find: 'Jemanden im Portal suchen',
+    findBody:
+      'Alle Mitglieder, die einer Anzeige zugestimmt haben. Suchen Sie nach einem Namen, oder lassen Sie das Feld leer, um alle zu sehen.',
+    findLabel: 'Name',
+    findAction: 'Im Verzeichnis suchen',
     showCode: 'Sich vor Ort verbinden',
     codeBody:
       'Zeigen Sie diesen Code auf Ihrem Bildschirm. Die andere Person hält einfach ihre Handykamera darauf — dann sind Sie beide verbunden. Der Code gilt {{count}} Minuten.',
@@ -313,9 +318,7 @@ export const de = {
     },
   },
   members: {
-    contactsLink: 'Meine Kontakte',
-    contactsWaiting_one: '{{count}} Anfrage',
-    contactsWaiting_other: '{{count}} Anfragen',
+    back: 'Zurück zu Kontakte',
     title: 'Mitglieder',
     search: 'Nach Namen suchen',
     searchHint: 'Es werden nur Mitglieder angezeigt, die einer Anzeige zugestimmt haben.',

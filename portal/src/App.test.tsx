@@ -187,7 +187,10 @@ describe('App', () => {
         return sessionValid ? jsonResponse(ME) : unauthenticated()
       }
 
-      if (url.includes('/members')) {
+      // Whatever the second tab happens to fetch — it was the directory until
+      // Kontakte took that place, and this test is about the 401, not about
+      // which endpoint produced it.
+      if (url.includes('/connections') || url.includes('/members')) {
         sessionValid = false
         return unauthenticated()
       }
@@ -200,7 +203,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: 'Mein Profil' })).toBeDefined()
 
-    await userEvent.setup().click(screen.getByRole('link', { name: 'Mitglieder' }))
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Kontakte' }))
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Anmelden' })).toBeDefined()

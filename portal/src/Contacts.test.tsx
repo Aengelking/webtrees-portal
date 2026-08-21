@@ -273,10 +273,11 @@ describe('my contacts', () => {
 
     const link = await screen.findByRole('link', { name: /1 Verbindungsanfrage/ })
 
-    // On Mitglieder rather than on a fifth destination, and counted in words
-    // in the link's own name — the number in the circle is aria-hidden, so a
-    // screen reader does not read a stray digit.
-    expect(link.getAttribute('href')).toBe('/members')
+    // On Kontakte — the screen the request is actually about — rather than on
+    // a fifth destination, and counted in words in the link's own name: the
+    // number in the circle is aria-hidden, so a screen reader does not read a
+    // stray digit.
+    expect(link.getAttribute('href')).toBe('/contacts')
   })
 })
 

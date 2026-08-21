@@ -8,7 +8,7 @@ export const en: Translations = {
   },
   nav: {
     profile: 'My profile',
-    members: 'Members',
+    contacts: 'Contacts',
     messages: 'Messages',
     badge: {
       unread: '{{count}} unread',
@@ -250,6 +250,11 @@ export const en: Translations = {
     title: 'My contacts',
     intro:
       'The people you have connected with. A connection is always made by two, and you can end it at any time.',
+    find: 'Find somebody in the portal',
+    findBody:
+      'Everybody who agreed to be listed. Search for a name, or leave the field empty to see them all.',
+    findLabel: 'Name',
+    findAction: 'Search the directory',
     showCode: 'Connect in person',
     codeBody:
       'Show this code on your screen. The other person points their phone camera at it, and the two of you are connected. The code lasts {{count}} minutes.',
@@ -313,9 +318,7 @@ export const en: Translations = {
     },
   },
   members: {
-    contactsLink: 'My contacts',
-    contactsWaiting_one: '{{count}} request',
-    contactsWaiting_other: '{{count}} requests',
+    back: 'Back to contacts',
     title: 'Members',
     search: 'Search by name',
     searchHint: 'Only members who agreed to be listed are shown.',

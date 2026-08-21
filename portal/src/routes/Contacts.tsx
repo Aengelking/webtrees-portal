@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   useAcceptConnection,
@@ -54,6 +54,21 @@ export function Contacts() {
       {data !== undefined && (
         <>
           <p className="mt-3 text-base text-slate-700">{t('contacts.intro')}</p>
+
+          {/*
+            The directory was a tab of its own until this screen took its
+            place, so its search comes with it — and comes first. It is the
+            most ordinary thing a member does here (look somebody up, read
+            their page, write to them), and burying the only way to it under a
+            QR code would make the commonest errand the longest one.
+
+            The field navigates rather than searching in place: results are
+            paged and each one leads somewhere, which is a screen's worth of
+            work. Empty means everybody, so this doubles as the plain way in.
+          */}
+          <Section title={t('contacts.find')}>
+            <FindMember />
+          </Section>
 
           {!data.enabled && (
             <div className="mt-6">
@@ -117,6 +132,46 @@ export function Contacts() {
         </>
       )}
     </>
+  )
+}
+
+/**
+ * The way into the member directory.
+ *
+ * A form rather than a link, because a member usually arrives with a name in
+ * mind, and typing it here saves the round trip through a list of everybody.
+ */
+function FindMember() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  const [name, setName] = useState('')
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const trimmed = name.trim()
+
+    void navigate(trimmed === '' ? '/members' : `/members?q=${encodeURIComponent(trimmed)}`)
+  }
+
+  return (
+    <Card>
+      <form onSubmit={onSubmit} noValidate>
+        <p className="mb-4 text-base text-slate-700">{t('contacts.findBody')}</p>
+
+        <Field
+          label={t('contacts.findLabel')}
+          type="search"
+          inputMode="search"
+          autoComplete="off"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+
+        <Button type="submit">{t('contacts.findAction')}</Button>
+      </form>
+    </Card>
   )
 }
 

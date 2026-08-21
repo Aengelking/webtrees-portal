@@ -6,12 +6,15 @@ import { useAuth } from '../auth/AuthProvider'
 /**
  * Four destinations.
  *
- * Still four in Phase 11, and that is the point of the rule: contacts are
- * reached from Mitglieder, which is where somebody looking for a person
- * already goes, and the badge for "somebody wants to connect with you" is
- * put on that same entry rather than on a fifth one. A request nobody
- * notices is as bad as a message nobody notices, and this is the cheapest
- * place that is permanently visible.
+ * Still four in Phase 11, and the second one is now Kontakte rather than
+ * Mitglieder — the two swapped places. Phase 11 reached contacts *from* the
+ * directory, on the reasoning that the directory is where somebody looking
+ * for a person already goes. That had it the wrong way round: the directory
+ * is everybody, and a member looks somebody up now and then; contacts are
+ * their own people, and that is the screen they come back to. So the
+ * directory moved inside Kontakte, where its search sits at the top, and the
+ * badge for "somebody wants to connect with you" is now on the entry it
+ * actually belongs to.
  *
  * This said "three, no more" until Phase 10, and the rule was a good one: it
  * kept "invite somebody" off the bar, where it did not belong. Messages are
@@ -26,7 +29,7 @@ import { useAuth } from '../auth/AuthProvider'
  */
 const DESTINATIONS = [
   { to: '/me', key: 'nav.profile', icon: PersonIcon, badge: 'none' },
-  { to: '/members', key: 'nav.members', icon: PeopleIcon, badge: 'connections' },
+  { to: '/contacts', key: 'nav.contacts', icon: PeopleIcon, badge: 'connections' },
   { to: '/messages', key: 'nav.messages', icon: MessageIcon, badge: 'unread' },
   { to: '/settings', key: 'nav.settings', icon: GearIcon, badge: 'none' },
 ] as const

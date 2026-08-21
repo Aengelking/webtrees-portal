@@ -112,8 +112,8 @@ test.describe('the installed app', () => {
 
     await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
 
-    await page.getByRole('link', { name: 'Mitglieder' }).click()
-    await expect(page.getByRole('heading', { name: 'Mitglieder' })).toBeVisible()
+    await page.getByRole('link', { name: 'Kontakte' }).click()
+    await expect(page.getByRole('heading', { name: 'Meine Kontakte' })).toBeVisible()
 
     const urls = await cachedUrls(page)
 

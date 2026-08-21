@@ -1799,6 +1799,36 @@ that.
 
 ---
 
+### 2.32 Kontakte takes the tab, and the directory moves inside it
+
+Phase 11 put *Meine Kontakte* behind a link at the top of *Mitglieder*, on the
+reasoning that the directory is where somebody looking for a person already
+goes. That had it the wrong way round, and the second tab and the directory
+have now swapped places.
+
+The test is the one the bottom bar has always used (§2.27): **how often a
+member comes back to a thing.** The directory is everybody — you look somebody
+up now and then. Contacts are your own people, plus requests waiting for an
+answer, which is a thing asked *of* you. That is the screen worth a permanent
+place, and the waiting-request badge now sits on the entry it is actually
+about rather than on the one next door.
+
+**The directory did not lose anything by moving.** Its search is the first
+thing on Kontakte, above the QR code, because looking somebody up is the most
+ordinary errand here and burying the only way to it under a credential would
+make the commonest thing the longest. The field navigates rather than
+searching in place — results are paged and every row leads somewhere, which is
+a screen's worth of work — and an empty search means everybody, so it doubles
+as the plain way in. The directory keeps its own search box so that narrowing
+a result does not mean going back, and gains the back link every sub-screen
+has.
+
+Still four destinations. The rule has now survived three phases wanting a
+fifth, and each time the answer was to ask which of the four the new thing
+belongs *inside*.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
