@@ -19,6 +19,7 @@ use Fisharebest\Webtrees\User;
 use function array_key_exists;
 use function array_values;
 use function bin2hex;
+use function count;
 use function gmdate;
 use function hash;
 use function max;
@@ -29,6 +30,7 @@ use function preg_replace;
 use function random_bytes;
 use function rawurlencode;
 use function rtrim;
+use function str_replace;
 use function strtoupper;
 use function time;
 use function trim;
@@ -735,6 +737,8 @@ class Connections
             return null;
         }
 
+        $relaxed = [];
+
         foreach ($this->members->allVisible() as $member) {
             $individual = $this->trees->linkedIndividual($tree, $member->user);
 
@@ -743,18 +747,38 @@ class Connections
             }
 
             foreach ($individual->facts(['REFN'], false, $access_level) as $fact) {
-                if ($this->matches($fact, $wanted)) {
+                if ($this->matches($fact, $wanted, false)) {
                     return $member;
+                }
+
+                if ($this->matches($fact, $wanted, true)) {
+                    $relaxed[] = $member;
                 }
             }
         }
 
-        return null;
+        // Nothing matched as typed. A number typed without its slash is still
+        // worth finding — somebody reading one off a letterhead should not
+        // have to know that the portal cares — but only while there is
+        // nothing to confuse it with. `10/1335.21` and `101/335.21` are one
+        // string once the slash is gone, and guessing between two relatives
+        // is worse than saying nothing was found.
+        return count($relaxed) === 1 ? $relaxed[0] : null;
     }
 
     /**
      * "SB 4711", "sb4711" and "4711" are the same number typed by three
-     * people. Everything that is not a letter or a digit goes.
+     * people. Punctuation goes; **the slash stays.**
+     *
+     * The family's numbers are `10/1335.21` — a branch, then the number
+     * within it. Dropping the slash with the rest of the punctuation makes
+     * `10/1335.21` and `101/335.21` the same string, which is two different
+     * relatives wearing one number. Keeping it as a separator costs nothing
+     * and makes that impossible.
+     *
+     * A number typed without the slash is still accepted, but only on the
+     * second pass and only while it picks out exactly one person — see
+     * `memberByReference()`.
      *
      * The third case is the one this got wrong at first, and it is the common
      * one: **the record often carries no `TYPE` at all.** GEDCOM does not
@@ -770,7 +794,7 @@ class Connections
      * does not disagree**. A record that says `TYPE Intern` is a different
      * numbering, and "SB 9999" must not find it.
      */
-    private function matches(Fact $fact, string $wanted): bool
+    private function matches(Fact $fact, string $wanted, bool $relaxed): bool
     {
         $number = $this->normalise($fact->value());
 
@@ -780,10 +804,27 @@ class Connections
 
         $type = $this->normalise($fact->attribute('TYPE'));
 
+        if ($relaxed) {
+            $wanted = $this->flatten($wanted);
+            $number = $this->flatten($number);
+        }
+
+        return $this->same($wanted, $number, $type);
+    }
+
+    /**
+     * One typed form against one stored form, with the type in hand.
+     */
+    private function same(string $wanted, string $number, string $type): bool
+    {
         if ($wanted === $number || $wanted === $type . $number) {
             return true;
         }
 
+        // The record says nothing about which numbering its number belongs
+        // to, and the member typed the one the family uses out loud. Only
+        // where the record does not disagree: `TYPE Intern` is a different
+        // numbering and keeps its numbers to itself.
         if ($type !== '') {
             return false;
         }
@@ -793,9 +834,19 @@ class Connections
         return $without_prefix !== '' && $without_prefix === $number;
     }
 
+    /** The same number with the branch separator gone, for the second pass. */
+    private function flatten(string $value): string
+    {
+        return str_replace('/', '', $value);
+    }
+
+    /**
+     * Everything but letters, digits and the branch separator goes, so that
+     * "10/1335.21", "10 / 1335,21" and "10/133521" are one number.
+     */
     private function normalise(string $value): string
     {
-        return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', $value));
+        return strtoupper((string) preg_replace('#[^A-Za-z0-9/]#', '', $value));
     }
 
     private function nameOf(User $user): string

@@ -21,6 +21,7 @@ import {
   Notice,
   PageHeading,
   Section,
+  Select,
   SuccessNote,
 } from '../components/ui'
 
@@ -242,18 +243,48 @@ function MyCode({ minutes }: { minutes: number }) {
   )
 }
 
+/**
+ * The family's branches, which are what stands before the slash in an SB
+ * number. Thirty-four of them, so a wheel rather than a row of buttons.
+ *
+ * A number is picked here and not typed, because "/" on a telephone keyboard
+ * is two taps into a second layout — for a punctuation mark whose only job is
+ * to separate two numbers the form already keeps apart.
+ */
+const BRANCHES = Array.from({ length: 34 }, (_, index) => String(index + 1))
+
+/**
+ * Compose what the member picked and typed into the number as it is written.
+ *
+ * A number already carrying a slash is passed through untouched: somebody who
+ * typed the whole thing into the second field meant it, and prefixing a
+ * branch onto it would produce something nobody has.
+ */
+export function composeReference(branch: string, number: string): string {
+  const typed = number.trim()
+
+  if (branch === '' || typed.includes('/')) {
+    return typed
+  }
+
+  return `${branch}/${typed}`
+}
+
 /** The other way: the number printed under the name on somebody's record. */
 function ByReference() {
   const { t } = useTranslation()
   const connect = useConnect()
-  const [reference, setReference] = useState('')
+  const [branch, setBranch] = useState('')
+  const [number, setNumber] = useState('')
+
+  const reference = composeReference(branch, number)
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     try {
-      await connect.mutateAsync({ reference: reference.trim() })
-      setReference('')
+      await connect.mutateAsync({ reference })
+      setNumber('')
     } catch {
       // Rendered from the mutation below.
     }
@@ -280,15 +311,41 @@ function ByReference() {
           </div>
         )}
 
+        <Select
+          label={t('contacts.branchLabel')}
+          value={branch}
+          onChange={(event) => setBranch(event.target.value)}
+        >
+          <option value="">{t('contacts.branchNone')}</option>
+          {BRANCHES.map((option) => (
+            <option key={option} value={option}>
+              {t('contacts.branchOption', { branch: option })}
+            </option>
+          ))}
+        </Select>
+
         <Field
           label={t('contacts.referenceLabel')}
           hint={t('contacts.referenceHint')}
+          // Digits and a separator, which is the whole of a number after the
+          // branch. A comma instead of a full stop is no trouble: punctuation
+          // is not what the server compares.
+          inputMode="decimal"
           autoComplete="off"
-          value={reference}
-          onChange={(event) => setReference(event.target.value)}
+          placeholder={t('contacts.referencePlaceholder')}
+          value={number}
+          onChange={(event) => setNumber(event.target.value)}
         />
 
-        <Button type="submit" disabled={connect.isPending || reference.trim() === ''}>
+        {/* What the two fields amount to, so nobody has to picture it. */}
+        {reference !== '' && (
+          <p className="mb-5 text-base text-slate-700">
+            {t('contacts.referencePreview')}{' '}
+            <span className="font-semibold text-slate-900">{reference}</span>
+          </p>
+        )}
+
+        <Button type="submit" disabled={connect.isPending || reference === ''}>
           {connect.isPending ? t('contacts.asking') : t('contacts.ask')}
         </Button>
       </form>
