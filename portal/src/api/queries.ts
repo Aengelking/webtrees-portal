@@ -203,6 +203,25 @@ export function useDeleteMessage() {
   })
 }
 
+/**
+ * Answer a message.
+ *
+ * The inbox is refetched afterwards even though a reply changes nothing in
+ * it: webtrees keeps no copy of what one sends, so the honest thing is to
+ * show the list exactly as the server has it rather than to invent a sent
+ * item that does not exist.
+ */
+export function useReplyToMessage(id: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation<{ status: string }, Error, string>({
+    mutationFn: (body) => api.replyToMessage(id, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.messages })
+    },
+  })
+}
+
 /** What I share, and with whom. Not language-keyed: these are values I typed. */
 export function useContact() {
   return useQuery<ContactSettings>({

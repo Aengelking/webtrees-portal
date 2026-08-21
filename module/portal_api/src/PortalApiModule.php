@@ -32,6 +32,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordResetCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ProfileUpdate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ReplyCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
@@ -248,7 +249,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
         $contacts       = new ContactDetails($this, $close_family);
         $inbox          = new Inbox($user_service);
-        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members);
+        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox);
         $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -292,6 +293,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(InboxList::class, new InboxList($inbox));
         $container->set(InboxUpdate::class, new InboxUpdate($inbox));
         $container->set(InboxDelete::class, new InboxDelete($inbox));
+        $container->set(ReplyCreate::class, new ReplyCreate($member_msgs));
 
         $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
@@ -419,6 +421,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $unsafe_private]);
 
         $map->delete(InboxDelete::class, self::ROUTE_PREFIX . '/messages/{id}', InboxDelete::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->post(ReplyCreate::class, self::ROUTE_PREFIX . '/messages/{id}/reply', ReplyCreate::class)
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
 

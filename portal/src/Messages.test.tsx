@@ -32,6 +32,7 @@ const FIRST: Message = {
   body: 'Kommst du zum Familientreffen?',
   sent_at: '2026-08-01T10:00:00+00:00',
   read: false,
+  can_reply: true,
 }
 
 const INBOX: Inbox = { unread: 1, messages: [FIRST] }
@@ -47,14 +48,23 @@ function me(unread: number) {
   }
 }
 
+const replied: { body: string }[] = []
+
 function stub(inbox: Inbox = INBOX) {
   let current = inbox
+
+  replied.length = 0
 
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
     const url = String(input)
     const method = init?.method ?? 'GET'
 
     if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+    if (url.includes('/reply')) {
+      replied.push(JSON.parse(String(init?.body)) as { body: string })
+      return jsonResponse({ status: 'sent' }, 202)
+    }
 
     if (url.includes('/messages')) {
       if (method === 'PATCH') {
@@ -186,6 +196,64 @@ describe('the inbox', () => {
     renderAt('/messages')
 
     expect(await screen.findByText('Keine Nachrichten')).toBeDefined()
+  })
+})
+
+describe('answering', () => {
+  it('offers an answer and sends what was typed', async () => {
+    stub()
+    renderAt('/messages')
+
+    await userEvent.click(await screen.findByRole('button', { name: /Familientreffen/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Antworten' }))
+
+    await userEvent.type(screen.getByLabelText('Ihre Antwort'), 'Ja, sehr gern.')
+    await userEvent.click(screen.getByRole('button', { name: 'Antwort senden' }))
+
+    await waitFor(() => expect(replied).toEqual([{ body: 'Ja, sehr gern.' }]))
+  })
+
+  /**
+   * The most important assertion in this file, for the same reason as the one
+   * on the "write to a member" form: the disclosure is unavoidable, so it has
+   * to be said before the button rather than after it.
+   */
+  it('says that the answerer’s address travels with the answer', async () => {
+    stub()
+    renderAt('/messages')
+
+    await userEvent.click(await screen.findByRole('button', { name: /Familientreffen/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Antworten' }))
+
+    expect(screen.getByText(/E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeDefined()
+  })
+
+  /** No copy is kept, so the screen says so instead of implying a sent folder. */
+  it('says that no copy is kept', async () => {
+    stub()
+    renderAt('/messages')
+
+    await userEvent.click(await screen.findByRole('button', { name: /Familientreffen/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Antworten' }))
+    await userEvent.type(screen.getByLabelText('Ihre Antwort'), 'Danke.')
+    await userEvent.click(screen.getByRole('button', { name: 'Antwort senden' }))
+
+    expect(await screen.findByText(/Eine Kopie wird hier nicht aufbewahrt/)).toBeDefined()
+  })
+
+  /**
+   * A message from a webtrees contact form, or from an account that is gone.
+   * The button is not offered, and the reason is on the screen rather than
+   * left as an absence the member has to interpret.
+   */
+  it('explains a message that cannot be answered instead of hiding the button', async () => {
+    stub({ unread: 1, messages: [{ ...FIRST, can_reply: false }] })
+    renderAt('/messages')
+
+    await userEvent.click(await screen.findByRole('button', { name: /Familientreffen/ }))
+
+    expect(screen.queryByRole('button', { name: 'Antworten' })).toBeNull()
+    expect(screen.getByText(/gehört zu keinem Konto/)).toBeDefined()
   })
 })
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useDeleteMessage, useMarkMessage, useMessages } from '../api/queries'
+import { useDeleteMessage, useMarkMessage, useMessages, useReplyToMessage } from '../api/queries'
 import type { Message } from '../api/types'
-import { Button, Card, ErrorNotice, Loading, Notice, PageHeading } from '../components/ui'
+import { Button, Card, ErrorNotice, Loading, Notice, PageHeading, SuccessNote } from '../components/ui'
 
 /**
  * The member's own messages.
@@ -95,6 +96,7 @@ function MessageCard({
   onDelete: () => void
 }) {
   const { t } = useTranslation()
+  const [replying, setReplying] = useState(false)
 
   return (
     <Card>
@@ -131,6 +133,11 @@ function MessageCard({
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
+            {message.can_reply && (
+              <Button variant="secondary" onClick={() => setReplying((current) => !current)}>
+                {t('messages.reply')}
+              </Button>
+            )}
             <Button variant="secondary" onClick={onMarkUnread}>
               {t('messages.markUnread')}
             </Button>
@@ -138,9 +145,94 @@ function MessageCard({
               {t('messages.delete')}
             </Button>
           </div>
+
+          {/*
+            Said where it applies rather than only on the "write to a member"
+            form: an answer discloses the answerer's address exactly as a new
+            message does, and somebody replying from their inbox never passed
+            that form.
+          */}
+          {!message.can_reply && (
+            <p className="mt-4 text-base text-slate-700">{t('messages.replyImpossible')}</p>
+          )}
+
+          {message.can_reply && replying && (
+            <ReplyForm id={message.id} onSent={() => setReplying(false)} />
+          )}
         </>
       )}
     </Card>
+  )
+}
+
+/**
+ * An answer.
+ *
+ * No subject field: the server puts webtrees' `RE: ` on the original. One
+ * less thing to fill in on a phone, and no way to write an answer that
+ * arrives looking like a new conversation.
+ */
+function ReplyForm({ id, onSent }: { id: number; onSent: () => void }) {
+  const { t } = useTranslation()
+  const mutation = useReplyToMessage(id)
+
+  const [body, setBody] = useState('')
+  const [sent, setSent] = useState(false)
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSent(false)
+
+    try {
+      await mutation.mutateAsync(body.trim())
+
+      setSent(true)
+      setBody('')
+    } catch {
+      // Rendered from the mutation below.
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="mt-4 border-t border-slate-200 pt-4">
+      {mutation.isError && (
+        <div className="mb-4">
+          <ErrorNotice error={mutation.error} />
+        </div>
+      )}
+
+      {/*
+        The reply stays on screen after sending, with the answer said plainly:
+        webtrees keeps no copy of what one sends, so there is no sent folder
+        to point at and pretending otherwise would be a small lie.
+      */}
+      {sent && <SuccessNote>{t('messages.replySent')}</SuccessNote>}
+
+      <label htmlFor={`reply-${id}`} className="mb-2 block text-base font-medium text-slate-900">
+        {t('messages.replyLabel')}
+      </label>
+      <textarea
+        id={`reply-${id}`}
+        rows={5}
+        required
+        value={body}
+        onChange={(event) => setBody(event.target.value)}
+        className="w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+      />
+
+      <p className="mt-4 rounded-lg border border-slate-300 bg-slate-50 p-4 text-base text-slate-800">
+        {t('messages.replyAddressNotice')}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Button type="submit" disabled={mutation.isPending || body.trim() === ''}>
+          {mutation.isPending ? t('messages.replySending') : t('messages.replySend')}
+        </Button>
+        <Button variant="secondary" type="button" onClick={onSent}>
+          {t('messages.replyCancel')}
+        </Button>
+      </div>
+    </form>
   )
 }
 

@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Services;
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
+use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\User;
 
@@ -14,6 +15,7 @@ use function count;
 use function implode;
 use function gmdate;
 use function preg_split;
+use function stripos;
 use function strtotime;
 use function time;
 use function trim;
@@ -68,15 +70,18 @@ class Inbox
             ->get();
 
         foreach ($rows as $row) {
-            $id = (int) $row->message_id;
+            $id      = (int) $row->message_id;
+            $sender  = trim((string) $row->sender);
+            $account = $this->senderAccount($sender);
 
             $messages[] = [
                 'id'        => $id,
-                'from'      => $this->senderName((string) $row->sender),
+                'from'      => $account?->realName() ?? $sender,
                 'subject'   => (string) $row->subject,
                 'body'      => $this->messageOnly((string) $row->body),
                 'sent_at'   => gmdate('c', (int) strtotime((string) $row->created)),
                 'read'      => isset($read[$id]),
+                'can_reply' => $this->answerable($user, $account),
             ];
         }
 
@@ -188,29 +193,108 @@ class Inbox
     }
 
     /**
-     * Who sent it, as a name where that can be worked out.
+     * Who a reply to this message would go to, and under what subject.
+     *
+     * `null` means "this one cannot be answered from the portal" — see
+     * `answerable()`. Somebody else's message id is a `404` here as
+     * everywhere else, and is not the same answer as an unanswerable one:
+     * a member is allowed to know that their own message has nobody to
+     * reply to, and is not allowed to know anything about anybody else's.
+     *
+     * @return array{user: User, subject: string}|null
+     */
+    public function replyTarget(UserInterface $user, int $id): ?array
+    {
+        $this->assertOwn($user, $id);
+
+        $row = DB::table('message')
+            ->where('message_id', '=', $id)
+            ->where('user_id', '=', $user->id())
+            ->first();
+
+        if ($row === null) {
+            throw ApiException::notFound();
+        }
+
+        $account = $this->senderAccount(trim((string) $row->sender));
+
+        if (!$this->answerable($user, $account)) {
+            return null;
+        }
+
+        return ['user' => $account, 'subject' => $this->replySubject((string) $row->subject)];
+    }
+
+    /**
+     * `RE: ` in front, unless it is there already.
+     *
+     * Deliberately webtrees' own string and webtrees' own test, from
+     * `modules/user-messages/user-messages.phtml`, so that a member who reads
+     * one message in the portal and the next in webtrees does not get two
+     * different conventions. The translation is webtrees' too — German
+     * renders it "Re: ".
+     */
+    private function replySubject(string $subject): string
+    {
+        $prefix = I18N::translate('RE: ');
+
+        // Case-insensitively, and against the untranslated string as well as
+        // the translated one. Core compares exactly, which stacks a second
+        // prefix onto a thread whose earlier reply was written in another
+        // language — German renders this "Re: " and English "RE: ", so
+        // "RE: Re: Familientreffen" is one language switch away.
+        foreach ([$prefix, 'RE: '] as $candidate) {
+            if (stripos($subject, $candidate) === 0) {
+                return $subject;
+            }
+        }
+
+        return $prefix . $subject;
+    }
+
+    /**
+     * Can this message be answered at all?
+     *
+     * Only when the address on it belongs to an account that still exists —
+     * the same condition webtrees' own message list uses to decide whether to
+     * offer a Reply button, and for the same reason: without an account there
+     * is nothing for `deliverMessage()` to deliver to. The portal will not
+     * fall back to sending an email straight to the stored address, because
+     * that address is a *reply* address rather than a consent to be contacted
+     * by the portal, and the person behind it may have no account here at all.
+     *
+     * A message from oneself — an administrator's broadcast reaches the
+     * administrator too — is not answerable either. Writing to yourself is
+     * refused everywhere else in the module and there is no reason for this
+     * corner to be the exception.
+     */
+    private function answerable(UserInterface $user, ?User $account): bool
+    {
+        return $account instanceof User && $account->id() !== $user->id();
+    }
+
+    /**
+     * The account behind the address on a message, where there is one.
      *
      * `message.sender` is an email address, not a link to an account —
      * webtrees stores `Auth::user()->email()` at the moment of sending. So
-     * the name has to be looked up, and the lookup can fail: the sender may
+     * the account has to be looked up, and the lookup can fail: the sender may
      * have changed their address since, or the account may be gone, or the
      * message may have come from a webtrees contact form filled in by a
      * visitor who has no account at all.
      *
-     * When it fails, the address is shown. That discloses nothing new — it
-     * was already in the recipient's email as the reply address, which is the
-     * whole reason it is stored.
+     * When it fails the caller shows the address instead. That discloses
+     * nothing new — it was already in the recipient's email as the reply
+     * address, which is the whole reason it is stored.
      */
-    private function senderName(string $sender): string
+    private function senderAccount(string $sender): ?User
     {
-        $sender = trim($sender);
-
         if ($sender === '') {
-            return '';
+            return null;
         }
 
         $user = $this->user_service->findByEmail($sender);
 
-        return $user instanceof User ? $user->realName() : $sender;
+        return $user instanceof User ? $user : null;
     }
 }

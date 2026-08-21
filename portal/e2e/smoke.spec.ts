@@ -328,4 +328,25 @@ test.describe('phase 10', () => {
     await page.getByRole('button', { name: 'Löschen' }).click()
     await expect(page.getByText('Keine Nachrichten')).toBeVisible()
   })
+
+  test('a message is answered, and the answerer is told what travels with it', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed inbox.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.getByRole('link', { name: /Nachrichten/ }).click()
+    await page.getByRole('button', { name: /Familientreffen/ }).click()
+    await page.getByRole('button', { name: 'Antworten' }).click()
+
+    // Before the button, not after it.
+    await expect(page.getByText(/als Absenderadresse mitgeschickt/)).toBeVisible()
+
+    await page.getByLabel('Ihre Antwort').fill('Ja, sehr gern.')
+    await page.getByRole('button', { name: 'Antwort senden' }).click()
+
+    await expect(page.getByText(/Eine Kopie wird hier nicht aufbewahrt/)).toBeVisible()
+  })
 })

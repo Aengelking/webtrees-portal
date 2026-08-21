@@ -21,6 +21,7 @@ export type ApiErrorCode =
   | 'invalid_token'
   | 'not_allowed'
   | 'quota_reached'
+  | 'cannot_reply'
   | 'not_delivered'
   | 'username_taken'
   | 'email_taken'
@@ -75,6 +76,12 @@ export interface Message {
   body: string
   sent_at: string
   read: boolean
+  /**
+   * False when the address on the message belongs to no account — a webtrees
+   * contact form filled in by a visitor, a sender who has changed their
+   * address, a deleted account — and for one's own copy of a broadcast.
+   */
+  can_reply: boolean
 }
 
 export interface Inbox {

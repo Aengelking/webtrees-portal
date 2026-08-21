@@ -8,7 +8,10 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ReplyCreate;
+use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\Inbox;
+use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Contracts\UserInterface;
@@ -306,6 +309,174 @@ class InboxTest extends PortalTestCase
 
         self::assertSame([], $body['messages']);
         self::assertSame(0, $body['unread']);
+    }
+
+    // -----------------------------------------------------------------
+    // Answering
+    // -----------------------------------------------------------------
+
+    /**
+     * The Reply button is offered on exactly the messages that can be
+     * answered, so the interface never has to refuse after the member has
+     * written something.
+     */
+    public function testAMessageFromAnAccountIsMarkedAnswerable(): void
+    {
+        $this->deliver($this->anna, 'dieter@example.test', 'Hallo', 'Text');
+
+        self::assertTrue($this->json($this->list())['messages'][0]['can_reply']);
+    }
+
+    public function testAMessageFromNobodyInParticularIsNotAnswerable(): void
+    {
+        // A webtrees contact form filled in by a visitor with no account, or
+        // a member who has changed their address since.
+        $this->deliver($this->anna, 'fremder@example.test', 'Hallo', 'Text');
+
+        self::assertFalse($this->json($this->list())['messages'][0]['can_reply']);
+    }
+
+    /**
+     * An administrator's broadcast reaches the administrator as well.
+     * Writing to yourself is refused everywhere else in the module, and this
+     * corner is not the exception.
+     */
+    public function testYourOwnMessageIsNotAnswerable(): void
+    {
+        $this->deliver($this->anna, 'anna@example.test', 'Rundmail', 'An alle');
+
+        self::assertFalse($this->json($this->list())['messages'][0]['can_reply']);
+
+        $response = $this->reply($this->json($this->list())['messages'][0]['id']);
+
+        self::assertSame(StatusCodeInterface::STATUS_CONFLICT, $response->getStatusCode());
+    }
+
+    public function testAReplyReachesTheSenderWithWebtreesSubjectConvention(): void
+    {
+        $id = $this->deliver($this->anna, 'dieter@example.test', 'Familientreffen', 'Kommst du?');
+
+        $response = $this->reply($id, 'Ja, sehr gern.');
+
+        self::assertSame(StatusCodeInterface::STATUS_ACCEPTED, $response->getStatusCode());
+
+        $sent = DB::table('message')->where('user_id', '=', $this->dieter->id())->first();
+
+        self::assertNotNull($sent);
+
+        // webtrees' own string, so a member who reads one message here and
+        // the next in webtrees meets one convention. The suite runs in
+        // English; the German catalogue renders the same string "Re: ".
+        self::assertSame('RE: Familientreffen', $sent->subject);
+        self::assertStringContainsString('Ja, sehr gern.', (string) $sent->body);
+    }
+
+    /**
+     * Answering an answer does not stack the prefix — including across a
+     * language switch, which is where core's exact comparison gives up. The
+     * subject here is the German rendering; the reply is written in English.
+     */
+    public function testAnAnsweredAnswerKeepsOnePrefix(): void
+    {
+        $id = $this->deliver($this->anna, 'dieter@example.test', 'Re: Familientreffen', 'Text');
+
+        $this->reply($id);
+
+        self::assertSame(
+            'Re: Familientreffen',
+            DB::table('message')->where('user_id', '=', $this->dieter->id())->value('subject')
+        );
+    }
+
+    /**
+     * The point of the whole exception. Dieter has no directory profile, so
+     * `POST /members/{id}/message` could never reach him — but he wrote
+     * first, and a portal where messages arrive and cannot be answered is the
+     * gap this was built to close.
+     */
+    public function testAReplyReachesSomebodyWhoIsNotInTheDirectory(): void
+    {
+        self::assertSame(
+            0,
+            DB::table(MemberService::TABLE)->where('wt_user_id', '=', $this->dieter->id())->count(),
+            'Dieter is expected to have no directory profile for this test to mean anything.'
+        );
+
+        $id = $this->deliver($this->anna, 'dieter@example.test', 'Hallo', 'Text');
+
+        self::assertSame(StatusCodeInterface::STATUS_ACCEPTED, $this->reply($id)->getStatusCode());
+        self::assertSame(1, DB::table('message')->where('user_id', '=', $this->dieter->id())->count());
+    }
+
+    /**
+     * Somebody else's message id and one that never existed give the same
+     * answer here too — a reply endpoint would otherwise be a way of asking
+     * whether a message exists.
+     */
+    public function testAMemberCannotReplyToSomebodyElsesMessage(): void
+    {
+        $theirs = $this->deliver($this->dieter, 'anna@example.test', 'Für Dieter', 'Geheim');
+
+        $a = $this->reply($theirs);
+        $b = $this->reply(999999);
+
+        self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $a->getStatusCode());
+        self::assertSame($this->raw($a), $this->raw($b));
+        self::assertSame(0, DB::table('message')->where('user_id', '=', $this->anna->id())->count());
+    }
+
+    /**
+     * "Nobody to reply to" is not "no such message". The member is looking at
+     * their own message and may be told plainly why it has no answer button.
+     */
+    public function testAnUnanswerableMessageSaysSoRatherThanVanishing(): void
+    {
+        $id = $this->deliver($this->anna, 'fremder@example.test', 'Hallo', 'Text');
+
+        $response = $this->reply($id);
+
+        self::assertSame(StatusCodeInterface::STATUS_CONFLICT, $response->getStatusCode());
+        self::assertSame('cannot_reply', $this->json($response)['error']);
+    }
+
+    public function testAnEmptyReplyIsRefused(): void
+    {
+        $id = $this->deliver($this->anna, 'dieter@example.test', 'Hallo', 'Text');
+
+        $response = $this->reply($id, '   ');
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $response->getStatusCode());
+        self::assertSame(0, DB::table('message')->where('user_id', '=', $this->dieter->id())->count());
+    }
+
+    public function testSwitchingMessagesOffAlsoSwitchesOffReplies(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_MESSAGES, '0');
+
+        $id = $this->deliver($this->anna, 'dieter@example.test', 'Hallo', 'Text');
+
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->reply($id)->getStatusCode());
+    }
+
+    /** A reply is a message, and the daily limit is about volume. */
+    public function testTheDailyLimitCountsRepliesToo(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MESSAGE_LIMIT, '0');
+
+        $id = $this->deliver($this->anna, 'dieter@example.test', 'Hallo', 'Text');
+
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->reply($id)->getStatusCode());
+    }
+
+    private function reply(int $id, string $body = 'Danke für die Nachricht.'): ResponseInterface
+    {
+        return $this->api(
+            ReplyCreate::class,
+            RequestMethodInterface::METHOD_POST,
+            attributes: ['id' => $id],
+            body: ['body' => $body],
+            headers: $this->csrfHeader(),
+        );
     }
 
     private function markRead(int $id, bool $read): ResponseInterface

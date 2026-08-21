@@ -309,6 +309,11 @@ export const api = {
     return request<Inbox>(`/messages/${id}`, { method: 'DELETE' })
   },
 
+  /** No subject: a reply carries webtrees' `RE: ` on the original, server-side. */
+  replyToMessage(id: number, body: string): Promise<{ status: string }> {
+    return request<{ status: string }>(`/messages/${id}/reply`, { method: 'POST', body: { body } })
+  },
+
   /** What I share, and with whom. Mine only — the audience does not apply to me. */
   contact(signal?: AbortSignal): Promise<ContactSettings> {
     return request<ContactSettings>('/me/contact', signal === undefined ? {} : { signal })

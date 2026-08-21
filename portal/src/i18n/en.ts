@@ -167,6 +167,16 @@ export const en: Translations = {
     title: 'Messages',
     unread: 'unread',
     markUnread: 'Mark as unread',
+    reply: 'Reply',
+    replyAddressNotice:
+      'So that you can be answered, your email address travels with the reply as the sender address — even if you have not shared it in your contact details.',
+    replyLabel: 'Your reply',
+    replyCancel: 'Cancel',
+    replySend: 'Send reply',
+    replySending: 'Sending …',
+    replySent: 'Your reply is on its way. No copy is kept here.',
+    replyImpossible:
+      'This message cannot be answered here — the sender’s address does not belong to an account in the family tree.',
     delete: 'Delete',
     none: {
       title: 'No messages',
@@ -335,6 +345,8 @@ export const en: Translations = {
     change_pending:
       'An earlier change of yours is still waiting to be approved. Please wait until it has been reviewed.',
     no_linked_record: 'Your account is not linked to a person in the family tree yet.',
+    cannot_reply:
+      'This message cannot be answered here — the sender’s address does not belong to an account in the family tree.',
     unknown: 'Please try again.',
     pageNotFound: {
       title: 'This page does not exist',

@@ -167,6 +167,16 @@ export const de = {
     title: 'Nachrichten',
     unread: 'ungelesen',
     markUnread: 'Als ungelesen markieren',
+    reply: 'Antworten',
+    replyAddressNotice:
+      'Damit man Ihnen antworten kann, wird Ihre E-Mail-Adresse als Absenderadresse mitgeschickt — auch dann, wenn Sie sie in Ihren Kontaktdaten nicht freigegeben haben.',
+    replyLabel: 'Ihre Antwort',
+    replyCancel: 'Abbrechen',
+    replySend: 'Antwort senden',
+    replySending: 'Wird gesendet …',
+    replySent: 'Ihre Antwort ist unterwegs. Eine Kopie wird hier nicht aufbewahrt.',
+    replyImpossible:
+      'Auf diese Nachricht kann hier nicht geantwortet werden — die Absenderadresse gehört zu keinem Konto im Stammbaum.',
     delete: 'Löschen',
     none: {
       title: 'Keine Nachrichten',
@@ -335,6 +345,8 @@ export const de = {
     change_pending:
       'Eine frühere Änderung von Ihnen wartet noch auf die Freigabe. Bitte warten Sie, bis sie geprüft wurde.',
     no_linked_record: 'Ihr Konto ist noch mit keiner Person im Stammbaum verknüpft.',
+    cannot_reply:
+      'Auf diese Nachricht kann hier nicht geantwortet werden — die Absenderadresse gehört zu keinem Konto im Stammbaum.',
     unknown: 'Bitte versuchen Sie es noch einmal.',
     pageNotFound: {
       title: 'Diese Seite gibt es nicht',

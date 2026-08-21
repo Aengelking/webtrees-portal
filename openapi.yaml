@@ -972,6 +972,95 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /messages/{id}/reply:
+    post:
+      tags: [members]
+      summary: Answer a message in my own inbox
+      description: |
+        The directory rule that governs `POST /members/{id}/message` does not
+        apply here, deliberately. That rule exists because picking somebody out
+        of a directory is *finding* them; a reply finds nobody, because the
+        other person wrote first. A member who stayed out of the directory can
+        therefore be answered — but still not approached.
+
+        There is no `subject`: the reply carries webtrees' `RE: ` convention
+        applied to the original, decided on the server.
+
+        As with any message, the sender's own address travels with it as the
+        reply address. The portal says so on the form.
+      operationId: replyToMessage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [body]
+              properties:
+                body:
+                  type: string
+                  maxLength: 4000
+      responses:
+        '202':
+          description: Handed to webtrees for delivery.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [sent]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`not_allowed` — messages are switched off for this tree.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: |
+            `cannot_reply` — the address on the message belongs to no account,
+            so there is nobody for webtrees to deliver an answer to. Or
+            `quota_reached` — as many messages as may be sent today.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`not_delivered` — webtrees could not deliver it.'
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -1323,6 +1412,7 @@ components:
             - invalid_token
             - not_allowed
             - quota_reached
+            - cannot_reply
             - not_delivered
             - username_taken
             - email_taken
@@ -1344,7 +1434,7 @@ components:
     Message:
       type: object
       additionalProperties: false
-      required: [id, from, subject, body, sent_at, read]
+      required: [id, from, subject, body, sent_at, read, can_reply]
       properties:
         id:
           type: integer
@@ -1363,6 +1453,13 @@ components:
           format: date-time
         read:
           type: boolean
+        can_reply:
+          type: boolean
+          description: |
+            Whether `POST /messages/{id}/reply` would work. False when the
+            address on the message belongs to no account — a contact form
+            filled in by a visitor, a sender who has changed their address, a
+            deleted account — and for one's own copy of a broadcast.
 
     Inbox:
       type: object

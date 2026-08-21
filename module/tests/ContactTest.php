@@ -334,6 +334,27 @@ class ContactTest extends PortalTestCase
         self::assertSame(StatusCodeInterface::STATUS_ACCEPTED, $this->message($this->dieter_id)->getStatusCode());
     }
 
+    /**
+     * The second bug of the same shape, and the worse of the two.
+     *
+     * `deliverMessage()` files an internal copy only for a `contactmethod` it
+     * recognises and emails only for an emailing one. A preference that was
+     * never set is in neither list, so the message was stored nowhere and
+     * sent to nobody — and the call still returned `true`, so the sender was
+     * told it had been delivered.
+     *
+     * This test was green before the fix, for the wrong reason: nothing was
+     * sent, so nothing could fail. It now checks the copy rather than the
+     * status code.
+     */
+    public function testAMemberWhoNeverChoseAContactMethodStillGetsTheirCopy(): void
+    {
+        $this->dieter->setPreference(UserInterface::PREF_CONTACT_METHOD, '');
+
+        self::assertSame(StatusCodeInterface::STATUS_ACCEPTED, $this->message($this->dieter_id)->getStatusCode());
+        self::assertSame(1, DB::table('message')->where('user_id', '=', $this->dieter->id())->count());
+    }
+
     public function testTheDailyLimitIsEnforced(): void
     {
         $this->module()->setPreference(PortalApiModule::SETTING_MESSAGE_LIMIT, '1');

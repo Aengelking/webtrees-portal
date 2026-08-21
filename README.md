@@ -39,8 +39,8 @@ users; there is no second identity system.
 **Phases 1 to 10 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, reset their own password, share contact details with an
-audience they choose per entry, write to each other, and read their messages
-in the portal.
+audience they choose per entry, write to each other, and read and answer their
+messages in the portal.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -54,7 +54,7 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `POST /invitation/accept`, `GET|POST /invitations`,
 `DELETE /invitations/{id}`, `GET|PATCH /me/contact`,
 `POST /members/{id}/message`, `GET /messages`,
-`PATCH|DELETE /messages/{id}`, `GET /health`.
+`PATCH|DELETE /messages/{id}`, `POST /messages/{id}/reply`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Members, member detail,
@@ -278,7 +278,23 @@ administrator's broadcast. This is the answer to the awkward case in the
 previous section — a member whose webtrees contact method is *internal
 messaging only* can now actually read what arrives.
 
-Three things worth knowing:
+**Answering.** A message can be answered from the card it is read on. Three
+things about a reply differ from writing to somebody in the directory:
+
+* **A member who stayed out of the directory can be answered** — they wrote
+  first, so nothing is being discovered. They still cannot be approached.
+* **The subject is not yours to write.** webtrees' `RE: ` goes on the
+  original, so an answer arrives as an answer rather than as a new
+  conversation.
+* **Your own email address travels with it**, as the reply address, exactly as
+  in the previous section. It says so above the button.
+
+A reply is only offered where it can be delivered — see the third point below
+— and no copy is kept: webtrees stores the recipient's copy of a message and
+nothing for the sender, so there is no sent folder and the portal does not
+pretend there is one.
+
+Three more things worth knowing:
 
 * **Deleting deletes.** The portal does not keep a copy. Deleting a message
   here removes it from webtrees as well, and the screen says so under the list.
@@ -288,7 +304,9 @@ Three things worth knowing:
   reply address rather than a link to an account, so a sender who has since
   changed their address — or who has no account at all, having used the public
   contact form — shows as that address instead. Nothing new is disclosed: it
-  was already the reply address on the member's email.
+  was already the reply address on the member's email. Those are exactly the
+  messages that cannot be answered from the portal, and the screen says why
+  rather than quietly leaving the button off.
 
 Read state is the portal's own (webtrees does not track it), so marking
 something read here does not change anything in webtrees.
@@ -1048,6 +1066,25 @@ about the family; and the diagnosis screen reports a missing tree, a schema
 behind the code, a database ahead of it, an open registration page and a
 missing proxy secret — and survives an installation where nothing is
 configured.
+
+**Answering** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
+an answer reaches the sender under webtrees' `RE: ` subject, and answering an
+answer does not stack a second prefix even across a language switch; a member
+who is *not* in the directory can be answered, which is the one rule a reply
+lifts and the reason the feature exists; a message whose sender resolves to no
+account, and one's own copy of a broadcast, are marked unanswerable and
+refused with a reason rather than a 404; somebody else's message id is refused
+exactly as an id that never existed; switching messages off switches replies
+off, and the daily limit counts them; and on the client the answerer is told
+their address travels with the reply *before* the button, and told afterwards
+that no copy is kept.
+
+**Delivery** (`module/tests/ContactTest.php`) — a member whose contact
+preference was never set still gets their copy. webtrees files an internal
+copy only for a contact method it recognises, and the empty string is not one,
+so the message went nowhere and the call still reported success. This test was
+green before the fix for the wrong reason — nothing was being sent, so nothing
+could fail — and now asserts the copy rather than the status code.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id

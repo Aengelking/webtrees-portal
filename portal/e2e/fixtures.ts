@@ -108,8 +108,10 @@ export async function stubApi(page: Page): Promise<void> {
       body: 'Kommst du zum Familientreffen?',
       sent_at: '2026-08-01T10:00:00+00:00',
       read: false,
+      can_reply: true,
     },
   ]
+
 
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
@@ -241,6 +243,10 @@ export async function stubApi(page: Page): Promise<void> {
     // Phase 10. One unread message, which the badge counts.
     if (path === '/messages' && method === 'GET') {
       return json(route, { messages: inbox, unread: inbox.filter((m) => !m.read).length })
+    }
+
+    if (path.endsWith('/reply') && method === 'POST') {
+      return json(route, { status: 'sent' }, 202)
     }
 
     if (path.startsWith('/messages/') && method === 'PATCH') {

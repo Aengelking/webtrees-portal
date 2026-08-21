@@ -1323,6 +1323,86 @@ want it.
 
 ---
 
+### 2.28 Answering, and two ways webtrees loses a message without saying so
+
+An inbox that cannot be answered is half a feature. `POST /messages/{id}/reply`
+is the other half, and it raised one design question and turned up two
+delivery bugs.
+
+**The directory rule is lifted for a reply, deliberately.** §2.26 refuses to
+let a member write to anybody who kept themselves out of the directory, and
+that rule is right about what it guards: picking somebody out of a list is
+*finding* them. A reply finds nobody. The other person wrote first, so their
+existence, their account and their name are already known to the person
+answering — there is nothing left to disclose by allowing the answer. Keeping
+the rule here would only produce the thing Phase 10 set out to abolish: a
+message that arrives and cannot be answered.
+
+What a reply *does* disclose is the answerer's own address, exactly as a new
+message does, so the same sentence sits above the same button. The difference
+is consent: being written to was not a choice, replying is.
+
+**The Reply button appears only where a reply can be delivered.** `sender` is
+an address, not an account (§2.27), so it may resolve to nobody — a contact
+form filled in by a visitor, a sender who has changed their address, a deleted
+account. `can_reply` is computed per message from the same lookup that
+resolves the name, so it costs no extra query, and the interface never has to
+refuse after the member has written something. This is exactly the condition
+webtrees' own message list uses to decide whether to show its Reply link.
+
+The portal deliberately does **not** fall back to emailing the stored address
+when there is no account behind it. That address is a *reply* address on a
+message, not a consent to be contacted by the portal, and the person behind it
+may have nothing to do with this site.
+
+**The subject is not the member's to write.** It is webtrees' `RE: `
+convention applied to the original, decided on the server — one less field on
+a phone, and no way to write an answer that arrives looking like a new
+conversation. One improvement on core: core compares the prefix exactly, so a
+thread whose earlier reply was written in German (`Re: `) collects a second
+prefix when the next one is written in English (`RE: `). The portal compares
+case-insensitively, against the translated string and the source string both.
+
+**There is no sent folder, and the screen says so.** webtrees stores only the
+*recipient's* copy of a message; nothing is kept for the sender. Rather than
+invent a sent item that does not exist, the confirmation says plainly that no
+copy is kept here.
+
+#### Two bugs, both of them silent
+
+**A recipient who never chose a contact method received nothing.**
+`deliverMessage()` files an internal copy only for a `contactmethod` it
+recognises and sends an email only for an emailing one. The empty string — the
+value of an account whose preference was never set — is in neither list, so
+the message was stored nowhere, sent to nobody, and the call still returned
+`true`. The sender was told it had been delivered.
+
+Note what this is *not*: `none` is in the internal list, so a member who chose
+to be left alone still gets their copy. Only *never chose* was broken. That is
+why it went unnoticed — webtrees' own registration sets the value, and so does
+this module's invitation path, so it cannot happen to an account created
+either way. It happens to accounts made by hand, and to old ones, which is the
+same population as the language trap in §2.26 and gets the same treatment:
+`ensureRecipientCanBeReached()` fills in the value webtrees' own registration
+uses. A missing default restored, never a choice overridden.
+
+This one was hiding behind a green test. `ContactTest::testAMessageReachesAListedMember`
+had passed since Phase 9 — because nothing was being sent, so nothing could
+fail. Fixing the delivery turned it red, which is how it was found. It now
+asserts the copy rather than the status code.
+
+**A failed email was reported as a failed message.** Phase 9 refused with
+`not_delivered` whenever `deliverMessage()` returned `false`, and called it
+"we are not sure": the internal copy might have been stored, but nobody could
+read it in the portal, so claiming success felt worse. Phase 10 changed the
+fact that answer rested on. A filed copy is now in the recipient's inbox, on
+the screen they are already using — that *is* delivery, and a family whose
+mail server is down should not be told their messages are failing. So the
+refusal now needs both channels to have failed. Both failing is still a
+failure and is still reported as one.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
