@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDeleteMessage, useMarkMessage, useMessages, useReplyToMessage } from '../api/queries'
 import type { Message } from '../api/types'
+import { formatTimestamp } from '../api/dates'
+import { Conversations } from '../components/Conversations'
 import { Button, Card, ErrorNotice, Loading, Notice, PageHeading, SuccessNote } from '../components/ui'
 
 /**
@@ -37,6 +39,9 @@ export function Messages() {
     <>
       <PageHeading>{t('messages.title')}</PageHeading>
 
+      {/* Renders nothing until there is a conversation to show. */}
+      <Conversations />
+
       {isPending && <Loading />}
 
       {isError && (
@@ -47,6 +52,8 @@ export function Messages() {
 
       {data !== undefined && (
         <div className="mt-6">
+          <h2 className="text-lg font-semibold text-slate-900">{t('messages.inboxTitle')}</h2>
+
           {data.messages.length === 0 ? (
             <Notice title={t('messages.none.title')} body={t('messages.none.body')} />
           ) : (
@@ -95,7 +102,7 @@ function MessageCard({
   onMarkUnread: () => void
   onDelete: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [replying, setReplying] = useState(false)
 
   return (
@@ -121,7 +128,7 @@ function MessageCard({
             {!message.read && <span className="sr-only"> — {t('messages.unread')}</span>}
           </span>
           <span className="mt-1 block text-base text-slate-700">
-            {message.from} · {formatDate(message.sent_at)}
+            {message.from} · {formatTimestamp(message.sent_at, i18n.language)}
           </span>
         </span>
       </button>
@@ -236,13 +243,3 @@ function ReplyForm({ id, onSent }: { id: number; onSent: () => void }) {
   )
 }
 
-/**
- * One date, formatted by the browser. Everything genealogical is formatted by
- * webtrees, but a message timestamp is not genealogy and does not need a
- * round trip.
- */
-function formatDate(iso: string): string {
-  const date = new Date(iso)
-
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString()
-}

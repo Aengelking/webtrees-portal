@@ -17,6 +17,12 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConversationCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConversationDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConversationList;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConversationMessageCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConversationMessageDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConversationRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\HealthRead;
@@ -45,6 +51,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\CloseFamily;
 use Engelking\Webtrees\PortalApi\Services\Connections;
+use Engelking\Webtrees\PortalApi\Services\Conversations;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
@@ -116,7 +123,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.1.1';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 6;
+    private const int SCHEMA_VERSION = 7;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -272,7 +279,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
         $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections);
-        $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections);
+        $conversations  = new Conversations($members, $connections, $member_msgs, $user_service);
+        $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections, $conversations);
 
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
@@ -291,6 +299,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(Connections::class, $connections);
         $container->set(ContactDetails::class, $contacts);
         $container->set(Inbox::class, $inbox);
+        $container->set(Conversations::class, $conversations);
         $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
 
@@ -313,6 +322,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
+        $container->set(ConversationList::class, new ConversationList($conversations));
+        $container->set(ConversationCreate::class, new ConversationCreate($conversations));
+        $container->set(ConversationRead::class, new ConversationRead($conversations));
+        $container->set(ConversationMessageCreate::class, new ConversationMessageCreate($conversations));
+        $container->set(ConversationMessageDelete::class, new ConversationMessageDelete($conversations));
+        $container->set(ConversationDelete::class, new ConversationDelete($conversations));
         $container->set(InboxList::class, new InboxList($inbox));
         $container->set(InboxUpdate::class, new InboxUpdate($inbox));
         $container->set(InboxDelete::class, new InboxDelete($inbox));
@@ -458,6 +473,38 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $map->post(ReplyCreate::class, self::ROUTE_PREFIX . '/messages/{id}/reply', ReplyCreate::class)
             ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        // Phase 12 — conversations. Opening one is a write: it is the step
+        // the directory rule guards, and it creates a row.
+        $map->get(ConversationList::class, self::ROUTE_PREFIX . '/conversations', ConversationList::class)
+            ->extras(['middleware' => $private]);
+
+        $map->post(ConversationCreate::class, self::ROUTE_PREFIX . '/conversations', ConversationCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->get(ConversationRead::class, self::ROUTE_PREFIX . '/conversations/{id}', ConversationRead::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $private]);
+
+        $map->delete(ConversationDelete::class, self::ROUTE_PREFIX . '/conversations/{id}', ConversationDelete::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->post(
+            ConversationMessageCreate::class,
+            self::ROUTE_PREFIX . '/conversations/{id}/messages',
+            ConversationMessageCreate::class,
+        )
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(
+            ConversationMessageDelete::class,
+            self::ROUTE_PREFIX . '/conversations/{id}/messages/{message}',
+            ConversationMessageDelete::class,
+        )
+            ->tokens(['id' => '\d+', 'message' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
 
         // Phase 11 — connections. Reading my own list is safe; everything

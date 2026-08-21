@@ -23,6 +23,9 @@ import type {
   MemberProfileUpdate,
   Me,
   ContactSettings,
+  Conversation,
+  ConversationMessage,
+  Transcript,
   Inbox,
   InvitationOverview,
   IssuedInvitation,
@@ -39,6 +42,8 @@ export const queryKeys = {
   invitations: ['invitations'] as const,
   contact: ['contact'] as const,
   messages: ['messages'] as const,
+  conversations: ['conversations'] as const,
+  conversation: (id: number) => ['conversation', id] as const,
   connections: ['connections'] as const,
 }
 
@@ -203,6 +208,80 @@ export function useDeleteMessage() {
     mutationFn: (id) => api.deleteMessage(id),
     onSuccess: (result) => {
       queryClient.setQueryData(queryKeys.messages, result)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+/**
+ * The conversations, and one of them.
+ *
+ * Every write answers with the piece of the world it changed — the transcript
+ * for a message, the list for a deletion — so that what is on screen and what
+ * is on the server cannot drift apart. `me` is invalidated alongside, because
+ * it carries the badge.
+ */
+export function useConversations() {
+  return useQuery<{ conversations: Conversation[] }>({
+    queryKey: queryKeys.conversations,
+    queryFn: ({ signal }) => api.conversations(signal),
+  })
+}
+
+export function useConversation(id: number) {
+  return useQuery<Transcript>({
+    queryKey: queryKeys.conversation(id),
+    queryFn: ({ signal }) => api.conversation(id, undefined, signal),
+    enabled: id > 0,
+  })
+}
+
+/** Opening one is the step the directory rule guards; it may 404. */
+export function useOpenConversation() {
+  const queryClient = useQueryClient()
+
+  return useMutation<{ conversation: Conversation }, Error, number>({
+    mutationFn: (memberId) => api.openConversation(memberId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations })
+    },
+  })
+}
+
+export function useSendConversationMessage(id: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation<{ message: ConversationMessage }, Error, string>({
+    mutationFn: (body) => api.sendConversationMessage(id, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversation(id) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+export function useDeleteConversationMessage(id: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation<Transcript, Error, number>({
+    mutationFn: (message) => api.deleteConversationMessage(id, message),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.conversation(id), result)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+    },
+  })
+}
+
+export function useClearConversation() {
+  const queryClient = useQueryClient()
+
+  return useMutation<{ conversations: Conversation[] }, Error, number>({
+    mutationFn: (id) => api.clearConversation(id),
+    onSuccess: (result, id) => {
+      queryClient.setQueryData(queryKeys.conversations, result)
+      queryClient.removeQueries({ queryKey: queryKeys.conversation(id) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.me })
     },
   })

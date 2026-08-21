@@ -49,6 +49,29 @@ class MemberService
     }
 
     /**
+     * One member by webtrees account, whatever the directory says.
+     *
+     * Deliberately outside the visibility rule, and only for callers that
+     * already have a reason to name the person — a conversation both sides can
+     * see, for instance, where the transcript on the screen is proof they know
+     * each other. It must never be reached from a lookup a member could aim at
+     * an account they have nothing to do with: that is what `visibleMember()`
+     * and `readableMember()` are for.
+     */
+    public function memberForUser(int $wt_user_id): Member|null
+    {
+        $row = DB::table(self::TABLE)->where('wt_user_id', '=', $wt_user_id)->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $user = $this->user_service->find($wt_user_id);
+
+        return $user instanceof User ? $this->member($row, $user) : null;
+    }
+
+    /**
      * One directory-visible member, by portal member id.
      *
      * Members who are not visible in the directory are reported as missing,

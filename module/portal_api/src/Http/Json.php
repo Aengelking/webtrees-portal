@@ -9,7 +9,9 @@ use Fisharebest\Webtrees\Registry;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
+use function ctype_digit;
 use function is_array;
+use function is_int;
 use function is_string;
 use function json_decode;
 
@@ -107,5 +109,33 @@ final class Json
         }
 
         return $value;
+    }
+
+    /**
+     * A required identifier from a JSON body.
+     *
+     * Accepts the number JSON gives and the string a form would; refuses zero
+     * and below, because every id this module hands out counts from one and a
+     * missing field arriving as `0` should not read as a valid lookup.
+     *
+     * @param array<string,mixed> $body
+     */
+    public static function requiredInt(array $body, string $key): int
+    {
+        $value = $body[$key] ?? null;
+
+        if (is_int($value)) {
+            $number = $value;
+        } elseif (is_string($value) && ctype_digit($value)) {
+            $number = (int) $value;
+        } else {
+            throw ApiException::badRequest();
+        }
+
+        if ($number <= 0) {
+            throw ApiException::badRequest();
+        }
+
+        return $number;
     }
 }

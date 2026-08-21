@@ -281,14 +281,15 @@ test.describe('phase 9', () => {
     // writes to themselves.
     await page.getByRole('listitem').filter({ hasText: 'Dieter' }).first().getByRole('link').click()
 
-    // The warning is above the button, not after the send.
+    // The warning is above the button, not after it is pressed. Phase 12 turned
+    // the form here into the way into a conversation; the disclosure it carries
+    // did not change, because webtrees' notification still travels with the
+    // sender's address on it.
     await expect(page.getByText(/Ihre E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeVisible()
 
-    await page.getByLabel('Betreff').fill('Hallo')
-    await page.getByLabel('Ihre Nachricht').fill('Wie geht es dir?')
-    await page.getByRole('button', { name: 'Nachricht senden' }).click()
+    await page.getByRole('button', { name: 'Nachricht schreiben' }).click()
 
-    await expect(page.getByText('Ihre Nachricht ist unterwegs.')).toBeVisible()
+    await expect(page).toHaveURL(/\/conversations\//)
   })
 
   test('each contact detail has its own audience', async ({ page }) => {
@@ -320,7 +321,7 @@ test.describe('phase 10', () => {
     await expect(inbox).toContainText('1')
 
     await inbox.click()
-    await expect(page.getByRole('heading', { name: 'Nachrichten' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Nachrichten' })).toBeVisible()
 
     // Closed until opened, then the message itself — not webtrees' email
     // wrapper around it.
@@ -427,5 +428,38 @@ test.describe('phase 11', () => {
     await page.getByRole('button', { name: 'Jetzt verbinden' }).click()
 
     await expect(page.getByText(/Sie sind jetzt mit Emil Beispiel verbunden/)).toBeVisible()
+  })
+})
+
+test.describe('phase 12', () => {
+  /**
+   * The exchange webtrees could not hold. Opening it from a member's page,
+   * saying something, and finding both halves on one screen is the whole
+   * feature — and the half that used to be missing is the one the member
+   * wrote themselves.
+   */
+  test('a member writes, and the conversation keeps both halves', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture members.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/members/2')
+    await page.getByRole('button', { name: 'Nachricht schreiben' }).click()
+
+    // Landed in the conversation, with what the other person said already there.
+    await expect(page).toHaveURL(/\/conversations\/3$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'Dieter Beispiel' })).toBeVisible()
+    await expect(page.getByText('Hast du die Fotos von Oma gesehen?')).toBeVisible()
+
+    await page.getByLabel('Ihre Nachricht').fill('Ja, ich komme!')
+    await page.getByRole('button', { name: 'Senden' }).click()
+
+    await expect(page.getByText('Ja, ich komme!')).toBeVisible()
+    // And the one it answers is still there — this is a transcript, not an inbox.
+    await expect(page.getByText('Hast du die Fotos von Oma gesehen?')).toBeVisible()
   })
 })
