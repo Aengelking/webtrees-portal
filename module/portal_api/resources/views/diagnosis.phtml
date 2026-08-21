@@ -17,6 +17,7 @@ use Illuminate\Support\Collection;
  * @var PortalApiModule                $module
  * @var int                            $error_count
  * @var int                            $path_length
+ * @var array<int,array{name:string,xref:string|null,numbers:array<int,string>}> $numbers
  * @var string                         $settings_url
  * @var string                         $title
  * @var string                         $worst
@@ -94,6 +95,48 @@ $summary = [
         </button>
         <?= csrf_field() ?>
     </form>
+<?php endif ?>
+
+<h2 class="h5 mt-5"><?= I18N::translate('Numbers members can be found by') ?></h2>
+
+<p>
+    <?= I18N::translate('A member can connect with another by typing the reference number on their record — an “SB” number here. Three different reasons for “nobody was found under that number” look identical from the form, and this table tells them apart: somebody with no portal account is not in it at all, somebody who stayed out of the member directory is not in it either, and somebody listed with no number beside their name carries it somewhere other than a REFN fact.') ?>
+</p>
+
+<p class="form-text">
+    <?= I18N::translate('The numbers are shown exactly as the search reads them, at a member’s access level — so a number hidden by a restriction notice is absent here too.') ?>
+</p>
+
+<?php if ($numbers === []) : ?>
+    <p><?= I18N::translate('Nobody is visible in the member directory yet, so this search can find nobody. Members choose that for themselves, under “Einstellungen”.') ?></p>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <caption class="visually-hidden"><?= I18N::translate('Numbers members can be found by') ?></caption>
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Member') ?></th>
+                    <th scope="col"><?= I18N::translate('Individual record') ?></th>
+                    <th scope="col"><?= I18N::translate('Reference number') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($numbers as $row) : ?>
+                    <tr>
+                        <td><?= e($row['name']) ?></td>
+                        <td><?= $row['xref'] === null ? '<span class="text-danger">' . I18N::translate('No linked record') . '</span>' : e($row['xref']) ?></td>
+                        <td>
+                            <?php if ($row['numbers'] === []) : ?>
+                                <span class="text-danger"><?= I18N::translate('None — this member cannot be found by number.') ?></span>
+                            <?php else : ?>
+                                <?= e(implode(' · ', $row['numbers'])) ?>
+                            <?php endif ?>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
 <?php endif ?>
 
 <h2 class="h5 mt-5"><?= I18N::translate('Recent errors') ?></h2>

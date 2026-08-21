@@ -6,7 +6,9 @@ namespace Engelking\Webtrees\PortalApi\Services;
 
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Site;
 use Fisharebest\Webtrees\Tree;
@@ -14,6 +16,7 @@ use Illuminate\Support\Collection;
 use Throwable;
 
 use function time;
+use function trim;
 
 /**
  * Everything that has to be true for the portal to work, checked in one place.
@@ -346,6 +349,59 @@ class Diagnosis
     /**
      * The worst status among the checks, for a one-line answer at the top.
      */
+    /**
+     * Every member of the directory, with the numbers a search can find them
+     * by — which is the only honest answer to "why does the SB number find
+     * nobody?".
+     *
+     * Three different causes look identical from the form: the person has no
+     * portal account, or has one and stayed out of the directory, or is
+     * listed but carries the number somewhere other than a `REFN`. This table
+     * tells them apart at a glance, and shows the numbers exactly as the
+     * search reads them — at a member's access level, so a number a `RESN`
+     * hides is absent here too.
+     *
+     * @return array<int,array{name:string,xref:string|null,numbers:array<int,string>}>
+     */
+    public function directoryNumbers(): array
+    {
+        try {
+            $tree = $this->trees->tree();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($this->members->allVisible() as $member) {
+            $individual = $this->trees->linkedIndividual($tree, $member->user);
+            $numbers    = [];
+
+            if ($individual instanceof Individual) {
+                foreach ($individual->facts(['REFN'], false, Auth::PRIV_HIDE) as $fact) {
+                    if (!$fact->canShow(Auth::PRIV_USER)) {
+                        continue;
+                    }
+
+                    $type   = trim($fact->attribute('TYPE'));
+                    $number = trim($fact->value());
+
+                    if ($number !== '') {
+                        $numbers[] = $type === '' ? $number : $type . ' ' . $number;
+                    }
+                }
+            }
+
+            $rows[] = [
+                'name'    => $member->display_name,
+                'xref'    => $individual instanceof Individual ? $individual->xref() : null,
+                'numbers' => $numbers,
+            ];
+        }
+
+        return $rows;
+    }
+
     public function worst(Collection $checks): string
     {
         foreach ([self::PROBLEM, self::WARNING] as $status) {

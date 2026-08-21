@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Services;
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Fig\Http\Message\StatusCodeInterface;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Fact;
@@ -742,11 +743,32 @@ class Connections
         foreach ($this->members->allVisible() as $member) {
             $individual = $this->trees->linkedIndividual($tree, $member->user);
 
-            if (!$individual instanceof Individual || !$individual->canShow($access_level)) {
+            if (!$individual instanceof Individual) {
                 continue;
             }
 
-            foreach ($individual->facts(['REFN'], false, $access_level) as $fact) {
+            // Read at `PRIV_HIDE`, on purpose, and then filter each number on
+            // its own restriction.
+            //
+            // `GedcomRecord::facts()` hands back *nothing at all* for a record
+            // the reader may not see, so reading at the member's own level
+            // silently skipped everybody outside their view of the tree — and
+            // a family that set a relationship limit (§2.25) therefore had a
+            // number search that found nobody, while the directory listed
+            // those same people by name a screen away.
+            //
+            // Nothing is disclosed by finding them here that the directory
+            // does not already publish: the person exists, they are listed,
+            // and this is their name. The number itself came off a letterhead
+            // rather than out of the tree. What the record *does* still decide
+            // is a number it marks confidential — `Fact::canShow()` checks the
+            // `RESN` on the fact rather than the privacy of the record around
+            // it, which is exactly the half that belongs here.
+            foreach ($individual->facts(['REFN'], false, Auth::PRIV_HIDE) as $fact) {
+                if (!$fact->canShow($access_level)) {
+                    continue;
+                }
+
                 if ($this->matches($fact, $wanted, false)) {
                     return $member;
                 }

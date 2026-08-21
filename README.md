@@ -397,17 +397,31 @@ letterheads and out of Christmas cards:
   `10/1335.21` and `101/335.21` are one string once it is gone, and the portal
   says it found nobody rather than guessing which cousin was meant.
 
-Two limits on the number search, and both follow from rules that were already
-there:
+Two limits on the number search:
 
 * **Only members listed in the directory can be found by number.** Staying out
   of the directory means not being findable — by name, and by number. Somebody
   who is not listed can still connect, by showing or scanning a code, because
   that is their own act.
-* **Only numbers the searching member could already read.** The lookup reads
-  each record at that member's own access level, so a `REFN` under a
-  `RESN confidential`, or one on a record they may not see, is not there to be
-  found.
+* **A number the record marks confidential is not searchable.** A `REFN` under
+  a `RESN confidential` is not there to be found.
+
+What is *not* a limit, and used to be: whether the searching member may see
+the other person's record. A relationship limit (see *How much of the tree a
+member sees*) hides most living people from most members, and the search used
+to skip everybody it hid — so a family that switched that on had a number
+search that found nobody, while the directory listed those same people by name
+one screen away. The number comes off a letterhead rather than out of the
+tree, and the person it belongs to is already published in the directory under
+their name, so the search now reaches exactly the people the directory does.
+
+**When it finds nobody, the Diagnosis screen says why.** Three different
+causes look identical from the form — no portal account, an account that
+stayed out of the directory, or a record carrying the number somewhere other
+than a `REFN` — and *Control panel → Modules → Member portal API →
+Diagnosis* lists every directory member with the numbers the search can find
+them by. Somebody absent from that table cannot be found by number, and the
+table says which of the three it is.
 
 **Or straight from the member list.** Every row of the directory carries a
 **Verbinden** button, and the same request goes off without opening the person
