@@ -209,8 +209,9 @@ describe('my contacts', () => {
     await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
     await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
 
-    // Shown before it is sent, so nobody has to picture it.
-    expect(screen.getByText('10/1335.21')).toBeDefined()
+    // The slash is printed between the two controls, so what is on screen
+    // reads as the number itself — and nobody had to type it.
+    expect(screen.getByText('/')).toBeDefined()
 
     await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
 

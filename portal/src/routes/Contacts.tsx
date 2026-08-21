@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +21,6 @@ import {
   Notice,
   PageHeading,
   Section,
-  Select,
   SuccessNote,
 } from '../components/ui'
 
@@ -270,6 +269,75 @@ export function composeReference(branch: string, number: string): string {
   return `${branch}/${typed}`
 }
 
+/**
+ * The number, laid out the way it is written: a branch, a slash, the rest.
+ *
+ * One control per part, with the slash between them as a printed character
+ * rather than a keystroke — that is the whole point of the arrangement, and
+ * it means the form on screen reads as the number the member is holding.
+ *
+ * The slash is `aria-hidden` and each control names itself instead. A screen
+ * reader announcing "Zweig, 10" and "Nummer, 1335.21" says more than one
+ * announcing a punctuation mark between two unlabelled boxes.
+ */
+function ReferenceInput({
+  branch,
+  number,
+  onBranch,
+  onNumber,
+}: {
+  branch: string
+  number: string
+  onBranch: (value: string) => void
+  onNumber: (value: string) => void
+}) {
+  const { t } = useTranslation()
+  const id = useId()
+
+  return (
+    <div className="mb-5">
+      <p id={id} className="mb-2 block text-base font-medium text-slate-900">
+        {t('contacts.referenceGroup')}
+      </p>
+
+      <div role="group" aria-labelledby={id} className="flex items-center gap-2">
+        <select
+          aria-label={t('contacts.branchLabel')}
+          value={branch}
+          onChange={(event) => onBranch(event.target.value)}
+          className="min-h-[48px] rounded-lg border border-slate-400 bg-white px-3 py-3 text-base text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+        >
+          <option value="">{t('contacts.branchNone')}</option>
+          {BRANCHES.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+
+        <span aria-hidden="true" className="text-xl font-semibold text-slate-500">
+          /
+        </span>
+
+        <input
+          aria-label={t('contacts.referenceLabel')}
+          // Digits and a separator, which is the whole of a number after the
+          // branch. A comma instead of a full stop is no trouble:
+          // punctuation is not what the server compares.
+          inputMode="decimal"
+          autoComplete="off"
+          placeholder={t('contacts.referencePlaceholder')}
+          value={number}
+          onChange={(event) => onNumber(event.target.value)}
+          className="min-h-[48px] w-full flex-1 rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+        />
+      </div>
+
+      <p className="mt-2 text-base text-slate-700">{t('contacts.referenceHint')}</p>
+    </div>
+  )
+}
+
 /** The other way: the number printed under the name on somebody's record. */
 function ByReference() {
   const { t } = useTranslation()
@@ -311,39 +379,12 @@ function ByReference() {
           </div>
         )}
 
-        <Select
-          label={t('contacts.branchLabel')}
-          value={branch}
-          onChange={(event) => setBranch(event.target.value)}
-        >
-          <option value="">{t('contacts.branchNone')}</option>
-          {BRANCHES.map((option) => (
-            <option key={option} value={option}>
-              {t('contacts.branchOption', { branch: option })}
-            </option>
-          ))}
-        </Select>
-
-        <Field
-          label={t('contacts.referenceLabel')}
-          hint={t('contacts.referenceHint')}
-          // Digits and a separator, which is the whole of a number after the
-          // branch. A comma instead of a full stop is no trouble: punctuation
-          // is not what the server compares.
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder={t('contacts.referencePlaceholder')}
-          value={number}
-          onChange={(event) => setNumber(event.target.value)}
+        <ReferenceInput
+          branch={branch}
+          number={number}
+          onBranch={setBranch}
+          onNumber={setNumber}
         />
-
-        {/* What the two fields amount to, so nobody has to picture it. */}
-        {reference !== '' && (
-          <p className="mb-5 text-base text-slate-700">
-            {t('contacts.referencePreview')}{' '}
-            <span className="font-semibold text-slate-900">{reference}</span>
-          </p>
-        )}
 
         <Button type="submit" disabled={connect.isPending || reference === ''}>
           {connect.isPending ? t('contacts.asking') : t('contacts.ask')}
