@@ -4,6 +4,7 @@ export const en: Translations = {
   app: {
     name: 'Family portal',
     skipToContent: 'Skip to content',
+    offline: 'No internet connection. Nothing new can be loaded right now.',
   },
   nav: {
     profile: 'My profile',

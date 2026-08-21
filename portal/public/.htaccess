@@ -24,4 +24,14 @@
 <IfModule mod_headers.c>
     # The portal is for members, not search engines.
     Header set X-Robots-Tag "noindex, nofollow"
+
+    # The service worker is how the portal updates itself, so it may not be
+    # held anywhere. A webspace with a blanket far-future Expires — common,
+    # and usually a good idea — would otherwise pin a version of the portal on
+    # every phone that has installed it, for as long as that Expires says.
+    # (Browsers cap a service worker script at 24 hours regardless; this is
+    # what stops it being 24 hours.)
+    <FilesMatch "^sw\.js$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
 </IfModule>

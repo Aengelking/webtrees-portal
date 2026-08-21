@@ -1425,6 +1425,79 @@ for the tree they maintain. The role comes from `/me`, where it is already
 computed per tree by `MeAssembler::role()` — `Auth::isEditor()` and friends, in
 the configured tree, not a guess from the account's global flags.
 
+### 2.30 An installable portal whose cache stops at the shell
+
+The portal is a progressive web app: a manifest, icons, and a service worker
+in `portal/sw/` built separately to `/sw.js`. On a home screen it opens under
+its own icon with no address bar, which is most of the point — the audience is
+members who open WhatsApp by tapping a picture, not people who keep bookmarks.
+
+**The interesting decision is what the service worker refuses to do.**
+Everything else in this repository is built around never keeping personal
+data: `gcTime: 0` in React Query, `private, no-store` from the module,
+`privateCacheControl()` in the proxy refusing to let `public` past. A service
+worker is a cache that outlives the tab, the session and the sign-out, on the
+device most likely to be handed to somebody else. Adding one carelessly would
+undo all three at once.
+
+So it keeps the shell and nothing else, and requests under `/api/` are not
+merely uncached but never intercepted: `handlingFor()` returns `bypass` and no
+`respondWith` is called, which leaves the request exactly as it would have
+been with no service worker installed. Photographs are the case that makes
+this worth stating — a portrait is a same-origin GET of an image, identical to
+an asset in every respect except its path.
+
+Four details that are not obvious, each of which was a bug first:
+
+* **Pages are network-first, assets are cache-first.** Asset URLs contain a
+  content hash, so a cached one can never be wrong. `index.html` can: a
+  deployment replaces every hashed file, and a cached page naming files that
+  no longer exist is a portal that will not start. Online, the network always
+  decides what the page is.
+* **The shell is not one file.** Caching `index.html` alone produces something
+  that looks installed and opens blank on the first flight — the document is
+  there and the script it asks for is not. The worker reads the asset list out
+  of the document's own markup at install (`assetsIn()`) rather than having the
+  build write a list, because the markup is the only version of that list that
+  cannot go stale. This was found by the Playwright test, not by reasoning.
+* **A 200 can be a lie.** Both deployment targets answer an unknown path with
+  `index.html` so the router can take it. A request for a hashed file that a
+  deployment has removed therefore returns 200 with HTML in it, and storing
+  that under a `.js` URL is a portal that will not start *and* cannot repair
+  itself. `mayStoreAsset()` refuses anything claiming to be a page.
+* **`Vary: Origin` all but disables the cache, and only offline.** Vite marks
+  its script and stylesheet `crossorigin`, so the browser fetches them as CORS
+  requests with an `Origin` header. A static server that answers those with
+  `Vary: Origin` — `vite preview` does — makes each stored entry match only a
+  request carrying the same `Origin`, and the worker's own `cache.add` carries
+  none. Everything precached correctly, nothing was ever found again, and the
+  symptom was a page with a title and no body. Every lookup therefore passes
+  `ignoreVary`, which is not a shortcut: these URLs contain a content hash, so
+  the URL is the identity of the file and there is no other variant to confuse
+  it with.
+
+**The cache is named after the build**, so a deployment gets a fresh one and
+activation deletes its predecessor. There is no record of which hashed files
+are still referenced, so the only honest way to keep old ones from
+accumulating forever is to start again each time.
+
+**`skipWaiting()` and `clients.claim()` are safe here** in a way they usually
+are not: nothing cached is version-specific except by URL, and pages come from
+the network anyway. The reason to want them is the bad day — a worker deployed
+to fix or to remove a broken one should take effect when the portal is next
+opened, not when the member happens to close every window.
+
+**The offline bar is not the service worker's doing.** `navigator.onLine` says
+whether there is a network, not whether anything is reachable across it, so it
+never suppresses a request and never decides what is fetched; `network_error`
+from the API client remains the truth. All it does is answer the question the
+installed app cannot otherwise answer: with no browser chrome, a portal that
+has stopped working looks broken rather than offline.
+
+**The manifest is German only.** The portal has a language switch, a manifest
+does not — the name under the icon is fixed when the app is installed. German
+is what `index.html` and the default language already say.
+
 ---
 
 ### 2.30 Getting from the portal into webtrees, in both directions of the door
@@ -1582,9 +1655,13 @@ Written down rather than acted on, per §2 of the handoff.
   deployed, checked at that moment, not a green tick from an earlier commit.
 * **Serving the SPA over SFTP assumes the domain root.** The API client asks
   for `/api/v1/…`, so a subdirectory install needs Vite's `base` and the
-  client's `BASE` changed together. Fine for Cloudflare Pages, which is the
-  intended path; noted because the SFTP option makes the other arrangement
-  possible.
+  client's `BASE` changed together. The service worker and the manifest now
+  assume the same thing in three more places — `/sw.js`, the shell it caches,
+  and the manifest's `start_url` and `scope` — and a service worker cannot
+  claim a scope above the path it is served from, so a subdirectory install
+  gets a portal that is not installable rather than one that is subtly wrong.
+  Fine for Cloudflare Pages, which is the intended path; noted because the
+  SFTP option makes the other arrangement possible.
 * **No structured audit log for portal reads.** webtrees logs authentication;
   nothing logs "member A viewed member B's record". Phase 3, with connections,
   is probably when that starts to matter.
