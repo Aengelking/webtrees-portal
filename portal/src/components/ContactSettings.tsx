@@ -7,7 +7,20 @@ import { Button, ErrorNotice, Field, Loading, Notice, SuccessNote } from '../com
 
 const KINDS: ContactKind[] = ['email', 'phone', 'address']
 
-const AUDIENCES: ContactAudience[] = ['nobody', 'close_family', 'members']
+const AUDIENCES: ContactAudience[] = ['nobody', 'close_family', 'connections', 'members']
+
+/**
+ * "Only my contacts" is dropped when the family has switched connections off,
+ * because it would then share nothing at all. An older server does not say
+ * either way, and the choice is offered — the server is the one that decides
+ * what an audience means, and it will refuse to disclose anything it should
+ * not.
+ */
+function audiencesFor(connectionsEnabled: boolean | undefined): ContactAudience[] {
+  return connectionsEnabled === false
+    ? AUDIENCES.filter((audience) => audience !== 'connections')
+    : AUDIENCES
+}
 
 /**
  * What I share, and with whom — one decision per entry.
@@ -15,6 +28,11 @@ const AUDIENCES: ContactAudience[] = ['nobody', 'close_family', 'members']
  * Per entry rather than one switch for everything, because "my email may go
  * to the whole family" and "my address is for my brother" are genuinely
  * different answers, and a single switch forces the narrower one onto both.
+ *
+ * Four audiences, and only one of them is a list the member built
+ * themselves: "my contacts" is the people they connected with, each of whom
+ * agreed to it. Close family is decided by the tree and "all members" by the
+ * directory.
  *
  * The rule that makes the form readable is that an empty field shares
  * nothing, whatever the selector next to it says. So there is never a state
@@ -112,7 +130,7 @@ export function ContactSettings() {
             </legend>
 
             <div className="space-y-2">
-              {AUDIENCES.map((audience) => (
+              {audiencesFor(data?.connections_enabled).map((audience) => (
                 <label key={audience} className="flex min-h-[44px] items-center gap-3">
                   <input
                     type="radio"

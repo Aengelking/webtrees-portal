@@ -15,6 +15,7 @@ use RuntimeException;
 
 use function array_key_exists;
 use function date;
+use function in_array;
 use function trim;
 
 /**
@@ -67,6 +68,63 @@ class MemberService
         $user = $this->user_service->find((int) $row->wt_user_id);
 
         return $user instanceof User ? $this->member($row, $user) : null;
+    }
+
+    /**
+     * One member this viewer is entitled to open, by portal member id.
+     *
+     * The directory is one way to be entitled: listing oneself is consent to
+     * be found by every member. A connection is the other, and a narrower
+     * one — it is consent given to one person, by both of them — so a member
+     * who stayed out of the directory is still readable by the people they
+     * connected with, and by nobody else.
+     *
+     * @param array<int,int> $connected_user_ids webtrees user ids, from Connections.
+     */
+    public function readableMember(int $id, array $connected_user_ids): Member|null
+    {
+        $member = $this->visibleMember($id);
+
+        if ($member instanceof Member) {
+            return $member;
+        }
+
+        if ($connected_user_ids === []) {
+            return null;
+        }
+
+        $row = DB::table(self::TABLE)->where('id', '=', $id)->first();
+
+        if ($row === null || !in_array((int) $row->wt_user_id, $connected_user_ids, true)) {
+            return null;
+        }
+
+        $user = $this->user_service->find((int) $row->wt_user_id);
+
+        return $user instanceof User ? $this->member($row, $user) : null;
+    }
+
+    /**
+     * Every directory-visible member, unpaged.
+     *
+     * For the searches that are not the directory's own — looking a member up
+     * by the reference number on their record, which has to consider all of
+     * them and pages none of them.
+     *
+     * @return Collection<int,Member>
+     */
+    public function allVisible(): Collection
+    {
+        return DB::table(self::TABLE)
+            ->where('visible_in_directory', '=', 1)
+            ->get()
+            ->map(function (object $row): Member|null {
+                $user = $this->user_service->find((int) $row->wt_user_id);
+
+                return $user instanceof User ? $this->member($row, $user) : null;
+            })
+            ->filter()
+            ->values();
     }
 
     /**
@@ -152,6 +210,42 @@ class MemberService
         }
 
         return $this->profile($row);
+    }
+
+    /**
+     * Make sure this member has a portal profile row, and return its id.
+     *
+     * Called when two members connect, for both of them. A connection needs
+     * something to point at — the portal member id is what a screen links to
+     * — and the row a member gets by having agreed to know somebody says
+     * nothing and shows nobody anything: `visible_in_directory` stays off,
+     * which is the default and the narrower answer. Only the member
+     * themselves can change that, in their own settings.
+     */
+    public function ensureProfile(UserInterface $user): int
+    {
+        $row = DB::table(self::TABLE)->where('wt_user_id', '=', $user->id())->first();
+
+        if ($row !== null) {
+            return (int) $row->id;
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        DB::table(self::TABLE)->insert([
+            'wt_user_id'           => $user->id(),
+            'visible_in_directory' => 0,
+            'created_at'           => $now,
+            'updated_at'           => $now,
+        ]);
+
+        $row = DB::table(self::TABLE)->where('wt_user_id', '=', $user->id())->first();
+
+        if ($row === null) {
+            throw new RuntimeException('portal_member_profile row vanished immediately after writing it');
+        }
+
+        return (int) $row->id;
     }
 
     /**

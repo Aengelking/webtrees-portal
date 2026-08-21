@@ -58,6 +58,18 @@ export function Settings() {
         <ContactSettingsForm />
       </Section>
 
+      <Section title={t('settings.contacts')}>
+        <Card>
+          <p className="text-base text-slate-700">{t('settings.contactsBody')}</p>
+          <Link
+            to="/contacts"
+            className="mt-4 inline-flex min-h-[44px] items-center rounded-lg border border-slate-400 bg-white px-5 py-3 text-base font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          >
+            {t('settings.contactsAction')}
+          </Link>
+        </Card>
+      </Section>
+
       <Section title={t('settings.invite')}>
         <Card>
           <p className="text-base text-slate-700">{t('settings.inviteBody')}</p>

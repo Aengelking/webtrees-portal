@@ -6,6 +6,13 @@ import { useAuth } from '../auth/AuthProvider'
 /**
  * Four destinations.
  *
+ * Still four in Phase 11, and that is the point of the rule: contacts are
+ * reached from Mitglieder, which is where somebody looking for a person
+ * already goes, and the badge for "somebody wants to connect with you" is
+ * put on that same entry rather than on a fifth one. A request nobody
+ * notices is as bad as a message nobody notices, and this is the cheapest
+ * place that is permanently visible.
+ *
  * This said "three, no more" until Phase 10, and the rule was a good one: it
  * kept "invite somebody" off the bar, where it did not belong. Messages are
  * the case it was wrong about. The test the rule was really applying is *how
@@ -18,10 +25,10 @@ import { useAuth } from '../auth/AuthProvider'
  * would not, and anything wanting one belongs on one of these four.
  */
 const DESTINATIONS = [
-  { to: '/me', key: 'nav.profile', icon: PersonIcon, badge: false },
-  { to: '/members', key: 'nav.members', icon: PeopleIcon, badge: false },
-  { to: '/messages', key: 'nav.messages', icon: MessageIcon, badge: true },
-  { to: '/settings', key: 'nav.settings', icon: GearIcon, badge: false },
+  { to: '/me', key: 'nav.profile', icon: PersonIcon, badge: 'none' },
+  { to: '/members', key: 'nav.members', icon: PeopleIcon, badge: 'connections' },
+  { to: '/messages', key: 'nav.messages', icon: MessageIcon, badge: 'unread' },
+  { to: '/settings', key: 'nav.settings', icon: GearIcon, badge: 'none' },
 ] as const
 
 export function Layout() {
@@ -29,6 +36,11 @@ export function Layout() {
   const { me } = useAuth()
 
   const unread = me?.unread_messages ?? 0
+  // Optional on `Me`: the module and the portal deploy separately, so a
+  // server that predates connections simply has no number to show.
+  const requests = me?.connection_requests ?? 0
+
+  const counts = { none: 0, unread, connections: requests } as const
 
   return (
     <div className="min-h-dvh bg-slate-100 text-slate-900">
@@ -64,7 +76,7 @@ export function Layout() {
                   <>
                     <span className="relative">
                       <Icon active={isActive} />
-                      {badge && unread > 0 && (
+                      {counts[badge] > 0 && (
                         // Hidden from the accessible name on purpose: the
                         // number is repeated in words below, and without this
                         // the link reads as "1 Nachrichten — 1 ungelesen".
@@ -72,7 +84,7 @@ export function Layout() {
                           aria-hidden="true"
                           className="absolute -right-2 -top-1 min-w-[18px] rounded-full bg-sky-800 px-1 text-center text-xs font-semibold leading-[18px] text-white"
                         >
-                          {unread > 9 ? '9+' : unread}
+                          {counts[badge] > 9 ? '9+' : counts[badge]}
                         </span>
                       )}
                     </span>
@@ -83,8 +95,8 @@ export function Layout() {
                         reader reads as a stray digit next to a label. The
                         count belongs in the link's name instead.
                       */}
-                      {badge && unread > 0 && (
-                        <span className="sr-only"> — {t('nav.unread', { count: unread })}</span>
+                      {counts[badge] > 0 && (
+                        <span className="sr-only"> — {t(`nav.badge.${badge}`, { count: counts[badge] })}</span>
                       )}
                     </span>
                   </>

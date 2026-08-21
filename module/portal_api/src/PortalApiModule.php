@@ -10,6 +10,12 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\RequireCsrfToken;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionList;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\CsrfTokenRead;
@@ -37,6 +43,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\CloseFamily;
+use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
@@ -108,7 +115,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.0.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 5;
+    private const int SCHEMA_VERSION = 6;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -146,6 +153,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_CONTACT      = 'member_contact';
     public const string SETTING_MEMBER_MESSAGES     = 'member_messages';
     public const string SETTING_MESSAGE_LIMIT       = 'message_limit';
+    public const string SETTING_MEMBER_CONNECTIONS  = 'member_connections';
+    public const string SETTING_CONNECTION_CODE_MINUTES = 'connection_code_minutes';
 
     /**
      * How far a member may *see*, as opposed to how far they may invite.
@@ -247,10 +256,11 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
-        $contacts       = new ContactDetails($this, $close_family);
+        $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service);
+        $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
-        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox);
-        $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox);
+        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections);
+        $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections);
 
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
@@ -266,6 +276,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ErrorLog::class, $errors);
         $container->set(CloseFamily::class, $close_family);
         $container->set(MemberInvitations::class, $member_invites);
+        $container->set(Connections::class, $connections);
         $container->set(ContactDetails::class, $contacts);
         $container->set(Inbox::class, $inbox);
         $container->set(MemberMessages::class, $member_msgs);
@@ -286,14 +297,22 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
         $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
         $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members));
-        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites));
-        $container->set(ContactRead::class, new ContactRead($contacts));
-        $container->set(ContactUpdate::class, new ContactUpdate($contacts));
+        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections));
+        $container->set(ContactRead::class, new ContactRead($contacts, $connections));
+        $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
         $container->set(InboxList::class, new InboxList($inbox));
         $container->set(InboxUpdate::class, new InboxUpdate($inbox));
         $container->set(InboxDelete::class, new InboxDelete($inbox));
         $container->set(ReplyCreate::class, new ReplyCreate($member_msgs));
+
+        // Phase 11 — members connecting with each other.
+        $container->set(ConnectionList::class, new ConnectionList($connections));
+        $container->set(ConnectionCreate::class, new ConnectionCreate($connections));
+        $container->set(ConnectionUpdate::class, new ConnectionUpdate($connections));
+        $container->set(ConnectionDelete::class, new ConnectionDelete($connections));
+        $container->set(ConnectionCodeCreate::class, new ConnectionCodeCreate($connections));
+        $container->set(ConnectionCodeDelete::class, new ConnectionCodeDelete($connections));
 
         $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
@@ -428,6 +447,30 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
 
+        // Phase 11 — connections. Reading my own list is safe; everything
+        // that changes one is an unsafe method and CSRF-checked, including
+        // asking for a code, which is a write: it invalidates the one before
+        // it.
+        $map->get(ConnectionList::class, self::ROUTE_PREFIX . '/connections', ConnectionList::class)
+            ->extras(['middleware' => $private]);
+
+        $map->post(ConnectionCreate::class, self::ROUTE_PREFIX . '/connections', ConnectionCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->patch(ConnectionUpdate::class, self::ROUTE_PREFIX . '/connections/{id}', ConnectionUpdate::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(ConnectionDelete::class, self::ROUTE_PREFIX . '/connections/{id}', ConnectionDelete::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->post(ConnectionCodeCreate::class, self::ROUTE_PREFIX . '/me/connection-code', ConnectionCodeCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(ConnectionCodeDelete::class, self::ROUTE_PREFIX . '/me/connection-code', ConnectionCodeDelete::class)
+            ->extras(['middleware' => $unsafe_private]);
+
         // Phase 7 — a member invites their own close family. Reading the
         // candidate list is safe (it is the walk their own page already does);
         // issuing and withdrawing are unsafe methods and CSRF-checked.
@@ -487,6 +530,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_contact'      => $this->getPreference(self::SETTING_MEMBER_CONTACT, '1'),
             'member_messages'     => $this->getPreference(self::SETTING_MEMBER_MESSAGES, '1'),
             'message_limit'       => $this->getPreference(self::SETTING_MESSAGE_LIMIT, (string) MemberMessages::DEFAULT_DAILY_LIMIT),
+            'member_connections'  => $this->getPreference(self::SETTING_MEMBER_CONNECTIONS, '1'),
+            'connection_code_minutes' => $this->getPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) Connections::DEFAULT_CODE_MINUTES),
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -510,6 +555,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_CONTACT, $body->boolean(self::SETTING_MEMBER_CONTACT, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_MESSAGES, $body->boolean(self::SETTING_MEMBER_MESSAGES, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MESSAGE_LIMIT, (string) max(0, min(MemberMessages::MAX_DAILY_LIMIT, $body->integer(self::SETTING_MESSAGE_LIMIT, MemberMessages::DEFAULT_DAILY_LIMIT))));
+        $this->setPreference(self::SETTING_MEMBER_CONNECTIONS, $body->boolean(self::SETTING_MEMBER_CONNECTIONS, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) max(1, min(Connections::MAX_CODE_MINUTES, $body->integer(self::SETTING_CONNECTION_CODE_MINUTES, Connections::DEFAULT_CODE_MINUTES))));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 

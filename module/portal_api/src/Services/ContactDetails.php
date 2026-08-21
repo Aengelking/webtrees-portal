@@ -27,6 +27,12 @@ use function trim;
  * **Every entry carries its own audience.** "My email may go to the whole
  * family" and "my address is for my brother" are different decisions.
  *
+ * **"My contacts" is an audience the member built themselves.** Close family
+ * is decided by the tree and the whole membership by the directory; the
+ * people a member connected with are neither, and every one of them agreed
+ * to it. When the family switches connections off, that audience shares
+ * nothing — see `Connections::disclosableUserIds()`.
+ *
  * **The narrowest answer is the default, everywhere.** An unknown audience, a
  * missing row, a viewer with no linked record, a subject with no linked
  * record — every one of them resolves to "not shared" rather than to an
@@ -38,6 +44,7 @@ class ContactDetails
 
     public const string AUDIENCE_NOBODY       = 'nobody';
     public const string AUDIENCE_CLOSE_FAMILY = 'close_family';
+    public const string AUDIENCE_CONNECTIONS  = 'connections';
     public const string AUDIENCE_MEMBERS      = 'members';
 
     /** The kinds a member may share. Closed, and decided here rather than by the client. */
@@ -46,6 +53,7 @@ class ContactDetails
     private const array AUDIENCES = [
         self::AUDIENCE_NOBODY,
         self::AUDIENCE_CLOSE_FAMILY,
+        self::AUDIENCE_CONNECTIONS,
         self::AUDIENCE_MEMBERS,
     ];
 
@@ -54,6 +62,7 @@ class ContactDetails
     public function __construct(
         private readonly PortalApiModule $module,
         private readonly CloseFamily $close_family,
+        private readonly Connections $connections,
     ) {
     }
 
@@ -169,14 +178,26 @@ class ContactDetails
             return [];
         }
 
-        // Computed once, and only if some entry actually needs the answer.
-        $close = null;
+        // Both computed once, and only if some entry actually needs the
+        // answer: one walks the tree and the other reads a table.
+        $close     = null;
+        $connected = null;
 
         $visible = [];
 
         foreach ($entries as $kind => $entry) {
             if ($entry['audience'] === self::AUDIENCE_MEMBERS) {
                 $visible[$kind] = $entry['value'];
+
+                continue;
+            }
+
+            if ($entry['audience'] === self::AUDIENCE_CONNECTIONS) {
+                $connected ??= in_array($subject->id(), $this->connections->disclosableUserIds($viewer), true);
+
+                if ($connected) {
+                    $visible[$kind] = $entry['value'];
+                }
 
                 continue;
             }

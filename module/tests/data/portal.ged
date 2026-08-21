@@ -60,6 +60,8 @@
 2 PLAC Hannover, Niedersachsen, Deutschland
 1 FAMC @F1@
 0 @X4@ INDI
+1 REFN 4714
+2 TYPE SB
 1 NAME Dieter /Beispiel/
 2 GIVN Dieter
 2 SURN Beispiel
@@ -82,6 +84,8 @@
 1 FAMS @F1@
 1 FAMC @F2@
 0 @X6@ INDI
+1 REFN 4716
+2 TYPE SB
 1 NAME Fritz /Beispiel/
 2 GIVN Fritz
 2 SURN Beispiel

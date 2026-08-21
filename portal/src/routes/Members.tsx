@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../auth/AuthProvider'
 import { useMembers } from '../api/queries'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading } from '../components/ui'
 
@@ -8,6 +9,7 @@ const PER_PAGE = 25
 
 export function Members() {
   const { t } = useTranslation()
+  const { me } = useAuth()
   const [params, setParams] = useSearchParams()
 
   const query = params.get('q') ?? ''
@@ -35,6 +37,8 @@ export function Members() {
 
   const { data, isPending, isError, error, refetch } = useMembers(query, page)
 
+  const requests = me?.connection_requests ?? 0
+
   const pages = data === undefined ? 1 : Math.max(1, Math.ceil(data.total / PER_PAGE))
 
   function goToPage(next: number) {
@@ -55,6 +59,26 @@ export function Members() {
   return (
     <>
       <PageHeading>{t('members.title')}</PageHeading>
+
+      {/*
+        The directory is everybody; contacts are the eight people a member
+        actually knows. The second is the shorter answer and the one they are
+        usually after, so the way to it sits above the search box rather than
+        somewhere in the settings.
+      */}
+      <Link
+        to="/contacts"
+        className="mt-6 flex min-h-[56px] items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+      >
+        <span className="text-base font-semibold text-sky-800 underline underline-offset-4">
+          {t('members.contactsLink')}
+        </span>
+        {requests > 0 && (
+          <span className="rounded-full bg-sky-800 px-3 py-1 text-sm font-semibold text-white">
+            {t('members.contactsWaiting', { count: requests })}
+          </span>
+        )}
+      </Link>
 
       <div className="mt-6">
         <Field

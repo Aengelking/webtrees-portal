@@ -29,6 +29,8 @@ use Illuminate\Support\Collection;
  * @var string               $member_contact
  * @var string               $member_messages
  * @var string               $message_limit
+ * @var string               $member_connections
+ * @var string               $connection_code_minutes
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -254,6 +256,36 @@ foreach ($trees as $a_tree) {
         <div class="col-sm-9">
             <input class="form-control" type="number" min="0" max="200" id="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>" name="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>" value="<?= e($message_limit) ?>">
             <div class="form-text"><?= I18N::translate('Zero stops members from writing at all, the same as switching it off above.') ?></div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Members may connect with each other'), 'name' => PortalApiModule::SETTING_MEMBER_CONNECTIONS, 'checked' => $member_connections === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('A member keeps a list of the people they are actually in touch with. Two members become connected either by one of them scanning the other’s connection code — a QR code shown on the screen, for when both are in the same room — or by asking, using the reference number on the other person’s record, and being confirmed.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('A connection is never arranged by one member alone, and either of them can end it at any time. It adds a third audience to contact details — “my contacts” — and lets two connected members write to each other and open each other’s page even when one of them stayed out of the directory.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Switching this off silences everything a connection discloses, including contact details already shared that way. The lists themselves stay, so that members can still see and end what they agreed to.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_CONNECTION_CODE_MINUTES ?>">
+            <?= I18N::translate('How long a connection code lasts (minutes)') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="1" max="240" id="<?= PortalApiModule::SETTING_CONNECTION_CODE_MINUTES ?>" name="<?= PortalApiModule::SETTING_CONNECTION_CODE_MINUTES ?>" value="<?= e($connection_code_minutes) ?>">
+            <div class="form-text">
+                <?= I18N::translate('Anybody who can see the code can connect with the member until it expires, so it is kept short — long enough for a family gathering, not long enough for a photograph of the screen to be worth keeping. A member can ask for a new code at any time, which stops the old one working, and can withdraw it outright.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Connection codes need the portal address above, because the code is a link to the portal. Without it a member is told to contact an administrator instead of being handed a code nobody can scan.') ?>
+            </div>
         </div>
     </div>
 

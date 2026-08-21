@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test'
+import type { Connection } from '../src/api/types'
 
 /**
  * Enough of the API to walk the smoke path, matching openapi.yaml.
@@ -113,6 +114,40 @@ export async function stubApi(page: Page): Promise<void> {
   ]
 
 
+  // Phase 11. Karla is waiting for an answer; Dieter is already a contact.
+  let connections: Connection[] = [
+    {
+      id: 7,
+      status: 'accepted',
+      source: 'code',
+      requested_by_me: true,
+      member_id: 2,
+      name: 'Dieter Beispiel',
+      individual: { xref: 'X4', name: 'Dieter Beispiel', sex: 'M', is_deceased: false, lifespan: '1990–' },
+      since: '2026-08-01T10:00:00+00:00',
+    },
+  ]
+  let incoming: Connection[] = [
+    {
+      id: 9,
+      status: 'pending',
+      source: 'reference',
+      requested_by_me: false,
+      member_id: null,
+      name: 'Karla Beispiel',
+      individual: null,
+      since: '2026-08-02T10:00:00+00:00',
+    },
+  ]
+
+  const connectionOverview = () => ({
+    enabled: true,
+    code_valid_minutes: 15,
+    connections,
+    incoming,
+    outgoing: [],
+  })
+
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url())
     const path = url.pathname.replace('/api/v1', '')
@@ -132,7 +167,11 @@ export async function stubApi(page: Page): Promise<void> {
         // unread count included — and the portal keeps that answer rather
         // than asking again. A stub that dropped the count would make the
         // badge look broken here and only here.
-        return json(route, { ...ME, unread_messages: inbox.filter((m) => !m.read).length })
+        return json(route, {
+          ...ME,
+          unread_messages: inbox.filter((m) => !m.read).length,
+          connection_requests: incoming.length,
+        })
       }
 
       return json(
@@ -280,9 +319,57 @@ export async function stubApi(page: Page): Promise<void> {
       return json(route, {
         ...ME,
         unread_messages: inbox.filter((m) => !m.read).length,
+        connection_requests: incoming.length,
         profile: { ...ME.profile, visible_in_directory: visibleInDirectory },
         individual: { ...ANNA, pending_change: pendingChange },
       })
+    }
+
+    if (path === '/me/connection-code') {
+      return method === 'DELETE'
+        ? json(route, { status: 'revoked' })
+        : json(
+            route,
+            {
+              url: 'https://portal.example.test/connect?code=code-fuer-anna',
+              expires_at: '2026-08-21T12:15:00+00:00',
+              valid_minutes: 15,
+            },
+            201,
+          )
+    }
+
+    if (path === '/connections' && method === 'GET') {
+      return json(route, connectionOverview())
+    }
+
+    if (path === '/connections' && method === 'POST') {
+      const body = route.request().postDataJSON() as { code?: string; reference?: string }
+
+      if (body.code === 'code-fuer-anna') {
+        return json(route, { ...connectionOverview(), status: 'connected', name: 'Emil Beispiel' }, 201)
+      }
+
+      return json(route, { ...connectionOverview(), status: 'requested', name: 'Emil Beispiel' }, 201)
+    }
+
+    if (path.startsWith('/connections/') && method === 'PATCH') {
+      connections = [
+        ...connections,
+        ...incoming.map((connection) => ({ ...connection, status: 'accepted' as const, member_id: 4 })),
+      ]
+      incoming = []
+
+      return json(route, { ...connectionOverview(), status: 'connected', name: 'Karla Beispiel' })
+    }
+
+    if (path.startsWith('/connections/') && method === 'DELETE') {
+      const id = Number(path.split('/')[2])
+
+      connections = connections.filter((connection) => connection.id !== id)
+      incoming = incoming.filter((connection) => connection.id !== id)
+
+      return json(route, connectionOverview())
     }
 
     if (path === '/me/individual' && method === 'PUT') {

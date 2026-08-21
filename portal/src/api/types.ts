@@ -277,6 +277,8 @@ export interface Individual extends IndividualRef {
 export interface Me {
   /** Carried on /me so the navigation badge needs no request of its own. */
   unread_messages: number
+  /** The same, for members waiting to hear whether they are known. Optional. */
+  connection_requests?: number
   user: User
   profile: MemberProfile | null
   individual: Individual | null
@@ -294,7 +296,7 @@ export interface MemberSummary {
 export type ContactKind = 'email' | 'phone' | 'address'
 
 /** Per entry, never per member: two details can have two different answers. */
-export type ContactAudience = 'nobody' | 'close_family' | 'members'
+export type ContactAudience = 'nobody' | 'close_family' | 'connections' | 'members'
 
 export interface ContactEntry {
   value: string
@@ -307,8 +309,72 @@ export type OwnContact = Partial<Record<ContactKind, ContactEntry>>
 export interface ContactSettings {
   /** False when the family has switched contact sharing off entirely. */
   enabled: boolean
+  /**
+   * Whether "only my contacts" is worth offering. Optional: the module and
+   * the portal deploy separately, and an older server simply does not say.
+   */
+  connections_enabled?: boolean
   contact: OwnContact
 }
+
+/** Where the reader and another member stand with each other. */
+export type ConnectionStatus = 'none' | 'requested' | 'incoming' | 'connected' | 'self'
+
+export interface ConnectionState {
+  status: ConnectionStatus
+  /** The connection's id, for accepting or ending it. */
+  id: number | null
+}
+
+/**
+ * One entry of the member's own address book.
+ *
+ * `name` is portal data — the other member's published display name, or the
+ * name on their account. `individual` is GEDCOM data and is nulled out
+ * whenever the reader may not see it: agreeing to know somebody does not lift
+ * the tree's privacy rules.
+ */
+export interface Connection {
+  id: number
+  status: 'pending' | 'accepted'
+  /** How the two found each other. */
+  source: 'code' | 'reference'
+  /** Who asked. Not who may end it — either of them may. */
+  requested_by_me: boolean
+  member_id: number | null
+  name: string
+  individual: IndividualRef | null
+  since: string
+}
+
+export interface ConnectionOverview {
+  /** False when the family has switched connections off entirely. */
+  enabled: boolean
+  /** How long a code lasts, so the screen can say so rather than guess. */
+  code_valid_minutes: number
+  connections: Connection[]
+  incoming: Connection[]
+  outgoing: Connection[]
+}
+
+/** The overview, plus what the request that returned it actually did. */
+export interface ConnectionResult extends ConnectionOverview {
+  status: 'connected' | 'requested'
+  name: string | null
+}
+
+/** Shown once. The server keeps only a hash, so nothing can hand it out twice. */
+export interface ConnectionCode {
+  url: string
+  expires_at: string
+  valid_minutes: number
+}
+
+/** Exactly one of the three ways in. */
+export type ConnectionRequest =
+  | { code: string }
+  | { reference: string }
+  | { member_id: number }
 
 export interface MemberDetail extends MemberSummary {
   individual_detail: Individual | null
@@ -318,6 +384,13 @@ export interface MemberDetail extends MemberSummary {
    */
   contact: Partial<Record<ContactKind, string>>
   can_message: boolean
+  /**
+   * Optional for the usual reason: the module ships over SFTP and the portal
+   * through CI, so the two can be a version apart and this screen has to
+   * survive a server that predates the field.
+   */
+  connection?: ConnectionState
+  connections_enabled?: boolean
 }
 
 export interface MemberPage {

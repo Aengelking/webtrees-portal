@@ -350,3 +350,54 @@ test.describe('phase 10', () => {
     await expect(page.getByText(/Eine Kopie wird hier nicht aufbewahrt/)).toBeVisible()
   })
 })
+
+test.describe('phase 11', () => {
+  test('a member answers a request and shows their code', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed connections.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    // Somebody waiting for an answer is counted on Mitglieder, not on a
+    // fifth destination — four is still the limit.
+    await expect(page.getByRole('link', { name: /Mitglieder/ })).toContainText('1')
+
+    await page.getByRole('link', { name: /Mitglieder/ }).click()
+    await page.getByRole('link', { name: 'Meine Kontakte' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Meine Kontakte' })).toBeVisible()
+    await expect(page.getByText('Karla Beispiel')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Annehmen' }).click()
+    await expect(page.getByRole('button', { name: 'Annehmen' })).toBeHidden()
+    await expect(page.getByRole('link', { name: 'Karla Beispiel' })).toBeVisible()
+
+    // Nothing is on screen until it is asked for: a live code is a
+    // credential, and one that appeared by itself would be one nobody meant
+    // to show.
+    await expect(page.getByRole('img', { name: /QR-Code/ })).toBeHidden()
+    await page.getByRole('button', { name: 'Code anzeigen' }).click()
+    await expect(page.getByRole('img', { name: /QR-Code/ })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Code ungültig machen' }).click()
+    await expect(page.getByRole('img', { name: /QR-Code/ })).toBeHidden()
+  })
+
+  test('a scanned code asks before it connects anybody', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed connections.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.goto('/connect?code=code-fuer-anna')
+
+    await expect(page.getByRole('heading', { name: 'Verbinden' })).toBeVisible()
+    await page.getByRole('button', { name: 'Jetzt verbinden' }).click()
+
+    await expect(page.getByText(/Sie sind jetzt mit Emil Beispiel verbunden/)).toBeVisible()
+  })
+})

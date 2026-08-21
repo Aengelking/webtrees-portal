@@ -138,6 +138,28 @@ describe('my own contact details', () => {
     })
   })
 
+  /**
+   * The audience a member built themselves is offered only where it means
+   * something. Offering "only my contacts" in a family that has switched
+   * connections off would be a form telling somebody an untruth.
+   */
+  it('offers the contacts audience only where connections exist', async () => {
+    stub({ contact: { ...CONTACT, connections_enabled: true } })
+    renderAt('/settings')
+
+    expect(await screen.findAllByRole('radio', { name: 'Nur meine Kontakte' })).toHaveLength(3)
+  })
+
+  it('drops the contacts audience when the family switched connections off', async () => {
+    stub({ contact: { ...CONTACT, connections_enabled: false } })
+    renderAt('/settings')
+
+    await screen.findByLabelText('Telefonnummer')
+
+    expect(screen.queryByRole('radio', { name: 'Nur meine Kontakte' })).toBeNull()
+    expect(screen.getAllByRole('radio', { name: 'Nur meine enge Familie' })).toHaveLength(3)
+  })
+
   it('says so when the family has switched contact details off', async () => {
     stub({ contact: { enabled: false, contact: {} } })
     renderAt('/settings')

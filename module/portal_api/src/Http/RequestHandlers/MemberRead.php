@@ -6,6 +6,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Member;
 use Engelking\Webtrees\PortalApi\Services\MemberInvitations;
@@ -35,6 +36,7 @@ class MemberRead implements RequestHandlerInterface
         private readonly ContactDetails $contacts,
         private readonly MemberMessages $messages,
         private readonly MemberInvitations $invitations,
+        private readonly Connections $connections,
     ) {
     }
 
@@ -44,7 +46,13 @@ class MemberRead implements RequestHandlerInterface
         $access_level = $this->trees->accessLevel($tree);
         $id           = Validator::attributes($request)->integer('id');
 
-        $member = $this->members->visibleMember($id);
+        $viewer_user = Auth::user();
+
+        // Listed in the directory, or connected to me. The second is the
+        // narrower consent of the two — given by these two people to each
+        // other — so a member who stayed out of the directory has a page for
+        // the people they connected with and for nobody else.
+        $member = $this->members->readableMember($id, $this->connections->disclosableUserIds($viewer_user));
 
         if (!$member instanceof Member) {
             throw ApiException::notFound();
@@ -56,7 +64,7 @@ class MemberRead implements RequestHandlerInterface
 
         if ($individual instanceof Individual) {
             $ref    = $this->presenter->individualRef($individual, $access_level);
-            $viewer = $this->trees->linkedIndividual($tree, Auth::user());
+            $viewer = $this->trees->linkedIndividual($tree, $viewer_user);
             $detail = $this->presenter->individualDetail($individual, $access_level, false, $viewer);
         }
 
@@ -65,7 +73,7 @@ class MemberRead implements RequestHandlerInterface
         // never once per row of the directory.
         $contact = $this->contacts->visibleTo(
             $member->user,
-            Auth::user(),
+            $viewer_user,
             $tree,
             $access_level,
             $this->invitations->steps()
@@ -80,6 +88,13 @@ class MemberRead implements RequestHandlerInterface
             // Whether the *form* is worth showing. The endpoint checks again;
             // this only saves the member from a button that would refuse.
             'can_message'       => $this->messages->enabled() && $member->user->id() !== Auth::id(),
+            // Where these two stand, so the page can offer the one button
+            // that means something: ask, answer, or nothing at all because
+            // they are already in touch.
+            'connection'        => $member->user->id() === Auth::id()
+                ? ['status' => 'self', 'id' => null]
+                : $this->connections->stateWith($viewer_user, $member->user),
+            'connections_enabled' => $this->connections->enabled(),
         ]);
     }
 }

@@ -1425,6 +1425,82 @@ for the tree they maintain. The role comes from `/me`, where it is already
 computed per tree by `MeAssembler::role()` — `Auth::isEditor()` and friends, in
 the configured tree, not a guess from the account's global flags.
 
+### 2.30 Phase 11: a connection is a second kind of consent
+
+The directory answers "who is in this family". It has never answered "whom do
+I actually know", and a member scrolling two hundred names looking for the
+eight people they met at the last family gathering is doing the wrong thing
+with the wrong list. Connections are that second list, and they are kept by
+the member rather than derived from anything.
+
+**Both sides always said yes.** A row reaches `accepted` only because the
+other person did something — confirmed a request, or showed the code that was
+scanned. Nothing here can be arranged by one member alone, and that is what
+makes it safe to hang a disclosure on: contact details gain an audience of
+"my contacts", and two connected members can write to each other and open each
+other's page even when one of them is not in the directory.
+
+**The two ways in are deliberately not symmetrical.**
+
+*A code connects at once.* Showing it **is** the consent, and asking somebody
+to confirm what they are doing in front of you is a step that teaches people
+to tap "yes" without reading. The cost is that it is a credential for as long
+as it lives: anybody who can see the screen, or photograph it, can connect
+until it expires. So it is short-lived (a quarter of an hour by default),
+stored only as a hash, replaced by asking for another, and withdrawable
+outright — the same treatment §2.22 gives an invitation, for the same reason.
+
+*A reference number only asks.* It reaches only members listed in the
+directory, and only numbers on a record the asking member may already see. Both
+limits fall out of rules that already exist rather than being new policy:
+listing oneself is what makes a member findable (§2.7), and a `RESN` under a
+`REFN` hides it (§2.5, §2.19). Together they are why an honest "no member
+carries that number" is safe to say — a member who mistyped is told what to do
+instead of waiting forever for an answer that was never coming.
+
+**The QR code holds a link, not a token to interpret.** That decision removed
+the whole scanning half of the feature: every telephone's camera app reads a
+URL and offers to open it, so there is no scanner in the portal, no camera
+permission, and nothing to install. It also sidesteps the fact that
+`BarcodeDetector` — the browser API a scanner would use — does not exist in
+Safari, which is most of the family's telephones. The link lands on `/connect`,
+behind the session like everything else, and **does not connect on arrival**:
+opening a link is not consent, and a page that acts before it is read is a
+page that acts when a link is opened by accident or by a preview.
+
+**Rendering the code is ours; encoding it is not.** `qrcode-generator` is a
+dependency-free implementation of a published standard, and writing a second
+one would be a week of Reed–Solomon for no gain. What is worth pinning is the
+only thing that matters about a QR code, and `portal/src/QrCode.test.tsx`
+pins it: the matrix is rendered to pixels and read back by `jsqr`, a decoder
+that shares no code with the encoder. Everything else one could assert about a
+QR code can be true of one no camera will read.
+
+**A connection is not a relationship.** Nothing is written back to the GEDCOM,
+no connection is derived from the tree, and being connected lifts none of
+webtrees' privacy filtering — a connected relative's record is exactly as
+visible as it was. The only thing a connection changes about the tree is
+nothing.
+
+**Ending it deletes the row.** Declining, withdrawing and disconnecting are one
+operation because they are one act, and there is no "declined" state and no
+archive. A table that remembered who refused whom would be a record this
+portal has no business keeping, and a family is exactly the place where it
+would eventually be read.
+
+**Two smaller decisions that are easy to get wrong later.**
+
+*The badge went on Mitglieder, not on a fifth destination.* §2.16 caps the bar
+at four, and the cap held: a waiting request is counted on the entry that
+already leads to people, and the contacts screen is a link at the top of it.
+The count rides on `/me` next to `unread_messages`, for the same reason.
+
+*Connecting writes a `portal_member_profile` row for both sides.* A connection
+needs something for a screen to link to, and the portal member id is it. The
+row it creates is inert — `visible_in_directory` stays off, which is the
+default and the narrower answer — and only the member themselves can change
+that.
+
 ---
 
 ## 3. Things that were guessed
@@ -1508,8 +1584,10 @@ Written down rather than acted on, per §2 of the handoff.
   intended path; noted because the SFTP option makes the other arrangement
   possible.
 * **No structured audit log for portal reads.** webtrees logs authentication;
-  nothing logs "member A viewed member B's record". Phase 3, with connections,
-  is probably when that starts to matter.
+  nothing logs "member A viewed member B's record". Phase 11 brought
+  connections, and with them the first reads that are only possible because
+  two members agreed to something — which is the point at which "who looked at
+  what" starts to be a question somebody might ask.
 * **The existing note-translation module in this installation was not read.**
   It is on the target host, not in this repository, and no copy was available
   here. §3 of the handoff asks that its conventions for bootstrapping, settings
