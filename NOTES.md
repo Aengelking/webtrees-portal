@@ -1427,6 +1427,63 @@ the configured tree, not a guess from the account's global flags.
 
 ---
 
+### 2.30 Getting from the portal into webtrees, in both directions of the door
+
+The link out was landing people in the wrong place, and it turned out neither
+of the two obvious links can get this right on its own.
+
+**The reason it is hard at all:** the portal and webtrees are separate origins.
+The session cookie is first-party to the portal — that is the whole point of
+the proxy (§2.1) — so a member following a link out arrives at webtrees as a
+**signed-out visitor**, always. Meanwhile an editor reading in two tabs may
+well be signed in there. Both have to land on the person they clicked.
+
+**Linking at the record** — `$individual->url()`, which is what the module sent
+until now — works only for somebody who already has a webtrees session. Without
+one, what happens depends on the tree's settings. On a tree that requires
+authentication, webtrees redirects to its login page carrying the address as
+`url`; but that address then has to survive `Validator::isLocalUrl()`, which
+compares scheme, host, port and path prefix against `base_url` and *silently*
+falls back to the front page when any of them differ — which is what a proxy
+or a mistyped `base_url` will do. On a tree that does not require
+authentication there is no login prompt at all: a private record is simply
+reported as not existing.
+
+**Linking at the login page** with `url` set fixes the signed-out case and
+breaks the other one. `LoginPage` answers an authenticated request with
+`redirect(route(UserPage::class))` and discards `url` entirely, so a reader who
+is already signed in is thrown to a page they did not ask for.
+
+So there is no static link that is right in both states — which is why
+`IndividualLink` exists: `GET /portal/individual/{xref}`, a browser-facing
+redirect that asks the question at the moment it can be answered. Signed in,
+straight to the record; signed out, to the login page carrying the record as
+`url`, which `LoginAction` does honour.
+
+Two properties keep it safe. It takes **an XREF and never a URL**, so there is
+nothing to point at another site whatever the query string says. And it builds
+the destination with `route()`, from the same `base_url` that `isLocalUrl()`
+validates against, so the address it hands to the login page cannot fail that
+check by construction. It grants nothing: the record page enforces its own
+privacy on arrival, exactly as it does for an address typed by hand, so an
+XREF the reader may not see still redirects and webtrees still refuses.
+
+**It is the module's only browser-facing route**, and it carries none of the
+API middleware — no proxy secret (a browser has none), no JSON envelope, no
+authentication requirement, since being signed out is the case it exists to
+handle. It is registered in the route map rather than as a module action,
+which keeps §2.5's invariant intact: every `get…Action` on the module still
+has "Admin" in its name, because that spelling is the access control.
+
+**What this does not fix:** the second sign-in itself. A member who follows the
+link still types their password on the webtrees side, because there is no
+shared session across the two origins and building one would mean either
+proxying all of webtrees through the portal or handing out tokens. Neither is
+worth it for a link most members follow rarely. What is fixed is that the sign
+-in now ends where they were going.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
@@ -1547,6 +1604,16 @@ Written down rather than acted on, per §2 of the handoff.
   webtrees in production, and nothing in this repository can or should fix it.
 * The Playwright smoke path stubs the API in the browser by default, so it
   runs anywhere. `E2E_BASE_URL` points the same specs at a real deployment.
+* **`route()` inside webtrees' test harness silently loses the first segment
+  of every URL**, and did so until this module generated one and looked at it.
+  webtrees' own `TestCase` builds its router with a base path of `'/'` where
+  production uses `parse_url($base_url, PHP_URL_PATH)` — `null` for an
+  installation at a domain root, which the harness's `https://webtrees.test`
+  is. Aura prefixes that base path, so `/login/portal` comes out as
+  `//login/portal`; `parse_url()` reads that as host `login` with path
+  `/portal`, and the ugly URL is built from the path. `PortalTestCase` corrects
+  the base path (and discards Aura's cached generator with it) so that a test
+  asserting on a generated URL is asserting on the one production would make.
 * The Playwright API stub answers `POST /session` with the *same* payload as
   `GET /me`, because the real handler does and the portal keeps that answer
   rather than asking again. A stub that dropped a field the sign-in response

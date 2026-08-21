@@ -325,12 +325,27 @@ Which link, and where it sits, depends on the role the signed-in account holds
   instead, worded for what *they* go there for: *In webtrees öffnen und
   bearbeiten* — with one line saying it is their role showing.
 
-It is the same address either way, and it always was: the record URL webtrees
-builds from its own `base_url`. Nothing is unlocked by the wording, and
+It is the same address either way. Nothing is unlocked by the wording, and
 nothing is hidden by it — webtrees decides what the person arriving may do.
 What the distinction buys is that a member is not pointed at an editing screen
 they have no business on, an editor does not hunt for the tree they maintain,
 and neither is shown two links to one page.
+
+**Both links go through `/portal/individual/{xref}` on the webtrees host, not
+at the record directly.** The portal and webtrees are separate origins and the
+session cookie belongs to the portal, so anybody following a link out arrives
+at webtrees signed out. That redirect sends them to the login page with the
+record as its destination, or straight to the record if they happen to be
+signed in there already — because neither plain link gets both cases right:
+webtrees' login page discards the destination for a reader who is already
+signed in, and a record address for a signed-out reader either loses the
+destination on the way to the login page or, on a tree that does not require
+authentication, reports the record as not existing.
+
+They do still have to sign in on the webtrees side. There is no shared session
+across the two origins, and there is no way to have one short of putting all
+of webtrees behind the portal's domain. What the redirect fixes is where that
+sign-in ends up.
 
 ### How much of the tree a member sees
 
@@ -1118,6 +1133,16 @@ from webtrees' own table and takes its read state with it; and on the client
 opening a message marks it read, an already-read one is not marked again, the
 badge is gone once nothing is unread, and its digit is hidden from screen
 readers because the same count is already in the link's name as words.
+
+**Getting into webtrees** (`module/tests/LinkTest.php`) — a signed-out reader
+is sent to the login page with the record as the destination, and that
+destination survives webtrees' own `isLocalUrl()` check, asserted with
+webtrees' validator rather than by eye; a reader who is already signed in goes
+straight to the record instead of being thrown to their user page; the
+redirect takes an XREF and cannot be talked into pointing anywhere else; an
+XREF that does not exist is answered exactly as one that does, so this is not
+a way to ask what exists without signing in; and the API hands out this
+address rather than the bare record one.
 
 **The link to webtrees** (`portal/src/EditorLink.test.tsx`) — an editor,
 moderator, manager and administrator each get the editing link, a member gets

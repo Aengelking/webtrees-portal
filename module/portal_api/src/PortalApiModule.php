@@ -17,6 +17,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\HealthRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InboxUpdate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualLink;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
@@ -164,6 +165,17 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     /** The API is mounted here. The portal's Cloudflare Worker proxies /api/* onto it. */
     private const string ROUTE_PREFIX = '/api/v1';
 
+    /**
+     * Where the browser-facing routes live.
+     *
+     * Separate from the API prefix on purpose: these are followed by a person
+     * rather than by the portal's client, so they carry none of the API
+     * middleware — no proxy secret (the browser has none), no JSON envelope,
+     * no authentication requirement (being signed out is the case they exist
+     * to handle).
+     */
+    private const string LINK_PREFIX = '/portal';
+
     public function title(): string
     {
         return I18N::translate('Member portal API');
@@ -294,6 +306,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(InboxUpdate::class, new InboxUpdate($inbox));
         $container->set(InboxDelete::class, new InboxDelete($inbox));
         $container->set(ReplyCreate::class, new ReplyCreate($member_msgs));
+        $container->set(IndividualLink::class, new IndividualLink($portal_trees));
 
         $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
@@ -427,6 +440,14 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $map->post(ReplyCreate::class, self::ROUTE_PREFIX . '/messages/{id}/reply', ReplyCreate::class)
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
+
+        // The one route a person follows rather than the portal's client.
+        // No middleware at all: webtrees' own stack — session, language,
+        // theme — is what this needs, and the module's API middleware is what
+        // it must not have. See `IndividualLink` for why it exists.
+        $map->get(IndividualLink::class, self::LINK_PREFIX . '/individual/{xref}', IndividualLink::class)
+            ->tokens(['xref' => '[A-Za-z0-9_.\-]{1,20}'])
+            ->extras(['middleware' => []]);
 
         // Phase 7 — a member invites their own close family. Reading the
         // candidate list is safe (it is the walk their own page already does);
