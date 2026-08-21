@@ -266,7 +266,7 @@ export const en: Translations = {
     codeAlt: 'QR code that lets somebody connect with you',
     byReference: 'Connect using an SB number',
     referenceBody:
-      'The SB number is shown in the portal under the person’s name, for example “10/1335.21”. They receive a request and decide for themselves.',
+      'The SB number is shown in the portal under the person’s name, for example “10/1335.21”. They receive a request and decide for themselves — even if they are not visible in the member directory.',
     referenceGroup: 'SB number',
     branchLabel: 'Branch',
     branchPlaceholder: '—',
@@ -276,6 +276,8 @@ export const en: Translations = {
     ask: 'Send request',
     askThis: 'Connect',
     asking: 'One moment …',
+    requestedQuietly:
+      'If that number belongs to a member, your request is on its way. You will hear nothing until it is accepted — and then they appear here as a contact.',
     requested: 'Your request has reached {{name}}. Once they confirm it, they appear here.',
     connected: 'You are now connected with {{name}}.',
     incoming: 'Requests to you',

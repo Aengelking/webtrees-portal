@@ -166,9 +166,14 @@ class Connections
                 $connections[] = $presented;
             } elseif ((int) $row->requested_of === $user->id()) {
                 $incoming[] = $presented;
-            } else {
+            } elseif ($this->listed((int) $row->requested_of)) {
                 $outgoing[] = $presented;
             }
+
+            // An unanswered request to somebody who is not in the directory
+            // is deliberately absent from this list — see
+            // `requestByReference()`. It is here as a connection the moment
+            // they accept it.
         }
 
         usort($connections, static fn (array $a, array $b): int => mb_strtolower($a['name']) <=> mb_strtolower($b['name']));
@@ -307,28 +312,49 @@ class Connections
             throw ApiException::badRequest(I18N::translate('Please enter the SB number of the person you want to connect with.'));
         }
 
-        $member = $this->memberByReference($user, $reference);
+        $other = $this->memberByReference($reference);
 
-        if (!$member instanceof Member) {
-            // Not "no such number": a member who mistyped is told what to do
-            // about it, and the *second* reason is named as well, because
-            // "the number is wrong" and "they are not listed" need different
-            // things done about them and look identical from here. Nothing is
-            // disclosed by saying so — it is the rule, not the answer.
-            throw new ApiException(
-                'not_found',
-                StatusCodeInterface::STATUS_NOT_FOUND,
-                I18N::translate('Nobody was found under that SB number. This searches the member directory, so it only finds members who chose to be listed there — anybody else can still connect by showing you their connection code.')
-            );
-        }
-
-        if ($member->user->id() === $user->id()) {
+        if ($other instanceof User && $other->id() === $user->id()) {
             throw ApiException::badRequest(I18N::translate('That is your own SB number.'));
         }
 
-        $status = $this->link($user, $member->user, self::SOURCE_REFERENCE, false);
+        // A member who is listed in the directory is answered by name: they
+        // published it, and being asked by somebody who read their number is
+        // no more than the directory already invites.
+        if ($other instanceof User && $this->listed($other->id())) {
+            $status = $this->link($user, $other, self::SOURCE_REFERENCE, false);
 
-        return $this->result($user, $status, $member->display_name);
+            return $this->result($user, $status, $this->nameOf($other));
+        }
+
+        // Everybody else gets one answer, and it is the same answer as for a
+        // number nobody carries.
+        //
+        // This is what lets a member who stayed *out* of the directory be
+        // reached at all: the request is made, they decide, and until they
+        // accept it the person who asked learns nothing — not a name, not
+        // that the number belongs to anybody. An answer that said "sent to
+        // Karla" would turn the number search into a way of asking which
+        // relatives have an account, which is exactly what staying out of the
+        // directory is a decision against.
+        //
+        // The unanswered request is therefore not in the member's own list
+        // either: a row that appeared only for real numbers would say the
+        // same thing more quietly. It appears when it is accepted.
+        if ($other instanceof User) {
+            $this->link($user, $other, self::SOURCE_REFERENCE, false);
+        }
+
+        return $this->result($user, self::STATUS_PENDING, null);
+    }
+
+    /** Whether this account chose to appear in the member directory. */
+    private function listed(int $wt_user_id): bool
+    {
+        return DB::table(MemberService::TABLE)
+            ->where('wt_user_id', '=', $wt_user_id)
+            ->where('visible_in_directory', '=', 1)
+            ->exists();
     }
 
     /**
@@ -580,7 +606,7 @@ class Connections
             throw new ApiException(
                 'quota_reached',
                 StatusCodeInterface::STATUS_CONFLICT,
-                I18N::translate('You have as many unanswered requests as you may have at once. Withdraw one before asking anybody else.')
+                I18N::translate('You have as many unanswered requests as you may have at once — including any that do not appear in your list. Wait until one of them is answered.')
             );
         }
 
@@ -719,16 +745,15 @@ class Connections
     }
 
     /**
-     * The directory member carrying this reference number, if this member may
-     * see it.
+     * The account carrying this reference number.
      *
-     * Walks the directory rather than the tree, and reads each record at the
-     * *viewer's* access level, so a number on a record they may not see — or
-     * under a `RESN` — is not there to be found. Small by construction: it is
-     * the list of people who chose to be listed, and it is only walked when
-     * somebody actually types a number.
+     * Walks the accounts rather than the tree — everybody this portal knows
+     * that the tree has a record for, listed in the directory or not. Who may
+     * be *told* about the answer is decided by the caller; this only finds
+     * it. Small by construction, and only walked when somebody actually types
+     * a number.
      */
-    private function memberByReference(UserInterface $user, string $reference): Member|null
+    private function memberByReference(string $reference): User|null
     {
         $tree         = $this->trees->tree();
         $access_level = $this->trees->accessLevel($tree);
@@ -740,8 +765,8 @@ class Connections
 
         $relaxed = [];
 
-        foreach ($this->members->allVisible() as $member) {
-            $individual = $this->trees->linkedIndividual($tree, $member->user);
+        foreach ($this->members->linkedAccounts($tree) as $account) {
+            $individual = $this->trees->linkedIndividual($tree, $account);
 
             if (!$individual instanceof Individual) {
                 continue;
@@ -770,11 +795,11 @@ class Connections
                 }
 
                 if ($this->matches($fact, $wanted, false)) {
-                    return $member;
+                    return $account;
                 }
 
                 if ($this->matches($fact, $wanted, true)) {
-                    $relaxed[] = $member;
+                    $relaxed[] = $account;
                 }
             }
         }

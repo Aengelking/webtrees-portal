@@ -272,6 +272,36 @@ describe('my contacts', () => {
     expect(isCompleteReference('10', '')).toBe(false)
   })
 
+  /**
+   * A member who stayed out of the directory can be asked, and the answer
+   * names nobody — because naming them would be a way of asking which
+   * relatives have an account.
+   */
+  it('says nothing about whom a number reached', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/connections')) {
+        return (init?.method ?? 'GET') === 'POST'
+          ? jsonResponse({ ...OVERVIEW, status: 'requested', name: null }, 201)
+          : jsonResponse(OVERVIEW)
+      }
+
+      return jsonResponse(ME)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    renderAt()
+
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
+    await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
+    await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
+
+    expect(await screen.findByText(/Wenn diese Nummer zu einem Mitglied gehört/)).toBeDefined()
+  })
+
   it('answers a request in one tap', async () => {
     const fetchMock = stub()
     renderAt()
