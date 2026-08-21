@@ -1405,15 +1405,11 @@ failure and is still reported as one.
 
 ### 2.29 A link that is a signpost, not a gate
 
-Every person screen used to link out to that record in webtrees, for everyone.
-Now only editors and above get one, at the top and worded for editing.
-**Members get no link out at all**, which is the deliberate part: the portal is
-the whole of what they use, and webtrees is a different interface where most of
-what they might click will refuse them. Charts are the one real loss, and they
-were never why anybody opened the portal.
-
-The link was never a way *in* to anything, which is what makes removing it
-cheap: it is the same address the API still sends to every member.
+Every person screen has always linked out to that record in webtrees. It now
+reads differently depending on the role the account holds in the tree:
+editors and above get it at the top, worded for editing; members get it at the
+foot, worded for charts. Nobody gets both, because two links to one address
+differing only in wording is a question nobody needs to answer.
 
 **The role check is presentational and is commented as such**, which matters
 more than the feature. `webtrees_url` is in the payload every member already

@@ -8,13 +8,14 @@ import type { Role } from './api/types'
 import './i18n'
 
 /**
- * The link to webtrees, and who is shown it.
+ * The link to webtrees, and who is shown which one.
  *
- * Editors and above; nobody else. This is a signpost rather than a permission
- * boundary, and the tests say so: `webtrees_url` is still in the payload every
- * member receives, and webtrees decides what the person following it may do.
- * Not drawing the link keeps nothing from a member — it stops offering them a
- * door that leads somewhere they were not going.
+ * This is a signpost rather than a permission boundary, and the tests say so:
+ * the address is the same one every member has always been given, and
+ * webtrees decides what the person following it may do. What is being pinned
+ * is that a member is not pointed at an editing screen, that an editor is not
+ * left hunting for the tree they maintain, and that neither of them is shown
+ * two links to one page.
  */
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -111,23 +112,24 @@ describe('the link to webtrees', () => {
     },
   )
 
-  /**
-   * A member's screen has no way out to webtrees at all now — not a
-   * differently worded one, not a quieter one. The assertion is on the host
-   * rather than on a label, so a link reintroduced under any wording fails it.
-   */
-  it('leaves a member no link to webtrees at all', async () => {
+  it('does not point a member at an editing screen', async () => {
     stub('member')
     renderMe()
 
-    // Wait for the record itself, so this is not passing on an empty screen.
-    await screen.findByRole('heading', { name: 'Anna Beispiel' })
+    // The member's own link is still there — this is about wording and
+    // destination, not about taking anything away.
+    expect(await screen.findByRole('link', { name: 'Stammbaum und Diagramme öffnen' })).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'In webtrees öffnen und bearbeiten' })).toBeNull()
+  })
 
-    const external = screen
-      .queryAllByRole('link')
-      .filter((link) => (link.getAttribute('href') ?? '').includes('webtrees.example.org'))
+  /** The same address twice, worded differently, is a question nobody needs. */
+  it('gives an editor one link rather than two', async () => {
+    stub('manager')
+    renderMe()
 
-    expect(external).toEqual([])
+    await screen.findByRole('link', { name: 'In webtrees öffnen und bearbeiten' })
+
+    expect(screen.queryByRole('link', { name: 'Stammbaum und Diagramme öffnen' })).toBeNull()
   })
 
   /** An editor is told why they see something the rest of the family does not. */
