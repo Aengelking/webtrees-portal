@@ -394,9 +394,17 @@ function ByReference() {
         {connect.isSuccess && (
           <div className="mb-4">
             <SuccessNote>
-              {connect.data.status === 'connected'
-                ? t('contacts.connected', { name: connect.data.name })
-                : t('contacts.requested', { name: connect.data.name })}
+              {/*
+                No name means the server is not saying whether that number
+                belongs to anybody — which is how a member who stayed out of
+                the directory can be asked at all. See the module's
+                `Connections::requestByReference()`.
+              */}
+              {connect.data.name === null
+                ? t('contacts.requestedQuietly')
+                : connect.data.status === 'connected'
+                  ? t('contacts.connected', { name: connect.data.name })
+                  : t('contacts.requested', { name: connect.data.name })}
             </SuccessNote>
           </div>
         )}

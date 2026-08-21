@@ -266,7 +266,7 @@ export const de = {
     codeAlt: 'QR-Code, mit dem sich jemand mit Ihnen verbinden kann',
     byReference: 'Mit der SB-Nummer verbinden',
     referenceBody:
-      'Die SB-Nummer steht im Portal unter dem Namen der Person, zum Beispiel „10/1335.21“. Die andere Person bekommt eine Anfrage und entscheidet selbst.',
+      'Die SB-Nummer steht im Portal unter dem Namen der Person, zum Beispiel „10/1335.21“. Die andere Person bekommt eine Anfrage und entscheidet selbst — auch dann, wenn sie im Mitgliederverzeichnis nicht sichtbar ist.',
     referenceGroup: 'SB-Nummer',
     branchLabel: 'Zweig',
     branchPlaceholder: '—',
@@ -276,6 +276,8 @@ export const de = {
     ask: 'Anfrage senden',
     askThis: 'Verbinden',
     asking: 'Einen Moment …',
+    requestedQuietly:
+      'Wenn diese Nummer zu einem Mitglied gehört, ist Ihre Anfrage unterwegs. Sie erfahren erst davon, wenn die Anfrage angenommen wird — dann steht der Kontakt hier.',
     requested: 'Ihre Anfrage ist bei {{name}} — sobald sie bestätigt wird, erscheint der Kontakt hier.',
     connected: 'Sie sind jetzt mit {{name}} verbunden.',
     incoming: 'Anfragen an Sie',

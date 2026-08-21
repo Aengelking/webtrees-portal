@@ -1765,6 +1765,26 @@ listing oneself is what makes a member findable (§2.7), and a `RESN` under a
 carries that number" is safe to say — a member who mistyped is told what to do
 instead of waiting forever for an answer that was never coming.
 
+**Being unlisted stops you being browsed, not being asked.** The number
+search reached only the directory at first, on the reasoning of §2.7: listing
+yourself is what makes you findable. That turned out to answer the wrong
+question. A number is not a way of browsing — you have to know it, off a
+letterhead or out of a Christmas card — and the people most worth reaching
+this way are exactly the ones who never opened the settings screen.
+
+So it reaches every account the tree has a record for. What keeps §2.7 intact
+is the *answer*: a number that reaches somebody unlisted and a number nobody
+carries are answered identically, and the unanswered request is not in the
+sender's own list either, because a row that appeared only for real numbers
+would be the same oracle one step quieter. The request appears when it is
+accepted, which is the person deciding to be known. A member who *is* listed
+is still answered by name — they published it.
+
+The cost is paid by the member who mistypes: they are told the same thing as
+somebody who got it right, and hear nothing more. That is the §2.3 trade
+again, and it is the only place in this feature where the portal knows
+something it will not say.
+
 **The number search reads past the tree's own privacy, and that is the fix
 that made it work at all.** `GedcomRecord::facts()` returns nothing — not a
 filtered list, nothing — for a record the reader may not see, so reading a

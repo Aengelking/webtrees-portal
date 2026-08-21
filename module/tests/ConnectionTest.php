@@ -281,6 +281,27 @@ class ConnectionTest extends PortalTestCase
     // The reference number: for everybody else
     // -----------------------------------------------------------------
 
+    /**
+     * Asking for a number that reaches nobody: the answer names nobody and
+     * nothing is written down.
+     *
+     * There is no "not found" any more, and that is the point — see
+     * `Connections::requestByReference()`. A member who stayed out of the
+     * directory is reachable, and the only way to reach them without turning
+     * the search into a way of asking who has an account is to answer a
+     * number nobody carries exactly as a number they do.
+     */
+    private function assertReachesNobody(string $reference): void
+    {
+        $before = DB::table(Connections::TABLE)->count();
+        $result = $this->json($this->connect(['reference' => $reference]));
+
+        self::assertSame('requested', $result['status']);
+        self::assertNull($result['name']);
+        self::assertSame([], $result['outgoing']);
+        self::assertSame($before, DB::table(Connections::TABLE)->count(), 'Nothing should have been written.');
+    }
+
     public function testAReferenceNumberAsksRatherThanConnects(): void
     {
         $result = $this->json($this->connect(['reference' => '4714']));
@@ -316,7 +337,7 @@ class ConnectionTest extends PortalTestCase
      */
     public function testAPrefixThatContradictsTheRecordFindsNobody(): void
     {
-        self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $this->connect(['reference' => 'XY 4714'])->getStatusCode());
+        $this->assertReachesNobody('XY 4714');
     }
 
     /**
@@ -372,10 +393,7 @@ class ConnectionTest extends PortalTestCase
     {
         $this->list($this->fritz_id);
 
-        self::assertSame(
-            StatusCodeInterface::STATUS_NOT_FOUND,
-            $this->connect(['reference' => '10133521'])->getStatusCode()
-        );
+        $this->assertReachesNobody('10133521');
     }
 
     /**
@@ -485,23 +503,78 @@ class ConnectionTest extends PortalTestCase
         self::assertCount(1, $this->connections()['connections']);
     }
 
-    public function testANumberNobodyInTheDirectoryCarriesIsNotFound(): void
+    public function testANumberNobodyCarriesIsAnsweredLikeOneSomebodyDoes(): void
     {
-        $response = $this->connect(['reference' => '1234']);
-
-        self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $response->getStatusCode());
+        $this->assertReachesNobody('1234');
     }
 
     /**
-     * Staying out of the directory means not being findable — by name, and
-     * by number. Fritz carries "SB 4716" and is still not there.
+     * The case this was asked for.
+     *
+     * Fritz is in nobody's directory. He carries "SB 4716", and a member who
+     * knows that number can now ask him — he decides. Nothing about him
+     * reaches the person asking until he does: not his name, not even that
+     * the number belongs to anybody.
      */
-    public function testAMemberWhoStayedOutOfTheDirectoryCannotBeFoundByNumber(): void
+    public function testAMemberWhoStayedOutOfTheDirectoryCanStillBeAsked(): void
     {
-        self::assertSame(
-            $this->raw($this->connect(['reference' => '1234'])),
-            $this->raw($this->connect(['reference' => '4716'])),
+        $result = $this->json($this->connect(['reference' => '4716']));
+
+        // Answered exactly as a number nobody carries.
+        self::assertSame('requested', $result['status']);
+        self::assertNull($result['name']);
+        self::assertSame([], $result['outgoing']);
+
+        // But the request is real, and it is waiting for him.
+        $this->login($this->fritz);
+
+        $waiting = $this->connections()['incoming'];
+
+        self::assertCount(1, $waiting);
+        self::assertSame('Anna Beispiel', $waiting[0]['name']);
+    }
+
+    /**
+     * Reaching him and reaching nobody are the same answer, byte for byte.
+     * Anything less and the number search becomes a way of asking which
+     * relatives have an account — which is what staying out of the directory
+     * is a decision against.
+     */
+    public function testReachingAnUnlistedMemberLooksExactlyLikeReachingNobody(): void
+    {
+        $unlisted = $this->raw($this->connect(['reference' => '4716']));
+
+        DB::table(Connections::TABLE)->delete();
+
+        self::assertSame($unlisted, $this->raw($this->connect(['reference' => '1234'])));
+    }
+
+    /**
+     * And once he says yes, he is a contact like anybody else — that is the
+     * moment the person who asked learns anything at all.
+     */
+    public function testAnUnlistedMemberAppearsOnceTheyAccept(): void
+    {
+        $this->connect(['reference' => '4716']);
+
+        $this->login($this->fritz);
+
+        $id = $this->connections()['incoming'][0]['id'];
+
+        $this->api(
+            ConnectionUpdate::class,
+            RequestMethodInterface::METHOD_PATCH,
+            attributes: ['id' => $id],
+            body: ['status' => 'accepted'],
+            headers: $this->csrfHeader(),
         );
+
+        $this->login($this->anna);
+
+        $connections = $this->connections()['connections'];
+
+        self::assertCount(1, $connections);
+        self::assertSame('Fritz Beispiel', $connections[0]['name']);
     }
 
     /**
@@ -514,7 +587,8 @@ class ConnectionTest extends PortalTestCase
         $bertha = $this->createUser('bertha', 'Bertha Beispiel', 'fuenftes-pferd', UserInterface::ROLE_MEMBER, 'X2');
         $this->createProfile($bertha, true);
 
-        self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $this->connect(['reference' => '9999'])->getStatusCode());
+        $this->assertReachesNobody('9999');
+
         self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '4712'])->getStatusCode());
     }
 

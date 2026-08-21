@@ -128,6 +128,24 @@ class MemberService
     }
 
     /**
+     * Every account this portal knows that the tree has a record for.
+     *
+     * Wider than the directory on purpose, and used for exactly one thing:
+     * looking somebody up by the reference number on their record. A member
+     * who stayed out of the directory is still *reachable* — see
+     * `Connections::requestByReference()`, which answers so that finding them
+     * and finding nobody cannot be told apart.
+     *
+     * @return Collection<int,User>
+     */
+    public function linkedAccounts(Tree $tree): Collection
+    {
+        return $this->user_service->all()
+            ->filter(static fn (User $user): bool => $tree->getUserPreference($user, UserInterface::PREF_TREE_ACCOUNT_XREF) !== '')
+            ->values();
+    }
+
+    /**
      * A page of directory-visible members, ordered by display name.
      *
      * Sorting and filtering happen in PHP rather than SQL because the
