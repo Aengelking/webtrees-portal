@@ -38,8 +38,9 @@ use function trim;
  * would be worse than the disclosure.
  *
  * Two limits, for the two things that go wrong with a message box in a
- * family: only members who put themselves in the directory can be written to,
- * and nobody can send very many in a day.
+ * family: only members who put themselves in the directory — or who connected
+ * with the sender, which is consent given to that one person — can be written
+ * to, and nobody can send very many in a day.
  *
  * A **reply** is the one case where the first limit is lifted — see
  * `reply()`. The daily limit is not lifted, and a reply is counted against it
@@ -59,6 +60,7 @@ class MemberMessages
         private readonly RateLimitService $rate_limits,
         private readonly MemberService $members,
         private readonly Inbox $inbox,
+        private readonly Connections $connections,
     ) {
     }
 
@@ -95,13 +97,17 @@ class MemberMessages
             throw ApiException::badRequest(I18N::translate('That message is too long.'));
         }
 
-        $member = $this->members->visibleMember($recipient_id);
+        $member = $this->members->readableMember($recipient_id, $this->connections->disclosableUserIds($sender));
 
-        // `visibleMember()` is already "listed in the directory, or nothing".
-        // A member who kept themselves out of the directory is not reachable,
-        // and is reported as not found rather than as refused — the same
-        // answer as a member id that never existed, so this is not a way to
-        // discover who exists.
+        // "Listed in the directory, or connected to me, or nothing." A member
+        // who kept themselves out of the directory is not reachable by
+        // anybody they have not connected with, and is reported as not found
+        // rather than as refused — the same answer as a member id that never
+        // existed, so this is not a way to discover who exists.
+        //
+        // The connection is the second lifting of the directory rule, and it
+        // rests on the same argument as the first one below: nothing is
+        // discovered by writing to somebody who agreed to know you.
         if ($member === null) {
             throw ApiException::notFound();
         }

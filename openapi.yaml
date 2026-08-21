@@ -1061,6 +1061,286 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /connections:
+    get:
+      tags: [members]
+      summary: Whom do I know, and who is waiting for an answer?
+      description: |
+        The member's own contacts, the requests made to them, and the requests
+        they made. Nothing about anybody else's.
+
+        Answers even when the family has switched connections off, with
+        `enabled: false` and the lists as they stand — a member must be able
+        to see what they agreed to, and end it, whatever an administrator has
+        done since.
+      operationId: listConnections
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: My contacts, and the requests either way.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [members]
+      summary: Connect with another member
+      description: |
+        Exactly one of `code`, `reference` or `member_id`, and they are not
+        the same thing:
+
+        * **`code`** is a connection code scanned off the other member's
+          screen. It connects both of them at once — showing the code is the
+          consent, and asking somebody to confirm what they are doing in front
+          of you teaches people to tap "yes" without reading. It is a
+          credential, so it travels in the body rather than in a path a
+          webserver log, a proxy or a `Referer` header would keep.
+        * **`reference`** is the reference number printed on the other
+          person's record ("SB 4711"). It only *asks*; the other member
+          answers with `PATCH /connections/{id}`. Only members listed in the
+          directory can be found this way, and only numbers on a record the
+          asking member may see — a `RESN` under a `REFN` hides it.
+        * **`member_id`** is the same request, from the other member's page in
+          the directory, where there is nothing to mistype.
+
+        A request that crosses one coming the other way is treated as the
+        answer to it: both people have asked, and there is nothing left to
+        confirm.
+      operationId: createConnection
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                code:
+                  type: string
+                  description: A connection code, as scanned.
+                reference:
+                  type: string
+                  maxLength: 40
+                  description: |
+                    A reference number as a member would type it. "SB 4711",
+                    "sb4711" and "4711" are the same number.
+                member_id:
+                  type: integer
+                  minimum: 1
+                  description: A portal member id, from the directory.
+      responses:
+        '201':
+          description: |
+            The result, and the member's lists as they now stand. `status` is
+            `connected` when the two are now in touch and `requested` when the
+            other member still has to answer.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResult'
+        '400':
+          description: |
+            More or fewer than one of the three, an expired or unknown code
+            (`invalid_token`), or one's own code or reference number.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: |
+            The family has switched connections off (`not_allowed`), or the
+            CSRF token was missing or stale.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: |
+            No member of the directory carries that reference number, or no
+            such member id. One answer for "no such number", "not listed" and
+            "you may not see that record".
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: |
+            `quota_reached` — as many unanswered requests as one member may
+            have at once. A code is not a request and is not counted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /connections/{id}:
+    patch:
+      tags: [members]
+      summary: Say yes to a request
+      description: |
+        The only change a member can make to a connection. Accepting one that
+        was not made to them, or one already answered, is `404` — the same
+        answer as an id that never existed.
+      operationId: acceptConnection
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted]
+      responses:
+        '200':
+          description: The lists as they now stand.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [members]
+      summary: Decline it, withdraw it, or end it
+      description: |
+        One verb for the three, because they are one act: this row should not
+        exist any more. It works from either end, and it works when the family
+        has switched connections off — a member must always be able to undo
+        this. Nothing is kept, so nobody can later read off who refused whom.
+      operationId: removeConnection
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: The lists as they now stand.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /me/connection-code:
+    post:
+      tags: [members]
+      summary: A code to hold up at the family gathering
+      description: |
+        Issues a code and returns the link to put in a QR code. A `POST`, and
+        deliberately not idempotent: each call replaces the one before it, so
+        the code on the screen is the only one that works.
+
+        The code itself is in this response and nowhere else — the module
+        stores only a hash, exactly as it does for an invitation. It expires
+        after the number of minutes an administrator set (a quarter of an hour
+        by default), and anybody who can see it can connect until it does.
+
+        Needs the module's portal address setting, because the code is a link
+        into the portal. Without it the request is refused rather than
+        answered with a code nobody can scan.
+      operationId: createConnectionCode
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: The link to show, and when it stops working.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionCode'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: |
+            `not_configured` — the module has no portal address, so no link
+            can be built.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [members]
+      summary: Stop the code working now
+      description: |
+        For "put it away", and for somebody having photographed the screen.
+        Succeeds whether or not a code was outstanding.
+      operationId: revokeConnectionCode
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '200':
+          description: There is no code any more.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [revoked]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /individuals/{xref}:
     get:
       tags: [individuals]
@@ -1486,8 +1766,10 @@ components:
           description: |
             Decided per entry, never per member: "my email may go to the whole
             family" and "my address is for my brother" are different answers.
-            `close_family` is the same distance as for invitations.
-          enum: [nobody, close_family, members]
+            `close_family` is the same distance as for invitations;
+            `connections` is the people this member connected with, and shares
+            nothing when the family has switched connections off.
+          enum: [nobody, close_family, connections, members]
 
     OwnContact:
       type: object
@@ -1509,6 +1791,14 @@ components:
         enabled:
           type: boolean
           description: False when the family has switched contact sharing off.
+        connections_enabled:
+          type: boolean
+          description: |
+            Whether the `connections` audience means anything here. False when
+            the family has switched connections off, in which case the portal
+            does not offer the choice — an audience that silently shares
+            nothing is a worse answer than one that is not offered. Optional:
+            the module and the portal deploy separately.
         contact:
           $ref: '#/components/schemas/OwnContact'
 
@@ -1845,6 +2135,17 @@ components:
             tree (the per-tree user setting `gedcomid`).
         tree:
           $ref: '#/components/schemas/Tree'
+        unread_messages:
+          type: integer
+          description: |
+            Carried here so the navigation badge needs no request of its own.
+        connection_requests:
+          type: integer
+          description: |
+            How many members are waiting for this one to say whether they know
+            them. Here for the same reason as `unread_messages`: the bar shows
+            it on every screen. Optional, because the module and the portal
+            deploy separately and can be a version apart.
         csrf_token:
           type: string
 
@@ -2149,6 +2450,15 @@ components:
           description: |
             `null` when the member has no linked record, or when the caller
             may not see it.
+        connection:
+          allOf:
+            - $ref: '#/components/schemas/ConnectionState'
+          description: |
+            Carried on every row of the directory, so a request can be sent
+            from the list without opening the person first. Cheap enough to
+            be here — it is one row of one table, unlike contact details,
+            which walk the tree and are deliberately absent from the list.
+            Optional: the module and the portal deploy separately.
 
     MemberDetail:
       allOf:
@@ -2174,6 +2484,126 @@ components:
               description: |
                 Whether the message form is worth showing. The endpoint checks
                 again; this only saves the member from a button that refuses.
+            connections_enabled:
+              type: boolean
+              description: False when the family has switched connections off.
+
+    Connection:
+      type: object
+      additionalProperties: false
+      required: [id, status, source, requested_by_me, member_id, name, individual, since]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, accepted]
+        source:
+          type: string
+          description: |
+            How the two found each other — the difference between "we were in
+            the same room" and "somebody typed my number".
+          enum: [code, reference]
+        requested_by_me:
+          type: boolean
+          description: |
+            Who asked. Not who may end it: either of them may, at any time.
+        member_id:
+          type: [integer, 'null']
+          description: |
+            The other member's portal id, for the page that shows what they
+            share. `null` only while a request is unanswered and no profile
+            row exists yet — and there is nothing to open until then.
+        name:
+          type: string
+          description: |
+            The other member's display name. Portal data, not GEDCOM: it is
+            the name they publish, or the one on their account.
+        individual:
+          oneOf:
+            - $ref: '#/components/schemas/IndividualRef'
+            - type: 'null'
+          description: |
+            Their record in the tree, privacy-filtered like everywhere else,
+            and `null` when there is none or the reader may not see it. Being
+            connected does not lift the tree's own privacy rules.
+        since:
+          type: string
+          format: date-time
+
+    ConnectionState:
+      type: object
+      additionalProperties: false
+      required: [status, id]
+      description: |
+        Where the reader and one other member stand, so a screen can offer the
+        one button that means something. `self` is the reader's own row.
+      properties:
+        status:
+          type: string
+          enum: [none, requested, incoming, connected, self]
+        id:
+          type: [integer, 'null']
+          description: The connection's id, for accepting or ending it.
+
+    ConnectionOverview:
+      type: object
+      additionalProperties: false
+      required: [enabled, code_valid_minutes, connections, incoming, outgoing]
+      properties:
+        enabled:
+          type: boolean
+          description: False when the family has switched connections off.
+        code_valid_minutes:
+          type: integer
+          description: How long a connection code lasts, so the screen can say so.
+        connections:
+          type: array
+          description: People this member is in touch with, by display name.
+          items:
+            $ref: '#/components/schemas/Connection'
+        incoming:
+          type: array
+          description: Requests waiting for this member to answer.
+          items:
+            $ref: '#/components/schemas/Connection'
+        outgoing:
+          type: array
+          description: Requests this member made and nobody has answered yet.
+          items:
+            $ref: '#/components/schemas/Connection'
+
+    ConnectionResult:
+      allOf:
+        - $ref: '#/components/schemas/ConnectionOverview'
+        - type: object
+          additionalProperties: false
+          required: [status, name]
+          properties:
+            status:
+              type: string
+              enum: [connected, requested]
+            name:
+              type: [string, 'null']
+              description: The other member, so the screen can say who.
+
+    ConnectionCode:
+      type: object
+      additionalProperties: false
+      required: [url, expires_at, valid_minutes]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: |
+            The link to put in the QR code. It opens the portal's `/connect`
+            screen, so any telephone camera can read it — no scanner in the
+            portal, and nothing to install.
+        expires_at:
+          type: string
+          format: date-time
+        valid_minutes:
+          type: integer
 
     MemberPage:
       type: object
@@ -2190,6 +2620,12 @@ components:
           type: integer
         per_page:
           type: integer
+        connections_enabled:
+          type: boolean
+          description: |
+            False when the family has switched connections off, in which case
+            the list offers nothing rather than a button the endpoint would
+            refuse. Optional: the module and the portal deploy separately.
 
 security:
   - sessionCookie: []

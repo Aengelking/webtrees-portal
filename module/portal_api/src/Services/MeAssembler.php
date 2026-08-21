@@ -20,6 +20,7 @@ class MeAssembler
         private readonly RecordPresenter $presenter,
         private readonly MemberService $members,
         private readonly Inbox $inbox,
+        private readonly Connections $connections,
     ) {
     }
 
@@ -56,6 +57,10 @@ class MeAssembler
             // navigation bar shows it on every screen and `/me` is already
             // the request every screen makes.
             'unread_messages' => $this->inbox->unreadCount($user),
+            // The other thing the navigation bar has to be able to show
+            // without asking: somebody is waiting for this member to say
+            // whether they know them.
+            'connection_requests' => $this->connections->pendingCount($user),
             'csrf_token'      => Session::getCsrfToken(),
         ];
     }

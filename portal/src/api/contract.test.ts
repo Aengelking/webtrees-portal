@@ -21,6 +21,8 @@ const client = readFileSync(resolve(process.cwd(), 'src/api/client.ts'), 'utf-8'
 describe('openapi.yaml and the API client agree', () => {
   it('documents exactly the endpoints the portal uses', () => {
     expect(specPaths()).toEqual([
+      '/connections',
+      '/connections/{id}',
       '/csrf',
       '/health',
       '/individuals/{xref}',
@@ -30,6 +32,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/invitations',
       '/invitations/{id}',
       '/me',
+      '/me/connection-code',
       '/me/contact',
       '/me/individual',
       '/me/profile',
@@ -48,6 +51,8 @@ describe('openapi.yaml and the API client agree', () => {
 
   it('has a client call for every documented path', () => {
     const templates: Record<string, string> = {
+      '/connections': "'/connections'",
+      '/connections/{id}': '`/connections/${',
       '/csrf': "'/csrf'",
       '/health': "'/health'",
       '/session': "'/session'",
@@ -64,6 +69,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/media/{xref}/{fact}/{size}': '',
       '/members/{id}': '`/members/${',
       '/members/{id}/message': '}/message`',
+      '/me/connection-code': "'/me/connection-code'",
       '/me/contact': "'/me/contact'",
       '/messages': "'/messages'",
       '/messages/{id}': '`/messages/${',

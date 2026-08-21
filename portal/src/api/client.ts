@@ -9,6 +9,10 @@ import type {
   AncestorPage,
   ApiErrorBody,
   ApiErrorCode,
+  ConnectionCode,
+  ConnectionOverview,
+  ConnectionRequest,
+  ConnectionResult,
   Credentials,
   CsrfToken,
   Health,
@@ -312,6 +316,43 @@ export const api = {
   /** No subject: a reply carries webtrees' `RE: ` on the original, server-side. */
   replyToMessage(id: number, body: string): Promise<{ status: string }> {
     return request<{ status: string }>(`/messages/${id}/reply`, { method: 'POST', body: { body } })
+  },
+
+  /** Whom I know, who is waiting for an answer, and whom I have asked. */
+  connections(signal?: AbortSignal): Promise<ConnectionOverview> {
+    return request<ConnectionOverview>('/connections', signal === undefined ? {} : { signal })
+  },
+
+  /**
+   * Connect with somebody, one of the three ways.
+   *
+   * The code goes in the body rather than in a query string for the same
+   * reason an invitation token does: a body is the one place a webserver log,
+   * a proxy and an outgoing `Referer` header do not keep.
+   */
+  connect(how: ConnectionRequest): Promise<ConnectionResult> {
+    return request<ConnectionResult>('/connections', { method: 'POST', body: how })
+  },
+
+  acceptConnection(id: number): Promise<ConnectionResult> {
+    return request<ConnectionResult>(`/connections/${id}`, {
+      method: 'PATCH',
+      body: { status: 'accepted' },
+    })
+  },
+
+  /** Declining, withdrawing and disconnecting are one call, because they are one act. */
+  removeConnection(id: number): Promise<ConnectionOverview> {
+    return request<ConnectionOverview>(`/connections/${id}`, { method: 'DELETE' })
+  },
+
+  /** Issues a new code and kills the one before it, so it is a POST. */
+  createConnectionCode(): Promise<ConnectionCode> {
+    return request<ConnectionCode>('/me/connection-code', { method: 'POST' })
+  },
+
+  revokeConnectionCode(): Promise<{ status: string }> {
+    return request<{ status: string }>('/me/connection-code', { method: 'DELETE' })
   },
 
   /** What I share, and with whom. Mine only — the audience does not apply to me. */

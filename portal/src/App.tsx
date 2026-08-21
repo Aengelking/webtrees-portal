@@ -4,6 +4,8 @@ import { useAuth } from './auth/AuthProvider'
 import { Layout } from './components/Layout'
 import { OfflineNotice } from './components/OfflineNotice'
 import { Loading } from './components/ui'
+import { Connect } from './routes/Connect'
+import { Contacts } from './routes/Contacts'
 import { EditProfile } from './routes/EditProfile'
 import { Invitation } from './routes/Invitation'
 import { Invite } from './routes/Invite'
@@ -68,6 +70,13 @@ export function App() {
           <Route path="/individuals/:xref/ancestors" element={<Ancestors />} />
           <Route path="/invite" element={<Invite />} />
           <Route path="/members" element={<Members />} />
+          <Route path="/contacts" element={<Contacts />} />
+          {/*
+            Behind the session like everything else: a scanned code that
+            arrives before signing in is kept by the router and opened again
+            afterwards, so nothing is lost by asking who this is first.
+          */}
+          <Route path="/connect" element={<Connect />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/members/:id" element={<MemberDetail />} />
           <Route path="/settings" element={<Settings />} />

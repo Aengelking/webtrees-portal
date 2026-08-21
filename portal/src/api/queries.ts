@@ -11,6 +11,10 @@ import { useTranslation } from 'react-i18next'
 import { api } from './client'
 import type {
   AncestorPage,
+  ConnectionCode,
+  ConnectionOverview,
+  ConnectionRequest,
+  ConnectionResult,
   Individual,
   IndividualUpdate,
   MemberDetail,
@@ -35,6 +39,7 @@ export const queryKeys = {
   invitations: ['invitations'] as const,
   contact: ['contact'] as const,
   messages: ['messages'] as const,
+  connections: ['connections'] as const,
 }
 
 /**
@@ -219,6 +224,73 @@ export function useReplyToMessage(id: number) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.messages })
     },
+  })
+}
+
+/**
+ * My contacts, and the requests either way.
+ *
+ * Language-keyed like the other screens that carry records: the linked
+ * individual is rendered by the server, so a language switch has to refetch
+ * rather than leave German labels on an English screen.
+ */
+export function useConnections() {
+  const language = useLanguage()
+
+  return useQuery<ConnectionOverview>({
+    queryKey: [...queryKeys.connections, language],
+    queryFn: ({ signal }) => api.connections(signal),
+  })
+}
+
+/**
+ * Every write returns the whole overview, so the three lists cannot disagree
+ * after a change: there is one answer and it comes from the server. `me` is
+ * invalidated as well, because the navigation badge counts the requests.
+ */
+function useConnectionMutation<TVariables, TResult extends ConnectionOverview>(
+  mutationFn: (variables: TVariables) => Promise<TResult>,
+) {
+  const queryClient = useQueryClient()
+  const language = useLanguage()
+
+  return useMutation<TResult, Error, TVariables>({
+    mutationFn,
+    onSuccess: (result) => {
+      queryClient.setQueryData([...queryKeys.connections, language], result)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.connections })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.me })
+      // A connection decides what a member's page shows and offers, and what
+      // every row of the directory offers, so neither is to be trusted after
+      // one changes.
+      void queryClient.invalidateQueries({ queryKey: ['member'] })
+      void queryClient.invalidateQueries({ queryKey: ['members'] })
+    },
+  })
+}
+
+export function useConnect() {
+  return useConnectionMutation<ConnectionRequest, ConnectionResult>((how) => api.connect(how))
+}
+
+export function useAcceptConnection() {
+  return useConnectionMutation<number, ConnectionResult>((id) => api.acceptConnection(id))
+}
+
+export function useRemoveConnection() {
+  return useConnectionMutation<number, ConnectionOverview>((id) => api.removeConnection(id))
+}
+
+/** A code is issued, not read: asking for one invalidates the one before it. */
+export function useConnectionCode() {
+  return useMutation<ConnectionCode, Error, void>({
+    mutationFn: () => api.createConnectionCode(),
+  })
+}
+
+export function useRevokeConnectionCode() {
+  return useMutation<{ status: string }, Error, void>({
+    mutationFn: () => api.revokeConnectionCode(),
   })
 }
 

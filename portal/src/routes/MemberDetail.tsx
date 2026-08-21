@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useMember, useSendMessage } from '../api/queries'
+import { useAcceptConnection, useConnect, useMember, useRemoveConnection, useSendMessage } from '../api/queries'
 import type { ContactKind, MemberDetail as Member } from '../api/types'
 import { IndividualView } from '../components/IndividualView'
 import {
@@ -54,6 +54,8 @@ export function MemberDetail() {
             )}
           </div>
 
+          {memberId !== undefined && <ConnectionPanel member={data} id={memberId} />}
+
           <ContactDetails member={data} />
 
           {data.can_message === true && memberId !== undefined && (
@@ -62,6 +64,111 @@ export function MemberDetail() {
         </>
       )}
     </>
+  )
+}
+
+/**
+ * Where these two stand, and the one button that means anything about it.
+ *
+ * The state comes from the server rather than from anything this screen
+ * knows, because a connection is a fact about two people and only one of them
+ * is holding this telephone. Older servers do not send it at all — the module
+ * and the portal deploy separately — and then this is simply not offered,
+ * which is the same rule the rest of the portal follows for a field that may
+ * not be there.
+ */
+function ConnectionPanel({ member, id }: { member: Member; id: number }) {
+  const { t } = useTranslation()
+  const connect = useConnect()
+  const accept = useAcceptConnection()
+  const remove = useRemoveConnection()
+
+  const state = member.connection
+
+  if (state === undefined || state.status === 'self' || member.connections_enabled === false) {
+    return null
+  }
+
+  const busy = connect.isPending || accept.isPending || remove.isPending
+  const error = connect.error ?? accept.error ?? remove.error
+
+  return (
+    <Section title={t('contacts.withMember')}>
+      <Card>
+        {error !== null && error !== undefined && (
+          <div className="mb-4">
+            <ErrorNotice error={error} />
+          </div>
+        )}
+
+        {state.status === 'connected' && (
+          <>
+            <p className="text-base text-slate-800">{t('contacts.state.connected')}</p>
+            <div className="mt-4">
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void remove.mutateAsync(state.id as number).catch(() => undefined)}
+              >
+                {t('contacts.disconnect')}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {state.status === 'requested' && (
+          <>
+            <p className="text-base text-slate-800">{t('contacts.state.requested')}</p>
+            <div className="mt-4">
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void remove.mutateAsync(state.id as number).catch(() => undefined)}
+              >
+                {t('contacts.withdraw')}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {state.status === 'incoming' && (
+          <>
+            <p className="text-base text-slate-800">
+              {t('contacts.state.incoming', { name: member.display_name })}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Button
+                disabled={busy}
+                onClick={() => void accept.mutateAsync(state.id as number).catch(() => undefined)}
+              >
+                {t('contacts.accept')}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy}
+                onClick={() => void remove.mutateAsync(state.id as number).catch(() => undefined)}
+              >
+                {t('contacts.decline')}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {state.status === 'none' && (
+          <>
+            <p className="text-base text-slate-700">{t('contacts.state.none')}</p>
+            <div className="mt-4">
+              <Button
+                disabled={busy}
+                onClick={() => void connect.mutateAsync({ member_id: id }).catch(() => undefined)}
+              >
+                {busy ? t('contacts.asking') : t('contacts.askThis')}
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
+    </Section>
   )
 }
 

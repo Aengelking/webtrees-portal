@@ -38,11 +38,12 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 10 are built.** Members can be invited, read the tree within
+**Phases 1 to 11 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, reset their own password, share contact details with an
-audience they choose per entry, write to each other, and read and answer their
-messages in the portal.
+audience they choose per entry, write to each other, read and answer their
+messages in the portal, and connect with each other into a contact list of
+their own.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -56,11 +57,14 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `POST /invitation/accept`, `GET|POST /invitations`,
 `DELETE /invitations/{id}`, `GET|PATCH /me/contact`,
 `POST /members/{id}/message`, `GET /messages`,
-`PATCH|DELETE /messages/{id}`, `POST /messages/{id}/reply`, `GET /health`.
+`PATCH|DELETE /messages/{id}`, `POST /messages/{id}/reply`,
+`GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
+`POST|DELETE /me/connection-code`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Members, member detail,
-Messages, invite close family, Settings.
+Messages, my contacts, connect (where a scanned code lands), invite close
+family, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -82,6 +86,10 @@ and password. Nobody registers who was not asked.
 Members can invite their own close family from inside the portal, within a
 relationship distance and a quota the administrator sets — see *Letting members
 invite their own family* below for what that does and does not allow.
+
+Members can also connect with each other and keep a contact list: a QR code
+held up at a family gathering, or the reference number under somebody's name
+plus their confirmation. See *Connecting members with each other* below.
 
 When something breaks for a member, somebody finds out: the failure is
 recorded with a short reference the member is shown, and the control panel has
@@ -316,6 +324,101 @@ Three more things worth knowing:
 
 Read state is the portal's own (webtrees does not track it), so marking
 something read here does not change anything in webtrees.
+
+### Connecting members with each other
+
+*Control panel → Modules → Member portal API → preferences → Members may
+connect with each other.*
+
+**Kontakte** is the member's own address book: the eight people they actually
+know, rather than the two hundred in the directory. It is reached from
+*Mitglieder* — the bottom bar stays at four destinations — and from
+*Einstellungen*.
+
+**Two ways to connect, and they are different on purpose.**
+
+*The code, for when both people are in the same room.* One member taps **Code
+anzeigen** and a QR code appears; the other points their telephone's camera at
+it and follows the link the camera offers, which opens the portal and asks
+once — opening a link is not consent, so the screen says what is about to
+happen and waits for the button. There is nothing
+to install and no scanner in the portal: what is in the code is a link to the
+portal's own `/connect` screen, which every camera app already knows how to
+open — including on iPhones, where the browser API for reading barcodes does
+not exist at all.
+
+Three things about the code:
+
+* **Showing it is the consent.** Redeeming one connects both members straight
+  away. Asking somebody to confirm what they are doing in front of you is a
+  step that teaches people to tap *yes* without reading.
+* **It is a credential while it lives.** Anybody who can see the screen — or
+  photograph it — can connect until it expires, which is a quarter of an hour
+  by default. The module stores only a hash of it, exactly as it does for an
+  invitation, and it says on the screen how long it lasts.
+* **It can be taken back.** There is only ever one live code per member:
+  *Neuen Code erzeugen* stops the previous one working, and *Code ungültig
+  machen* stops the current one at once. Neither touches connections already
+  made.
+
+*The reference number, for everybody else.* "Meine Nummer ist SB 4711" is a
+thing that can be said over the telephone or written in a Christmas card. The
+member types it in, and the other member gets a request and answers it — this
+one never connects anybody by itself. Typing it with or without the type
+("SB 4711", "sb4711", "4711") makes no difference.
+
+Two limits on the number search, and both follow from rules that were already
+there:
+
+* **Only members listed in the directory can be found by number.** Staying out
+  of the directory means not being findable — by name, and by number. Somebody
+  who is not listed can still connect, by showing or scanning a code, because
+  that is their own act.
+* **Only numbers the searching member could already read.** The lookup reads
+  each record at that member's own access level, so a `REFN` under a
+  `RESN confidential`, or one on a record they may not see, is not there to be
+  found.
+
+**Or straight from the member list.** Every row of *Mitglieder* carries a
+**Verbinden** button, and the same request goes off without opening the person
+first — the detour bought nothing, because everything needed to decide is on
+the row already. A row for somebody who asked *you* offers **Annehmen**
+instead; one for somebody already asked, or already a contact, says
+*Angefragt* or *Verbunden* rather than offering a button that would do
+nothing. Each button is named for its row ("Verbinden mit Dieter Beispiel"),
+because twenty-five buttons all called *Verbinden* are a list nobody can
+navigate by name. The same offer sits on the member's own page.
+
+This is only affordable because the state is one row of one table: it is read
+once for the whole page, not once per row. Contact details are still not in
+the list, and for the opposite reason — deciding "close family" walks the
+tree.
+
+**What a connection is worth.** Three things, and nothing else:
+
+* **A contact list**, with a link to each person's page.
+* **A third audience for contact details** — *Nur meine Kontakte*, beside
+  "nobody", "close family" and "all members". It is the only one of the four
+  the member built themselves.
+* **Reachability.** Two connected members can write to each other and open
+  each other's page even if one of them stayed out of the directory. Nothing
+  is discovered by writing to somebody who agreed to know you — the same
+  argument that already lets a member answer a message from somebody
+  unlisted.
+
+**What it is not.** It is not a relationship in the family tree: nothing is
+written back to the GEDCOM, no connection is derived from it, and being
+connected lifts none of webtrees' privacy rules. A connected relative's record
+is exactly as visible as it was before.
+
+**Either side can end it, at any time, without asking or telling.** Declining
+a request, withdrawing one and disconnecting are one operation, and the row is
+deleted rather than marked — so nothing is left from which anyone could later
+read off who refused whom.
+
+Switching the feature off in the control panel silences everything a
+connection discloses, contact details included, and refuses new ones. The
+lists stay, so that members can still see what they agreed to and end it.
 
 ### The link back to webtrees, for people who edit
 
@@ -1229,6 +1332,33 @@ redirect takes an XREF and cannot be talked into pointing anywhere else; an
 XREF that does not exist is answered exactly as one that does, so this is not
 a way to ask what exists without signing in; and the API hands out this
 address rather than the bare record one.
+
+**Connections** (`module/tests/ConnectionTest.php`,
+`portal/src/Contacts.test.tsx`, `portal/src/QrCode.test.tsx`) — a scanned code
+connects both members at once and appears on both lists; the raw code is in no
+column of `portal_connection_code`; asking for a new code, withdrawing one and
+letting one expire each stop it working, and all three are refused
+identically; scanning the same code twice is not an error; a reference number
+*asks* rather than connects, and a request that crosses one coming the other
+way is treated as the answer to it; a member who stayed out of the directory
+cannot be found by number, and a `RESN`-hidden number cannot be searched at
+all; only the member a request was made to can accept it, and a refusal
+deletes the row rather than recording it; a connection unlocks the *my
+contacts* audience and lets an unlisted member be opened and written to,
+while a third member is told nothing; and switching the feature off silences
+all of that while leaving the lists.
+
+Every row of the directory says where the two members stand, one's own row
+says `self`, and the whole page costs one query.
+
+On the client, no code is issued until the member asks for one, the QR code
+holds the link the *server* issued, ending a connection asks first while
+answering a request does not, a request goes off from a directory row without
+opening the person, each row's button is named for the person it belongs to,
+and the waiting-request count sits on *Mitglieder* rather than on a fifth
+destination. The QR code itself is
+rendered to pixels in the test and read back by an independent decoder, which
+is the only assertion that means a camera would read it.
 
 **The link to webtrees** (`portal/src/EditorLink.test.tsx`) — an editor,
 moderator, manager and administrator each get the editing link, a member gets

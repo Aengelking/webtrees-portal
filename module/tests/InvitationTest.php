@@ -439,9 +439,9 @@ class InvitationTest extends PortalTestCase
     }
 
     /**
-     * The same, for the preferences page, which grew two variables in this
-     * phase. Rendering the template with what the action actually passes is
-     * the only thing that would notice one of them being dropped.
+     * The same, for the preferences page, which keeps growing variables.
+     * Rendering the template with what the action actually passes is the only
+     * thing that would notice one of them being dropped.
      */
     public function testThePreferencesScreenRenders(): void
     {
@@ -467,6 +467,8 @@ class InvitationTest extends PortalTestCase
             'member_contact'      => '1',
             'member_messages'     => '1',
             'message_limit'       => '20',
+            'member_connections'  => '1',
+            'connection_code_minutes' => '15',
         ]);
 
         self::assertStringContainsString('invitation_days', $html);

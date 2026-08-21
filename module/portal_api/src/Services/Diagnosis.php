@@ -164,7 +164,7 @@ class Diagnosis
             self::PROBLEM,
             I18N::translate('Portal address'),
             I18N::translate('Not set.'),
-            I18N::translate('Password reset emails and invitation links both need it, and both are switched off without it.')
+            I18N::translate('Password reset emails, invitation links and connection codes all need it, and all three are switched off without it.')
         );
     }
 
