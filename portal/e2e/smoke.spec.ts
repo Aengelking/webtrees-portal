@@ -313,6 +313,35 @@ test.describe('the navigation bar', () => {
   })
 })
 
+test.describe('inviting from a person’s page', () => {
+  /**
+   * Walking the tree is how a member finds out that their brother is not in
+   * the portal. The offer is on the page where they find that out, and it
+   * carries the person with it — nobody has to be looked up twice.
+   */
+  test('a relative without an account is invited from their own page', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Would create a real invitation.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/individuals/X4')
+    await expect(page.getByText('Noch nicht im Portal')).toBeVisible()
+
+    await page.getByRole('link', { name: 'Einladen' }).click()
+
+    // Arrived with him chosen, so the next tap is the last one.
+    await expect(page).toHaveURL(/\/invite\?xref=X4$/)
+    await expect(page.getByRole('radio', { name: /Dieter Beispiel/ })).toBeChecked()
+
+    await page.getByRole('button', { name: 'Einladung erstellen' }).click()
+    await expect(page.getByLabel('Einladungslink')).toHaveValue(/token=einladung-fuer-dieter/)
+  })
+})
+
 test.describe('phase 9', () => {
   test('a member is warned that their address travels with a message', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Would send a real message.')

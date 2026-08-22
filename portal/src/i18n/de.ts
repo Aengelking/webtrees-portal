@@ -495,6 +495,11 @@ export const de = {
   person: {
     title: 'Person',
     backToProfile: 'Zurück zu meinem Profil',
+    invite: {
+      title: 'Noch nicht im Portal',
+      body: '{{name}} hat noch keinen Zugang. Sie können eine Einladung erstellen und den Link selbst weitergeben.',
+      action: 'Einladen',
+    },
   },
   ancestors: {
     title: 'Vorfahren',

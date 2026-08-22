@@ -509,6 +509,23 @@ export async function stubApi(page: Page): Promise<void> {
       })
     }
 
+    // Dieter: alive, no account, and on the invitation list — the one person
+    // whose page can offer an invitation.
+    if (path === '/individuals/X4') {
+      return json(route, {
+        ...ANNA,
+        xref: 'X4',
+        name: 'Dieter Beispiel',
+        sex: 'M',
+        lifespan: '1990–',
+        is_deceased: false,
+        relationship: 'Ihr Bruder',
+        references: [],
+        parents: [],
+        siblings: [],
+      })
+    }
+
     if (path === '/individuals/X2') {
       return json(route, {
         ...ANNA,

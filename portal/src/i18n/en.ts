@@ -494,6 +494,11 @@ export const en: Translations = {
   person: {
     title: 'Person',
     backToProfile: 'Back to my profile',
+    invite: {
+      title: 'Not in the portal yet',
+      body: '{{name}} does not have access yet. You can create an invitation and pass the link on yourself.',
+      action: 'Invite',
+    },
   },
   ancestors: {
     title: 'Ancestors',

@@ -218,6 +218,14 @@ A member opens *Einstellungen → Jemanden einladen*, sees a list of their close
 relatives named by relationship ("Ihr Bruder — Dieter Beispiel"), picks one and
 gets a link to pass on. No administrator is in the loop.
 
+**The same offer is on the person's own page**, which is where a member
+actually notices that somebody is missing: walking the tree, a relative who can
+be invited carries an **Einladen** button that opens the invite screen with
+them already chosen. It appears only for somebody who is already a candidate on
+that screen, so it discloses nothing new — and its absence says nothing either:
+dead, already an account holder, already invited and too distant all look the
+same, which is the point.
+
 **One thing to understand before switching this on.** The obvious rule for who
 counts as close family — the people the portal already shows a member — is not
 the rule this uses, because it would be far too wide. webtrees applies
