@@ -77,15 +77,36 @@ class Connections
 {
     public const string TABLE      = 'portal_connection';
     public const string CODE_TABLE = 'portal_connection_code';
+    public const string LINK_TABLE = 'portal_connection_link';
 
     public const string STATUS_PENDING  = 'pending';
     public const string STATUS_ACCEPTED = 'accepted';
 
     public const string SOURCE_CODE      = 'code';
+    public const string SOURCE_LINK      = 'link';
     public const string SOURCE_REFERENCE = 'reference';
 
     public const int DEFAULT_CODE_MINUTES = 15;
     public const int MAX_CODE_MINUTES     = 240;
+
+    /**
+     * How long a link that was *sent* lasts.
+     *
+     * A week, because a message sent on Tuesday is read on Thursday — where
+     * the code on the screen lasts a quarter of an hour, because the person
+     * it is shown to is standing there. Not a setting: two numbers that mean
+     * "how long is this good for" are already one more than an administrator
+     * wants to reason about, and this one has an obvious right answer.
+     */
+    public const int LINK_DAYS = 7;
+
+    /**
+     * How many sent links a member may have outstanding.
+     *
+     * Not a rate limit: it is the number above which somebody is plainly
+     * posting the link somewhere rather than writing to people.
+     */
+    public const int MAX_OPEN_LINKS = 10;
 
     /**
      * How many requests a member may have waiting for an answer.
@@ -181,9 +202,19 @@ class Connections
         return [
             'enabled'     => $this->enabled(),
             'code_valid_minutes' => $this->codeMinutes(),
+            'link_valid_days'    => self::LINK_DAYS,
             'connections' => $connections,
             'incoming'    => $incoming,
             'outgoing'    => $outgoing,
+            // Links sent and not yet used. No name against them: the member
+            // wrote to somebody themselves and the portal never learned who.
+            'links'       => $this->openLinks($user)
+                ->map(static fn (object $row): array => [
+                    'id'         => (int) $row->id,
+                    'created_at' => gmdate('c', (int) $row->created_at),
+                    'expires_at' => gmdate('c', (int) $row->expires_at),
+                ])
+                ->all(),
         ];
     }
 
@@ -259,36 +290,71 @@ class Connections
     {
         $this->refuseIfDisabled();
 
-        $row = DB::table(self::CODE_TABLE)
-            ->where('token_hash', '=', $this->hash(trim($code)))
+        $hash = $this->hash(trim($code));
+
+        // One screen for two kinds of token, because the person who followed
+        // the link has no idea which they were given and no reason to care.
+        $row  = DB::table(self::CODE_TABLE)
+            ->where('token_hash', '=', $hash)
             ->where('expires_at', '>', time())
             ->first();
 
-        if ($row === null) {
-            throw new ApiException(
-                'invalid_token',
-                StatusCodeInterface::STATUS_BAD_REQUEST,
-                I18N::translate('This connection code has expired. Please ask for it to be shown again.')
-            );
+        $sent = $row === null
+            ? DB::table(self::LINK_TABLE)
+                ->where('token_hash', '=', $hash)
+                ->whereNull('redeemed_at')
+                ->where('expires_at', '>', time())
+                ->first()
+            : null;
+
+        if ($row === null && $sent === null) {
+            throw $this->expiredCode();
         }
 
-        $owner = $this->user_service->find((int) $row->wt_user_id);
+        $owner = $this->user_service->find((int) ($row->wt_user_id ?? $sent->wt_user_id));
 
         if (!$owner instanceof User) {
-            throw new ApiException(
-                'invalid_token',
-                StatusCodeInterface::STATUS_BAD_REQUEST,
-                I18N::translate('This connection code has expired. Please ask for it to be shown again.')
-            );
+            throw $this->expiredCode();
         }
 
         if ($owner->id() === $user->id()) {
-            throw ApiException::badRequest(I18N::translate('That is your own connection code.'));
+            throw ApiException::badRequest(I18N::translate('That is your own connection link.'));
         }
 
-        $status = $this->link($user, $owner, self::SOURCE_CODE, true);
+        // A sent link works once. Claimed with a conditional `UPDATE` rather
+        // than a read and a write, for the same reason an invitation is: two
+        // people opening one forwarded link at the same moment must not both
+        // get through it.
+        if ($sent !== null) {
+            $claimed = DB::table(self::LINK_TABLE)
+                ->where('id', '=', $sent->id)
+                ->whereNull('redeemed_at')
+                ->where('expires_at', '>', time())
+                ->update(['redeemed_at' => time(), 'redeemed_by' => $user->id()]);
+
+            if ($claimed !== 1) {
+                throw $this->expiredCode();
+            }
+        }
+
+        $status = $this->link($user, $owner, $sent === null ? self::SOURCE_CODE : self::SOURCE_LINK, true);
 
         return $this->result($user, $status, $this->nameOf($owner));
+    }
+
+    /**
+     * Unknown, expired and already spent, in one sentence.
+     *
+     * The three are not told apart on purpose — there is one thing the reader
+     * can usefully do about any of them, which is to ask for another.
+     */
+    private function expiredCode(): ApiException
+    {
+        return new ApiException(
+            'invalid_token',
+            StatusCodeInterface::STATUS_BAD_REQUEST,
+            I18N::translate('This connection link is no longer valid — it may have expired, or it may already have been used. Please ask for a new one.')
+        );
     }
 
     /**
@@ -522,17 +588,9 @@ class Connections
     {
         $this->refuseIfDisabled();
 
-        $base = rtrim(trim($this->module->getPreference(PortalApiModule::SETTING_PORTAL_URL, '')), '/');
-
-        if ($base === '') {
-            // The code travels as a link in a QR code, and without the
-            // portal's address there is no link to build. Refused rather than
-            // handed over broken: a member cannot tell a code nobody can scan
-            // from one that works until the person in front of them tries.
-            throw ApiException::notConfigured(
-                I18N::translate('The member portal is not configured correctly. Please contact an administrator.')
-            );
-        }
+        // The code travels as a link inside the QR code, so without the
+        // portal's address there is nothing to encode.
+        $base = $this->portalAddress();
 
         $token   = bin2hex(random_bytes(self::TOKEN_BYTES));
         $now     = time();
@@ -554,6 +612,126 @@ class Connections
             'expires_at' => gmdate('c', $expires),
             'valid_minutes' => $this->codeMinutes(),
         ];
+    }
+
+    /**
+     * A link to send to somebody who is not in the room.
+     *
+     * The same handshake as the code on the screen and the same consequence —
+     * whoever follows it and taps is connected, no confirmation asked — with
+     * two differences that follow from travelling through somebody else's
+     * inbox: it lasts a week, and it works once. A link that has been
+     * forwarded, quoted in a reply or left in an old chat is a link that has
+     * already been spent.
+     *
+     * The member sends it themselves, exactly as they send an invitation
+     * (§2.24). Having the module mail it would not be safer — they still type
+     * the address — and it would put a mail server between two people who
+     * already have each other's telephone number.
+     *
+     * @return array<string,mixed>
+     */
+    public function issueLink(UserInterface $user): array
+    {
+        $this->refuseIfDisabled();
+
+        $base = $this->portalAddress();
+
+        if ($this->openLinks($user)->count() >= self::MAX_OPEN_LINKS) {
+            throw new ApiException(
+                'quota_reached',
+                StatusCodeInterface::STATUS_CONFLICT,
+                I18N::translate('You have as many unused links outstanding as you may have at once. Withdraw one, or wait until it is used.')
+            );
+        }
+
+        $token   = bin2hex(random_bytes(self::TOKEN_BYTES));
+        $now     = time();
+        $expires = $now + self::LINK_DAYS * 86400;
+
+        DB::table(self::LINK_TABLE)->insert([
+            'wt_user_id' => $user->id(),
+            'token_hash' => $this->hash($token),
+            'created_at' => $now,
+            'expires_at' => $expires,
+        ]);
+
+        $this->pruneLinks();
+
+        return [
+            // Shown once. The table holds a hash, so nothing can hand it out
+            // a second time — losing it means withdrawing this one and
+            // making another.
+            'url'        => $base . '/connect?code=' . rawurlencode($token),
+            'expires_at' => gmdate('c', $expires),
+            'valid_days' => self::LINK_DAYS,
+        ];
+    }
+
+    /**
+     * Withdraw a link that was sent and not used.
+     *
+     * Deleted rather than marked spent: a withdrawn link should leave nothing
+     * behind that anybody could redeem. A link already used is untouched —
+     * the connection it made is a thing between two people now, and ending
+     * that is `remove()`.
+     *
+     * @return array<string,mixed>
+     */
+    public function revokeLink(UserInterface $user, int $id): array
+    {
+        $deleted = DB::table(self::LINK_TABLE)
+            ->where('id', '=', $id)
+            ->where('wt_user_id', '=', $user->id())
+            ->whereNull('redeemed_at')
+            ->delete();
+
+        if ($deleted === 0) {
+            throw ApiException::notFound();
+        }
+
+        return $this->overview($user);
+    }
+
+    /**
+     * The links this member sent and nobody has used yet.
+     *
+     * @return \Illuminate\Support\Collection<int,object>
+     */
+    private function openLinks(UserInterface $user)
+    {
+        return DB::table(self::LINK_TABLE)
+            ->where('wt_user_id', '=', $user->id())
+            ->whereNull('redeemed_at')
+            ->where('expires_at', '>', time())
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    /**
+     * The portal's own address, without which no link can be built.
+     *
+     * Refused rather than handed over broken: a member cannot tell a link
+     * nobody can follow from one that works until the person they sent it to
+     * says so.
+     */
+    private function portalAddress(): string
+    {
+        $base = rtrim(trim($this->module->getPreference(PortalApiModule::SETTING_PORTAL_URL, '')), '/');
+
+        if ($base === '') {
+            throw ApiException::notConfigured(
+                I18N::translate('The member portal is not configured correctly. Please contact an administrator.')
+            );
+        }
+
+        return $base;
+    }
+
+    /** Spent and expired links are of no use to anybody after a while. */
+    private function pruneLinks(): void
+    {
+        DB::table(self::LINK_TABLE)->where('expires_at', '<', time() - 30 * 86400)->delete();
     }
 
     /** Make the code on the screen stop working, now rather than in a quarter of an hour. */

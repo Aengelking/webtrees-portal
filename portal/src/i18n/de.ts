@@ -283,6 +283,23 @@ export const de = {
     codeHidden: 'Der Code ist ungültig. Sie können jederzeit einen neuen erzeugen.',
     codeValid: 'Gilt noch etwa {{count}} Minuten. Danach brauchen Sie einen neuen Code.',
     codeAlt: 'QR-Code, mit dem sich jemand mit Ihnen verbinden kann',
+    sendLink: 'Einen Link verschicken',
+    linkBody:
+      'Wenn Sie die Person schon erreichen können — per E-Mail, Messenger, SMS —, schicken Sie ihr einen Link. Wer ihn öffnet und auf „Verbinden" tippt, ist mit Ihnen verbunden. Der Link gilt {{count}} Tage.',
+    linkCreate: 'Link erzeugen',
+    linkAnother: 'Weiteren Link erzeugen',
+    linkLabel: 'Ihr Link',
+    linkCopy: 'Kopieren',
+    linkCopied: 'Der Link ist kopiert. Fügen Sie ihn in Ihre Nachricht ein.',
+    linkShare: 'Teilen',
+    linkShareTitle: 'Im Familienportal verbinden',
+    linkOnce:
+      'Der Link funktioniert genau einmal und läuft nach {{count}} Tagen ab. Schicken Sie ihn nur der einen Person — wer ihn sonst in die Hände bekommt, wäre mit Ihnen verbunden.',
+    linkOpen: 'Verschickte Links, die noch niemand benutzt hat',
+    linkExpires: 'Gültig bis {{date}}',
+    linkWithdraw: 'Zurückziehen',
+    linkOpenHint:
+      'An wen Sie einen Link geschickt haben, weiß das Portal nicht — das haben Sie selbst getan. Wer ihn benutzt, erscheint oben als Kontakt.',
     byReference: 'Mit der SB-Nummer verbinden',
     referenceBody:
       'Die SB-Nummer steht im Portal unter dem Namen der Person, zum Beispiel „10/1335.21“. Die andere Person bekommt eine Anfrage und entscheidet selbst — auch dann, wenn sie im Mitgliederverzeichnis nicht sichtbar ist.',

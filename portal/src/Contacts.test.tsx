@@ -177,6 +177,95 @@ describe('my contacts', () => {
     expect(await screen.findByText(/Gilt noch etwa 15 Minuten/)).toBeDefined()
   })
 
+  /**
+   * The link is a credential that travels through somebody else's inbox, so
+   * nothing is issued until the member asks — and what is shown is the link
+   * the *server* made, not one the portal guessed.
+   */
+  it('issues a link on request and offers it for copying', async () => {
+    const clipboard = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: clipboard } })
+
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input)
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/me/connection-link')) {
+        return jsonResponse(
+          {
+            url: 'https://portal.example.test/connect?code=post-link',
+            expires_at: '2026-08-28T12:00:00+00:00',
+            valid_days: 7,
+          },
+          201,
+        )
+      }
+
+      if (url.includes('/connections')) return jsonResponse(OVERVIEW)
+
+      return jsonResponse(ME)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    renderAt()
+
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('connection-link'))).toBe(false)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Link erzeugen' }))
+
+    const field = await screen.findByLabelText('Ihr Link')
+
+    expect(field).toHaveProperty('value', 'https://portal.example.test/connect?code=post-link')
+
+    // Said before it is sent, not after.
+    expect(screen.getByText(/funktioniert genau einmal/)).toBeDefined()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Kopieren' }))
+
+    await waitFor(() => {
+      expect(clipboard).toHaveBeenCalledWith('https://portal.example.test/connect?code=post-link')
+    })
+  })
+
+  it('lists links nobody has used and takes one back', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/me/connection-links/')) {
+        return jsonResponse({ ...OVERVIEW, links: [] })
+      }
+
+      if (url.includes('/connections')) {
+        return method === 'GET'
+          ? jsonResponse({
+              ...OVERVIEW,
+              link_valid_days: 7,
+              links: [{ id: 4, created_at: '2026-08-21T12:00:00+00:00', expires_at: '2026-08-28T12:00:00+00:00' }],
+            })
+          : jsonResponse(OVERVIEW, 201)
+      }
+
+      return jsonResponse(ME)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    renderAt()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Zurückziehen' }))
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(
+          ([url, init]) => String(url).includes('/me/connection-links/4') && init?.method === 'DELETE',
+        ),
+      ).toBe(true)
+    })
+  })
+
   it('can put the code away again', async () => {
     const fetchMock = stub()
     renderAt()

@@ -124,8 +124,10 @@ class PrivacyTest extends PortalTestCase
 
         self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
         self::assertSame(['X4'], array_column($body['siblings'], 'xref'), 'Clara (X3) must not appear as a sibling.');
-        self::assertStringNotContainsString('X3', $this->raw($response));
-        self::assertStringNotContainsString('Clara', $this->raw($response));
+        // Without the CSRF token: it is thirty random characters, and about
+        // one run in a hundred contains "X3" by chance.
+        self::assertStringNotContainsString('X3', $this->rawWithoutCsrfToken($response));
+        self::assertStringNotContainsString('Clara', $this->rawWithoutCsrfToken($response));
     }
 
     public function testAManagerSeesTheHiddenSibling(): void

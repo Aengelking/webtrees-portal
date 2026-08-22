@@ -395,9 +395,13 @@ export interface ConnectionOverview {
   enabled: boolean
   /** How long a code lasts, so the screen can say so rather than guess. */
   code_valid_minutes: number
+  /** The same, for a link that is sent. Optional: an older server has none. */
+  link_valid_days?: number
   connections: Connection[]
   incoming: Connection[]
   outgoing: Connection[]
+  /** Links sent and not yet used. Optional, for the same reason. */
+  links?: SentLink[]
 }
 
 /** The overview, plus what the request that returned it actually did. */
@@ -411,6 +415,28 @@ export interface ConnectionCode {
   url: string
   expires_at: string
   valid_minutes: number
+}
+
+/**
+ * A link to send to somebody who is not in the room. Handed over once, for
+ * the same reason as the code above — and unlike the code, it works once.
+ */
+export interface ConnectionLink {
+  url: string
+  expires_at: string
+  valid_days: number
+}
+
+/**
+ * One link the member sent and nobody has used yet.
+ *
+ * No name against it: they wrote to somebody themselves, and the portal never
+ * learned who.
+ */
+export interface SentLink {
+  id: number
+  created_at: string
+  expires_at: string
 }
 
 /** Exactly one of the three ways in. */

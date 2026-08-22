@@ -161,6 +161,8 @@ export async function stubApi(page: Page): Promise<void> {
   const connectionOverview = () => ({
     enabled: true,
     code_valid_minutes: 15,
+    link_valid_days: 7,
+    links: [],
     connections,
     incoming,
     outgoing: [],
@@ -394,6 +396,22 @@ export async function stubApi(page: Page): Promise<void> {
         profile: { ...ME.profile, visible_in_directory: visibleInDirectory },
         individual: { ...ANNA, pending_change: pendingChange },
       })
+    }
+
+    if (path === '/me/connection-link' && method === 'POST') {
+      return json(
+        route,
+        {
+          url: 'https://portal.example.test/connect?code=link-fuer-anna',
+          expires_at: '2026-08-28T12:00:00+00:00',
+          valid_days: 7,
+        },
+        201,
+      )
+    }
+
+    if (path.startsWith('/me/connection-links/') && method === 'DELETE') {
+      return json(route, connectionOverview())
     }
 
     if (path === '/me/connection-code') {

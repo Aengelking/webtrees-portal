@@ -1843,6 +1843,27 @@ thirty-fifth branch; a number typed whole into the field, slash and all, is
 passed through untouched, and is the escape hatch until somebody changes the
 constant.
 
+**A link that is sent is a second table, not a column on the first.** The code
+on the screen answers "we are standing here together": a quarter of an hour,
+anybody who can see it, meant to be used by several people at one gathering.
+Almost every one of those properties is wrong for something that travels by
+e-mail. So `portal_connection_link` keeps its own: seven days, because a
+message sent on Tuesday is read on Thursday; **single use**, claimed with the
+same conditional `UPDATE` an invitation uses, because a link that has been
+forwarded or quoted in a reply must already be spent; and several outstanding
+at once, one per person written to, which is why nothing in it is unique per
+member.
+
+Redeeming looks in both tables and the screen never says which it found. The
+person who followed the link has no idea which kind they were given and no
+reason to care.
+
+`redeemed_by` is kept rather than the row simply being deleted, so that "did
+the link I sent on Tuesday get used?" has an answer. It names nobody the two
+of them do not already know — the connection it made is on both their screens
+— and the member's own list of outstanding links carries dates and no names,
+because the portal genuinely does not know who they wrote to.
+
 **The QR code holds a link, not a token to interpret.** That decision removed
 the whole scanning half of the feature: every telephone's camera app reads a
 URL and offers to open it, so there is no scanner in the portal, no camera

@@ -12,6 +12,7 @@ import { api } from './client'
 import type {
   AncestorPage,
   ConnectionCode,
+  ConnectionLink,
   ConnectionOverview,
   ConnectionRequest,
   ConnectionResult,
@@ -365,6 +366,17 @@ export function useConnectionCode() {
   return useMutation<ConnectionCode, Error, void>({
     mutationFn: () => api.createConnectionCode(),
   })
+}
+
+/** A link to send. Issued on request, like the code, and never twice. */
+export function useConnectionLink() {
+  return useMutation<ConnectionLink, Error, void>({
+    mutationFn: () => api.createConnectionLink(),
+  })
+}
+
+export function useRevokeConnectionLink() {
+  return useConnectionMutation<number, ConnectionOverview>((id) => api.revokeConnectionLink(id))
 }
 
 export function useRevokeConnectionCode() {

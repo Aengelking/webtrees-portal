@@ -414,6 +414,28 @@ test.describe('phase 11', () => {
     await expect(page.getByText('Angefragt')).toBeVisible()
   })
 
+  test('a link is made, shown once, and says it works once', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed connections.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.goto('/contacts')
+
+    // Nothing is issued until it is asked for: this one travels through
+    // somebody else's inbox.
+    await expect(page.getByLabel('Ihr Link')).toBeHidden()
+
+    await page.getByRole('button', { name: 'Link erzeugen' }).click()
+
+    await expect(page.getByLabel('Ihr Link')).toHaveValue(
+      'https://portal.example.test/connect?code=link-fuer-anna',
+    )
+    await expect(page.getByText(/funktioniert genau einmal/)).toBeVisible()
+  })
+
   test('a scanned code asks before it connects anybody', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Depends on the stubbed connections.')
 
