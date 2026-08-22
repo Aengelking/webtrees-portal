@@ -2538,6 +2538,44 @@ Worth keeping as a rule: **underline a link inside a card only when the card is
 not one.** A contact who has no profile row yet is exactly that case — nothing
 to open, so the card stays a card, and it does not pretend otherwise.
 
+
+### 2.46 Asked once is a different thing from asked always
+
+`InstallPortal` carries an argument against putting the install offer in front
+of members: a prompt that follows somebody around teaches them to dismiss
+whatever appears at the top of this portal, and the next thing to appear there
+is "no connection", which they need to read. That argument is about a
+**standing** banner and it still holds — the offer still lives in Settings.
+
+This is the other thing: asked **once**, after signing in, and never again on
+that device. What makes it acceptable is entirely in that sentence, so all of
+it is enforced:
+
+- **Once.** The answer is written to `localStorage` before the dialogue can be
+  shown a second time. One flag, `portal.install.offered`, saying the question
+  has been asked — a device preference in exactly the sense the language is,
+  and now the second and last thing the portal keeps in browser storage.
+- **In one tap**, with Escape and a tap outside doing the same thing as the
+  button, because those are what people try.
+- **Costing nothing.** The dialogue says the offer stays in Settings. A member
+  who taps "Später" — or taps it by accident, which on a phone is the same
+  thing — has not lost the app.
+
+**Two states are deliberately not stopped on their way in.** A browser where
+installing cannot happen says nothing, as everywhere else. And so does another
+app's browser: that case needs "leave this app first" (§2.30), which is a
+sentence for a screen a member went looking at, not for a dialogue they did not
+ask for. Settings still says it.
+
+**What the e2e run proved before the test did.** Adding this turned nineteen
+green walks red at once — every one of them stops on the first tap after
+signing in, because a modal on the first screen stops everything. That is the
+feature working, and it is also the cost, which is worth remembering the next
+time something wants to be a dialogue. The walks now pre-answer the offer
+through a helper, and the offer has a file of its own — clearing the flag from
+an init script does not work, because that script runs again on the reload the
+test needs.
+
 ---
 
 ## 3. Things that were guessed

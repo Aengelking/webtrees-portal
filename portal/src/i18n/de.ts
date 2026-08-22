@@ -426,6 +426,9 @@ export const de = {
     webview:
       'Diese Seite wurde gerade in einer anderen App geöffnet, die das nicht kann. Tippen Sie auf die drei Punkte und dann auf „Im Browser öffnen“ — dort geht es.',
     done: 'Die App liegt bereits auf dem Startbildschirm dieses Geräts.',
+    later: 'Später',
+    understood: 'Alles klar',
+    staysInSettings: 'Sie finden das jederzeit wieder unter „Einstellungen“.',
   },
   notifications: {
     title: 'Benachrichtigungen',

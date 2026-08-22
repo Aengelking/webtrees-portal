@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useNotificationRoute } from '../pwa/notificationRoute'
+import { InstallPrompt } from './InstallPrompt'
 
 /**
  * Four destinations.
@@ -61,6 +62,13 @@ export function Layout() {
       >
         {t('app.skipToContent')}
       </a>
+
+      {/*
+        Asked once, on the way in, and never again on this device. The standing
+        offer lives in Settings — see `InstallPortal` for why it is not a
+        banner across the top of every screen.
+      */}
+      <InstallPrompt />
 
       {/*
         The gap under the content is the height of the bar plus whatever the

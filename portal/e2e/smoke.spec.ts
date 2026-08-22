@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { stubApi } from './fixtures'
+import { installOfferAnswered, stubApi } from './fixtures'
 
 const REAL_BACKEND = process.env.E2E_BASE_URL !== undefined
 
@@ -7,6 +7,8 @@ const username = process.env.E2E_USERNAME ?? 'anna'
 const password = process.env.E2E_PASSWORD ?? 'geheim'
 
 test.beforeEach(async ({ page }) => {
+  await installOfferAnswered(page)
+
   if (!REAL_BACKEND) {
     await stubApi(page)
   }
@@ -121,7 +123,10 @@ test.describe('the smoke path', () => {
       session: { ...window.sessionStorage },
     }))
 
-    expect(Object.keys(stored.local)).toEqual(['portal.language'])
+    // Two keys, and both are device preferences: which language to show, and
+    // whether the install offer has been made. Nothing about anybody.
+    expect(Object.keys(stored.local).sort()).toEqual(['portal.install.offered', 'portal.language'])
+    expect(Object.values(stored.local).sort()).toEqual(['1', 'en'])
     expect(Object.keys(stored.session)).toEqual([])
   })
 

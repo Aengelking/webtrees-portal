@@ -1274,6 +1274,16 @@ makes it installable and `portal/sw/` becomes `/sw.js`, so a member can put it
 on their home screen and open it under its own icon, without an address bar,
 the way they open everything else on that phone.
 
+**The offer is made once, after signing in**, as a dialogue: a member who can
+install is asked, answers in one tap, and is never asked again on that device.
+What is remembered is one flag saying the question was asked — a device
+preference, like the language, and the only other thing the portal keeps in
+browser storage. Saying no costs nothing: the offer stays in *Einstellungen*
+for good, and the dialogue says so. Somebody whose browser cannot install at
+all is not stopped on their way in, and neither is somebody reading inside
+another app's browser — that case needs "leave this app first", which is not
+what a dialogue on the way in is for.
+
 **What is cached, and what never is.** The service worker keeps the shell —
 `index.html` and the hashed script, stylesheet and icons it names — and
 nothing else. Every request under `/api/` is left entirely alone: not answered
