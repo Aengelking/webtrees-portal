@@ -43,6 +43,7 @@
 1 OCCU Hebamme
 1 OCCU Geheimniskraemerin
 2 RESN confidential
+1 OBJE @M3@
 1 REFN 4712
 1 REFN 47C12
 1 REFN 9999
@@ -197,4 +198,8 @@
 2 FORM png
 2 TITL Nicht fuer alle
 1 RESN confidential
+0 @M3@ OBJE
+1 FILE bertha.png
+2 FORM png
+2 TITL Bertha 1935
 0 TRLR

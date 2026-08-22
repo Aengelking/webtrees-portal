@@ -501,6 +501,18 @@ export const en: Translations = {
     share: 'Share',
     copied: 'The link is copied. Paste it into your message.',
   },
+  myPhotos: {
+    title: 'My photographs',
+    body: 'You can add a photograph of yourself. It appears on your record and is shown to every member who may see you.',
+    rule:
+      'A photograph of a living person is shown in the portal only where that person uploaded it themselves — even if the family tree holds others. Photographs of people who have died are unchanged.',
+    choose: 'Choose a photograph',
+    hint: 'JPEG, PNG or WebP, at most 4 MB. Where it was taken, and anything else hidden in the file, is removed on upload.',
+    remove: 'Remove',
+    untitled: 'Photograph',
+    waiting:
+      'The photograph is saved. Because a change to your record is still waiting for approval, it appears once that has been approved.',
+  },
   person: {
     title: 'Person',
     backToProfile: 'Back to my profile',

@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMe } from '../api/queries'
 import { IndividualView } from '../components/IndividualView'
+import { MyPhotos } from '../components/MyPhotos'
 import { ErrorNotice, Loading, Notice, PageHeading, SuccessNote } from '../components/ui'
 
 export function MyProfile() {
@@ -53,6 +54,13 @@ export function MyProfile() {
               )}
 
               <IndividualView individual={data.individual} />
+
+              {/*
+                Below the record, because it is about the record rather than
+                part of it — and on the member's own page only, which is the
+                only page where adding a photograph means anything.
+              */}
+              <MyPhotos photos={data.individual.photos ?? []} />
             </>
           )}
         </div>

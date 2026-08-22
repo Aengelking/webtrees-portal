@@ -72,8 +72,14 @@ place of birth, occupation, and contact details (address, email, telephone,
 website). Contact details are published on the member's *own* record only,
 never on anyone else's.
 
-Photographs from webtrees are shown: a face beside every name, a gallery on a
-person's page, full size on a tap. Read-only — uploading is not built.
+Photographs: a face beside every name, a gallery on a person's page, full size
+on a tap. **A photograph of a living person is shown only where that person
+uploaded it themselves** — what the family tree happens to hold about somebody
+is not something they consented to publish. Photographs of the dead are
+unchanged, because the family archive is what a portal like this is for. A
+member adds and removes their own under *Mein Profil*, and what they upload is
+re-encoded on the way in, so the coordinates a phone writes into every picture
+never travel with it.
 
 The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
@@ -1496,9 +1502,16 @@ unverified email, unapproved account and rate limiting all produce the same
 401 body; the rate limiter refuses even a correct password once tripped; CSRF
 is required on every unsafe method; the proxy secret is enforced when set.
 
-**Photographs** (`module/tests/PhotoTest.php`, `portal/src/Photos.test.tsx`,
-`portal/edge/proxy.test.ts`) — a confidential picture is absent from the
-record and is not served if asked for by name; images load from the portal's
+**Photographs** (`module/tests/PhotoTest.php`, `module/tests/PhotoUploadTest.php`,
+`portal/src/Photos.test.tsx`, `portal/src/MyPhotos.test.tsx`,
+`portal/edge/proxy.test.ts`) — a living person's photograph from the tree is
+not shown until they upload one themselves, and the dead keep theirs; consent
+does not override webtrees, so a `RESN confidential` picture stays hidden with
+a consent row on it; an upload is recorded as that member's consent, is
+re-encoded so that the metadata directory and the tags in it do not reach the
+family, and can be taken down by the member who put it there and by nobody
+else; a confidential picture is absent from the record and is not served if
+asked for by name; images load from the portal's
 own origin, never webtrees'; a photograph may be kept by a browser and by
 nothing else, and webtrees' own `public, max-age=31536000` is refused at the
 proxy.

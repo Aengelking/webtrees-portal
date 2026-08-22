@@ -502,6 +502,18 @@ export const de = {
     share: 'Teilen',
     copied: 'Der Link ist kopiert. Fügen Sie ihn in Ihre Nachricht ein.',
   },
+  myPhotos: {
+    title: 'Meine Fotos',
+    body: 'Sie können ein Foto von sich hinzufügen. Es erscheint auf Ihrem Datensatz und wird allen Mitgliedern gezeigt, die Sie sehen dürfen.',
+    rule:
+      'Fotos lebender Personen werden im Portal nur gezeigt, wenn die Person sie selbst hochgeladen hat — auch dann, wenn im Stammbaum weitere liegen. Fotos Verstorbener bleiben unverändert.',
+    choose: 'Foto auswählen',
+    hint: 'JPEG, PNG oder WebP, höchstens 4 MB. Aufnahmeort und andere versteckte Angaben werden beim Hochladen entfernt.',
+    remove: 'Entfernen',
+    untitled: 'Foto',
+    waiting:
+      'Das Foto ist gespeichert. Weil an Ihrem Datensatz noch eine Änderung auf Freigabe wartet, erscheint es erst, wenn diese freigegeben ist.',
+  },
   person: {
     title: 'Person',
     backToProfile: 'Zurück zu meinem Profil',
