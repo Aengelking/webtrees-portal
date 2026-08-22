@@ -91,6 +91,7 @@ export const en: Translations = {
       'You can set up portal access for your close family. Choose the person, get a link, and send it yourself — the way you would normally reach them.',
     chooseTitle: 'Who would you like to invite?',
     whoLegend: 'Choose a person',
+    whoPlaceholder: 'Please choose …',
     email: 'Email address (optional)',
     emailHint:
       'Only used to fill in their form for them. The link is not sent automatically — you send it yourself.',

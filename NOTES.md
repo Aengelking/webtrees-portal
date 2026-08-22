@@ -2487,6 +2487,33 @@ The logic moved out of `service-worker.ts` into `sw/notify.ts` for the same
 reason `strategy.ts` exists: it is the part worth testing, and it can only be
 tested if running it does not require a service worker.
 
+
+### 2.44 A card each is a list; a line each is a choice
+
+The invitation screen showed one card per relative — a radio button, the
+relationship, the name, the years — which is right for a list somebody reads
+and wrong for a choice somebody makes once. With a handful of close relatives
+it pushed the button off the bottom of a phone, and with it the link that
+button produces: the member pressed *Einladung erstellen* at the bottom of the
+screen and the one thing they had come for appeared above the whole list,
+behind them.
+
+Two changes, and the second is the one that was actually reported.
+
+**A dropdown.** One line per person, `Ihr Bruder — Dieter Beispiel (1990–)`.
+The relationship still comes first, because that is what makes it obvious the
+right person is about to be picked, and the years are kept because a family
+tree has more than one Dieter Beispiel and they are what tells two apart. A
+native `<select>` rather than a built one: on a phone it is the wheel the
+member already knows, it is searchable by typing, and it costs nothing to make
+accessible.
+
+**The link under the button.** It was rendered at the top of the screen, which
+was fine while the form was one line long and wrong the moment it was not.
+Where a member is looking after pressing a button is at the button. The e2e
+test asserts `toBeInViewport()` rather than mere visibility, because "in the
+document" was true the whole time it was wrong.
+
 ---
 
 ## 3. Things that were guessed
