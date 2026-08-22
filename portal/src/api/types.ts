@@ -404,9 +404,14 @@ export interface ConnectionOverview {
   links?: SentLink[]
 }
 
-/** The overview, plus what the request that returned it actually did. */
+/**
+ * The overview, plus what the request that returned it actually did.
+ *
+ * `already_connected` is the one that did nothing: the number belongs to
+ * somebody already in the member's contacts, so there was nothing to send.
+ */
 export interface ConnectionResult extends ConnectionOverview {
-  status: 'connected' | 'requested'
+  status: 'connected' | 'requested' | 'already_connected'
   name: string | null
 }
 

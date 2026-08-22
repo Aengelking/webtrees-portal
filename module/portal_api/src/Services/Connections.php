@@ -122,6 +122,16 @@ class Connections
     /** Nothing between these two, which is what a caller defaults to. */
     public const array NOWHERE = ['status' => 'none', 'id' => null];
 
+    /**
+     * Not a status a row is ever stored with — an answer this service gives.
+     *
+     * "Nothing happened, and here is why": the two of you are already
+     * connected. It is told apart from `connected` on purpose, because "you
+     * are now connected" and "you already were" are different sentences and
+     * only one of them is true.
+     */
+    private const string ALREADY = 'already';
+
     private const int MAX_REFERENCE_LENGTH = 40;
 
     public function __construct(
@@ -384,6 +394,27 @@ class Connections
             throw ApiException::badRequest(I18N::translate('That is your own SB number.'));
         }
 
+        // Already a contact: say so, by name, and write nothing.
+        //
+        // `link()` would not have made a second row — it never does — but the
+        // answer was wrong in both directions. A listed contact was told "you
+        // are now connected with Dieter", which reads as though the number
+        // had just done something. An *unlisted* contact fell into the quiet
+        // branch below and was told a request was on its way, which was
+        // simply untrue: nothing was sent, because there was nothing to send.
+        // A member who types a number, is told a request went off and then
+        // waits for an answer that cannot come has been misled by a screen
+        // that was trying to be discreet.
+        //
+        // Naming them here gives nothing away, listed or not. They are this
+        // member's own contact: their name is on the other half of this very
+        // screen. The silence below exists to keep the search from becoming a
+        // way of asking who has an account — and about somebody already in
+        // the address book, that question has been answered long since.
+        if ($other instanceof User && $this->stateWith($user, $other)['status'] === 'connected') {
+            return $this->result($user, self::ALREADY, $this->nameOf($other));
+        }
+
         // A member who is listed in the directory is answered by name: they
         // published it, and being asked by somebody who read their number is
         // no more than the directory already invites.
@@ -408,7 +439,17 @@ class Connections
         // either: a row that appeared only for real numbers would say the
         // same thing more quietly. It appears when it is accepted.
         if ($other instanceof User) {
-            $this->link($user, $other, self::SOURCE_REFERENCE, false);
+            $status = $this->link($user, $other, self::SOURCE_REFERENCE, false);
+
+            // Unless it was accepted on the spot, which here can only mean
+            // one thing: they had already asked, and typing their number was
+            // the answer to it. Their request was in this member's list under
+            // their name before any of this, and they are a contact now — so
+            // saying so discloses nothing, and staying quiet would report a
+            // request as pending that is already settled.
+            if ($status === self::STATUS_ACCEPTED) {
+                return $this->result($user, $status, $this->nameOf($other));
+            }
         }
 
         return $this->result($user, self::STATUS_PENDING, null);
@@ -917,7 +958,11 @@ class Connections
     private function result(UserInterface $user, string $status, string|null $name): array
     {
         return [
-            'status' => $status === self::STATUS_ACCEPTED ? 'connected' : 'requested',
+            'status' => match ($status) {
+                self::STATUS_ACCEPTED => 'connected',
+                self::ALREADY         => 'already_connected',
+                default               => 'requested',
+            },
             'name'   => $name,
         ] + $this->overview($user);
     }

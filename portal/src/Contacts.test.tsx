@@ -487,6 +487,36 @@ describe('my contacts', () => {
   })
 
   /**
+   * A number that belongs to somebody already in the address book says so,
+   * rather than reporting a request that was never sent.
+   */
+  it('says a number already belongs to a contact', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/connections')) {
+        return (init?.method ?? 'GET') === 'POST'
+          ? jsonResponse({ ...OVERVIEW, status: 'already_connected', name: 'Dieter Beispiel' }, 201)
+          : jsonResponse(OVERVIEW)
+      }
+
+      return jsonResponse(ME)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    renderNewTab()
+
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
+    await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
+    await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
+
+    expect(await screen.findByText(/Sie sind bereits verbunden/)).toBeDefined()
+    expect(screen.queryByText(/Ihre Anfrage ist bei/)).toBeNull()
+  })
+
+  /**
    * The address book and the ways of adding to it are two tabs, because the
    * one a member comes back to had four cards of machinery stacked on top of
    * it.

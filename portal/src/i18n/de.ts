@@ -323,6 +323,7 @@ export const de = {
     requestedQuietly:
       'Wenn diese Nummer zu einem Mitglied gehört, ist Ihre Anfrage unterwegs. Sie erfahren erst davon, wenn die Anfrage angenommen wird — dann steht der Kontakt hier.',
     requested: 'Ihre Anfrage ist bei {{name}} — sobald sie bestätigt wird, erscheint der Kontakt hier.',
+    alreadyConnected: 'Diese Nummer gehört zu {{name}} — Sie sind bereits verbunden. Es wurde nichts geschickt.',
     connected: 'Sie sind jetzt mit {{name}} verbunden.',
     incoming: 'Anfragen an Sie',
     outgoing: 'Ihre Anfragen',
