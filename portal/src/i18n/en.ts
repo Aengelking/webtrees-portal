@@ -160,6 +160,10 @@ export const en: Translations = {
     },
   },
   conversation: {
+    noneTitle: 'No conversations yet',
+    noneBody:
+      'A conversation starts on the page of the person you want to write to — the button there says "Write a message".',
+    noneAction: 'Go to my contacts',
     listTitle: 'Conversations',
     back: 'Back to messages',
     profile: 'Go to profile',

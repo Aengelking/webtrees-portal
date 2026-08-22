@@ -160,6 +160,10 @@ export const de = {
     },
   },
   conversation: {
+    noneTitle: 'Noch keine Gespräche',
+    noneBody:
+      'Ein Gespräch beginnt auf der Seite der Person, der Sie schreiben möchten — dort steht „Nachricht schreiben“.',
+    noneAction: 'Zu meinen Kontakten',
     listTitle: 'Gespräche',
     back: 'Zurück zu den Nachrichten',
     profile: 'Zum Profil',
