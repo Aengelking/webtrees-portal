@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { useNotificationRoute } from '../pwa/notificationRoute'
 
 /**
  * Four destinations.
@@ -37,6 +38,11 @@ const DESTINATIONS = [
 export function Layout() {
   const { t } = useTranslation()
   const { me } = useAuth()
+
+  // A tapped notification arrives here, as a message from the service worker.
+  // It is set up on the layout because the layout is what every signed-in
+  // screen is inside — and because it needs a router to navigate with.
+  useNotificationRoute()
 
   // Both lists, added: the badge answers "is there something for me", and a
   // member who has one message and one conversation message has two things.
