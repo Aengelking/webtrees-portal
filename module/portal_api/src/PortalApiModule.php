@@ -47,6 +47,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordResetCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ProfileUpdate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PhotoCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PhotoDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushRead;
@@ -72,6 +74,7 @@ use Engelking\Webtrees\PortalApi\Services\MemberMessages;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
+use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
@@ -130,7 +133,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.1.1';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 9;
+    private const int SCHEMA_VERSION = 10;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -285,7 +288,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $portal_trees   = new PortalTreeService($this, $tree_service);
         $pending        = new PendingChanges();
         $relationships  = new RelationshipNamer($container->get(RelationshipService::class));
-        $photos         = new PhotoPresenter();
+        $photo_store    = new Photos($portal_trees, $pending);
+        $photos         = new PhotoPresenter($photo_store);
         $presenter      = new RecordPresenter($pending, $relationships, $photos);
         $ancestors      = new AncestorTree($presenter);
         $members        = new MemberService($user_service);
@@ -332,6 +336,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(Conversations::class, $conversations);
         $container->set(PushSubscriptions::class, $push);
         $container->set(PushRead::class, new PushRead($push));
+        $container->set(PhotoCreate::class, new PhotoCreate($photo_store, $photos, $portal_trees));
+        $container->set(PhotoDelete::class, new PhotoDelete($photo_store, $photos, $portal_trees));
         $container->set(PushCreate::class, new PushCreate($push));
         $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
@@ -480,6 +486,14 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             RequireCsrfToken::class,
             RequireAuthentication::class,
         ];
+
+        $map->post(PhotoCreate::class, self::ROUTE_PREFIX . '/photos', PhotoCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(PhotoDelete::class, self::ROUTE_PREFIX . '/photos/{xref}', PhotoDelete::class)
+            ->tokens(['xref' => '[A-Za-z0-9_.\-]{1,20}'])
+            ->extras(['middleware' => $unsafe_private]);
+
 
         $map->patch(ProfileUpdate::class, self::ROUTE_PREFIX . '/me/profile', ProfileUpdate::class)
             ->extras(['middleware' => $unsafe_private]);

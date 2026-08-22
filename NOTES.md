@@ -2670,6 +2670,58 @@ Worth remembering as the general shape: a state that answers "what can be
 done here" is not automatically the right state to hang "how do you do it" on.
 This one was, until the how differed and the what did not.
 
+
+### 2.50 Phase 15: a face is the least deniable thing on a record
+
+Photographs came from webtrees, filtered by webtrees' access level, and were
+uploaded by whoever keeps the tree. So a living member's face could be in front
+of a hundred relatives without that member ever having put it there.
+
+The portal already had the argument, one field over: *contact details held in
+the family tree are never published — they are maintained by whoever keeps the
+tree, and nobody can consent to "whatever my record happens to say".* A
+photograph is the same sentence with more at stake.
+
+**The rule: for a living person, only what they uploaded themselves.** For
+somebody dead, nothing changes — nobody can consent on their behalf and nobody
+needs to, because consent is a question about people who can be harmed by the
+answer, and the family archive is what a portal like this is *for*. That split
+is one `isDead()` and it is the whole design.
+
+**Enforcing it needs a fact webtrees does not record.** A GEDCOM media object
+says what a file is, not who put it there; in webtrees that question has one
+answer and it is "the person with the keys". `portal_photo` is that missing
+fact, and a row in it *is* the consent — which is why the foreign key cascades:
+an account deleted takes its permissions with it and the photographs stop being
+shown. They are not deleted from the tree. That is the family's record, and
+withdrawing permission is not the same as pruning it.
+
+**A rule that hides without a way to add is not a privacy feature**, it is a
+portal with no faces in it. So the upload shipped in the same change, and three
+things about it are worth keeping:
+
+- **Re-encoded, never stored.** A phone writes GPS into every picture; a member
+  sharing their face would be publishing the address they took it at. Decoding
+  the pixels and writing a fresh JPEG drops every tag there is, which is more
+  complete than deleting the ones anybody has heard of — and it answers "is
+  this actually an image" in the same operation. The test asserts the metadata
+  directory is gone and the tag content with it, and asserts the *incoming*
+  file had one, so it cannot pass against a camera that writes none.
+- **Live at once, unlike every other edit** a member may make. A name is a claim
+  about a person and waits for the family; a photograph is permission *from*
+  one, and waiting for somebody else to approve your own consent has the thing
+  backwards.
+- **Except where an edit is already waiting.** webtrees' pending changes are
+  snapshots of the whole record, not patches — accepting the photograph would
+  accept the unapproved name change sitting under it. So there the photograph
+  waits too, and the member is told. Found while writing the code rather than
+  after; it is the kind of thing that would have quietly approved somebody's
+  edits for months.
+
+**And the screen says the rule.** A member whose picture vanished from their
+own record the day this shipped is owed the reason in words, on the screen
+where they can put it back — not left to guess that it was a bug.
+
 ---
 
 ## 3. Things that were guessed

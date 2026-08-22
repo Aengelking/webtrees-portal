@@ -26,6 +26,10 @@ use Fisharebest\Webtrees\MediaFile;
  * webtrees' business and stays there — the portal simply does not hand out
  * URLs that reach it.
  *
+ * **And a third filter that is the portal's own**, not webtrees': a photograph
+ * of a *living* person is shown only where that person uploaded it themselves.
+ * `Photos` holds the rule and `Schema/Migration9.php` the argument for it.
+ *
  * So the URLs here are the portal's own, relative to its origin, and the bytes
  * come back through `MediaRead`. What that costs is one more hop; what it buys
  * is that a photograph is subject to exactly the same session, the same access
@@ -33,6 +37,10 @@ use Fisharebest\Webtrees\MediaFile;
  */
 class PhotoPresenter
 {
+    public function __construct(private readonly Photos $photos)
+    {
+    }
+
     /** The thumbnail the portal shows beside a name. Square, and retina-sized. */
     public const int THUMBNAIL_SIZE = 160;
 
@@ -99,9 +107,21 @@ class PhotoPresenter
         foreach ($individual->facts(['OBJE'], false, $access_level, true) as $fact) {
             $target = $fact->target();
 
-            if ($target instanceof Media && $target->canShow($access_level)) {
-                $media[] = $target;
+            if (!$target instanceof Media || !$target->canShow($access_level)) {
+                continue;
             }
+
+            // The third filter, and the only one webtrees cannot make: a
+            // living person's photograph is shown only if they put it there.
+            // See `Photos` and `Schema/Migration9.php` — what the family tree
+            // happens to hold about somebody living is not something they
+            // agreed to publish, and a face is the least deniable thing on a
+            // record.
+            if (!$this->photos->mayShow($individual, $target)) {
+                continue;
+            }
+
+            $media[] = $target;
         }
 
         return $media;

@@ -196,7 +196,8 @@ abstract class PortalTestCase extends TestCase
         array $query = [],
         array $attributes = [],
         array|null $body = null,
-        array $headers = []
+        array $headers = [],
+        array $files = []
     ): ResponseInterface {
         $route = Registry::routeFactory()->routeMap()->getRoute($route_name);
 
@@ -220,6 +221,10 @@ abstract class PortalTestCase extends TestCase
             // Mirror a real JSON request: a body that core's form-decoding
             // middleware would not have parsed.
             $request = $request->withParsedBody(null)->withBody($stream);
+        }
+
+        if ($files !== []) {
+            $request = $request->withUploadedFiles($files);
         }
 
         Registry::container()->set(ServerRequestInterface::class, $request);

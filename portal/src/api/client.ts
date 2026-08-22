@@ -33,6 +33,7 @@ import type {
   MemberProfile,
   MemberProfileUpdate,
   OwnContact,
+  Photo,
   PendingIndividual,
   PushState,
   Transcript,
@@ -98,6 +99,12 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 interface RequestOptions {
   method?: string
   body?: unknown
+  /**
+   * A file, rather than JSON. The two are exclusive: `FormData` sets its own
+   * `Content-Type` with the multipart boundary in it, and a `Content-Type`
+   * written by hand would make the body unparseable on the far side.
+   */
+  form?: FormData
   query?: Record<string, string | number | undefined>
   signal?: AbortSignal
 }
@@ -137,6 +144,9 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
     headers['Content-Type'] = 'application/json'
   }
 
+  // Nothing set for a form: the browser writes the multipart boundary, and it
+  // is the only thing that can.
+
   if (csrf !== undefined) {
     headers['X-CSRF-TOKEN'] = csrf
   }
@@ -152,6 +162,7 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
       credentials: 'same-origin',
       cache: 'no-store',
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      ...(options.form === undefined ? {} : { body: options.form }),
       ...(options.signal === undefined ? {} : { signal: options.signal }),
     })
   } catch (cause) {
@@ -338,6 +349,28 @@ export const api = {
 
   unsubscribeFromPush(endpoint: string): Promise<PushState> {
     return request<PushState>('/push', { method: 'DELETE', body: { endpoint } })
+  },
+
+  /**
+   * A photograph of oneself, which is the only kind that can be added.
+   *
+   * No id goes with it: the record is the one the signed-in account is linked
+   * to. A photograph is permission, and nobody gives permission on somebody
+   * else's behalf.
+   */
+  addPhoto(file: File): Promise<{ photos: Photo[]; pending: boolean }> {
+    const form = new FormData()
+
+    form.append('photo', file)
+
+    return request<{ photos: Photo[]; pending: boolean }>('/photos', { method: 'POST', form })
+  },
+
+  /** Withdrawing the permission, which is what makes it one. */
+  removePhoto(xref: string): Promise<{ photos: Photo[] }> {
+    return request<{ photos: Photo[] }>(`/photos/${encodeURIComponent(xref)}`, {
+      method: 'DELETE',
+    })
   },
 
   /** The exchanges the portal keeps a transcript of. Not the webtrees inbox. */
