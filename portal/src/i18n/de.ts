@@ -352,7 +352,7 @@ export const de = {
     },
     off: {
       title: 'Verbindungen sind ausgeschaltet',
-      body: 'In dieser Familie werden über das Portal keine neuen Verbindungen geknüpft. Bestehende Kontakte können Sie weiterhin sehen und lösen.',
+      body: 'In dieser Familie werden über das Portal keine neuen Verbindungen geknüpft. Bestehende Kontakte können Sie weiterhin sehen.',
     },
   },
   connect: {

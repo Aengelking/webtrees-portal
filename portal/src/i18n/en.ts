@@ -351,7 +351,7 @@ export const en: Translations = {
     },
     off: {
       title: 'Connections are switched off',
-      body: 'This family does not make new connections through the portal. You can still see and end the ones you have.',
+      body: 'This family does not make new connections through the portal. You can still see the ones you have.',
     },
   },
   connect: {

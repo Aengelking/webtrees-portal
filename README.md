@@ -614,11 +614,13 @@ is exactly as visible as it was before.
 **Either side can end it, at any time, without asking or telling.** Declining
 a request, withdrawing one and disconnecting are one operation, and the row is
 deleted rather than marked — so nothing is left from which anyone could later
-read off who refused whom.
+read off who refused whom. Declining and withdrawing are asked for where the
+request is, in the contacts screen; ending a connection that exists is asked
+for on the other member's page, not from the address-book row.
 
 Switching the feature off in the control panel silences everything a
 connection discloses, contact details included, and refuses new ones. The
-lists stay, so that members can still see what they agreed to and end it.
+lists stay, so that members can still see what they agreed to.
 
 ### The link back to webtrees, for people who edit
 
