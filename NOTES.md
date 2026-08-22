@@ -2609,6 +2609,38 @@ should never appear there — no walk runs in standalone display mode — but a
 dialogue that turns up unexpectedly stops every test, and the failure looks
 like anything except what it is.
 
+
+### 2.48 A number on the icon, and the number the worker does not have
+
+The navigation bar has carried the unread count since Phase 10. Putting it on
+the home-screen icon is the same number one surface further out — and that
+surface is the only place the portal says anything about a member outside its
+own window, so it says a **number and nothing else**. No name, no text, no
+sender: §2.36's line for the lock screen, drawn again where the same argument
+applies for the same reason.
+
+**The interesting half is the service worker's.** A push arrives while the app
+is shut, and the worker does not know how many messages are waiting — the push
+carries no payload, deliberately. The obvious repair is for the worker to ask
+`/api` for the count, and that is the one thing `strategy.ts` says this worker
+never does. So it doesn't: `setAppBadge()` with no argument is the flag every
+platform draws for exactly this case — *something is there* — and the app
+replaces it with the real number the moment it is opened. The absence of a
+count in the worker is the payload-less design showing through, not a gap in
+it.
+
+**Clearing is the part worth testing.** Setting a badge is decoration;
+*failing to clear one* leaves a stranger's unread count on the icon of a phone
+that has been handed to somebody else. The layout is mounted only while
+somebody is signed in, so its unmount is exactly the moment the count stops
+being anybody's — and that is where the clear lives.
+
+Every call is guarded twice, because this API misbehaves in both directions:
+Safari rejects it until notifications are allowed and in a plain tab, and some
+browsers throw synchronously rather than rejecting. A badge nobody can see is
+not worth reporting to anybody — there is nothing they could do, and the count
+is on the screen in front of them.
+
 ---
 
 ## 3. Things that were guessed

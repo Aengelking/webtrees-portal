@@ -372,6 +372,16 @@ message leaves the server at all. It also means the portal stores no encryption
 keys for it — `portal_push_subscription` holds the device address and nothing
 else — because there is no payload to encrypt.
 
+**The count is on the app icon too**, where the installed app has one to put
+it on: the same number the navigation bar carries, messages and conversation
+messages added. A number and nothing else — no name, no text — for the reason
+the notification carries nothing, one surface over. A push arriving while the
+app is shut marks the icon *without* a number, because the push carries none
+and the service worker never asks `/api` for one; the app puts the real count
+there the moment it is opened. Signing out clears it, so a shared phone does
+not keep showing somebody else's unread count. Browsers without the Badging
+API simply do nothing, which is invisible in a tab that has no icon anyway.
+
 **The offer is made once, on the first run of the installed app.** That is the
 moment worth asking: notifications reach a member only through the app on
 their home screen — on iOS that is the only way they work at all — so asking
@@ -1607,6 +1617,14 @@ browser the whole path — messages, pick a name, write, and Back — ends where
 it started. A conversation message files nothing in webtrees' inbox, so it
 cannot arrive twice; and the announcement e-mail, rendered, names neither the
 writer nor a word of what they wrote, in both the text and the HTML version.
+
+**The app icon** (`portal/src/Badge.test.tsx`, `portal/sw/notify.test.ts`) —
+the number on the icon is both lists added, exactly as the navigation bar
+counts them; nothing is set at zero, it is cleared; it is cleared again when
+the member is no longer signed in, which is the assertion that matters on a
+shared phone; and a browser with no badges, or one that refuses, costs the
+portal nothing. From the service worker the flag carries no count, because the
+push carries none and asking would mean asking `/api`.
 
 **Notifications** (`module/tests/PushTest.php`,
 `portal/src/Notifications.test.tsx`) — the columns a payload would need do not

@@ -82,3 +82,24 @@ function sameOrigin(url: string, origin: string): boolean {
     return false
   }
 }
+
+/**
+ * Mark the icon while the app is shut.
+ *
+ * **Without a number, and that is not a shortcut.** The push carries no
+ * payload, so the worker does not know how many are waiting — and the way to
+ * find out would be to ask `/api`, which is the one thing `strategy.ts` says
+ * this worker never does. `setAppBadge()` with no argument is the flag every
+ * platform draws for exactly this case: something is there. The app replaces
+ * it with the real count the moment it is opened.
+ */
+export function flagWaiting(badging: {
+  setAppBadge?: (count?: number) => Promise<void>
+}): void {
+  try {
+    void badging.setAppBadge?.().catch(() => undefined)
+  } catch {
+    // Half-implemented in some browsers, absent in most. A badge is not worth
+    // a failed push.
+  }
+}

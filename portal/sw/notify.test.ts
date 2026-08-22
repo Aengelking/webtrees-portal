@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { MESSAGES_PATH, NAVIGATE_MESSAGE, openMessages } from './notify'
+import { MESSAGES_PATH, NAVIGATE_MESSAGE, flagWaiting, openMessages } from './notify'
 import type { Focusable } from './notify'
 
 /**
@@ -83,5 +83,31 @@ describe('tapping the notification', () => {
 
     expect(recent.postMessage).toHaveBeenCalled()
     expect(older.postMessage).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * The mark on the home-screen icon, from a worker that does not know how many
+ * are waiting — and must not find out. Asking `/api` is the one thing this
+ * worker never does (`strategy.ts`), so the flag has no number in it.
+ */
+describe('marking the icon while the app is shut', () => {
+  it('flags it without a count, because it has none to give', () => {
+    const setAppBadge = vi.fn().mockResolvedValue(undefined)
+
+    flagWaiting({ setAppBadge })
+
+    expect(setAppBadge).toHaveBeenCalledWith()
+  })
+
+  it('does nothing at all where the browser has no badges', () => {
+    expect(() => flagWaiting({})).not.toThrow()
+  })
+
+  /** Safari rejects this until notifications are allowed. A push must not fail over it. */
+  it('swallows a refusal rather than failing the push', () => {
+    expect(() =>
+      flagWaiting({ setAppBadge: vi.fn().mockRejectedValue(new Error('not allowed')) }),
+    ).not.toThrow()
   })
 })

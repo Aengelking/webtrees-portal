@@ -26,7 +26,7 @@
  * request exactly as it would have been with no service worker installed.
  */
 
-import { openMessages } from './notify'
+import { flagWaiting, openMessages } from './notify'
 import { assetsIn, handlingFor, mayStoreAsset } from './strategy'
 
 /**
@@ -114,6 +114,10 @@ worker.addEventListener('activate', (event) => {
  * instead — which says more about the member's browsing than this ever would.
  */
 worker.addEventListener('push', (event) => {
+  // The icon says something is waiting, without saying how much — see
+  // `flagWaiting`. The app puts the real number there when it is opened.
+  flagWaiting(worker.navigator)
+
   event.waitUntil(
     worker.registration.showNotification('Sack Familienapp', {
       body: 'Sie haben eine neue Nachricht.',

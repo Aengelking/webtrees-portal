@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { useAppBadge } from '../pwa/badge'
 import { useNotificationRoute } from '../pwa/notificationRoute'
 import { InstallPrompt } from './InstallPrompt'
 import { NotificationPrompt } from './NotificationPrompt'
@@ -54,6 +55,11 @@ export function Layout() {
   const requests = me?.connection_requests ?? 0
 
   const counts = { none: 0, unread, connections: requests } as const
+
+  // The same number, on the home-screen icon. Only the unread messages: a
+  // connection request is not something anybody needs to see from the
+  // lock screen, and two numbers on one icon is one number.
+  useAppBadge(unread)
 
   return (
     <div className="min-h-dvh bg-slate-100 text-slate-900">
