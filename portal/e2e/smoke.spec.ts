@@ -251,15 +251,22 @@ test.describe('phase 7', () => {
     await page.getByRole('link', { name: 'Einstellungen' }).click()
     await page.getByRole('link', { name: 'Jemanden einladen' }).click()
 
-    // The relationship is named, so it is obvious who is about to be picked.
-    await expect(page.getByText('Ihr Bruder')).toBeVisible()
+    // The relationship is named on the line, so it is obvious who is about to
+    // be picked — and picked by value, because that is what the form sends.
+    const chooser = page.getByLabel('Person auswählen')
 
-    await page.getByRole('radio', { name: /Dieter Beispiel/ }).check()
+    await expect(chooser.getByRole('option', { name: /Ihr Bruder — Dieter Beispiel/ })).toHaveCount(1)
+    await chooser.selectOption('X4')
     await page.getByRole('button', { name: 'Einladung erstellen' }).click()
 
     const link = page.getByLabel('Einladungslink')
     await expect(link).toHaveValue(/token=einladung-fuer-dieter/)
     await expect(page.getByRole('status')).toContainText('nur dieses eine Mal')
+
+    // Where the member is looking, without scrolling. It used to be rendered
+    // above the whole list of relatives, so on a phone the one thing they came
+    // for appeared off-screen behind them.
+    await expect(link).toBeInViewport()
 
     // The link is shown once, so it has to leave the screen in one piece:
     // selecting a URL by hand on a phone is how half of one ends up in a chat.
@@ -339,7 +346,7 @@ test.describe('inviting from a person’s page', () => {
 
     // Arrived with him chosen, so the next tap is the last one.
     await expect(page).toHaveURL(/\/invite\?xref=X4$/)
-    await expect(page.getByRole('radio', { name: /Dieter Beispiel/ })).toBeChecked()
+    await expect(page.getByLabel('Person auswählen')).toHaveValue('X4')
 
     await page.getByRole('button', { name: 'Einladung erstellen' }).click()
     await expect(page.getByLabel('Einladungslink')).toHaveValue(/token=einladung-fuer-dieter/)

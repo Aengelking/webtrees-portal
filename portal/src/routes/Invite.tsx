@@ -76,8 +76,6 @@ export function Invite() {
 
       {data !== undefined && (
         <>
-          {link !== null && <IssuedLink link={link} onDismiss={() => setLink(null)} />}
-
           {!data.enabled && (
             <div className="mt-6">
               <Notice title={t('invite.off.title')} body={t('invite.off.body')} />
@@ -107,23 +105,28 @@ export function Invite() {
                     </p>
                   )}
 
-                  <fieldset className="mb-5">
-                    <legend className="mb-3 text-base font-medium text-slate-900">
+                  <div className="mb-5">
+                    <label
+                      htmlFor="invite-candidate"
+                      className="mb-2 block text-base font-medium text-slate-900"
+                    >
                       {t('invite.whoLegend')}
-                    </legend>
+                    </label>
+                    <select
+                      id="invite-candidate"
+                      value={selected}
+                      onChange={(event) => setSelected(event.target.value)}
+                      className="min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900"
+                    >
+                      <option value="">{t('invite.whoPlaceholder')}</option>
 
-                    <ul className="space-y-2">
                       {data.candidates.map((candidate) => (
-                        <li key={candidate.xref}>
-                          <Candidate
-                            candidate={candidate}
-                            checked={selected === candidate.xref}
-                            onSelect={() => setSelected(candidate.xref)}
-                          />
-                        </li>
+                        <option key={candidate.xref} value={candidate.xref}>
+                          {nameFor(candidate)}
+                        </option>
                       ))}
-                    </ul>
-                  </fieldset>
+                    </select>
+                  </div>
 
                   <Field
                     label={t('invite.email')}
@@ -142,6 +145,19 @@ export function Invite() {
                     {t('invite.remaining', { count: data.remaining })}
                   </p>
                 </form>
+              )}
+
+              {/*
+                Under the button that made it, not at the top of the screen.
+                It used to be above everything, which was fine while the list
+                of relatives was one line long and wrong the moment it was not:
+                the member pressed a button at the bottom and the one thing
+                they came for appeared off-screen behind them.
+              */}
+              {link !== null && (
+                <div className="mt-6">
+                  <IssuedLink link={link} onDismiss={() => setLink(null)} />
+                </div>
               )}
             </Section>
           )}
@@ -199,43 +215,20 @@ function IssuedLink({ link, onDismiss }: { link: string; onDismiss: () => void }
   )
 }
 
-function Candidate({
-  candidate,
-  checked,
-  onSelect,
-}: {
-  candidate: InvitationCandidate
-  checked: boolean
-  onSelect: () => void
-}) {
-  return (
-    <label
-      className={`flex min-h-[44px] cursor-pointer items-start gap-3 rounded-xl border p-4 ${
-        checked ? 'border-sky-700 bg-sky-50' : 'border-slate-300 bg-white'
-      }`}
-    >
-      <input
-        type="radio"
-        name="candidate"
-        value={candidate.xref}
-        checked={checked}
-        onChange={onSelect}
-        className="mt-1 h-5 w-5"
-      />
-      <span>
-        {candidate.relationship !== null && (
-          <span className="block text-sm font-medium uppercase tracking-wide text-slate-600">
-            {candidate.relationship}
-          </span>
-        )}
-        <span className="block text-base font-medium text-slate-900">{candidate.name}</span>
-        {candidate.lifespan !== null && (
-          <span className="block text-base text-slate-700">{candidate.lifespan}</span>
-        )}
-      </span>
-    </label>
-  )
+/**
+ * What one line of the dropdown says.
+ *
+ * The relationship first, because "Ihr Bruder" is what makes it obvious that
+ * the right person is about to be picked — a family tree has more than one
+ * Dieter Beispiel, and the years are what tell them apart.
+ */
+function nameFor(candidate: InvitationCandidate): string {
+  const named =
+    candidate.relationship === null ? candidate.name : `${candidate.relationship} — ${candidate.name}`
+
+  return candidate.lifespan === null ? named : `${named} (${candidate.lifespan})`
 }
+
 
 function Outstanding({
   invitation,

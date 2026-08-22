@@ -90,6 +90,7 @@ export const de = {
       'Sie können Ihrer engen Familie einen Zugang zum Portal einrichten. Sie wählen die Person aus, bekommen einen Link und schicken ihn selbst — so, wie Sie diese Person sonst auch erreichen.',
     chooseTitle: 'Wen möchten Sie einladen?',
     whoLegend: 'Person auswählen',
+    whoPlaceholder: 'Bitte auswählen …',
     email: 'E-Mail-Adresse (freiwillig)',
     emailHint:
       'Wird nur für sie ins Formular vorausgefüllt. Der Link geht nicht automatisch raus — den verschicken Sie selbst.',
