@@ -239,7 +239,11 @@ describe('offering to install', () => {
     'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36'
   const ANDROID_WEBVIEW =
     'Mozilla/5.0 (Linux; Android 14; Pixel 7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.0.0 Mobile Safari/537.36'
-  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'
+  const IPHONE =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+  /** The same phone, in Chrome. Same engine, same two taps, different end of the screen. */
+  const IPHONE_CHROME =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.0.0 Mobile/15E148 Safari/604.1'
   const DESKTOP =
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
@@ -320,6 +324,19 @@ describe('offering to install', () => {
     expect(watching().state()).toBe('apple')
   })
 
+  /**
+   * Every browser on iOS is WebKit underneath, so what differs is not what
+   * they can do but where their buttons are: Safari's Share button is at the
+   * bottom of the screen and Chrome's is at the top. An instruction naming the
+   * wrong end of the phone is worse than one naming neither — this portal's
+   * audience looks where it is told and then gives up.
+   */
+  it('tells Chrome on an iPhone apart from Safari, because the button is elsewhere', () => {
+    browser(IPHONE_CHROME)
+
+    expect(watching().state()).toBe('appleOther')
+  })
+
   /** An iPad calls itself a Macintosh. Only the touch points give it away. */
   it('recognises an iPad pretending to be a Mac', () => {
     browser('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', { maxTouchPoints: 5 })
@@ -398,6 +415,17 @@ describe('offering to install', () => {
 
     expect(screen.getByText(/Zum Home-Bildschirm/)).toBeDefined()
     expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('says the Share button is at the top in Chrome on an iPhone', () => {
+    browser(IPHONE_CHROME)
+    render(<InstallPortal />)
+
+    expect(screen.getByText(/oben auf das Teilen-Symbol/)).toBeDefined()
+
+    // And says where it is in Safari, because a member who has been told the
+    // wrong place once will not trust the next sentence either.
+    expect(screen.getByText(/In Safari sitzt dieses Symbol unten/)).toBeDefined()
   })
 
   it('points an Android member at the menu rather than at nothing', () => {

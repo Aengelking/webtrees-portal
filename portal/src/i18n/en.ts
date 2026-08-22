@@ -420,6 +420,8 @@ export const en: Translations = {
       'You can put the Sack family app on your home screen. It then opens with one tap, without an address bar and without hunting for it in the browser.',
     action: 'Add to home screen',
     apple: 'Tap the share icon at the bottom, then "Add to Home Screen".',
+    appleOther:
+      'Tap the share icon at the top, then "Add to Home Screen". In Safari that icon is at the bottom.',
     android:
       'Tap the three dots at the top right, then "Install app" — depending on the version it may say "Add to Home screen".',
     webview:

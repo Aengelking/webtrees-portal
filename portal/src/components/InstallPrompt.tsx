@@ -25,7 +25,7 @@ import { Button } from './ui'
 const OFFERED_KEY = 'portal.install.offered'
 
 /** The states where a member can act on this from where they are standing. */
-const ACTIONABLE = ['ready', 'apple', 'android'] as const
+const ACTIONABLE = ['ready', 'apple', 'appleOther', 'android'] as const
 
 export function InstallPrompt() {
   const { t } = useTranslation()

@@ -2641,6 +2641,35 @@ browsers throw synchronously rather than rejecting. A badge nobody can see is
 not worth reporting to anybody — there is nothing they could do, and the count
 is on the screen in front of them.
 
+
+### 2.49 The right two taps, at the wrong end of the phone
+
+The iOS instruction said *"Tippen Sie **unten** auf das Teilen-Symbol"*, which
+is true in Safari and wrong in Chrome, where it is at the top. Reported by
+somebody who went and looked.
+
+The state machine had one state for all of iOS, and that was right about the
+thing it was built to answer — every browser there is WebKit underneath, none
+of them has `beforeinstallprompt`, and the way in is the same Share sheet and
+the same two taps. What it was not right about is the only thing the sentence
+actually says: **where the button is.**
+
+So `apple` splits into `apple` and `appleOther`, told apart by `CriOS`,
+`FxiOS`, `EdgiOS` and `OPT` in the user agent — Safari being what is left.
+Nothing else in the portal changes: same state machine, same offer, one more
+sentence.
+
+**The new sentence names both ends.** "Tippen Sie oben … In Safari sitzt dieses
+Symbol unten." Not tidiness — a member who has been sent to the wrong end of
+their phone once will not trust the next instruction either, and this
+portal's audience is exactly the audience that looks where it is told and then
+gives up. Saying where it is in the other browser costs nine words and buys
+back the sentence's credibility.
+
+Worth remembering as the general shape: a state that answers "what can be
+done here" is not automatically the right state to hang "how do you do it" on.
+This one was, until the how differed and the what did not.
+
 ---
 
 ## 3. Things that were guessed
