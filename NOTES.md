@@ -2343,6 +2343,39 @@ Rows already filed by the old path stay where they are. They are real messages
 that were really delivered; deleting somebody's post to tidy up a changed mind
 is not the portal's to do.
 
+
+### 2.40 A phone on its side is not a desk
+
+The bottom navigation bar stopped staying at the bottom, and the report was
+right. The bar had carried the same rule since Phase 1: fixed to the bottom of
+the screen, and `sm:static` — into the flow of the page — from 640px up. That
+reads as "phone below, desktop above", and it is not what it says. **It asks
+about width and nothing else.** A phone held sideways is around 780px wide and
+390px tall, which is the widest and the *least* roomy the screen ever gets, and
+the width alone was enough to hand it the desktop layout: the bar left the
+bottom edge and scrolled away with the page.
+
+So the condition asks about both directions — a `wide` variant, `(min-width:
+40rem) and (min-height: 40rem)`. A window that is genuinely roomy gets the
+in-flow bar; everything else keeps the bar under the thumb.
+
+The e2e test turns the phone and asserts that the bar's bottom edge is the
+screen's bottom edge after scrolling. Written against the old rule first, where
+it reported the bar sitting 2941px down a 390px screen — worth doing, because a
+layout test that was never seen to fail is decoration.
+
+**And the same bar was standing in the home indicator.** The page is drawn edge
+to edge (`viewport-fit=cover`, since Phase 1), which on a phone with a gesture
+strip rather than buttons means `bottom-0` is *behind* that strip. Nobody
+noticed while the portal lived in a browser tab, because the browser's own
+chrome sat there; installing it as an app took the chrome away and left the row
+of buttons under the indicator. `env(safe-area-inset-bottom)` as padding on the
+bar, and the same amount added to the gap under the content, so the last line
+of a screen is not under the bar either.
+
+Worth keeping in mind for anything else pinned to an edge: `viewport-fit=cover`
+is a promise to handle the insets, and until now nothing did.
+
 ---
 
 ## 3. Things that were guessed

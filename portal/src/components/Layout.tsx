@@ -56,13 +56,37 @@ export function Layout() {
         {t('app.skipToContent')}
       </a>
 
-      <main id="main" className="mx-auto w-full max-w-2xl px-4 pb-28 pt-6 sm:pb-10">
+      {/*
+        The gap under the content is the height of the bar plus whatever the
+        phone reserves below it — a home indicator, a gesture strip. Without
+        the second half, the last line of a screen ends up under the bar.
+      */}
+      <main
+        id="main"
+        className="mx-auto w-full max-w-2xl px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] wide:pb-10"
+      >
         <Outlet />
       </main>
 
+      {/*
+       * Held at the bottom of the screen, which is where a thumb is.
+       *
+       * **`wide:`, not `sm:`.** The bar goes into the flow of the page — the
+       * desktop shape — only when the window is roomy in *both* directions.
+       * A phone turned on its side is over 640px wide and about 390px tall,
+       * and the width alone used to be enough to hand it the desktop layout:
+       * the bar left the bottom of the screen and scrolled away with the
+       * page, on the one screen shape where a fixed bar matters most.
+       *
+       * **`env(safe-area-inset-bottom)`.** The page is drawn edge to edge
+       * (`viewport-fit=cover`), so on a phone with a home indicator rather
+       * than buttons, `bottom-0` is behind that indicator. The padding puts
+       * the row of buttons above it and lets the white background run to the
+       * edge, which is what the bar is supposed to look like.
+       */}
       <nav
         aria-label={t('nav.main')}
-        className="fixed inset-x-0 bottom-0 border-t border-slate-300 bg-white sm:static sm:mx-auto sm:max-w-2xl sm:border-0"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-300 bg-white pb-[env(safe-area-inset-bottom)] wide:static wide:z-auto wide:mx-auto wide:max-w-2xl wide:border-0 wide:pb-0"
       >
         <ul className="mx-auto flex max-w-2xl">
           {DESTINATIONS.map(({ to, key, icon: Icon, badge }) => (
