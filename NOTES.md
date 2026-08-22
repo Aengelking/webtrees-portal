@@ -2123,6 +2123,91 @@ arrow keys move between them, and only the open tab is in the tab order — that
 is what makes Tab from the strip land in the panel rather than on the other
 tab. Two tabs, so the arrows wrap.
 
+### 2.36 Phase 13: a knock, and deliberately nothing else
+
+The request was *"Push bauen, ohne Namen im Sperrbildschirm"*, and the second
+half of it decided the whole design.
+
+**A push with a payload is the normal way to build this, and it was not
+built.** RFC 8291 exists so that a server can send encrypted text through a
+push service it does not trust; the browser decrypts it and the service worker
+shows it. That machinery — an ECDH exchange, AES-GCM, two more columns in the
+table for the browser's `p256dh` and `auth` keys — exists purely to protect a
+payload. Sending none removes all of it. The module POSTs an empty body with a
+VAPID header, the browser wakes the worker, and the worker shows a sentence
+that was compiled into it: *„Sie haben eine neue Nachricht."*
+
+So the interesting column in `Schema/Migration8.php` is the one that is
+missing. The table stores an endpoint and nothing else, which means there is no
+place a name could end up even by accident — not through a later bug, not
+through a well-meant change. Storing the keys "in case a later phase wants
+payloads" would be storing material for a capability nobody has decided to
+want; the browser still has them and can hand them over again if that phase
+ever comes, and that phase can argue about names on lock screens on its own
+terms. This one has answered it.
+
+**The cost is honest and small.** The notification cannot say who wrote, cannot
+deep-link to the right conversation (it opens *Nachrichten*), and cannot be
+counted per sender. Against that: a phone on a kitchen table tells anybody
+walking past that a message arrived, and nothing more. In a portal whose
+subject is living relatives, that trade is not close.
+
+**VAPID is the part that fails silently.** The token is a JWT signed with
+ES256, and `openssl_sign()` returns a DER `SEQUENCE` of two INTEGERs where JWS
+wants r and s as thirty-two raw bytes each. The INTEGERs may be short, or carry
+a leading zero to keep them positive, and a conversion that ignores either
+produces a signature that is wrong perhaps one time in fifty. The failure is a
+bare `401` from the push service with no explanation, so this is verified in
+`PushTest` against a hundred real signatures rather than reasoned about. The
+first version written here was wrong, and looked fine.
+
+**The subject is the portal's own URL**, and no push is offered without one.
+VAPID's `sub` is meant to let somebody at Google or Mozilla reach whoever is
+sending; an invented `mailto:` would be a lie told to a stranger having a bad
+day. No URL configured therefore means `available: false` — not a push sent
+with a plausible-looking placeholder.
+
+**Every message knocks, unlike the e-mail.** §2.33 debounces mail because an
+inbox with forty lines from one conversation is a mailbox nobody keeps. A
+notification is not that: the browser collapses repeats under one `tag`, and
+one that arrives while the member is already reading costs nothing. The two
+channels differ because the media differ, not by oversight.
+
+**Failure is swallowed, and death is believed.** `knock()` never throws — a
+push is a courtesy on top of a message that is already stored and already
+readable, so a push service having an afternoon must not turn into a member
+being told their message failed. But a `404` or `410` is not an outage, it is
+the service saying that device is gone for good, and the row is deleted. Every
+other status is left alone.
+
+**The device is the unit, and it may change hands.** Endpoints are unique in
+the table, so a browser that re-subscribes the same device — which they do on
+their own when a push service rotates addresses — updates a row instead of
+collecting them, and a shared tablet that is handed to somebody else moves to
+the new account rather than knocking twice for two people. Uniqueness hangs on
+a hash of the endpoint, because databases disagree about how much of a `text`
+column they will index.
+
+**The notification's own text is German and fixed.** The service worker has
+no access to the language preference — that lives in `localStorage`, which a
+worker cannot read — and the alternative, `navigator.language`, is the phone's
+language rather than the member's choice in the portal. Since the whole text is
+one sentence that says nothing, the honest options were a fixed German sentence
+or a guess that would be wrong for exactly the member who bothered to change
+the setting. If a second language ever matters here, the way to do it is to
+have the client write its choice into the cache the worker already owns, at
+sign-in.
+
+**And the screen says all of this before anybody agrees to it.** The sentence
+under the switch is *"Auf dem Sperrbildschirm steht nur, dass eine Nachricht da
+ist. Weder der Name der Person noch der Text werden angezeigt."* A member
+deciding whether to switch this on is entitled to know what the person next to
+them on the sofa will be able to read; that assertion is the first test in
+`Notifications.test.tsx`. A browser that is already blocking notifications gets
+an explanation of where its own switch is instead of a button that would do
+nothing — §2.33's rule, applied on purpose this time rather than after somebody
+reported it.
+
 ---
 
 ## 3. Things that were guessed

@@ -34,6 +34,7 @@ import type {
   MemberProfileUpdate,
   OwnContact,
   PendingIndividual,
+  PushState,
   Transcript,
 } from './types'
 
@@ -320,6 +321,23 @@ export const api = {
   /** No subject: a reply carries webtrees' `RE: ` on the original, server-side. */
   replyToMessage(id: number, body: string): Promise<{ status: string }> {
     return request<{ status: string }>(`/messages/${id}/reply`, { method: 'POST', body: { body } })
+  },
+
+  /** Whether this portal can knock, and the key a browser needs to be knocked on. */
+  push(signal?: AbortSignal): Promise<PushState> {
+    return request<PushState>('/push', signal === undefined ? {} : { signal })
+  },
+
+  /**
+   * Remember this device. Only the endpoint is sent: the keys a browser also
+   * offers exist to encrypt a payload, and this portal sends none.
+   */
+  subscribeToPush(endpoint: string): Promise<PushState> {
+    return request<PushState>('/push', { method: 'POST', body: { endpoint } })
+  },
+
+  unsubscribeFromPush(endpoint: string): Promise<PushState> {
+    return request<PushState>('/push', { method: 'DELETE', body: { endpoint } })
   },
 
   /** The exchanges the portal keeps a transcript of. Not the webtrees inbox. */

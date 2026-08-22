@@ -413,6 +413,19 @@ export const de = {
       'Diese Seite wurde gerade in einer anderen App geöffnet, die das nicht kann. Tippen Sie auf die drei Punkte und dann auf „Im Browser öffnen“ — dort geht es.',
     done: 'Die App liegt bereits auf dem Startbildschirm dieses Geräts.',
   },
+  notifications: {
+    title: 'Benachrichtigungen',
+    body:
+      'Sie können sich benachrichtigen lassen, wenn eine neue Nachricht ankommt — auch wenn die App gerade nicht offen ist.',
+    privacy:
+      'Auf dem Sperrbildschirm steht nur, dass eine Nachricht da ist. Weder der Name der Person noch der Text werden angezeigt.',
+    switchOn: 'Benachrichtigungen einschalten',
+    switchOff: 'Auf diesem Gerät ausschalten',
+    working: 'Einen Moment …',
+    on: 'Dieses Gerät wird benachrichtigt.',
+    blocked:
+      'Ihr Browser blockiert Benachrichtigungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
+  },
   settings: {
     contacts: 'Meine Kontakte',
     contactsBody:

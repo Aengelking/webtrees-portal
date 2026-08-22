@@ -305,6 +305,15 @@ export interface Transcript {
   before: number | null
 }
 
+/** What this portal can do about notifications, and whether this account uses it. */
+export interface PushState {
+  available: boolean
+  /** Empty unless notifications are available. Public by design. */
+  public_key: string
+  /** About the account, across devices — the browser knows about this one. */
+  subscribed: boolean
+}
+
 export interface Me {
   /** Carried on /me so the navigation badge needs no request of its own. */
   unread_messages: number
