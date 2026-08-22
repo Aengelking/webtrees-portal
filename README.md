@@ -288,7 +288,9 @@ holds everything arriving from elsewhere — webtrees' own contact form, an
 administrator's broadcast.
 
 The way in is on the other person's page: **Nachricht schreiben** opens the
-conversation and goes to it.
+conversation and goes to it. Until a member has one, the Gespräche section
+says so and points at their contacts — the way in is not somewhere anybody
+would guess from this screen.
 
 **Why there are two lists.** webtrees' `message` table keeps one row per
 message, owned by whoever received it. Nothing is stored for the sender — so a

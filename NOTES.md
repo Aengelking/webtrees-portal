@@ -1967,6 +1967,20 @@ nothing ties two messages together but the string `RE: ` in a subject;
 person fails in three ordinary ways (§2.27); and `body` is a rendered e-mail
 template rather than what somebody typed.
 
+**The empty list says where to start.** It did not, for a day: the
+conversations section rendered nothing at all while a member had none, on the
+argument that somebody who has never written to anybody should not be shown a
+box explaining a feature. The first person to look for the feature reported
+exactly what that produces — *"I only see Sonstige Nachrichten"* — and they
+were right. The way in is on the other person's page, which is not where
+anybody looks while standing on the Nachrichten screen.
+
+This is the same mistake as §2.30's install offer, in the same week and for
+the same reason: **silence is right for something impossible and wrong for
+something merely not started yet.** Both times the rule was applied one case
+too far. Worth remembering as a rule of its own — an empty state earns silence
+only when there is nothing the member could do about it.
+
 **So a second store, beside webtrees' rather than instead of it.** The old
 inbox keeps doing the thing only it can: messages from webtrees' own contact
 form, an administrator's broadcast, anything that did not come from the

@@ -224,15 +224,21 @@ describe('the list of conversations', () => {
   })
 
   /**
-   * A member who has never written to anybody is shown nothing at all, rather
-   * than an empty box explaining a feature they have not looked for.
+   * The first version rendered nothing here while there were none, and the
+   * first person to look for the feature reported exactly that: "I only see
+   * Sonstige Nachrichten". The way in is on somebody else's page, which is not
+   * where you look when you are standing on this screen — so this screen has
+   * to say where it is.
    */
-  it('is absent entirely while there are none', async () => {
+  it('says where to start while there are none', async () => {
     stub({ conversations: [] })
     renderAt('/messages')
 
-    await screen.findByRole('heading', { name: 'Nachrichten' })
+    expect(await screen.findByText('Noch keine Gespräche')).toBeDefined()
+    expect(screen.getByText(/Nachricht schreiben/)).toBeDefined()
 
-    expect(screen.queryByText('Gespräche')).toBeNull()
+    const toContacts = screen.getByRole('link', { name: 'Zu meinen Kontakten' })
+
+    expect(toContacts.getAttribute('href')).toBe('/members')
   })
 })
