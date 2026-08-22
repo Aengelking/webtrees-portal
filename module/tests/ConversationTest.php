@@ -391,6 +391,68 @@ class ConversationTest extends PortalTestCase
     }
 
     // -----------------------------------------------------------------
+    // What the other side is told, and what it is not told
+    // -----------------------------------------------------------------
+
+    /**
+     * The announcement used to be webtrees' own delivery, which files a copy
+     * of the message in the recipient's inbox. That copy then showed up under
+     * *Sonstige Nachrichten* as well, so the same sentence arrived twice: once
+     * as a conversation and once as post. The inbox is for what has nowhere
+     * else to go.
+     */
+    public function testAConversationMessageIsNotAlsoFiledAsPost(): void
+    {
+        $before = DB::table('message')->count();
+
+        $id = $this->open($this->dieter_member_id);
+        $this->say($id, 'Kommst du zum Familientreffen?');
+
+        self::assertSame($before, DB::table('message')->count());
+    }
+
+    /**
+     * And the e-mail that does go out says nothing. An inbox is read by
+     * whoever holds the phone and stored by whoever runs the mail server;
+     * §2.36 refused to put a name on a lock screen, and this is the same
+     * refusal one channel over.
+     */
+    public function testTheAnnouncementNamesNeitherTheWriterNorTheMessage(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_PORTAL_URL, 'https://portal.example.test');
+
+        foreach (['text', 'html'] as $format) {
+            $body = view('_portal_api_::emails/conversation-' . $format, [
+                'recipient' => $this->dieter,
+                'url'       => 'https://portal.example.test',
+            ]);
+
+            self::assertStringNotContainsString('Anna', $body, $format . ': the writer is not named');
+            self::assertStringNotContainsString('Familientreffen', $body, $format . ': nor what they wrote');
+
+            // What it does carry: the recipient, and the way back in.
+            self::assertStringContainsString('Dieter Beispiel', $body);
+            self::assertStringContainsString('https://portal.example.test', $body);
+        }
+    }
+
+    /**
+     * A portal that does not know its own address still says that something
+     * is waiting — it just cannot say where. An e-mail with an empty link in
+     * it would be worse than one without.
+     */
+    public function testTheAnnouncementSurvivesAPortalWithNoAddress(): void
+    {
+        $body = view('_portal_api_::emails/conversation-text', [
+            'recipient' => $this->dieter,
+            'url'       => '',
+        ]);
+
+        self::assertStringContainsString('Dieter Beispiel', $body);
+        self::assertStringNotContainsString('href', $body);
+    }
+
+    // -----------------------------------------------------------------
 
     private function open(int $member_id): int
     {

@@ -161,10 +161,10 @@ export const de = {
   },
   conversation: {
     noneTitle: 'Noch keine Gespräche',
-    noneBody:
-      'Ein Gespräch beginnt auf der Seite der Person, der Sie schreiben möchten — dort steht „Nachricht schreiben“.',
-    noneAction: 'Zu meinen Kontakten',
+    noneBody: 'Wählen Sie jemanden aus Ihren Kontakten aus, und schreiben Sie los.',
+    noneAction: 'Gespräch beginnen',
     listTitle: 'Gespräche',
+    start: 'Neues Gespräch',
     back: 'Zurück zu den Nachrichten',
     profile: 'Zum Profil',
     empty: 'Noch nichts gesagt. Schreiben Sie die erste Nachricht.',
@@ -178,6 +178,19 @@ export const de = {
     deleteExplain:
       'Die Nachricht verschwindet nur bei Ihnen. Die andere Person behält ihre Kopie.',
     deleteConfirm: 'Löschen',
+    notifyNotice:
+      'Die andere Person erfährt nur, dass eine Nachricht im Portal wartet — weder Ihr Name noch der Text stehen in der Benachrichtigung.',
+  },
+  newConversation: {
+    title: 'Neues Gespräch',
+    noneTitle: 'Noch keine Kontakte',
+    noneBody:
+      'Ein Gespräch beginnt mit jemandem aus Ihren Kontakten. Legen Sie zuerst einen Kontakt an.',
+    noneAction: 'Zu meinen Kontakten',
+    filter: 'Name suchen',
+    noMatch: 'Kein Kontakt mit diesem Namen.',
+    elsewhere: 'Jemand, der nicht in Ihren Kontakten steht?',
+    elsewhereAction: 'Im Mitgliederverzeichnis suchen',
   },
   message: {
     title: 'Nachricht an {{name}}',
@@ -188,8 +201,8 @@ export const de = {
     opening: 'Wird geöffnet …',
     sending: 'Wird gesendet …',
     sent: 'Ihre Nachricht ist unterwegs.',
-    replyAddressNotice:
-      'Damit man Ihnen antworten kann, wird Ihre E-Mail-Adresse als Absenderadresse mitgeschickt — auch dann, wenn Sie sie oben nicht freigegeben haben.',
+    notifyNotice:
+      'Die andere Person erfährt nur, dass eine Nachricht im Portal wartet — weder Ihr Name noch der Text stehen in der Benachrichtigung. Ihre E-Mail-Adresse wird nicht mitgeschickt.',
   },
   messages: {
     inboxTitle: 'Sonstige Nachrichten',

@@ -284,15 +284,18 @@ test.describe('phase 9', () => {
     // writes to themselves.
     await page.getByRole('listitem').filter({ hasText: 'Dieter' }).first().getByRole('link').click()
 
-    // The warning is above the button, not after it is pressed. Phase 12 turned
-    // the form here into the way into a conversation; the disclosure it carries
-    // did not change, because webtrees' notification still travels with the
-    // sender's address on it.
-    await expect(page.getByText(/Ihre E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeVisible()
+    // Said above the button, not after it is pressed. It used to be a warning —
+    // webtrees' notification carried the sender's address as the reply address
+    // — and it is now a statement of what the other person gets, because the
+    // announcement carries no address, no name and no text at all.
+    await expect(page.getByText(/nur, dass eine Nachricht im Portal wartet/)).toBeVisible()
 
     await page.getByRole('button', { name: 'Nachricht schreiben' }).click()
 
     await expect(page).toHaveURL(/\/conversations\//)
+
+    // And again next to the box, for everybody who never came this way.
+    await expect(page.getByText(/weder Ihr Name noch der Text/)).toBeVisible()
   })
 
   test('each contact detail has its own audience', async ({ page }) => {
@@ -497,5 +500,37 @@ test.describe('phase 12', () => {
     await expect(page.getByText('Ja, ich komme!')).toBeVisible()
     // And the one it answers is still there — this is a transcript, not an inbox.
     await expect(page.getByText('Hast du die Fotos von Oma gesehen?')).toBeVisible()
+  })
+
+  /**
+   * The same thing started from the screen a member is actually standing on.
+   * Until this existed, writing to your sister began with remembering that the
+   * way in was on her page — three taps and a piece of knowledge nobody has.
+   */
+  test('a conversation is started from the messages screen', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture members.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/messages')
+    await page.getByRole('link', { name: 'Neues Gespräch' }).click()
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Neues Gespräch' })).toBeVisible()
+    await page.getByRole('button', { name: 'Dieter Beispiel' }).click()
+
+    await expect(page).toHaveURL(/\/conversations\/3$/)
+    await page.getByLabel('Ihre Nachricht').fill('Sehen wir uns Sonntag?')
+    await page.getByRole('button', { name: 'Senden' }).click()
+
+    await expect(page.getByText('Sehen wir uns Sonntag?')).toBeVisible()
+
+    // The picker was a step on the way, not a screen to come back to: Back
+    // from the conversation is where the member started.
+    await page.goBack()
+    await expect(page.getByRole('heading', { level: 1, name: 'Nachrichten' })).toBeVisible()
   })
 })

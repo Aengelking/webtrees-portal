@@ -161,10 +161,10 @@ export const en: Translations = {
   },
   conversation: {
     noneTitle: 'No conversations yet',
-    noneBody:
-      'A conversation starts on the page of the person you want to write to — the button there says "Write a message".',
-    noneAction: 'Go to my contacts',
+    noneBody: 'Pick somebody from your contacts and start writing.',
+    noneAction: 'Start a conversation',
     listTitle: 'Conversations',
+    start: 'New conversation',
     back: 'Back to messages',
     profile: 'Go to profile',
     empty: 'Nothing said yet. Write the first message.',
@@ -177,6 +177,19 @@ export const en: Translations = {
     delete: 'Delete for me',
     deleteExplain: 'The message disappears for you only. The other person keeps their copy.',
     deleteConfirm: 'Delete',
+    notifyNotice:
+      'The other person is told only that a message is waiting in the portal — neither your name nor the text is in the notification.',
+  },
+  newConversation: {
+    title: 'New conversation',
+    noneTitle: 'No contacts yet',
+    noneBody:
+      'A conversation starts with somebody from your contacts. Add a contact first.',
+    noneAction: 'Go to my contacts',
+    filter: 'Search for a name',
+    noMatch: 'No contact with that name.',
+    elsewhere: 'Somebody who is not in your contacts?',
+    elsewhereAction: 'Search the member directory',
   },
   message: {
     title: 'Message to {{name}}',
@@ -187,8 +200,8 @@ export const en: Translations = {
     opening: 'Opening …',
     sending: 'Sending …',
     sent: 'Your message is on its way.',
-    replyAddressNotice:
-      'So that they can reply, your email address travels with the message as the reply address — even if you have not shared it above.',
+    notifyNotice:
+      'The other person is told only that a message is waiting in the portal — neither your name nor the text is in the notification. Your email address does not travel with it.',
   },
   messages: {
     inboxTitle: 'Other messages',

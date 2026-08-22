@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\I18N;
+
+/**
+ * A knock, by e-mail.
+ *
+ * There is no message in this message. Not the text, not who wrote it — an
+ * inbox is read by whoever holds the phone, sits at the shared computer, or
+ * runs the mail server, and none of them agreed to this family's conversation.
+ * What is here is that something is waiting and where to read it; the rest is
+ * behind the member's own sign-in, which is the only place it belongs.
+ *
+ * @var string             $url
+ * @var UserInterface      $recipient
+ */
+
+?>
+<?= I18N::translate('Hello %s…', e($recipient->realName())) ?>
+
+<?= I18N::translate('A new message is waiting for you in the family portal.') ?>
+
+<?= I18N::translate('Who wrote it, and what it says, is in the portal itself.') ?>
+<?php if ($url !== '') : ?>
+
+<?= e($url) ?>
+<?php endif ?>

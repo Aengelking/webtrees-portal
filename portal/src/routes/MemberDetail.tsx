@@ -244,10 +244,14 @@ function ContactValue({ kind, value }: { kind: ContactKind; value: string }) {
  * to somebody means opening it.
  *
  * The button is the step the directory rule guards, so it can fail with a 404
- * for a member who is neither listed nor connected. The sentence about the
- * reply address stays: webtrees' notification to the other side carries the
- * sender's own address, exactly as it did, and an unavoidable disclosure that
- * nobody mentions is worse than the disclosure.
+ * for a member who is neither listed nor connected.
+ *
+ * The sentence above it used to warn that the sender's e-mail address travels
+ * with the message, because webtrees' delivery put it in the `Reply-To`. It
+ * does not any more: a conversation announces itself with an e-mail that
+ * carries no text, no name and no reply address. So the sentence now says what
+ * is true — that the other person is told something is waiting, and told
+ * nothing else.
  */
 function MessageForm({ id, name }: { id: number; name: string }) {
   const { t } = useTranslation()
@@ -273,7 +277,7 @@ function MessageForm({ id, name }: { id: number; name: string }) {
       )}
 
       <p className="mb-5 rounded-lg border border-slate-300 bg-slate-50 p-4 text-base text-slate-800">
-        {t('message.replyAddressNotice')}
+        {t('message.notifyNotice')}
       </p>
 
       <Button disabled={open.isPending} onClick={() => void onOpen()}>

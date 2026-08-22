@@ -2252,6 +2252,97 @@ The result grew a third `status`, `already_connected`, rather than reusing
 sentences and only one of them is true; a screen cannot say the right one from a
 status that means both.
 
+### 2.38 The way in, rather than a sentence about where the way in is
+
+§2.33 records a mistake made twice — rendering nothing where a member could
+have done something — and the fix applied to the empty conversation list: a box
+saying that a conversation starts on the other person's page. That was true and
+it was still one screen short. **Knowing where the way in is, is not the same
+as being able to take it.** A member standing on *Nachrichten* wanting to write
+to their sister had to leave the screen, remember the directory exists, find
+her, and press a button there — four steps, the first of which is a piece of
+knowledge nobody has.
+
+So the heading carries a button, and it carries it at all times rather than
+only while the list is empty: writing to somebody is not a thing a member does
+once, and a control that disappears after the first use is a control that has
+to be re-discovered.
+
+**Contacts, because that is the list a member thinks in.** They are also not
+the whole set of people who may be written to — anybody listed in the directory
+may be, and that rule is `MemberMessages::send()`'s, not this screen's. Rather
+than quietly narrowing it, the picker offers the directory underneath. Nothing
+about who may write to whom changed here; this is a second door to `POST
+/conversations`, which already existed and already knew the rules.
+
+**Two omissions worth naming.** A contact whose request has not been answered
+yet has no profile row, so there is nothing to open — their name is left out
+rather than shown as a button that fails, which is the same principle as the
+blocked-notification case in §2.36. And a member with no contacts at all is
+sent to the contacts screen, not left looking at an empty list: the screen
+after this one has to be somewhere.
+
+**The search appears above eight names.** A search box over four is furniture;
+over thirty it is the screen. The threshold is the entire logic, so both sides
+of it are tested — a family where everybody knows everybody will never see it,
+and one where a member has forty contacts will not scroll.
+
+**Back is the messages screen, not the picker.** The navigation is a replace:
+this list was a step on the way to a conversation, and a member who has arrived
+in the conversation is finished with it. Pushing it would put a screen nobody
+wants to return to between them and where they started.
+
+
+### 2.39 The e-mail was still carrying everything the push refused to
+
+§2.36 built the push notification around one condition — nothing about the
+message may reach a lock screen — and then left the older channel exactly as it
+was. Asked whether these messages also send an e-mail, the answer turned out to
+be yes, and the e-mail contained **the full text of the message and the
+sender's name**, with the sender's address in the `Reply-To`. The portal was
+refusing to put a name on a lock screen while posting the whole conversation to
+an inbox.
+
+That is worse than the lock screen, not better. An inbox is read by whoever
+holds the phone, sits at the shared computer, or runs the mail server — and
+unlike a notification, it is kept.
+
+**So a conversation announces itself and says nothing else.** Not webtrees'
+`deliverMessage()` any more, which is built to carry a message because a
+one-shot message has nowhere else to live. A conversation does: it is on a
+screen both people sign in to. What goes out is a knock with a link, written in
+the recipient's language, from the site's own address, with the site as the
+`Reply-To` as well — answering by e-mail would answer into a void.
+
+`send()` and `reply()` are untouched. They are one-shot messages, the address
+*is* unavoidable there, and §2.28's rule stands: an unavoidable disclosure that
+nobody mentions is worse than the disclosure. What changed is that the two
+cases are no longer the same case.
+
+**The duplicate went with it.** `deliverMessage()` also files a copy in
+webtrees' `message` table, so every first message of a conversation appeared a
+second time under *Sonstige Nachrichten*. Not filtered out afterwards —
+never written. The inbox is for what has nowhere else to go.
+
+One consequence worth naming: a member whose webtrees contact method is
+internal messaging only now gets no e-mail for a conversation, where before
+they got the filed copy. They are not un-told — the message is in their
+conversation list and the navigation carries the count. That is the same
+argument §2.28 used in the other direction, when a filed copy stopped being a
+copy nobody reads.
+
+**And the sentence on the screen was wrong for a day.** It said the sender's
+address travels with the message, which was true when the button under it sent
+one and stopped being true when the button started opening a conversation.
+Worse, it lived only on the other person's page, so §2.38's new way in walked
+straight past it. It now says what is true — the other person is told that
+something is waiting and nothing else — and it says it next to the box a
+member types into, which is the one place everybody who writes will see.
+
+Rows already filed by the old path stay where they are. They are real messages
+that were really delivered; deleting somebody's post to tidy up a changed mind
+is not the portal's to do.
+
 ---
 
 ## 3. Things that were guessed
