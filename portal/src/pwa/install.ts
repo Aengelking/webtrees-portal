@@ -23,8 +23,13 @@ export type InstallState =
   | 'installed'
   /** A prompt was offered and kept. One tap does the whole thing. */
   | 'ready'
-  /** iOS: no prompt exists, so the Share sheet has to be described. */
+  /** iOS Safari: no prompt exists, so the Share sheet has to be described. */
   | 'apple'
+  /**
+   * iOS, but not Safari. The same Share sheet and the same two taps — and the
+   * button is somewhere else, which is the whole reason this is its own state.
+   */
+  | 'appleOther'
   /** Android, but no prompt in hand: Chrome's own menu is the way. */
   | 'android'
   /** Another app's built-in browser. It cannot install; leaving it can. */
@@ -137,7 +142,7 @@ export function createInstallStore(): InstallStore {
       }
 
       if (isApple()) {
-        return 'apple'
+        return isAppleSafari() ? 'apple' : 'appleOther'
       }
 
       if (isAndroid()) {
@@ -214,6 +219,24 @@ function isApple(): boolean {
   return (
     /iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)
   )
+}
+
+/**
+ * Safari, as opposed to Chrome, Firefox or Edge on the same phone.
+ *
+ * Every browser on iOS is WebKit underneath, so none of the usual engine
+ * tells apply — and they do not need to, because what differs is not what the
+ * browser *can* do but where its buttons are. Safari's Share button is in the
+ * bar at the bottom of the screen; Chrome's is at the top. An instruction that
+ * names the wrong end of the phone is worse than one that names neither, and
+ * this portal's audience is exactly the audience that will look where it is
+ * told and then give up.
+ *
+ * The other browsers announce themselves in the user agent — `CriOS`, `FxiOS`,
+ * `EdgiOS`, `OPT` — and Safari is what is left.
+ */
+function isAppleSafari(): boolean {
+  return !/CriOS|FxiOS|EdgiOS|OPT\//.test(navigator.userAgent)
 }
 
 function isAndroid(): boolean {

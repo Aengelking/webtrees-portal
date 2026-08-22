@@ -421,6 +421,8 @@ export const de = {
       'Sie können die Sack Familienapp auf den Startbildschirm legen. Sie öffnet sich dann mit einem Tippen, ohne Adresszeile und ohne Suchen im Browser.',
     action: 'Auf den Startbildschirm legen',
     apple: 'Tippen Sie unten auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“.',
+    appleOther:
+      'Tippen Sie oben auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“. In Safari sitzt dieses Symbol unten.',
     android:
       'Tippen Sie oben rechts auf die drei Punkte und dann auf „App installieren“ — je nach Version heißt es auch „Zum Startbildschirm hinzufügen“.',
     webview:
