@@ -3,6 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { App } from './App'
+import { AuthProvider } from './auth/AuthProvider'
 import { Notifications } from './components/Notifications'
 import { applicationServerKey } from './pwa/notifications'
 import './i18n'
@@ -207,5 +209,102 @@ describe('the application server key', () => {
     // "-_-_" is "+/+/" in ordinary base64: 62, 63, 62, 63, which repacks
     // into 0xFB 0xFF 0xBF. The two substituted characters are the whole point.
     expect([...applicationServerKey('-_-_')]).toEqual([251, 255, 191])
+  })
+})
+
+/**
+ * Tapping the notification, from the app's side.
+ *
+ * The first version had the service worker call `client.navigate()`, which is
+ * only allowed on a client it controls — so on a window it did not control the
+ * call rejected, the rejection was swallowed, and the app came up exactly
+ * where the member had left it. Reported as: it opens, and nothing moves.
+ *
+ * `sw/notify.test.ts` pins the worker's half. This is the half that has to
+ * hear it.
+ */
+describe('arriving from a notification', () => {
+  function listeningApp() {
+    const listeners: ((event: MessageEvent) => void)[] = []
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+        if (url.includes('/conversations')) return jsonResponse({ conversations: [] })
+        if (url.includes('/messages')) return jsonResponse({ messages: [], unread: 0 })
+        if (url.includes('/push')) return jsonResponse({ available: false, public_key: '', subscribed: false })
+
+        return jsonResponse({
+          user: { id: 1, username: 'anna', real_name: 'Anna Beispiel', email: 'a@b.test', language: 'de', role: 'member' },
+          profile: { id: 1, visible_in_directory: true, display_name_override: null, consent_recorded_at: null },
+          individual: null,
+          tree: { name: 'portal', title: 'Familie Beispiel' },
+          unread_messages: 0,
+          unread_conversations: 0,
+          csrf_token: 'token-1',
+        })
+      }),
+    )
+
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      serviceWorker: {
+        addEventListener: (_type: string, handler: (event: MessageEvent) => void) => {
+          listeners.push(handler)
+        },
+        removeEventListener: () => undefined,
+      },
+    })
+
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <MemoryRouter initialEntries={['/me']}>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    return (data: unknown) => {
+      for (const listener of listeners) {
+        listener({ data } as MessageEvent)
+      }
+    }
+  }
+
+  it('goes to the messages when the worker says so', async () => {
+    const post = listeningApp()
+
+    expect(await screen.findByRole('heading', { name: 'Mein Profil' })).toBeDefined()
+
+    post({ type: 'portal:navigate', path: '/messages' })
+
+    expect(await screen.findByRole('heading', { name: 'Nachrichten' })).toBeDefined()
+  })
+
+  /**
+   * A page hears from more than its own service worker. `//elsewhere.example`
+   * begins with a slash and is a URL rather than a path, which is the whole
+   * reason the check is not `startsWith('/')`.
+   */
+  it('ignores a message that is not one of ours', async () => {
+    const post = listeningApp()
+
+    expect(await screen.findByRole('heading', { name: 'Mein Profil' })).toBeDefined()
+
+    post({ type: 'portal:navigate', path: '//elsewhere.example/messages' })
+    post({ type: 'something-else', path: '/messages' })
+    post('go to /messages')
+    post(null)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Mein Profil' })).toBeDefined()
+    })
   })
 })

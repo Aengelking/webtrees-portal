@@ -2444,6 +2444,49 @@ assertion written the modern way passes whatever the code does. The direct
 `userEvent.click()` calls leave the globals alone, which is why the connection
 link's test already used them.
 
+
+### 2.43 A service worker cannot route a React app
+
+Tapping the notification opened the app and left it exactly where the member
+had been. The handler looked right:
+
+    const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of clients) {
+      void client.navigate('/messages')
+      return client.focus()
+    }
+
+**`navigate()` is only allowed on a client the service worker controls**, and
+`includeUncontrolled: true` asks for exactly the clients it does not — a window
+loaded before this worker took over, one claimed by another registration. On
+those it rejects. The `void` swallowed the rejection, `focus()` ran anyway, and
+the app came up unmoved. Every part failed quietly, which is why it took a
+report from a phone rather than a test.
+
+**So the running app is asked rather than steered.** The worker focuses the
+window and posts `{type: 'portal:navigate', path: '/messages'}`; the app
+listens and calls the router. That is more reliable than a navigation imposed
+from outside and also better: no reload, no second render of a screen already
+on the glass. A window running an old build simply gets focused, which is no
+worse than what it did before.
+
+Three details that are each one line and each a bug otherwise:
+
+- **Focus first, and ignore its failure.** On a phone the tap has already
+  brought the app forward; a `focus()` that rejects must not cost the member
+  the navigation that was the point of tapping.
+- **A path, not a URL.** `//elsewhere.example/messages` starts with a slash and
+  is a URL — a page hears from extensions and frames as well as from its own
+  worker, so the check is `startsWith('/') && !startsWith('//')` and the shape
+  of the message is checked rather than assumed.
+- **Hold the `serviceWorker` reference for the cleanup.** Looking it up again on
+  unmount throws where `navigator` is no longer the same object, and a cleanup
+  that throws takes the unmount with it. The tests found this one.
+
+The logic moved out of `service-worker.ts` into `sw/notify.ts` for the same
+reason `strategy.ts` exists: it is the part worth testing, and it can only be
+tested if running it does not require a service worker.
+
 ---
 
 ## 3. Things that were guessed

@@ -371,6 +371,11 @@ message leaves the server at all. It also means the portal stores no encryption
 keys for it — `portal_push_subscription` holds the device address and nothing
 else — because there is no payload to encrypt.
 
+**Tapping it** opens *Nachrichten* — the list, not one message, because the
+push carries nothing that could say which. If the app is already running it is
+brought forward and moved to that screen without reloading; if it is not, a
+window opens on it.
+
 **What the member needs.** An installed app on Android or a desktop browser;
 on an iPhone, iOS 16.4 or later *and* the app added to the home screen — Safari
 in a tab cannot do this at all. The browser asks its own permission question,
@@ -1597,7 +1602,11 @@ hundred real signatures. The key pair is made once and the public key is the
 private one's point. On the client: the sentence about what a lock screen will
 show is on screen before anybody switches it on, a refusal sends nothing and
 reports nothing broken, and a browser that is blocking gets an explanation
-instead of a dead button.
+instead of a dead button. Tapping the notification is pinned from both sides
+(`portal/sw/notify.test.ts`): the worker asks the window that is open, still
+asks when focusing it fails, opens a window when nothing is running, and says
+nothing to a window belonging to somebody else — and the app acts on that
+message, while ignoring one that names a path leading off this site.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id
