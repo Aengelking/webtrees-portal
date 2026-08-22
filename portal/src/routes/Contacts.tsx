@@ -14,6 +14,7 @@ import {
 } from '../api/queries'
 import type { Connection, SentLink } from '../api/types'
 import { QrCode } from '../components/QrCode'
+import { ShareLink } from '../components/ShareLink'
 import {
   Button,
   Card,
@@ -540,20 +541,7 @@ function SendLink({ days, links }: { days: number; links: SentLink[] }) {
   const issue = useConnectionLink()
   const revoke = useRevokeConnectionLink()
 
-  const [copied, setCopied] = useState(false)
-
   const link = issue.data
-
-  async function copy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-    } catch {
-      // Some browsers refuse without a user gesture they recognise, and some
-      // refuse outright. The link is on screen and selectable either way, so
-      // there is nothing to report and nothing to fix.
-    }
-  }
 
   return (
     <Card>
@@ -567,38 +555,12 @@ function SendLink({ days, links }: { days: number; links: SentLink[] }) {
 
       {link !== undefined && (
         <div className="mt-5">
-          <label htmlFor="connection-link" className="mb-2 block text-base font-medium text-slate-900">
-            {t('contacts.linkLabel')}
-          </label>
-          <input
+          <ShareLink
             id="connection-link"
-            readOnly
-            value={link.url}
-            onFocus={(event) => event.target.select()}
-            className="min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900"
+            url={link.url}
+            label={t('contacts.linkLabel')}
+            shareTitle={t('contacts.linkShareTitle')}
           />
-
-          <div className="mt-3 flex flex-wrap gap-3">
-            <Button onClick={() => void copy(link.url)}>{t('contacts.linkCopy')}</Button>
-            {typeof navigator.share === 'function' && (
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  void navigator
-                    .share({ title: t('contacts.linkShareTitle'), url: link.url })
-                    .catch(() => undefined)
-                }
-              >
-                {t('contacts.linkShare')}
-              </Button>
-            )}
-          </div>
-
-          {copied && (
-            <div className="mt-3">
-              <SuccessNote>{t('contacts.linkCopied')}</SuccessNote>
-            </div>
-          )}
 
           <p className="mt-3 text-base text-slate-700">
             {t('contacts.linkOnce', { count: link.valid_days })}
@@ -607,10 +569,11 @@ function SendLink({ days, links }: { days: number; links: SentLink[] }) {
       )}
 
       <div className="mt-5">
-        <Button variant={link === undefined ? 'primary' : 'secondary'} disabled={issue.isPending} onClick={() => {
-          setCopied(false)
-          issue.mutate()
-        }}>
+        <Button
+          variant={link === undefined ? 'primary' : 'secondary'}
+          disabled={issue.isPending}
+          onClick={() => issue.mutate()}
+        >
           {link === undefined ? t('contacts.linkCreate') : t('contacts.linkAnother')}
         </Button>
       </div>

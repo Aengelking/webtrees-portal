@@ -2410,6 +2410,40 @@ the choice can be changed, and an XREF nobody offered simply selects nobody —
 the server re-checks every rule on POST regardless, which is what
 `createInvitation` was written to do.
 
+
+### 2.42 One card for both links, because both are handed over once
+
+The invitation link had a text field and nothing else: select it by hand, and
+mind you get all of it. The connection link, built later, already had **Teilen**
+and **Kopieren** — so the two screens that do the same thing did it
+differently, and the older one did it worse.
+
+Not a second implementation, then: `components/ShareLink.tsx`, used by both.
+The connection link lost four lines and gained nothing it did not have; the
+invitation link gained everything.
+
+**Why it matters more here than for an ordinary link.** Both of these are shown
+*once* — the server keeps a hash, so what is on the screen is the only copy
+there will ever be. A member selecting a URL by hand on a phone is how half a
+link ends up in a chat, and the repair is to withdraw the invitation and issue
+another. A button that takes the whole thing is not a convenience.
+
+**Teilen when the browser has it, Kopieren always.** Sharing is absent on most
+desktops, and a desktop is where somebody sits when they write the e-mail —
+so copying is not the fallback nobody sees. §2.33's rule again: silence is
+right for something impossible and wrong for something merely harder.
+
+**A cancelled share sheet says nothing.** `navigator.share()` rejects when the
+member backs out, which is an answer rather than a failure; a refused clipboard
+is silent for the same reason, since the link is on screen and selectable
+either way.
+
+One trap, found by the tests failing: `userEvent.setup()` installs a clipboard
+stub of its own, which quietly replaces the one under test — so a clipboard
+assertion written the modern way passes whatever the code does. The direct
+`userEvent.click()` calls leave the globals alone, which is why the connection
+link's test already used them.
+
 ---
 
 ## 3. Things that were guessed

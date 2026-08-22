@@ -102,6 +102,8 @@ export const en: Translations = {
     refused:
       'You cannot invite this person. They may already have access, or already have been invited.',
     ready: {
+      shareTitle: 'An invitation to the Sack family app',
+      shareText: 'You are invited to our family app. This link sets up your account:',
       title: 'The invitation is ready',
       body:
         'Copy the link and send it to them — by message, email, however you like. It is shown this once and cannot be looked up again later. If you lose it, withdraw the invitation and create a new one.',
@@ -308,9 +310,6 @@ export const en: Translations = {
     linkCreate: 'Make a link',
     linkAnother: 'Make another link',
     linkLabel: 'Your link',
-    linkCopy: 'Copy',
-    linkCopied: 'The link is copied. Paste it into your message.',
-    linkShare: 'Share',
     linkShareTitle: 'Connect in the family portal',
     linkOnce:
       'The link works exactly once and expires after {{count}} days. Send it to that one person only — anybody else who gets hold of it would be connected with you.',
@@ -490,6 +489,11 @@ export const en: Translations = {
       X: 'other',
       U: 'unknown',
     },
+  },
+  link: {
+    copy: 'Copy',
+    share: 'Share',
+    copied: 'The link is copied. Paste it into your message.',
   },
   person: {
     title: 'Person',
