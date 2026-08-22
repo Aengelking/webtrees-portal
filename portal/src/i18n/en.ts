@@ -425,6 +425,9 @@ export const en: Translations = {
     webview:
       'This page was opened inside another app, which cannot do this. Tap the three dots and then "Open in browser", where it works.',
     done: 'The app is already on this device’s home screen.',
+    later: 'Later',
+    understood: 'Got it',
+    staysInSettings: 'You can find this again at any time under “Settings”.',
   },
   notifications: {
     title: 'Notifications',

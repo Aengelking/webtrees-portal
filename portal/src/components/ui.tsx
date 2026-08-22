@@ -7,7 +7,7 @@
  * own than to fight a design system for.
  */
 
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react'
+import type { ComponentProps, InputHTMLAttributes, ReactNode } from 'react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../api/client'
@@ -31,7 +31,10 @@ export function Card({ children }: { children: ReactNode }) {
   )
 }
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+// `ComponentProps` rather than `ButtonHTMLAttributes`, because it carries
+// `ref` — which in React 19 is an ordinary prop and lands on the element
+// through the spread below with nothing else to do.
+type ButtonProps = ComponentProps<'button'> & {
   variant?: 'primary' | 'secondary'
 }
 

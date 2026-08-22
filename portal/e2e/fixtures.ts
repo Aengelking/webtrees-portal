@@ -96,6 +96,24 @@ function json(route: Route, body: unknown, status = 200): Promise<void> {
   })
 }
 
+/**
+ * Answer the install offer before it is asked.
+ *
+ * The portal asks once, after signing in, and blocks the screen until it is
+ * answered — which is the point of it and would stop every walk below on the
+ * first tap. The offer has its own test; everything else says "already asked"
+ * and gets on with what it came to check.
+ */
+export async function installOfferAnswered(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('portal.install.offered', '1')
+    } catch {
+      // A browser with no storage will show the offer. Nothing to do here.
+    }
+  })
+}
+
 export async function stubApi(page: Page): Promise<void> {
   let signedIn = false
   let pendingChange = false
