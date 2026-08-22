@@ -54,6 +54,7 @@ class Conversations
         private readonly Connections $connections,
         private readonly MemberMessages $messages,
         private readonly UserService $user_service,
+        private readonly PushSubscriptions $push,
     ) {
     }
 
@@ -191,6 +192,14 @@ class Conversations
         if (!$waiting) {
             $this->tell($me, $other, $body, $ip);
         }
+
+        // The knock goes out on *every* message, unlike the e-mail above.
+        // That is the difference between the two: an e-mail per line is a
+        // mailbox nobody can use, while a notification per message is what a
+        // conversation is. Nothing about the message travels with it — see
+        // `PushSubscriptions` — so the lock screen says that something
+        // arrived, and never what or from whom.
+        $this->push->knock($other);
 
         $row = DB::table('portal_message')->where('id', '=', $message_id)->first();
 

@@ -1149,6 +1149,112 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /push:
+    get:
+      tags: [members]
+      summary: Whether this portal can send notifications
+      description: |
+        Three things have to hold before a member can be offered this: the
+        family has not switched notifications off, the module holds a VAPID key
+        pair, and the portal knows its own address — VAPID requires a contact
+        for whoever runs the sender, and this portal's is its URL.
+
+        `public_key` is public by design: it is what a browser needs in order
+        to subscribe, and it identifies the sender rather than authorising
+        anything. `subscribed` is about the *account* across devices; whether
+        this particular browser has a subscription is something only the
+        browser knows, and the screen combines the two.
+      operationId: readPush
+      responses:
+        '200':
+          description: What is possible, and whether this account uses it.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [members]
+      summary: Remember this device
+      description: |
+        **Only the endpoint is stored.** A browser also offers `p256dh` and
+        `auth`, which exist to encrypt a payload — and this portal sends none.
+        A push from here is a knock: the service worker shows a sentence it
+        already knows, so a lock screen says that something arrived and never
+        what or from whom. Storing keys for a capability nobody has decided to
+        want would be storing material for a decision not yet taken.
+
+        Idempotent by endpoint. A browser re-subscribes the same device on its
+        own whenever its push service rotates the address, and that updates the
+        row rather than adding one — including moving it to a different account
+        when a shared device changes hands.
+      operationId: subscribeToPush
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [endpoint]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+                  maxLength: 1000
+                  description: Must be https. Anything else is refused rather than stored.
+      responses:
+        '201':
+          description: The device is remembered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: This family tree does not send notifications.
+
+    delete:
+      tags: [members]
+      summary: Forget this device
+      description: |
+        Silent when there was nothing to forget: the member asked for it to be
+        gone and it is gone. A subscription the browser has already discarded
+        is also cleaned up server-side the first time it is knocked on, because
+        the push service answers 404 or 410 for a device that is gone for good.
+      operationId: unsubscribeFromPush
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [endpoint]
+              properties:
+                endpoint:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: The device is forgotten.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushState'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /conversations:
     get:
       tags: [members]
@@ -2098,6 +2204,22 @@ components:
             $ref: '#/components/schemas/Message'
         unread:
           type: integer
+
+    PushState:
+      type: object
+      additionalProperties: false
+      required: [available, public_key, subscribed]
+      properties:
+        available:
+          type: boolean
+        public_key:
+          type: string
+          description: |
+            The VAPID public key, base64url. Empty unless notifications are
+            available. Public by design — a browser cannot subscribe without it.
+        subscribed:
+          type: boolean
+          description: Whether this account has any device signed up.
 
     Conversation:
       type: object

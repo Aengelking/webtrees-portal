@@ -318,6 +318,50 @@ copy; the other side keeps theirs, and a new message brings it back.
 member messages off in the module's settings switches conversations off with
 them.
 
+### Notifications on a phone
+
+*Setting: **Notify members on their phone when a message arrives**, on by
+default. Needs the portal address to be set.*
+
+A member who has installed the portal (see *Installing it on a phone*) can be
+told when a message arrives, instead of having to open it and look. They switch
+it on for themselves, on each device, under **Einstellungen → Benachrichtigungen**.
+
+**The notification carries nothing.** It says *„Sie haben eine neue
+Nachricht."* and nothing else — not who wrote, not a word of what they wrote,
+not which conversation it belongs to. That is not a limitation being worked
+around; it is the feature. A lock screen is read by whoever picks the phone up,
+and in a portal about living people, a name on one is a disclosure nobody
+consented to. The screen where a member switches it on says so before they
+decide.
+
+Technically this is a **push with no payload**: the module sends an empty
+request to the browser's push service, the browser wakes the service worker,
+and the service worker shows a sentence it already had. Nothing about the
+message leaves the server at all. It also means the portal stores no encryption
+keys for it — `portal_push_subscription` holds the device address and nothing
+else — because there is no payload to encrypt.
+
+**What the member needs.** An installed app on Android or a desktop browser;
+on an iPhone, iOS 16.4 or later *and* the app added to the home screen — Safari
+in a tab cannot do this at all. The browser asks its own permission question,
+once. A member who says no is not asked again by the portal: the page then says
+where the browser's own switch is, rather than offering a button that would do
+nothing.
+
+**Every message knocks**, unlike the e-mail notification above, which stays
+quiet while something is already unread. A notification that arrives while the
+member is reading costs nothing and replaces nothing; the browser collapses
+repeats into one entry.
+
+**Keys.** The module makes a VAPID key pair the first time it boots and keeps
+it. It is never replaced automatically — a new key orphans every device that
+subscribed under the old one, and each member would have to switch it on again.
+
+**Switching it off** in the module's settings stops all of it and stops
+members being offered it. Existing subscriptions stay in the table and start
+working again if it is switched back on.
+
 ### Reading messages in the portal
 
 *No setting — this is on whenever the module is.*
@@ -1482,6 +1526,23 @@ message brings it back; the daily limit and the family's off switch apply. On
 the client: both halves are told apart, what was typed is given back when
 sending fails, and the sentence about whose copy a deletion removes is on
 screen before the button.
+
+**Notifications** (`module/tests/PushTest.php`,
+`portal/src/Notifications.test.tsx`) — the columns a payload would need do not
+exist in the table, so there is no place to put a name even by accident; a
+browser re-subscribing the same device updates its row rather than collecting
+them, and a shared tablet that changes hands moves instead of leaving two
+people on one address; an endpoint that is not `https://` is refused rather
+than stored; a member can only delete their own device; the family's off
+switch withholds the key as well as the endpoint, so no browser can subscribe;
+a portal that does not know its own address does not pretend it can send. The
+signature conversion — DER to the sixty-four raw bytes JWS wants, the step
+whose failure mode is a bare 401 from every push service — is checked against a
+hundred real signatures. The key pair is made once and the public key is the
+private one's point. On the client: the sentence about what a lock screen will
+show is on screen before anybody switches it on, a refusal sends nothing and
+reports nothing broken, and a browser that is blocking gets an explanation
+instead of a dead button.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id

@@ -47,6 +47,9 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordResetCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ProfileUpdate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ReplyCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
@@ -54,6 +57,8 @@ use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\CloseFamily;
 use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\Conversations;
+use Engelking\Webtrees\PortalApi\Services\PushSubscriptions;
+use Engelking\Webtrees\PortalApi\Services\WebPush;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
@@ -125,7 +130,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.1.1';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 8;
+    private const int SCHEMA_VERSION = 9;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -163,6 +168,19 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_CONTACT      = 'member_contact';
     public const string SETTING_MEMBER_MESSAGES     = 'member_messages';
     public const string SETTING_MESSAGE_LIMIT       = 'message_limit';
+
+    /**
+     * Notifications, and the key pair that identifies this portal to the
+     * browsers' push services.
+     *
+     * The private key is generated once and never overwritten: replacing it
+     * would invalidate every subscription any member ever made. It lives in
+     * the module's settings rather than in a file because that is where this
+     * module keeps everything a deployment must not lose.
+     */
+    public const string SETTING_PUSH                = 'push_notifications';
+    public const string SETTING_VAPID_PUBLIC        = 'vapid_public_key';
+    public const string SETTING_VAPID_PRIVATE       = 'vapid_private_key';
     public const string SETTING_MEMBER_CONNECTIONS  = 'member_connections';
     public const string SETTING_CONNECTION_CODE_MINUTES = 'connection_code_minutes';
 
@@ -281,7 +299,17 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
         $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections);
-        $conversations  = new Conversations($members, $connections, $member_msgs, $user_service);
+        $web_push       = new WebPush($this);
+
+        // Once, on the first boot after this module is installed or upgraded.
+        // A key pair is the portal's identity to every push service its
+        // members' browsers use, so it is made here rather than asked of an
+        // administrator — and never replaced, because replacing it would
+        // silently invalidate every subscription anybody ever made.
+        $web_push->ensureKeys();
+
+        $push           = new PushSubscriptions($this, $web_push);
+        $conversations  = new Conversations($members, $connections, $member_msgs, $user_service, $push);
         $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections, $conversations);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -302,6 +330,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ContactDetails::class, $contacts);
         $container->set(Inbox::class, $inbox);
         $container->set(Conversations::class, $conversations);
+        $container->set(PushSubscriptions::class, $push);
+        $container->set(PushRead::class, new PushRead($push));
+        $container->set(PushCreate::class, new PushCreate($push));
+        $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
 
@@ -479,6 +511,18 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
 
+        // Phase 13 — notifications. Subscribing and unsubscribing both write,
+        // so both are CSRF-checked; reading says only what this portal can do
+        // and whether this account has any device signed up.
+        $map->get(PushRead::class, self::ROUTE_PREFIX . '/push', PushRead::class)
+            ->extras(['middleware' => $private]);
+
+        $map->post(PushCreate::class, self::ROUTE_PREFIX . '/push', PushCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(PushDelete::class, self::ROUTE_PREFIX . '/push', PushDelete::class)
+            ->extras(['middleware' => $unsafe_private]);
+
         // Phase 12 — conversations. Opening one is a write: it is the step
         // the directory rule guards, and it creates a row.
         $map->get(ConversationList::class, self::ROUTE_PREFIX . '/conversations', ConversationList::class)
@@ -611,6 +655,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_contact'      => $this->getPreference(self::SETTING_MEMBER_CONTACT, '1'),
             'member_messages'     => $this->getPreference(self::SETTING_MEMBER_MESSAGES, '1'),
             'message_limit'       => $this->getPreference(self::SETTING_MESSAGE_LIMIT, (string) MemberMessages::DEFAULT_DAILY_LIMIT),
+            'push'                => $this->getPreference(self::SETTING_PUSH, '1'),
             'member_connections'  => $this->getPreference(self::SETTING_MEMBER_CONNECTIONS, '1'),
             'connection_code_minutes' => $this->getPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) Connections::DEFAULT_CODE_MINUTES),
             'invitations_url'   => $this->invitationsUrl(),
@@ -636,6 +681,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_CONTACT, $body->boolean(self::SETTING_MEMBER_CONTACT, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_MESSAGES, $body->boolean(self::SETTING_MEMBER_MESSAGES, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MESSAGE_LIMIT, (string) max(0, min(MemberMessages::MAX_DAILY_LIMIT, $body->integer(self::SETTING_MESSAGE_LIMIT, MemberMessages::DEFAULT_DAILY_LIMIT))));
+        $this->setPreference(self::SETTING_PUSH, $body->boolean(self::SETTING_PUSH, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_CONNECTIONS, $body->boolean(self::SETTING_MEMBER_CONNECTIONS, false) ? '1' : '0');
         $this->setPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) max(1, min(Connections::MAX_CODE_MINUTES, $body->integer(self::SETTING_CONNECTION_CODE_MINUTES, Connections::DEFAULT_CODE_MINUTES))));
 

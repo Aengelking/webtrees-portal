@@ -51,6 +51,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/messages/{id}/reply',
       '/password/request',
       '/password/reset',
+      '/push',
       '/session',
     ])
   })
@@ -89,6 +90,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/me/profile': "'/me/profile'",
       '/me/individual': "'/me/individual'",
       '/password/request': "'/password/request'",
+      '/push': "'/push'",
       '/password/reset': "'/password/reset'",
     }
 
