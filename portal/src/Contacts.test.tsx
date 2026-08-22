@@ -350,12 +350,39 @@ describe('my contacts', () => {
     })
   })
 
+  /**
+   * A number is not only digits. It may carry letters, and it may carry a
+   * marker on its end — "!" is the spouse of the person with the same number
+   * without it — and both go to the server exactly as they were typed.
+   */
+  it('sends a number with a marker on its end untouched', async () => {
+    const fetchMock = stub()
+    renderAt()
+
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
+    await userEvent.type(screen.getByLabelText('Nummer'), '1335.21!')
+    await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) => String(url).endsWith('/connections') && init?.method === 'POST',
+      )
+
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ reference: '10/1335.21!' })
+    })
+  })
+
   it('composes and refuses the right things', () => {
     // A branch is never glued onto a number that already has one.
     expect(composeReference('10', '4/99')).toBe('4/99')
     expect(composeReference('10', ' 1335.21 ')).toBe('10/1335.21')
 
+    // Letters and the marker on the end are part of the number.
+    expect(composeReference('10', '1335.21!')).toBe('10/1335.21!')
+    expect(composeReference('10', '13C5.21')).toBe('10/13C5.21')
+
     expect(isCompleteReference('10', '1335.21')).toBe(true)
+    expect(isCompleteReference('10', '1335.21!')).toBe(true)
     expect(isCompleteReference('', '35/1335.21')).toBe(true)
     expect(isCompleteReference('', '1335.21')).toBe(false)
     expect(isCompleteReference('10', '')).toBe(false)

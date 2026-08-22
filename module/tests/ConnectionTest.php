@@ -48,6 +48,12 @@ use const PHP_URL_QUERY;
  * "SB 4716") is listed nowhere and is the one who proves what a connection
  * is worth — he cannot be found, opened or written to until he and Anna
  * agree, and then he can.
+ *
+ * The branch numbers are there to be confused with each other on purpose.
+ * Dieter also carries "10/1335.21" and "7/22.9"; Fritz carries "101/335.21",
+ * which is Dieter's first number once the slash is gone, and "10/1335.21!",
+ * which is Dieter's first number with the marker that means "the spouse of".
+ * Only "7/22.9" is unambiguous with the slash left out.
  */
 #[CoversNothing]
 class ConnectionTest extends PortalTestCase
@@ -502,9 +508,9 @@ class ConnectionTest extends PortalTestCase
     public function testTheFamilysPrefixFindsARecordThatCarriesNoTypeOfItsOwn(): void
     {
         $bertha = $this->createUser('bertha', 'Bertha Beispiel', 'fuenftes-pferd', UserInterface::ROLE_MEMBER, 'X2');
-        $this->createProfile($bertha, true);
+        $id     = $this->createProfile($bertha, true);
 
-        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => 'SB 4712'])->getStatusCode());
+        self::assertSame($id, $this->askedMemberId('SB 4712'));
     }
 
     /**
@@ -523,29 +529,72 @@ class ConnectionTest extends PortalTestCase
      */
     public function testANumberWithABranchIsFound(): void
     {
-        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '10/1335.21'])->getStatusCode());
+        self::assertSame($this->dieter_id, $this->askedMemberId('10/1335.21'));
     }
 
     public function testABranchNumberIsFoundHoweverItIsPunctuated(): void
     {
-        foreach (['SB 10/1335.21', '10 / 1335,21', '10/133521'] as $typed) {
-            DB::table(Connections::TABLE)->delete();
-
-            self::assertSame(
-                StatusCodeInterface::STATUS_CREATED,
-                $this->connect(['reference' => $typed])->getStatusCode(),
-                $typed . ' should find the same person.'
-            );
+        foreach (['SB 10/1335.21', '10 / 1335,21', '10/133521', '10/1335-21'] as $typed) {
+            self::assertSame($this->dieter_id, $this->askedMemberId($typed), $typed . ' should find the same person.');
         }
     }
 
     /**
      * Typed without the slash it is still found — somebody reading a number
      * off a letterhead should not have to know that the portal cares.
+     *
+     * Dieter's "7/22.9" is the one number in the fixture that nothing else
+     * collides with once the slash is gone. The test below is what happens
+     * to the rest.
      */
     public function testTheSlashMayBeLeftOut(): void
     {
-        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '10133521'])->getStatusCode());
+        self::assertSame($this->dieter_id, $this->askedMemberId('7229'));
+    }
+
+    /**
+     * A number may carry letters, anywhere in it.
+     *
+     * Bertha's "47C12" has no `TYPE` of its own, so the family's spoken
+     * prefix has to be allowed to fall away from in front of it — and only
+     * from in front of it. Stripping every leading letter, which is what this
+     * did while numbers were assumed to be digits, would have turned
+     * "SB 47C12" into "47" and found nobody.
+     */
+    public function testANumberMayCarryLetters(): void
+    {
+        $bertha = $this->createUser('bertha', 'Bertha Beispiel', 'fuenftes-pferd', UserInterface::ROLE_MEMBER, 'X2');
+        $id     = $this->createProfile($bertha, true);
+
+        self::assertSame($id, $this->askedMemberId('47C12'));
+        self::assertSame($id, $this->askedMemberId('sb 47c12'));
+    }
+
+    /**
+     * And a number may carry a marker on its end, which is not decoration:
+     * "!" means the spouse of the person carrying the number without it.
+     *
+     * Dieter is 10/1335.21 and Fritz stands in for his spouse at
+     * 10/1335.21!. Two people, two numbers — and a request meant for one of
+     * them must not quietly arrive at the other, which is what happened while
+     * the "!" was thrown away with the punctuation.
+     */
+    public function testTheMarkerOnTheEndTellsACoupleApart(): void
+    {
+        $this->list($this->fritz_id);
+
+        self::assertSame($this->dieter_id, $this->askedMemberId('10/1335.21'));
+        self::assertSame($this->fritz_id, $this->askedMemberId('10/1335.21!'));
+    }
+
+    /**
+     * So it never falls away on the second pass either. Somebody who types
+     * the marker has said which of the two they mean; a number that reaches
+     * neither of them is a better answer than one that reaches the wrong one.
+     */
+    public function testAMarkerIsNeverDroppedToMakeANumberFit(): void
+    {
+        $this->assertReachesNobody('7/22.9!');
     }
 
     /**
@@ -599,7 +648,7 @@ class ConnectionTest extends PortalTestCase
             'The fixture must actually hide Fritz from Anna, or this proves nothing.'
         );
 
-        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '4716'])->getStatusCode());
+        self::assertSame($this->fritz_id, $this->askedMemberId('4716'));
     }
 
     private function trees(): PortalTreeService
@@ -625,7 +674,7 @@ class ConnectionTest extends PortalTestCase
         }
 
         // Listed, with a record, with a number: findable.
-        self::assertSame(['SB 4714', 'SB 10/1335.21'], $rows['Dieter Beispiel']['numbers']);
+        self::assertSame(['SB 4714', 'SB 10/1335.21', 'SB 7/22.9'], $rows['Dieter Beispiel']['numbers']);
 
         // Listed, but the account is linked to nobody: no number to find.
         self::assertSame([], $rows['Nora Ohnesatz']['numbers']);
@@ -761,11 +810,11 @@ class ConnectionTest extends PortalTestCase
     public function testAConfidentialReferenceNumberCannotBeSearched(): void
     {
         $bertha = $this->createUser('bertha', 'Bertha Beispiel', 'fuenftes-pferd', UserInterface::ROLE_MEMBER, 'X2');
-        $this->createProfile($bertha, true);
+        $id     = $this->createProfile($bertha, true);
 
         $this->assertReachesNobody('9999');
 
-        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['reference' => '4712'])->getStatusCode());
+        self::assertSame($id, $this->askedMemberId('4712'));
     }
 
     public function testAMemberCannotAskThemselves(): void

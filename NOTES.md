@@ -2035,6 +2035,51 @@ instead. It should probably go in a later phase, together with `useSendMessage`
 in the client. Left standing here because removing a working, tested path is a
 separate change from adding this one.
 
+### 2.34 An SB number is not a number
+
+The search was written against a picture of the numbering that came from the
+fixture: digits, a slash, a full stop. The family's numbers also carry letters,
+and they carry a marker on the end — `!` means "the spouse of the person with
+this number" — and neither survived normalisation, because normalisation was a
+list of the characters worth keeping and nobody had put them on it.
+
+Losing the letters would have been a search that found nobody, which is
+annoying and visible. Losing the `!` was worse: `10/1335.21` and `10/1335.21!`
+collapsed to one string, so a request meant for one of a married couple went
+to whichever record the walk happened to reach first. It looked exactly like
+success. The person asking saw the right name, because both of them have one.
+
+So `normalise()` is now the other way round — it names what it *throws away*
+(whitespace, and the full stop, comma and hyphen that separate parts of a
+number) and keeps everything else. A number is somebody's identity in this
+family; what gets dropped from it should have to be argued for one character
+at a time, and a list of keepers quietly loses every character nobody thought
+of.
+
+**The second pass keeps the marker.** Typing a number without its slash is a
+member being human about punctuation, and the relaxed pass exists for that
+(§2.32) — but a marker is not punctuation a member forgot. Dropping it there
+would put back exactly the bug, only rarer: a number typed for a spouse who
+has no account would find the husband instead. So `flatten()` removes the
+slash and nothing else, and `7/22.9!` reaches nobody rather than reaching
+`7/22.9`.
+
+**A prefix may fall away; a letter in the middle may not.** Stripping the
+spoken "SB" was a `^[A-Z]+` — fine while numbers were digits, wrong the moment
+one begins with a letter: "SB 47C12" became "47" and found nobody. It now
+takes off exactly the head that stands in front of the stored number, and only
+when the whole head is letters.
+
+**On the form, the number pad went.** It was the obvious fit for digits and a
+full stop, and it put "!" and the letters behind a keyboard switch — the same
+mistake as the slash (§2.32) with the argument running the other way. A member
+holding a number they cannot type is a member who cannot use the feature.
+
+Four of the tests around this were asserting `201`, which the endpoint returns
+whether or not anybody was found — that is the whole point of the
+indistinguishable answer (§2.32), and it had quietly made those tests prove
+nothing. They now assert *which member* the request reached.
+
 ---
 
 ## 3. Things that were guessed

@@ -44,6 +44,7 @@
 1 OCCU Geheimniskraemerin
 2 RESN confidential
 1 REFN 4712
+1 REFN 47C12
 1 REFN 9999
 2 TYPE Intern
 2 RESN confidential
@@ -63,6 +64,8 @@
 1 REFN 4714
 2 TYPE SB
 1 REFN 10/1335.21
+2 TYPE SB
+1 REFN 7/22.9
 2 TYPE SB
 1 NAME Dieter /Beispiel/
 2 GIVN Dieter
@@ -89,6 +92,8 @@
 1 REFN 4716
 2 TYPE SB
 1 REFN 101/335.21
+2 TYPE SB
+1 REFN 10/1335.21!
 2 TYPE SB
 1 NAME Fritz /Beispiel/
 2 GIVN Fritz

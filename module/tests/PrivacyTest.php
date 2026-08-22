@@ -264,7 +264,8 @@ class PrivacyTest extends PortalTestCase
     }
 
     /**
-     * And it is filtered like everything else. X2 has two: a plain one and a
+     * And it is filtered like everything else. X2 has three: two plain ones —
+     * one of which carries a letter, because the family's numbers do — and a
      * confidential one.
      */
     public function testAConfidentialReferenceNumberIsNotPublished(): void
@@ -273,16 +274,24 @@ class PrivacyTest extends PortalTestCase
 
         $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X2']);
 
-        self::assertSame([['number' => '4712', 'type' => null]], $this->json($response)['references']);
+        self::assertSame(
+            [
+                ['number' => '4712', 'type' => null],
+                ['number' => '47C12', 'type' => null],
+            ],
+            $this->json($response)['references']
+        );
         self::assertStringNotContainsString('9999', $this->raw($response));
 
-        // A manager may see the tree's confidential facts, so they see both.
+        // A manager may see the tree's confidential facts, so they see all of
+        // them.
         Auth::logout();
         $this->login($this->manager);
 
         self::assertSame(
             [
                 ['number' => '4712', 'type' => null],
+                ['number' => '47C12', 'type' => null],
                 ['number' => '9999', 'type' => 'Intern'],
             ],
             $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X2']))['references']
