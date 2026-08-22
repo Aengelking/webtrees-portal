@@ -123,10 +123,15 @@ test.describe('the smoke path', () => {
       session: { ...window.sessionStorage },
     }))
 
-    // Two keys, and both are device preferences: which language to show, and
-    // whether the install offer has been made. Nothing about anybody.
-    expect(Object.keys(stored.local).sort()).toEqual(['portal.install.offered', 'portal.language'])
-    expect(Object.values(stored.local).sort()).toEqual(['1', 'en'])
+    // Three keys, and every one of them a device preference: which language to
+    // show, and whether each of the two offers has been made. Nothing about
+    // anybody.
+    expect(Object.keys(stored.local).sort()).toEqual([
+      'portal.install.offered',
+      'portal.language',
+      'portal.notifications.offered',
+    ])
+    expect(Object.values(stored.local).sort()).toEqual(['1', '1', 'en'])
     expect(Object.keys(stored.session)).toEqual([])
   })
 

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
 import { Notifications } from './components/Notifications'
+import { NotificationPrompt } from './components/NotificationPrompt'
 import { applicationServerKey } from './pwa/notifications'
 import './i18n'
 
@@ -305,6 +306,121 @@ describe('arriving from a notification', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Mein Profil' })).toBeDefined()
+    })
+  })
+})
+
+/**
+ * The offer inside the installed app.
+ *
+ * Asking in a browser tab would be asking for something the member cannot have
+ * yet — on iOS notifications reach only an app on the home screen — so the
+ * moment worth asking is the first run of the installed one. What has to hold
+ * is the same as for the install offer: asked once, answered in one tap, and
+ * costing nothing to refuse.
+ */
+describe('offering notifications after installing', () => {
+  function installed(standalone: boolean) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: standalone && query.includes('standalone'),
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }))
+  }
+
+  function renderPrompt() {
+    return render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <MemoryRouter>
+          <NotificationPrompt />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  afterEach(() => {
+    window.localStorage.removeItem('portal.notifications.offered')
+  })
+
+  it('asks inside the installed app, and says what a lock screen will show', async () => {
+    stub({ available: true, public_key: 'BKxQ', subscribed: false })
+    installed(true)
+    renderPrompt()
+
+    expect(await screen.findByRole('dialog')).toBeDefined()
+    expect(screen.getByText(/Weder der Name der Person noch der Text/)).toBeDefined()
+    expect(screen.getByText(/unter „Einstellungen“/)).toBeDefined()
+  })
+
+  it('switches on and tells the server about this device', async () => {
+    const { subscribe } = stub({ available: true, public_key: 'BKxQ', subscribed: false })
+    installed(true)
+    renderPrompt()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Benachrichtigungen einschalten' }))
+
+    await waitFor(() => {
+      expect(posted).toEqual([{ endpoint: 'https://push.example.test/new', method: 'POST' }])
+    })
+
+    expect(subscribe).toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  /** Asked once. Saying "later" is an answer, and it is remembered as one. */
+  it('never asks twice on the same device', async () => {
+    stub({ available: true, public_key: 'BKxQ', subscribed: false })
+    installed(true)
+    const { unmount } = renderPrompt()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Später' }))
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    unmount()
+    renderPrompt()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+
+  it('does not ask in a browser tab, where notifications would not arrive', async () => {
+    stub({ available: true, public_key: 'BKxQ', subscribed: false })
+    installed(false)
+    const { container } = renderPrompt()
+
+    await waitFor(() => {
+      expect(container.innerHTML).toBe('')
+    })
+  })
+
+  it('does not ask where the family has switched notifications off', async () => {
+    stub({ available: false, public_key: '', subscribed: false })
+    installed(true)
+    const { container } = renderPrompt()
+
+    await waitFor(() => {
+      expect(container.innerHTML).toBe('')
+    })
+  })
+
+  /**
+   * A member who once said no can only undo that in the browser's own
+   * settings, so a dialogue about it is a dialogue nobody asked for. Settings
+   * says where the switch is.
+   */
+  it('does not ask a browser that is already blocking', async () => {
+    stub({ available: true, public_key: 'BKxQ', subscribed: false }, { permission: 'denied' })
+    installed(true)
+    const { container } = renderPrompt()
+
+    await waitFor(() => {
+      expect(container.innerHTML).toBe('')
     })
   })
 })
