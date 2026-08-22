@@ -373,13 +373,29 @@ connect with each other.*
 **Kontakte** is the member's own address book: the eight people they actually
 know, rather than the two hundred in the directory. It is the second entry in
 the bottom bar — the bar stays at four destinations — and the **member
-directory now lives inside it**, as a search at the top of the screen.
+directory now lives inside it**, as a search on the screen's second half.
 
 That is the way round it belongs. The directory is everybody, and a member
 looks somebody up now and then; contacts are their own people, and that is the
 screen they come back to. Searching for a name goes straight to the results;
 an empty search shows everybody. *Mitglieder* keeps its own search box, so
 narrowing a result does not mean going back, and a link back to *Kontakte*.
+
+**The screen is two tabs**, because the thing a member comes back to had four
+cards of machinery stacked on top of it — a search, a QR code, a link, a
+number — and reading the address book began with scrolling past all of them.
+
+* ***Kontakte*** holds the people: a request waiting for an answer at the top,
+  then everybody the member is connected to, then their own requests still
+  waiting. This is the tab that opens.
+* ***Neu verbinden*** holds the ways of adding somebody: the directory search,
+  the code, the link and the SB number.
+
+Which tab is open is written into the address (`?tab=new`), so a refresh, the
+Back button and a link all keep it. A member whose address book is still empty
+is put on the second tab instead — the empty half is not what they came for.
+The tabs are real tabs: the arrow keys move between them, and only the open
+one is in the tab order.
 
 **Two ways to connect, and they are different on purpose.**
 
@@ -1523,7 +1539,9 @@ holds the link the *server* issued, ending a connection asks first while
 answering a request does not, a request goes off from a directory row without
 opening the person, each row's button is named for the person it belongs to,
 and the waiting-request count sits on *Kontakte* — the screen the request is
-about — rather than on a fifth destination. The QR code itself is
+about — rather than on a fifth destination. The screen opens on the address
+book, opens on the second tab while there is nothing in it yet, takes the open
+tab from the address bar, and moves between the two with the arrow keys. The QR code itself is
 rendered to pixels in the test and read back by an independent decoder, which
 is the only assertion that means a camera would read it.
 

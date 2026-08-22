@@ -1,6 +1,6 @@
-import { useId, useState } from 'react'
-import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useId, useRef, useState } from 'react'
+import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   useAcceptConnection,
@@ -27,19 +27,49 @@ import {
 } from '../components/ui'
 
 /**
- * The member's own address book, and the two ways of adding to it.
+ * The member's own address book, and the ways of adding to it — in two tabs.
  *
- * The order on the screen is the order of the two questions a member arrives
- * with. "Somebody is standing in front of me" comes first, because that is
- * the case with a moment in it — a family gathering ends. "Somebody gave me
- * their number" comes second, because that one keeps.
+ * It was one column, in the order of the two questions a member arrives with:
+ * the ways of connecting first, the people second. That order is right for
+ * somebody standing at a family gathering and wrong for everybody else, every
+ * other day. The address book is the thing a member comes back to, and it had
+ * four cards of machinery stacked on top of it — a search, a QR code, a link,
+ * a number — so reading it began with scrolling past all of them.
  *
- * Requests waiting for an answer are above the list of people, for the same
- * reason unread messages are: a thing asked of you outranks a thing you own.
+ * So the two questions are two tabs, and neither is above the other. Which one
+ * opens is in the address bar, which means the browser's Back button, a
+ * refresh and a link all keep it. A member with nothing in their address book
+ * yet is put on the tab that fills it — the empty half is not what they came
+ * for.
+ *
+ * Requests waiting for an answer stay at the top of the contacts tab, which is
+ * also the tab that opens: a thing asked of you outranks a thing you own, and
+ * the navigation already carries the count for the times it does not.
  */
 export function Contacts() {
   const { t } = useTranslation()
   const { data, isPending, isError, error, refetch } = useConnections()
+  const [params, setParams] = useSearchParams()
+
+  const nothingYet =
+    data !== undefined &&
+    data.connections.length === 0 &&
+    data.incoming.length === 0 &&
+    data.outgoing.length === 0
+
+  const chosen = params.get(TAB_PARAM)
+  const active: Tab = chosen === 'new' || chosen === 'mine' ? chosen : nothingYet ? 'new' : 'mine'
+
+  function select(tab: Tab): void {
+    const next = new URLSearchParams(params)
+
+    next.set(TAB_PARAM, tab)
+
+    // Replaced rather than pushed: a tab is where you are on this screen, not
+    // a screen you went to, and a member who tried both should get back to
+    // wherever they came from in one tap of Back.
+    setParams(next, { replace: true })
+  }
 
   return (
     <>
@@ -57,88 +87,207 @@ export function Contacts() {
         <>
           <p className="mt-3 text-base text-slate-700">{t('contacts.intro')}</p>
 
-          {/*
-            The directory was a tab of its own until this screen took its
-            place, so its search comes with it — and comes first. It is the
-            most ordinary thing a member does here (look somebody up, read
-            their page, write to them), and burying the only way to it under a
-            QR code would make the commonest errand the longest one.
+          <TabBar
+            active={active}
+            onSelect={select}
+            labels={{ mine: t('contacts.tabMine'), new: t('contacts.tabNew') }}
+          />
 
-            The field navigates rather than searching in place: results are
-            paged and each one leads somewhere, which is a screen's worth of
-            work. Empty means everybody, so this doubles as the plain way in.
-          */}
-          <Section title={t('contacts.find')}>
-            <FindMember />
-          </Section>
-
-          {!data.enabled && (
-            <div className="mt-6">
-              <Notice title={t('contacts.off.title')} body={t('contacts.off.body')} />
-            </div>
-          )}
-
-          {data.enabled && (
-            <>
-              <Section title={t('contacts.showCode')}>
-                <MyCode minutes={data.code_valid_minutes} />
+          <Panel tab="mine" active={active}>
+            {data.enabled && data.incoming.length > 0 && (
+              <Section title={t('contacts.incoming')}>
+                <ul className="space-y-3">
+                  {data.incoming.map((connection) => (
+                    <li key={connection.id}>
+                      <IncomingCard connection={connection} />
+                    </li>
+                  ))}
+                </ul>
               </Section>
-
-              <Section title={t('contacts.sendLink')}>
-                <SendLink days={data.link_valid_days ?? 7} links={data.links ?? []} />
-              </Section>
-
-              <Section title={t('contacts.byReference')}>
-                <ByReference />
-              </Section>
-            </>
-          )}
-
-          {data.enabled && data.incoming.length > 0 && (
-            <Section title={t('contacts.incoming')}>
-              <ul className="space-y-3">
-                {data.incoming.map((connection) => (
-                  <li key={connection.id}>
-                    <IncomingCard connection={connection} />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {data.enabled && data.outgoing.length > 0 && (
-            <Section title={t('contacts.outgoing')}>
-              <ul className="space-y-3">
-                {data.outgoing.map((connection) => (
-                  <li key={connection.id}>
-                    <Card>
-                      <p className="text-lg font-semibold text-slate-900">{connection.name}</p>
-                      <p className="mt-1 text-base text-slate-700">{t('contacts.waiting')}</p>
-                      <EndButton connection={connection} label={t('contacts.withdraw')} />
-                    </Card>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          <Section title={t('contacts.list')}>
-            {data.connections.length === 0 ? (
-              <Notice title={t('contacts.none.title')} body={t('contacts.none.body')} />
-            ) : (
-              <ul className="space-y-3">
-                {data.connections.map((connection) => (
-                  <li key={connection.id}>
-                    <ContactCard connection={connection} />
-                  </li>
-                ))}
-              </ul>
             )}
-          </Section>
+
+            <Section title={t('contacts.list')}>
+              {data.connections.length === 0 ? (
+                <Notice title={t('contacts.none.title')} body={t('contacts.none.body')} />
+              ) : (
+                <ul className="space-y-3">
+                  {data.connections.map((connection) => (
+                    <li key={connection.id}>
+                      <ContactCard connection={connection} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            {data.enabled && data.outgoing.length > 0 && (
+              <Section title={t('contacts.outgoing')}>
+                <ul className="space-y-3">
+                  {data.outgoing.map((connection) => (
+                    <li key={connection.id}>
+                      <Card>
+                        <p className="text-lg font-semibold text-slate-900">{connection.name}</p>
+                        <p className="mt-1 text-base text-slate-700">{t('contacts.waiting')}</p>
+                        <EndButton connection={connection} label={t('contacts.withdraw')} />
+                      </Card>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+          </Panel>
+
+          <Panel tab="new" active={active}>
+            {/*
+              The directory was a tab of its own until this screen took its
+              place, so its search comes with it — and comes first here. It is
+              the most ordinary thing a member does with this half of the
+              screen (look somebody up, read their page, write to them), and
+              burying the only way to it under a QR code would make the
+              commonest errand the longest one.
+
+              The field navigates rather than searching in place: results are
+              paged and each one leads somewhere, which is a screen's worth of
+              work. Empty means everybody, so this doubles as the plain way in.
+            */}
+            <Section title={t('contacts.find')}>
+              <FindMember />
+            </Section>
+
+            {!data.enabled && (
+              <div className="mt-6">
+                <Notice title={t('contacts.off.title')} body={t('contacts.off.body')} />
+              </div>
+            )}
+
+            {data.enabled && (
+              <>
+                <Section title={t('contacts.showCode')}>
+                  <MyCode minutes={data.code_valid_minutes} />
+                </Section>
+
+                <Section title={t('contacts.sendLink')}>
+                  <SendLink days={data.link_valid_days ?? 7} links={data.links ?? []} />
+                </Section>
+
+                <Section title={t('contacts.byReference')}>
+                  <ByReference />
+                </Section>
+              </>
+            )}
+          </Panel>
         </>
       )}
     </>
   )
+}
+
+/** Which half of the screen is showing, and where that is written down. */
+type Tab = 'mine' | 'new'
+
+const TABS: Tab[] = ['mine', 'new']
+
+const TAB_PARAM = 'tab'
+
+/**
+ * Two tabs, with the keyboard behaviour the role promises.
+ *
+ * `role="tab"` is a contract: a screen reader tells its user there are two of
+ * something and that the arrow keys move between them, so the arrow keys have
+ * to move between them. Only the chosen tab is in the tab order — that is the
+ * same contract, and it is why Tab from the tab strip lands in the panel
+ * rather than on the other tab.
+ */
+function TabBar({
+  active,
+  onSelect,
+  labels,
+}: {
+  active: Tab
+  onSelect: (tab: Tab) => void
+  labels: Record<Tab, string>
+}) {
+  const { t } = useTranslation()
+  const buttons = useRef<(HTMLButtonElement | null)[]>([])
+
+  function move(event: KeyboardEvent<HTMLButtonElement>, index: number): void {
+    const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+
+    if (step === 0) {
+      return
+    }
+
+    event.preventDefault()
+
+    const next = (index + step + TABS.length) % TABS.length
+    const tab = TABS[next]
+
+    if (tab === undefined) {
+      return
+    }
+
+    onSelect(tab)
+    buttons.current[next]?.focus()
+  }
+
+  return (
+    <div
+      role="tablist"
+      aria-label={t('contacts.tabs')}
+      className="mt-5 flex gap-1 border-b border-slate-300"
+    >
+      {TABS.map((tab, index) => (
+        <button
+          key={tab}
+          ref={(node) => {
+            buttons.current[index] = node
+          }}
+          type="button"
+          role="tab"
+          id={tabId(tab)}
+          aria-controls={panelId(tab)}
+          aria-selected={tab === active}
+          tabIndex={tab === active ? 0 : -1}
+          onClick={() => onSelect(tab)}
+          onKeyDown={(event) => move(event, index)}
+          className={`-mb-px min-h-[48px] rounded-t-lg border-b-[3px] px-4 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
+            tab === active
+              ? 'border-sky-700 font-semibold text-sky-800'
+              : 'border-transparent text-slate-700 hover:text-slate-900'
+          }`}
+        >
+          {labels[tab]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The half that is showing.
+ *
+ * The other half is not rendered at all rather than hidden with a class: its
+ * cards hold a QR code and a one-time link, and neither should exist on a
+ * screen nobody chose to look at.
+ */
+function Panel({ tab, active, children }: { tab: Tab; active: Tab; children: ReactNode }) {
+  if (tab !== active) {
+    return null
+  }
+
+  return (
+    <div role="tabpanel" id={panelId(tab)} aria-labelledby={tabId(tab)} tabIndex={0}>
+      {children}
+    </div>
+  )
+}
+
+function tabId(tab: Tab): string {
+  return `contacts-tab-${tab}`
+}
+
+function panelId(tab: Tab): string {
+  return `contacts-panel-${tab}`
 }
 
 /**

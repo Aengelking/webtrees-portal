@@ -36,9 +36,11 @@ test.describe('the smoke path', () => {
       await expect(page.getByText('SB 4711')).toBeVisible()
     }
 
-    // The directory, which now lives inside Kontakte.
+    // The directory, which now lives inside Kontakte — on the half about
+    // adding somebody, which is what looking one up is the start of.
     await page.getByRole('link', { name: 'Kontakte' }).click()
     await expect(page.getByRole('heading', { name: 'Meine Kontakte' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Neu verbinden' }).click()
     await page.getByRole('button', { name: 'Im Verzeichnis suchen' }).click()
     await expect(page.getByRole('heading', { name: 'Mitglieder' })).toBeVisible()
     await expect(page.getByRole('listitem').first()).toBeVisible()
@@ -275,6 +277,7 @@ test.describe('phase 9', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
     await page.getByRole('link', { name: 'Kontakte' }).click()
+    await page.getByRole('tab', { name: 'Neu verbinden' }).click()
     await page.getByRole('button', { name: 'Im Verzeichnis suchen' }).click()
 
     // Dieter, not the first row — the first row is Anna herself, and nobody
@@ -371,6 +374,13 @@ test.describe('phase 11', () => {
     await page.getByRole('link', { name: /Kontakte/ }).click()
 
     await expect(page.getByRole('heading', { name: 'Meine Kontakte' })).toBeVisible()
+
+    // The address book opens first, and the request waiting for an answer is
+    // at the top of it.
+    await expect(page.getByRole('tab', { name: 'Kontakte' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     await expect(page.getByText('Karla Beispiel')).toBeVisible()
 
     await page.getByRole('button', { name: 'Annehmen' }).click()
@@ -380,6 +390,8 @@ test.describe('phase 11', () => {
     // Nothing is on screen until it is asked for: a live code is a
     // credential, and one that appeared by itself would be one nobody meant
     // to show.
+    await page.getByRole('tab', { name: 'Neu verbinden' }).click()
+
     await expect(page.getByRole('img', { name: /QR-Code/ })).toBeHidden()
     await page.getByRole('button', { name: 'Code anzeigen' }).click()
     await expect(page.getByRole('img', { name: /QR-Code/ })).toBeVisible()
@@ -397,6 +409,7 @@ test.describe('phase 11', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
     await page.getByRole('link', { name: /Kontakte/ }).click()
+    await page.getByRole('tab', { name: 'Neu verbinden' }).click()
     await page.getByRole('button', { name: 'Im Verzeichnis suchen' }).click()
 
     // Each button is named for its row, so twenty-five of them are still a
@@ -422,7 +435,8 @@ test.describe('phase 11', () => {
     await page.getByLabel('Passwort').fill(password)
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
-    await page.goto('/contacts')
+    // The tab is in the address bar, so a link can point straight at it.
+    await page.goto('/contacts?tab=new')
 
     // Nothing is issued until it is asked for: this one travels through
     // somebody else's inbox.

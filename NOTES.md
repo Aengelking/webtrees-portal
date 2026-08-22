@@ -2080,6 +2080,49 @@ whether or not anybody was found — that is the whole point of the
 indistinguishable answer (§2.32), and it had quietly made those tests prove
 nothing. They now assert *which member* the request reached.
 
+### 2.35 Two tabs, because the address book was at the bottom
+
+Kontakte was one column in the order of the two questions a member arrives
+with: the ways of connecting first, the people second. That order is right for
+somebody standing at a family gathering with a telephone in their hand, and
+wrong for the same person every other day of the year.
+
+The address book is what a member comes back to, and it had four cards of
+machinery stacked on top of it — a search, a QR code, a link, a number. Reading
+it began with scrolling past all four. That is not a layout that needs
+tightening; it is two screens sharing one.
+
+So the two questions are two tabs, and neither sits above the other:
+*Kontakte* holds the people, *Neu verbinden* holds the ways of adding one.
+
+**Which tab is open lives in the address bar** (`?tab=new`), not in a
+`useState`. It costs nothing and it buys the refresh, the Back button and a
+link that points at the right half — the same reason the directory's search
+term is in the query string (§2.24). The change is `replace` rather than
+`push`: a tab is where you are on this screen, not a screen you went to, and
+Back should leave, not un-switch.
+
+**The default is derived, not stored.** A member with nothing in their address
+book yet opens on the tab that fills it; everybody else opens on the address
+book. It is only the default — the moment a tab is in the address, the address
+wins — so it can never fight somebody who chose.
+
+**Requests waiting for an answer stay at the top of the tab that opens.** A
+thing asked of you outranks a thing you own, and that reasoning survives the
+split intact: the request is on the first half of the first tab, and the
+navigation carries the count for the times a member is somewhere else.
+
+**The hidden half is not rendered.** `Panel` returns `null` rather than adding
+a class, because those cards hold a live QR code and a one-time link. A
+credential on a screen nobody chose to look at is the thing §2.32 spends most
+of its length avoiding.
+
+**`role="tab"` is a promise about the keyboard.** It tells a screen reader
+there are two of something and that the arrow keys move between them, so the
+arrow keys move between them, and only the open tab is in the tab order — that
+is what makes Tab from the strip land in the panel rather than on the other
+tab. Two tabs, so the arrows wrap.
+
 ---
 
 ## 3. Things that were guessed
@@ -2208,6 +2251,12 @@ Written down rather than acted on, per §2 of the handoff.
   webtrees in production, and nothing in this repository can or should fix it.
 * The Playwright smoke path stubs the API in the browser by default, so it
   runs anywhere. `E2E_BASE_URL` points the same specs at a real deployment.
+* `PLAYWRIGHT_CHROMIUM_PATH` skips the browser download where one is already
+  installed — in a sandbox that ships Chromium but not Playwright's own
+  headless shell, `PLAYWRIGHT_CHROMIUM_PATH=/opt/pw-browsers/chromium-*/chrome-linux/chrome npm run test:e2e`
+  runs the whole path without fetching anything. Without it the specs all fail
+  in three milliseconds with "Executable doesn't exist", which reads like a
+  broken suite rather than a missing binary.
 * **`route()` inside webtrees' test harness silently loses the first segment
   of every URL**, and did so until this module generated one and looked at it.
   webtrees' own `TestCase` builds its router with a base path of `'/'` where
