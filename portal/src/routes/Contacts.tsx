@@ -349,11 +349,17 @@ function ReferenceInput({
 
         <input
           aria-label={t('contacts.referenceLabel')}
-          // Digits and a separator, which is the whole of a number after the
-          // branch. A comma instead of a full stop is no trouble:
-          // punctuation is not what the server compares.
-          inputMode="decimal"
+          // The full keyboard, not the number pad.
+          //
+          // A number after the branch is mostly digits and a full stop, and
+          // the number pad was the obvious fit — but it is not only that. A
+          // number may carry letters, and it may carry a marker on its end:
+          // "!" is the spouse of the person with the same number without it.
+          // Neither is reachable from a keyboard that offers digits, and a
+          // member holding "10/1335.21!" would have had no way to type what
+          // is printed in front of them.
           autoComplete="off"
+          spellCheck={false}
           placeholder={t('contacts.referencePlaceholder')}
           value={number}
           onChange={(event) => onNumber(event.target.value)}

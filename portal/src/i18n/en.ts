@@ -306,7 +306,8 @@ export const en: Translations = {
     branchLabel: 'Branch',
     branchPlaceholder: '—',
     referenceLabel: 'Number',
-    referenceHint: 'The part after the slash. A full stop or a comma makes no difference.',
+    referenceHint:
+      'The part after the slash, exactly as it is written – letters and a marker on the end included, such as “!” for the spouse. A full stop or a comma makes no difference.',
     referencePlaceholder: '1335.21',
     ask: 'Send request',
     askThis: 'Connect',

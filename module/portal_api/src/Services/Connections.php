@@ -993,19 +993,33 @@ class Connections
 
     /**
      * "SB 4711", "sb4711" and "4711" are the same number typed by three
-     * people. Punctuation goes; **the slash stays.**
+     * people. Separators go; **the slash and the suffix stay.**
      *
      * The family's numbers are `10/1335.21` — a branch, then the number
-     * within it. Dropping the slash with the rest of the punctuation makes
-     * `10/1335.21` and `101/335.21` the same string, which is two different
-     * relatives wearing one number. Keeping it as a separator costs nothing
-     * and makes that impossible.
+     * within it — and a number may carry letters, and a marker on the end:
+     * `!` says "the spouse of the person with this number". Three things
+     * therefore have to survive being typed:
+     *
+     * - The slash. Dropping it with the rest of the punctuation makes
+     *   `10/1335.21` and `101/335.21` the same string, which is two different
+     *   relatives wearing one number.
+     * - The suffix. `10/1335.21` and `10/1335.21!` are a person and their
+     *   spouse. Losing the `!` merges them, and then a request meant for one
+     *   of them reaches whichever record the walk happened to reach first —
+     *   silently, and looking for all the world as though it had worked.
+     * - Letters, wherever they sit in the number.
+     *
+     * What does *not* survive is whitespace and the separators inside a
+     * number — the dot, the comma, the hyphen — so that "10/1335.21",
+     * "10 / 1335,21" and "10/133521" stay one number.
      *
      * A number typed without the slash is still accepted, but only on the
      * second pass and only while it picks out exactly one person — see
-     * `memberByReference()`.
+     * `memberByReference()`. The marker on the end never falls away: it names
+     * a different person, and a near miss that reaches somebody's spouse is
+     * worse than one that reaches nobody.
      *
-     * The third case is the one this got wrong at first, and it is the common
+     * The last case is the one this got wrong at first, and it is the common
      * one: **the record often carries no `TYPE` at all.** GEDCOM does not
      * require one, the family's own numbering is called "SB" whether or not
      * anybody wrote that into the file, and the module that shows the number
@@ -1054,24 +1068,43 @@ class Connections
             return false;
         }
 
-        $without_prefix = (string) preg_replace('/^[A-Z]+/', '', $wanted);
+        // A run of letters on the front may fall away — and only a run of
+        // letters on the front, so that a number which carries letters of its
+        // own keeps them.
+        $head = substr($wanted, 0, strlen($wanted) - strlen($number));
 
-        return $without_prefix !== '' && $without_prefix === $number;
+        return $head !== '' && ctype_alpha($head) && str_ends_with($wanted, $number);
     }
 
-    /** The same number with the branch separator gone, for the second pass. */
+    /**
+     * The same number with the branch separator gone, for the second pass.
+     *
+     * The slash and nothing else. A marker on the end is not punctuation a
+     * member forgot to type: `10/1335.21!` is a different person from
+     * `10/1335.21`, so dropping it here would let a number typed for one of
+     * them reach the other — which is the whole thing this pass must not do.
+     */
     private function flatten(string $value): string
     {
         return str_replace('/', '', $value);
     }
 
     /**
-     * Everything but letters, digits and the branch separator goes, so that
-     * "10/1335.21", "10 / 1335,21" and "10/133521" are one number.
+     * Whitespace and the separators inside a number carry nothing; everything
+     * else does.
+     *
+     * Deliberately narrow. It would be easier to keep a list of the
+     * characters worth keeping, and that is what this did at first — it threw
+     * away the `!` that tells a couple apart, because nobody had thought to
+     * put it on the list. A number is somebody's identity in this family;
+     * what gets dropped from it should have to be argued for one character at
+     * a time.
      */
     private function normalise(string $value): string
     {
-        return strtoupper((string) preg_replace('#[^A-Za-z0-9/]#', '', $value));
+        $value = (string) preg_replace('#[\s.,\-]+#u', '', $value);
+
+        return strtoupper($value);
     }
 
     private function nameOf(User $user): string

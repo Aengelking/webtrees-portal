@@ -307,7 +307,8 @@ export const de = {
     branchLabel: 'Zweig',
     branchPlaceholder: '—',
     referenceLabel: 'Nummer',
-    referenceHint: 'Der Teil nach dem Schrägstrich. Punkt oder Komma ist einerlei.',
+    referenceHint:
+      'Der Teil nach dem Schrägstrich, genau wie er dasteht – auch mit Buchstaben und einem Zeichen am Ende, etwa „!“ für den Ehepartner. Punkt oder Komma ist einerlei.',
     referencePlaceholder: '1335.21',
     ask: 'Anfrage senden',
     askThis: 'Verbinden',

@@ -1470,7 +1470,15 @@ paths:
                   maxLength: 40
                   description: |
                     A reference number as a member would type it. "SB 4711",
-                    "sb4711" and "4711" are the same number.
+                    "sb4711" and "4711" are the same number: whitespace and the
+                    separators inside a number (`.`, `,`, `-`) are ignored, and
+                    the family's spoken prefix may be left off.
+
+                    Everything else is part of the number — including letters
+                    and a marker on the end, where `!` means the spouse of the
+                    person carrying the same number without it. The slash may
+                    be left out, but only where that still picks out exactly
+                    one member.
                 member_id:
                   type: integer
                   minimum: 1

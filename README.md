@@ -442,13 +442,22 @@ ever grows a thirty-fifth branch.
 Everything else about the number is read generously, because it is read off
 letterheads and out of Christmas cards:
 
-* **Punctuation is ignored**, except the slash. `10 / 1335,21` is the same
-  number as `10/1335.21`.
+* **The separators are ignored**, not the number. Spaces, full stops, commas
+  and hyphens go, so `10 / 1335,21` is the same number as `10/1335.21`.
+  Everything else is part of it.
+* **Letters count, wherever they sit.** A number is not only digits, and the
+  ones that carry letters are read as written.
+* **The marker on the end counts most of all.** `!` means the spouse of the
+  person carrying the same number without it, so `10/1335.21` and
+  `10/1335.21!` are two people. It is never dropped to make a number fit —
+  reaching nobody is a better answer than reaching somebody's husband.
 * **The "SB" may be there or not.** It is accepted even where the GEDCOM
   record carries no `TYPE` of its own — the usual case, since nothing requires
-  one and the family's numbering is called SB either way. What is not accepted
-  is a prefix the record *contradicts*: a number filed as `TYPE Intern` is a
-  different numbering and "SB 9999" will not find it.
+  one and the family's numbering is called SB either way. Only a run of
+  letters on the *front* may fall away, so a number with letters of its own
+  keeps them. What is not accepted is a prefix the record *contradicts*: a
+  number filed as `TYPE Intern` is a different numbering and "SB 9999" will
+  not find it.
 * **The slash may be left out**, but only while that picks out one person.
   `10/1335.21` and `101/335.21` are one string once it is gone, and the portal
   says it found nobody rather than guessing which cousin was meant.
@@ -1493,9 +1502,11 @@ an SB number
 *asks* rather than connects, and a request that crosses one coming the other
 way is treated as the answer to it; the family's "SB" prefix finds a record
 stored without a `TYPE` of its own while a prefix the record contradicts finds
-nobody; a branch number is found however it is punctuated, the slash keeps
+nobody; a branch number is found however it is punctuated, a number carrying
+letters is found as written, the slash keeps
 `10/1335.21` and `101/335.21` apart, and leaving it out is refused where it
-would be a guess between the two; a member who stayed out of the directory cannot be found by number,
+would be a guess between the two; the `!` on the end keeps a couple apart and
+is never dropped to make a number fit; a member who stayed out of the directory cannot be found by number,
 and a `RESN`-hidden number cannot be searched at all; only the member a request was made to can accept it, and a refusal
 deletes the row rather than recording it; a connection unlocks the *my
 contacts* audience and lets an unlisted member be opened and written to,
