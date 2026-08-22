@@ -261,6 +261,10 @@ test.describe('phase 7', () => {
     await expect(link).toHaveValue(/token=einladung-fuer-dieter/)
     await expect(page.getByRole('status')).toContainText('nur dieses eine Mal')
 
+    // The link is shown once, so it has to leave the screen in one piece:
+    // selecting a URL by hand on a phone is how half of one ends up in a chat.
+    await expect(page.getByRole('button', { name: 'Kopieren' })).toBeVisible()
+
     // Dieter is no longer on offer, and the invitation is listed as pending.
     await page.getByRole('button', { name: 'Habe ich kopiert' }).click()
     await expect(page.getByRole('button', { name: 'Zurücknehmen' })).toBeVisible()

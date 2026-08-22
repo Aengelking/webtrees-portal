@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useInvitations, useInvite, useWithdrawInvitation } from '../api/queries'
 import { ApiError } from '../api/client'
 import type { InvitationCandidate, MemberInvitation } from '../api/types'
+import { ShareLink } from '../components/ShareLink'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading, Section } from '../components/ui'
 
 /**
@@ -181,13 +182,15 @@ function IssuedLink({ link, onDismiss }: { link: string; onDismiss: () => void }
       <p className="text-lg font-semibold text-slate-900">{t('invite.ready.title')}</p>
       <p className="mt-2 text-base text-slate-800">{t('invite.ready.body')}</p>
 
-      <input
-        readOnly
-        value={link}
-        aria-label={t('invite.ready.label')}
-        onFocus={(event) => event.target.select()}
-        className="mt-4 min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900"
-      />
+      <div className="mt-4">
+        <ShareLink
+          id="invitation-link"
+          url={link}
+          label={t('invite.ready.label')}
+          shareTitle={t('invite.ready.shareTitle')}
+          shareText={t('invite.ready.shareText')}
+        />
+      </div>
 
       <Button variant="secondary" className="mt-4" onClick={onDismiss}>
         {t('invite.ready.done')}

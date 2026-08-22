@@ -101,6 +101,8 @@ export const de = {
     refused:
       'Diese Person können Sie nicht einladen. Vielleicht hat sie schon einen Zugang oder ist bereits eingeladen.',
     ready: {
+      shareTitle: 'Einladung zur Sack Familienapp',
+      shareText: 'Du bist in unsere Familien-App eingeladen. Über diesen Link kannst du dein Konto einrichten:',
       title: 'Die Einladung ist fertig',
       body:
         'Kopieren Sie den Link und schicken Sie ihn dieser Person — per Nachricht, E-Mail oder wie Sie mögen. Der Link wird nur dieses eine Mal angezeigt und lässt sich später nicht wieder aufrufen. Falls er verloren geht: Einladung zurücknehmen und eine neue erstellen.',
@@ -309,9 +311,6 @@ export const de = {
     linkCreate: 'Link erzeugen',
     linkAnother: 'Weiteren Link erzeugen',
     linkLabel: 'Ihr Link',
-    linkCopy: 'Kopieren',
-    linkCopied: 'Der Link ist kopiert. Fügen Sie ihn in Ihre Nachricht ein.',
-    linkShare: 'Teilen',
     linkShareTitle: 'Im Familienportal verbinden',
     linkOnce:
       'Der Link funktioniert genau einmal und läuft nach {{count}} Tagen ab. Schicken Sie ihn nur der einen Person — wer ihn sonst in die Hände bekommt, wäre mit Ihnen verbunden.',
@@ -491,6 +490,11 @@ export const de = {
       X: 'divers',
       U: 'unbekannt',
     },
+  },
+  link: {
+    copy: 'Kopieren',
+    share: 'Teilen',
+    copied: 'Der Link ist kopiert. Fügen Sie ihn in Ihre Nachricht ein.',
   },
   person: {
     title: 'Person',

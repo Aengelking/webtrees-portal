@@ -243,6 +243,111 @@ describe('inviting close family', () => {
 })
 
 /**
+ * The link is handed over once — the server keeps a hash — so what is on the
+ * screen is the only copy of it that will ever exist. A member selecting that
+ * by hand on a phone is how half a URL ends up in a chat and an invitation has
+ * to be withdrawn and re-issued.
+ */
+describe('handing the invitation link over', () => {
+  /**
+   * `userEvent.setup()` installs a clipboard stub of its own, which quietly
+   * replaces the one under test and makes every clipboard assertion here
+   * meaningless. The direct calls leave the browser's globals alone.
+   */
+  async function issue() {
+    await userEvent.click(await screen.findByRole('radio', { name: /Dieter Beispiel/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
+  }
+
+  it('shares the link where the browser has a share sheet', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share })
+
+    stub()
+    renderInvite()
+
+    await issue()
+    await userEvent.click(await screen.findByRole('button', { name: 'Teilen' }))
+
+    expect(share).toHaveBeenCalledWith(
+      expect.objectContaining({ url: 'https://portal.example.test/invitation?token=geheim' }),
+    )
+
+    vi.unstubAllGlobals()
+  })
+
+  /** Cancelling a share sheet rejects. It is an answer, not a failure. */
+  it('says nothing when the share sheet is dismissed', async () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      share: vi.fn().mockRejectedValue(new Error('AbortError')),
+    })
+
+    stub()
+    renderInvite()
+
+    await issue()
+    await userEvent.click(await screen.findByRole('button', { name: 'Teilen' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).toBeNull()
+    })
+
+    // And the link is still on screen to try again with.
+    expect(screen.getByLabelText('Einladungslink')).toBeDefined()
+
+    vi.unstubAllGlobals()
+  })
+
+  /**
+   * Most desktops have no share sheet, and that is where a member sits when
+   * they write the e-mail. Copying is offered always rather than as the
+   * fallback nobody sees.
+   */
+  it('copies on a browser with no share sheet at all', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, share: undefined, clipboard: { writeText } })
+
+    stub()
+    renderInvite()
+
+    await issue()
+
+    expect(screen.queryByRole('button', { name: 'Teilen' })).toBeNull()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Kopieren' }))
+
+    expect(writeText).toHaveBeenCalledWith('https://portal.example.test/invitation?token=geheim')
+    expect(await screen.findByText(/Der Link ist kopiert/)).toBeDefined()
+
+    vi.unstubAllGlobals()
+  })
+
+  /** A browser that refuses the clipboard has taken nothing away: the link is on screen. */
+  it('claims nothing when the clipboard is refused', async () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      share: undefined,
+      clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+    })
+
+    stub()
+    renderInvite()
+
+    await issue()
+    await userEvent.click(await screen.findByRole('button', { name: 'Kopieren' }))
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Der Link ist kopiert/)).toBeNull()
+    })
+
+    expect(screen.getByLabelText('Einladungslink')).toBeDefined()
+
+    vi.unstubAllGlobals()
+  })
+})
+
+/**
  * Walking the tree is how a member finds out that their brother is not in the
  * portal. Until now the way to act on that was to remember the invite screen
  * exists and find him again on it — §2.38's lesson, one screen over.

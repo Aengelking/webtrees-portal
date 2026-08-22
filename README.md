@@ -218,6 +218,14 @@ A member opens *Einstellungen → Jemanden einladen*, sees a list of their close
 relatives named by relationship ("Ihr Bruder — Dieter Beispiel"), picks one and
 gets a link to pass on. No administrator is in the loop.
 
+**Handing the link over** is **Teilen** where the browser has a share sheet —
+a phone, an installed app — which puts it straight into WhatsApp or a text
+message, and **Kopieren** everywhere, because most desktops have no share
+sheet and that is where somebody sits when they write the e-mail. The field
+stays either way, so a browser that refuses the clipboard costs nothing. The
+connection link in *Kontakte* works exactly the same way; it is the same
+component.
+
 **The same offer is on the person's own page**, which is where a member
 actually notices that somebody is missing: walking the tree, a relative who can
 be invited carries an **Einladen** button that opens the invite screen with
