@@ -7,10 +7,12 @@ import {
   useConnect,
   useConnections,
   useConnectionCode,
+  useConnectionLink,
   useRemoveConnection,
   useRevokeConnectionCode,
+  useRevokeConnectionLink,
 } from '../api/queries'
-import type { Connection } from '../api/types'
+import type { Connection, SentLink } from '../api/types'
 import { QrCode } from '../components/QrCode'
 import {
   Button,
@@ -80,6 +82,10 @@ export function Contacts() {
             <>
               <Section title={t('contacts.showCode')}>
                 <MyCode minutes={data.code_valid_minutes} />
+              </Section>
+
+              <Section title={t('contacts.sendLink')}>
+                <SendLink days={data.link_valid_days ?? 7} links={data.links ?? []} />
               </Section>
 
               <Section title={t('contacts.byReference')}>
@@ -358,6 +364,137 @@ function ReferenceInput({
       <p className="mt-2 text-base text-slate-700">{t('contacts.referenceHint')}</p>
     </div>
   )
+}
+
+/**
+ * The same handshake as the code, for somebody who is not in the room.
+ *
+ * A member who already has a way to reach a relative — an address, a
+ * telephone number, a chat — should not have to arrange a meeting to connect
+ * with them. So: a link they send themselves, exactly as they send an
+ * invitation. The portal never learns who it went to, which is why the list
+ * of outstanding links carries dates and no names.
+ *
+ * Two properties differ from the code on the screen, and both follow from a
+ * week in somebody else's inbox: it lasts days rather than minutes, and it
+ * works **once**. Forwarded, quoted in a reply, left in an old chat — by then
+ * it is spent, and the screen says so before it is sent rather than after.
+ */
+function SendLink({ days, links }: { days: number; links: SentLink[] }) {
+  const { t } = useTranslation()
+  const issue = useConnectionLink()
+  const revoke = useRevokeConnectionLink()
+
+  const [copied, setCopied] = useState(false)
+
+  const link = issue.data
+
+  async function copy(url: string) {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+    } catch {
+      // Some browsers refuse without a user gesture they recognise, and some
+      // refuse outright. The link is on screen and selectable either way, so
+      // there is nothing to report and nothing to fix.
+    }
+  }
+
+  return (
+    <Card>
+      <p className="text-base text-slate-700">{t('contacts.linkBody', { count: days })}</p>
+
+      {issue.isError && (
+        <div className="mt-4">
+          <ErrorNotice error={issue.error} />
+        </div>
+      )}
+
+      {link !== undefined && (
+        <div className="mt-5">
+          <label htmlFor="connection-link" className="mb-2 block text-base font-medium text-slate-900">
+            {t('contacts.linkLabel')}
+          </label>
+          <input
+            id="connection-link"
+            readOnly
+            value={link.url}
+            onFocus={(event) => event.target.select()}
+            className="min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900"
+          />
+
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Button onClick={() => void copy(link.url)}>{t('contacts.linkCopy')}</Button>
+            {typeof navigator.share === 'function' && (
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  void navigator
+                    .share({ title: t('contacts.linkShareTitle'), url: link.url })
+                    .catch(() => undefined)
+                }
+              >
+                {t('contacts.linkShare')}
+              </Button>
+            )}
+          </div>
+
+          {copied && (
+            <div className="mt-3">
+              <SuccessNote>{t('contacts.linkCopied')}</SuccessNote>
+            </div>
+          )}
+
+          <p className="mt-3 text-base text-slate-700">
+            {t('contacts.linkOnce', { count: link.valid_days })}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-5">
+        <Button variant={link === undefined ? 'primary' : 'secondary'} disabled={issue.isPending} onClick={() => {
+          setCopied(false)
+          issue.mutate()
+        }}>
+          {link === undefined ? t('contacts.linkCreate') : t('contacts.linkAnother')}
+        </Button>
+      </div>
+
+      {links.length > 0 && (
+        <div className="mt-6 border-t border-slate-200 pt-5">
+          <p className="mb-3 text-base font-medium text-slate-900">{t('contacts.linkOpen')}</p>
+          <ul className="space-y-3">
+            {links.map((sent) => (
+              <li key={sent.id} className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-base text-slate-700">
+                  {t('contacts.linkExpires', { date: formatDate(sent.expires_at) })}
+                </span>
+                <Button
+                  variant="secondary"
+                  disabled={revoke.isPending}
+                  onClick={() => void revoke.mutateAsync(sent.id).catch(() => undefined)}
+                >
+                  {t('contacts.linkWithdraw')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-base text-slate-700">{t('contacts.linkOpenHint')}</p>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * The server sends an ISO timestamp; one date is not worth a round trip, and
+ * the browser's own locale formatting is right for it. Same as on the invite
+ * screen.
+ */
+function formatDate(iso: string): string {
+  const date = new Date(iso)
+
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString()
 }
 
 /** The other way: the number printed under the name on somebody's record. */

@@ -282,6 +282,23 @@ export const en: Translations = {
     codeHidden: 'That code no longer works. You can make a new one whenever you like.',
     codeValid: 'Works for about another {{count}} minutes. After that you need a new code.',
     codeAlt: 'QR code that lets somebody connect with you',
+    sendLink: 'Send a link',
+    linkBody:
+      'If you can already reach the person — by email, messenger, text — send them a link. Whoever opens it and taps “Connect” is connected with you. The link lasts {{count}} days.',
+    linkCreate: 'Make a link',
+    linkAnother: 'Make another link',
+    linkLabel: 'Your link',
+    linkCopy: 'Copy',
+    linkCopied: 'The link is copied. Paste it into your message.',
+    linkShare: 'Share',
+    linkShareTitle: 'Connect in the family portal',
+    linkOnce:
+      'The link works exactly once and expires after {{count}} days. Send it to that one person only — anybody else who gets hold of it would be connected with you.',
+    linkOpen: 'Links you sent that nobody has used',
+    linkExpires: 'Valid until {{date}}',
+    linkWithdraw: 'Withdraw',
+    linkOpenHint:
+      'The portal does not know who you sent a link to — you did that yourself. Whoever uses one appears above as a contact.',
     byReference: 'Connect using an SB number',
     referenceBody:
       'The SB number is shown in the portal under the person’s name, for example “10/1335.21”. They receive a request and decide for themselves — even if they are not visible in the member directory.',

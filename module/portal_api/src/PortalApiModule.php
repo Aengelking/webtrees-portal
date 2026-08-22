@@ -14,6 +14,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionLinkCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionLinkDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactRead;
@@ -123,7 +125,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.1.1';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 7;
+    private const int SCHEMA_VERSION = 8;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -341,6 +343,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ConnectionDelete::class, new ConnectionDelete($connections));
         $container->set(ConnectionCodeCreate::class, new ConnectionCodeCreate($connections));
         $container->set(ConnectionCodeDelete::class, new ConnectionCodeDelete($connections));
+        $container->set(ConnectionLinkCreate::class, new ConnectionLinkCreate($connections));
+        $container->set(ConnectionLinkDelete::class, new ConnectionLinkDelete($connections));
 
         $container->set(MemberInvitationList::class, new MemberInvitationList($member_invites));
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
@@ -529,6 +533,15 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $unsafe_private]);
 
         $map->delete(ConnectionCodeDelete::class, self::ROUTE_PREFIX . '/me/connection-code', ConnectionCodeDelete::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        // The same handshake, for somebody who is not in the room. A write
+        // like the code above — it issues a credential — and CSRF-checked.
+        $map->post(ConnectionLinkCreate::class, self::ROUTE_PREFIX . '/me/connection-link', ConnectionLinkCreate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        $map->delete(ConnectionLinkDelete::class, self::ROUTE_PREFIX . '/me/connection-links/{id}', ConnectionLinkDelete::class)
+            ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $unsafe_private]);
 
         // The one route a person follows rather than the portal's client.

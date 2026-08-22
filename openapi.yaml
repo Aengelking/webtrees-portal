@@ -708,6 +708,94 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /me/connection-link:
+    post:
+      tags: [members]
+      summary: A link to send to somebody who is not in the room
+      description: |
+        The same handshake as the code on the screen — whoever follows it and
+        taps is connected, with no confirmation asked — with the two
+        differences that a week in somebody else's inbox makes: it lasts
+        `LINK_DAYS` (seven) rather than minutes, and **it works once**. A link
+        that has been forwarded, quoted in a reply or left in an old chat is a
+        link that has already been spent.
+
+        The link is in this response and nowhere else; the module stores only
+        a hash. Losing it means withdrawing it and making another. A member
+        may have a handful outstanding at a time, one per person written to.
+
+        Needs the module's portal address, because the link is a link into the
+        portal.
+      operationId: createConnectionLink
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      responses:
+        '201':
+          description: The link to send, and when it stops working.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionLink'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: |
+            `quota_reached` — as many unused links outstanding as one member
+            may have at once.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: '`not_configured` — the module has no portal address.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /me/connection-links/{id}:
+    delete:
+      tags: [members]
+      summary: Take back a link nobody has used
+      description: |
+        For the message sent to the wrong address. The row is deleted rather
+        than marked spent, so nothing is left that could be redeemed.
+
+        Somebody else's link, and one already used, are both `404`: a member
+        has no business learning which, and a link that was used is no longer
+        a link — it is a connection, ended with
+        `DELETE /connections/{id}`.
+      operationId: revokeConnectionLink
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: The member's lists as they now stand.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /me/contact:
     get:
       tags: [members]
@@ -2878,6 +2966,16 @@ components:
         code_valid_minutes:
           type: integer
           description: How long a connection code lasts, so the screen can say so.
+        link_valid_days:
+          type: integer
+          description: |
+            The same, for a link that is sent rather than shown. Optional: the
+            module and the portal deploy separately.
+        links:
+          type: array
+          description: Links this member sent that nobody has used yet.
+          items:
+            $ref: '#/components/schemas/SentLink'
         connections:
           type: array
           description: People this member is in touch with, by display name.
@@ -2907,6 +3005,40 @@ components:
             name:
               type: [string, 'null']
               description: The other member, so the screen can say who.
+
+    ConnectionLink:
+      type: object
+      additionalProperties: false
+      required: [url, expires_at, valid_days]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: |
+            The link to send. It opens the portal's `/connect` screen, the
+            same one a scanned QR code opens.
+        expires_at:
+          type: string
+          format: date-time
+        valid_days:
+          type: integer
+
+    SentLink:
+      type: object
+      additionalProperties: false
+      required: [id, created_at, expires_at]
+      description: |
+        One link the member sent and nobody has used yet. No name against it:
+        they wrote to somebody themselves, and the portal never learned who.
+      properties:
+        id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
 
     ConnectionCode:
       type: object

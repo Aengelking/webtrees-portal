@@ -59,7 +59,8 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `POST /members/{id}/message`, `GET /messages`,
 `PATCH|DELETE /messages/{id}`, `POST /messages/{id}/reply`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
-`POST|DELETE /me/connection-code`, `GET /health`.
+`POST|DELETE /me/connection-code`, `POST /me/connection-link`,
+`DELETE /me/connection-links/{id}`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Contacts (with the directory
@@ -403,6 +404,24 @@ Three things about the code:
   *Neuen Code erzeugen* stops the previous one working, and *Code ungültig
   machen* stops the current one at once. Neither touches connections already
   made.
+
+*A link, for somebody you can already reach.* A member who has an address, a
+telephone number or a chat with a relative should not have to arrange a
+meeting to connect with them: **Link erzeugen** hands them one to paste into
+whatever they were going to write anyway, and whoever opens it and taps is
+connected. The portal never learns who it went to — the member sent it
+themselves, exactly as they send an invitation.
+
+Two things differ from the code on the screen, and both follow from a week in
+somebody else's inbox:
+
+* **It lasts seven days**, because a message sent on Tuesday is read on
+  Thursday.
+* **It works once.** Forwarded, quoted in a reply, left in an old chat that a
+  new telephone still syncs — by then it is spent. The screen says so above
+  the link rather than after the fact, and the links a member sent and nobody
+  used are listed underneath with the date they run out, each with
+  *Zurückziehen*. No names against them: the portal does not know.
 
 *The SB number, for everybody else.* "Meine Nummer ist 10/1335.21" is a thing
 that can be said over the telephone or written in a Christmas card. The member
@@ -1467,7 +1486,10 @@ address rather than the bare record one.
 connects both members at once and appears on both lists; the raw code is in no
 column of `portal_connection_code`; asking for a new code, withdrawing one and
 letting one expire each stop it working, and all three are refused
-identically; scanning the same code twice is not an error; an SB number
+identically; scanning the same code twice is not an error; a link that was
+sent works once and the second person to follow it is told so, lasts a week,
+can be withdrawn while it is unused, and cannot be withdrawn by anybody else;
+an SB number
 *asks* rather than connects, and a request that crosses one coming the other
 way is treated as the answer to it; the family's "SB" prefix finds a record
 stored without a `TYPE` of its own while a prefix the record contradicts finds

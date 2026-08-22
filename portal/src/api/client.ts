@@ -10,6 +10,7 @@ import type {
   ApiErrorBody,
   ApiErrorCode,
   ConnectionCode,
+  ConnectionLink,
   ConnectionOverview,
   ConnectionRequest,
   ConnectionResult,
@@ -401,6 +402,15 @@ export const api = {
 
   revokeConnectionCode(): Promise<{ status: string }> {
     return request<{ status: string }>('/me/connection-code', { method: 'DELETE' })
+  },
+
+  /** A new link every time: the server keeps a hash and cannot repeat one. */
+  createConnectionLink(): Promise<ConnectionLink> {
+    return request<ConnectionLink>('/me/connection-link', { method: 'POST' })
+  },
+
+  revokeConnectionLink(id: number): Promise<ConnectionOverview> {
+    return request<ConnectionOverview>(`/me/connection-links/${id}`, { method: 'DELETE' })
   },
 
   /** What I share, and with whom. Mine only — the audience does not apply to me. */

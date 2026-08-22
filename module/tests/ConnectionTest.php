@@ -8,6 +8,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionDelete;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionLinkCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionLinkDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ContactRead;
@@ -275,6 +277,180 @@ class ConnectionTest extends PortalTestCase
 
         self::assertSame(StatusCodeInterface::STATUS_SERVICE_UNAVAILABLE, $response->getStatusCode());
         self::assertSame('not_configured', $this->json($response)['error']);
+    }
+
+    // -----------------------------------------------------------------
+    // The link: for somebody who is not in the room
+    // -----------------------------------------------------------------
+
+    /** Issue a link as somebody else, and hand back the token in it. */
+    private function linkOf(User $owner, User|null $back = null): string
+    {
+        $this->login($owner);
+
+        $url = $this->json($this->api(
+            ConnectionLinkCreate::class,
+            RequestMethodInterface::METHOD_POST,
+            headers: $this->csrfHeader(),
+        ))['url'];
+
+        $this->login($back ?? $this->anna);
+
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+
+        return (string) ($query['code'] ?? '');
+    }
+
+    public function testASentLinkConnectsBothAtOnce(): void
+    {
+        $result = $this->json($this->connect(['code' => $this->linkOf($this->dieter)]));
+
+        self::assertSame('connected', $result['status']);
+        self::assertSame('Dieter Beispiel', $result['name']);
+        self::assertCount(1, $result['connections']);
+    }
+
+    /**
+     * The difference that matters between a link and the code on the screen.
+     * A link travels through somebody else's inbox and out the far side —
+     * forwarded, quoted in a reply, left in a chat a new telephone still
+     * syncs — so the second person to follow it finds it spent.
+     */
+    public function testASentLinkWorksOnce(): void
+    {
+        $token = $this->linkOf($this->dieter);
+
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->connect(['code' => $token])->getStatusCode());
+
+        $this->login($this->fritz);
+
+        $response = $this->connect(['code' => $token]);
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $response->getStatusCode());
+        self::assertSame('invalid_token', $this->json($response)['error']);
+    }
+
+    public function testTheLinkIsStoredOnlyAsAHash(): void
+    {
+        $token = $this->linkOf($this->dieter);
+
+        $row = DB::table(Connections::LINK_TABLE)->where('wt_user_id', '=', $this->dieter->id())->first();
+
+        self::assertNotNull($row);
+        self::assertSame(hash('sha256', $token), $row->token_hash);
+    }
+
+    public function testALinkLastsAWeekAndThenStops(): void
+    {
+        $token = $this->linkOf($this->dieter);
+
+        $row = DB::table(Connections::LINK_TABLE)->where('wt_user_id', '=', $this->dieter->id())->first();
+
+        self::assertEqualsWithDelta(time() + Connections::LINK_DAYS * 86400, (int) $row->expires_at, 5);
+
+        DB::table(Connections::LINK_TABLE)->where('id', '=', $row->id)->update(['expires_at' => time() - 1]);
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $this->connect(['code' => $token])->getStatusCode());
+    }
+
+    /** Several at a time, one per person written to. */
+    public function testAMemberMayHaveSeveralLinksOutstanding(): void
+    {
+        $this->api(ConnectionLinkCreate::class, RequestMethodInterface::METHOD_POST, headers: $this->csrfHeader());
+        $this->api(ConnectionLinkCreate::class, RequestMethodInterface::METHOD_POST, headers: $this->csrfHeader());
+
+        $links = $this->connections()['links'];
+
+        self::assertCount(2, $links);
+        self::assertArrayHasKey('expires_at', $links[0]);
+    }
+
+    public function testAWithdrawnLinkStopsWorking(): void
+    {
+        $token = $this->linkOf($this->dieter, $this->dieter);
+
+        $id = $this->connections()['links'][0]['id'];
+
+        $result = $this->json($this->api(
+            ConnectionLinkDelete::class,
+            RequestMethodInterface::METHOD_DELETE,
+            attributes: ['id' => $id],
+            headers: $this->csrfHeader(),
+        ));
+
+        self::assertSame([], $result['links']);
+
+        $this->login($this->anna);
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $this->connect(['code' => $token])->getStatusCode());
+    }
+
+    public function testSomebodyElsesLinkCannotBeWithdrawn(): void
+    {
+        $this->linkOf($this->dieter);
+
+        $id = (int) DB::table(Connections::LINK_TABLE)->where('wt_user_id', '=', $this->dieter->id())->value('id');
+
+        $response = $this->api(
+            ConnectionLinkDelete::class,
+            RequestMethodInterface::METHOD_DELETE,
+            attributes: ['id' => $id],
+            headers: $this->csrfHeader(),
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_NOT_FOUND, $response->getStatusCode());
+    }
+
+    public function testAMemberCannotFollowTheirOwnLink(): void
+    {
+        $token = $this->linkOf($this->anna, $this->anna);
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $this->connect(['code' => $token])->getStatusCode());
+    }
+
+    /**
+     * The point of the whole thing: the person at the other end never opened
+     * the settings screen, so they are in nobody's directory.
+     */
+    public function testALinkReachesSomebodyWhoIsInNoDirectory(): void
+    {
+        $result = $this->json($this->connect(['code' => $this->linkOf($this->fritz)]));
+
+        self::assertSame('connected', $result['status']);
+        self::assertSame('Fritz Beispiel', $result['name']);
+    }
+
+    public function testThereIsALimitOnUnusedLinks(): void
+    {
+        for ($i = 0; $i < Connections::MAX_OPEN_LINKS; $i++) {
+            self::assertSame(
+                StatusCodeInterface::STATUS_CREATED,
+                $this->api(ConnectionLinkCreate::class, RequestMethodInterface::METHOD_POST, headers: $this->csrfHeader())->getStatusCode()
+            );
+        }
+
+        $response = $this->api(ConnectionLinkCreate::class, RequestMethodInterface::METHOD_POST, headers: $this->csrfHeader());
+
+        self::assertSame(StatusCodeInterface::STATUS_CONFLICT, $response->getStatusCode());
+        self::assertSame('quota_reached', $this->json($response)['error']);
+    }
+
+    public function testALinkIsRefusedWhenThePortalAddressIsNotSet(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_PORTAL_URL, '');
+
+        $response = $this->api(ConnectionLinkCreate::class, RequestMethodInterface::METHOD_POST, headers: $this->csrfHeader());
+
+        self::assertSame(StatusCodeInterface::STATUS_SERVICE_UNAVAILABLE, $response->getStatusCode());
+    }
+
+    public function testSwitchingConnectionsOffRefusesLinks(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_CONNECTIONS, '0');
+
+        $response = $this->api(ConnectionLinkCreate::class, RequestMethodInterface::METHOD_POST, headers: $this->csrfHeader());
+
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $response->getStatusCode());
     }
 
     // -----------------------------------------------------------------

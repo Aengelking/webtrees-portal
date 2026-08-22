@@ -32,6 +32,7 @@ use ReflectionProperty;
 
 use function json_decode;
 use function json_encode;
+use function preg_replace;
 use function time;
 
 use const JSON_THROW_ON_ERROR;
@@ -247,6 +248,23 @@ abstract class PortalTestCase extends TestCase
         $response->getBody()->rewind();
 
         return $response->getBody()->getContents();
+    }
+
+    /**
+     * The whole response as a string, minus the CSRF token.
+     *
+     * `raw()` exists so that a test can assert an XREF appears *nowhere* —
+     * including places a structured assertion would miss. The token is thirty
+     * random characters in the middle of that string, so roughly one run in a
+     * hundred contains "X3" or any other two-character needle by chance, and
+     * the test that fails is never the one that is broken.
+     *
+     * It is a credential rather than payload, so removing it takes nothing
+     * away from what these assertions are for.
+     */
+    protected function rawWithoutCsrfToken(ResponseInterface $response): string
+    {
+        return (string) preg_replace('/"csrf_token":"[^"]*"/', '"csrf_token":""', $this->raw($response));
     }
 
     protected function csrfHeader(): array
