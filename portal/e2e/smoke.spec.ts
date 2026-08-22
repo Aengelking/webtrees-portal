@@ -498,4 +498,36 @@ test.describe('phase 12', () => {
     // And the one it answers is still there — this is a transcript, not an inbox.
     await expect(page.getByText('Hast du die Fotos von Oma gesehen?')).toBeVisible()
   })
+
+  /**
+   * The same thing started from the screen a member is actually standing on.
+   * Until this existed, writing to your sister began with remembering that the
+   * way in was on her page — three taps and a piece of knowledge nobody has.
+   */
+  test('a conversation is started from the messages screen', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture members.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/messages')
+    await page.getByRole('link', { name: 'Neues Gespräch' }).click()
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Neues Gespräch' })).toBeVisible()
+    await page.getByRole('button', { name: 'Dieter Beispiel' }).click()
+
+    await expect(page).toHaveURL(/\/conversations\/3$/)
+    await page.getByLabel('Ihre Nachricht').fill('Sehen wir uns Sonntag?')
+    await page.getByRole('button', { name: 'Senden' }).click()
+
+    await expect(page.getByText('Sehen wir uns Sonntag?')).toBeVisible()
+
+    // The picker was a step on the way, not a screen to come back to: Back
+    // from the conversation is where the member started.
+    await page.goBack()
+    await expect(page.getByRole('heading', { level: 1, name: 'Nachrichten' })).toBeVisible()
+  })
 })

@@ -2208,6 +2208,47 @@ an explanation of where its own switch is instead of a button that would do
 nothing — §2.33's rule, applied on purpose this time rather than after somebody
 reported it.
 
+
+### 2.37 The way in, rather than a sentence about where the way in is
+
+§2.33 records a mistake made twice — rendering nothing where a member could
+have done something — and the fix applied to the empty conversation list: a box
+saying that a conversation starts on the other person's page. That was true and
+it was still one screen short. **Knowing where the way in is, is not the same
+as being able to take it.** A member standing on *Nachrichten* wanting to write
+to their sister had to leave the screen, remember the directory exists, find
+her, and press a button there — four steps, the first of which is a piece of
+knowledge nobody has.
+
+So the heading carries a button, and it carries it at all times rather than
+only while the list is empty: writing to somebody is not a thing a member does
+once, and a control that disappears after the first use is a control that has
+to be re-discovered.
+
+**Contacts, because that is the list a member thinks in.** They are also not
+the whole set of people who may be written to — anybody listed in the directory
+may be, and that rule is `MemberMessages::send()`'s, not this screen's. Rather
+than quietly narrowing it, the picker offers the directory underneath. Nothing
+about who may write to whom changed here; this is a second door to `POST
+/conversations`, which already existed and already knew the rules.
+
+**Two omissions worth naming.** A contact whose request has not been answered
+yet has no profile row, so there is nothing to open — their name is left out
+rather than shown as a button that fails, which is the same principle as the
+blocked-notification case in §2.36. And a member with no contacts at all is
+sent to the contacts screen, not left looking at an empty list: the screen
+after this one has to be somewhere.
+
+**The search appears above eight names.** A search box over four is furniture;
+over thirty it is the screen. The threshold is the entire logic, so both sides
+of it are tested — a family where everybody knows everybody will never see it,
+and one where a member has forty contacts will not scroll.
+
+**Back is the messages screen, not the picker.** The navigation is a replace:
+this list was a step on the way to a conversation, and a member who has arrived
+in the conversation is finished with it. Pushing it would put a screen nobody
+wants to return to between them and where they started.
+
 ---
 
 ## 3. Things that were guessed

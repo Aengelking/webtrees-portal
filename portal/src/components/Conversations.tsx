@@ -12,14 +12,14 @@ import { ErrorNotice, Loading, Notice } from './ui'
  * that continues; the inbox below holds what arrives from elsewhere — webtrees'
  * contact form, an administrator's broadcast — and is read once.
  *
- * While there are none, it says so and points at the way in — which is *not*
- * obvious, because the way in is on the other person's page. The first version
- * rendered nothing at all here, on the argument that a member who has never
- * written to anybody should not be shown a box explaining a feature. That was
- * the same mistake as the install offer on Android: silence is right for
- * something impossible and wrong for something merely not started yet. It was
- * reported within a day of shipping — "I only see Sonstige Nachrichten" — by
- * somebody looking for exactly this.
+ * **The way in is here**, next to the heading, and it is a button rather than
+ * a sentence about where to look. The first version rendered nothing at all
+ * while a member had none, which was reported within a day — "I only see
+ * Sonstige Nachrichten" — and was fixed with an empty state explaining that a
+ * conversation starts on the other person's page. That was still one screen
+ * short: knowing where the way in is, is not the same as being able to take
+ * it. So the heading carries the button, at all times and not only while the
+ * list is empty, because "write to somebody" is not a thing a member does once.
  */
 export function Conversations() {
   const { t, i18n } = useTranslation()
@@ -39,7 +39,16 @@ export function Conversations() {
 
   return (
     <section className="mt-6">
-      <h2 className="text-lg font-semibold text-slate-900">{t('conversation.listTitle')}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-slate-900">{t('conversation.listTitle')}</h2>
+
+        <Link
+          to="/conversations/new"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-800 px-5 py-3 text-base font-semibold text-white hover:bg-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+        >
+          {t('conversation.start')}
+        </Link>
+      </div>
 
       {data.conversations.length === 0 && (
         <div className="mt-3">
@@ -48,7 +57,7 @@ export function Conversations() {
             body={t('conversation.noneBody')}
             action={
               <Link
-                to="/members"
+                to="/conversations/new"
                 className="inline-flex min-h-[44px] items-center rounded-lg bg-sky-800 px-5 py-3 text-base font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
               >
                 {t('conversation.noneAction')}

@@ -287,10 +287,13 @@ both halves on one screen, no subject line. It sits at the top of
 holds everything arriving from elsewhere — webtrees' own contact form, an
 administrator's broadcast.
 
-The way in is on the other person's page: **Nachricht schreiben** opens the
-conversation and goes to it. Until a member has one, the Gespräche section
-says so and points at their contacts — the way in is not somewhere anybody
-would guess from this screen.
+**Starting one** is a button next to the Gespräche heading, **Neues Gespräch**:
+it lists the member's contacts, and tapping a name opens the conversation and
+goes to it. Contacts are not everybody who may be written to — anybody listed
+in the directory may be — so that screen also points at the directory, and the
+other person's page still has **Nachricht schreiben**, which does the same
+thing from the other end. Opening is idempotent: picking somebody a member
+already talks to lands in the conversation that exists.
 
 **Why there are two lists.** webtrees' `message` table keeps one row per
 message, owned by whoever received it. Nothing is stored for the sender — so a
@@ -1525,7 +1528,13 @@ database; clearing a conversation does not end it for the other side, and a new
 message brings it back; the daily limit and the family's off switch apply. On
 the client: both halves are told apart, what was typed is given back when
 sending fails, and the sentence about whose copy a deletion removes is on
-screen before the button.
+screen before the button. Starting one from the messages screen picks the
+contact who was tapped and lands in their conversation; a contact with no
+member page yet is left out rather than offered as a button that fails; a
+member with no contacts is sent to the contacts screen rather than a dead end;
+a refusal from the server is shown rather than swallowed; and in a real
+browser the whole path — messages, pick a name, write, and Back — ends where
+it started.
 
 **Notifications** (`module/tests/PushTest.php`,
 `portal/src/Notifications.test.tsx`) — the columns a payload would need do not

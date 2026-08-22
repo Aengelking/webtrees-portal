@@ -16,6 +16,7 @@ import { MemberDetail } from './routes/MemberDetail'
 import { Ancestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
 import { Conversation } from './routes/Conversation'
+import { NewConversation } from './routes/NewConversation'
 import { Messages } from './routes/Messages'
 import { PersonDetail } from './routes/PersonDetail'
 import { MyProfile } from './routes/MyProfile'
@@ -79,6 +80,8 @@ export function App() {
           */}
           <Route path="/connect" element={<Connect />} />
           <Route path="/messages" element={<Messages />} />
+          {/* Static before dynamic, so that "new" is a screen and not an id. */}
+          <Route path="/conversations/new" element={<NewConversation />} />
           <Route path="/conversations/:id" element={<Conversation />} />
           <Route path="/members/:id" element={<MemberDetail />} />
           <Route path="/settings" element={<Settings />} />
