@@ -36,7 +36,14 @@ const ANNA = {
   death: null,
   events: [],
   parents: [
-    { xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
+    {
+      xref: 'X2',
+      name: 'Bertha Beispiel',
+      sex: 'F',
+      is_deceased: true,
+      lifespan: '1889–1976',
+      references: [{ number: '4712', type: 'SB' }],
+    },
   ],
   siblings: [],
   spouses: [],
@@ -212,5 +219,35 @@ describe('the ancestors view', () => {
     const asked = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
 
     expect(asked.some((url) => url.includes('/ancestors') && url.includes('generations=4'))).toBe(true)
+  })
+})
+
+/**
+ * The archive's number on the card, not only on the record.
+ *
+ * This family has more than one Dieter Beispiel and tells them apart by it, so
+ * a card that leaves it out is a card that has to be opened to be sure. The
+ * module sends it with every mention of a person; the same facts at the same
+ * access level, so nothing is disclosed that the record one tap away did not
+ * already show.
+ */
+describe('the reference number on a card', () => {
+  it('is under the name of a relative, beside the years', async () => {
+    stub()
+    renderAt('/me')
+
+    const card = await screen.findByRole('link', { name: /Bertha Beispiel/ })
+
+    expect(card.textContent).toContain('SB 4712')
+    expect(card.textContent).toContain('1889–1976')
+  })
+
+  /** A record with no number shows no empty line where one would be. */
+  it('is simply absent where a person has none', async () => {
+    stub()
+    renderAt('/individuals/X2')
+
+    expect(await screen.findByRole('heading', { name: 'Bertha Beispiel' })).toBeDefined()
+    expect(screen.queryByText(/SB 4712/)).toBeNull()
   })
 })

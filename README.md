@@ -81,6 +81,12 @@ member adds and removes their own under *Mein Profil*, and what they upload is
 re-encoded on the way in, so the coordinates a phone writes into every picture
 never travel with it.
 
+Every card that names a person — a relative, a directory row, a contact —
+carries the archive's reference number under the name, beside the years,
+because this family tells two people of the same name apart by it. It is the
+same list the full record shows, filtered the same way: a confidential number
+appears on neither.
+
 The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
 member is related to it. Drawn charts (fan, descendancy) are still webtrees'

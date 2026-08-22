@@ -2722,6 +2722,31 @@ things about it are worth keeping:
 own record the day this shipped is owed the reason in words, on the screen
 where they can put it back — not left to guess that it was a bug.
 
+
+### 2.51 The number belongs on the card, not one tap further in
+
+The reference number was on the full record and nowhere else, so every card in
+the portal showed a name and years and left the reader to open it to find out
+*which* Dieter Beispiel this was. In a family with more than one of several
+names, that is the question the card exists to answer.
+
+So `individualRef` carries `references` now — the same list, from the same
+facts, at the same access level the full record uses. **Nothing new is
+disclosed by it**: a confidential `REFN` is filtered out of the short shape
+exactly as it is out of the long one, which is what the second new test in
+`PrivacyTest` pins. What changes is how far a reader has to go to see what was
+already theirs to see.
+
+Formatting moved to one place while doing it. Four cards each joining
+`type` and `number` their own way would be four subtly different numbers as far
+as a reader is concerned; `referenceLabel()` is the one answer, and it puts the
+type in front — "SB 4714" is how the family says it, not a bare 4714.
+
+The years and the number share one line and one element, so a person with only
+one of them does not leave a blank line where the other would be. Small, and
+the sort of thing that looks like a rendering bug when it happens on every
+second card.
+
 ---
 
 ## 3. Things that were guessed

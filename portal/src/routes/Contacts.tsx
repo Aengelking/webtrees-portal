@@ -14,6 +14,7 @@ import {
 } from '../api/queries'
 import type { Connection, SentLink } from '../api/types'
 import { QrCode } from '../components/QrCode'
+import { referenceLabel } from '../components/reference'
 import { ShareLink } from '../components/ShareLink'
 import {
   Button,
@@ -737,7 +738,9 @@ function ContactCard({ connection }: { connection: Connection }) {
   const detail =
     connection.individual === null
       ? t('contacts.noRecord')
-      : [connection.individual.name, lifespan].filter((part) => part !== null && part !== '').join(' · ')
+      : [connection.individual.name, lifespan, referenceLabel(connection.individual.references)]
+          .filter((part) => part !== null && part !== '')
+          .join(' · ')
 
   // Nobody to open: a contact whose request has not been answered has no
   // profile row yet. A card that is not a link must not look like one.

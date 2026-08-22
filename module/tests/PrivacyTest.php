@@ -264,6 +264,53 @@ class PrivacyTest extends PortalTestCase
     }
 
     /**
+     * The number travels with every *mention* of a person, not only with the
+     * full record: this family has more than one Dieter Beispiel, and a card
+     * that does not say which is a card that has to be opened to be sure.
+     *
+     * It is the same list, from the same facts at the same access level, so a
+     * card discloses nothing the record one tap away did not.
+     */
+    public function testTheReferenceNumberTravelsWithEveryMention(): void
+    {
+        $this->login($this->member);
+
+        $mother = $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X2']));
+        $child  = null;
+
+        foreach ($mother['children'] as $candidate) {
+            if ($candidate['xref'] === 'X1') {
+                $child = $candidate;
+            }
+        }
+
+        self::assertNotNull($child, 'Anna is one of her mother’s children.');
+        self::assertSame([['number' => '4711', 'type' => 'SB']], $child['references']);
+    }
+
+    /** And the filtering follows it there. A confidential number is on neither shape. */
+    public function testAConfidentialReferenceNumberIsNotOnACardEither(): void
+    {
+        $this->login($this->member);
+
+        $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X1']);
+
+        foreach ($this->json($response)['parents'] as $parent) {
+            if ($parent['xref'] === 'X2') {
+                self::assertSame(
+                    [
+                        ['number' => '4712', 'type' => null],
+                        ['number' => '47C12', 'type' => null],
+                    ],
+                    $parent['references'],
+                );
+            }
+        }
+
+        self::assertStringNotContainsString('9999', $this->raw($response));
+    }
+
+    /**
      * And it is filtered like everything else. X2 has three: two plain ones —
      * one of which carries a letter, because the family's numbers do — and a
      * confidential one.
