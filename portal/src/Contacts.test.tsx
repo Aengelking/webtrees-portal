@@ -115,6 +115,18 @@ function stub(overrides: Partial<ConnectionOverview> = {}) {
   return fetchMock
 }
 
+/**
+ * The half of the screen the ways of connecting live on.
+ *
+ * The address book and the ways of adding to it are two tabs now, and the
+ * tests that are about a QR code, a link or a number belong on the second
+ * one. They ask for it in the address bar rather than by tapping, so that
+ * what each test is about stays the first thing it does.
+ */
+function renderNewTab() {
+  return renderAt('/contacts?tab=new')
+}
+
 function renderAt(path = '/contacts') {
   return render(
     <QueryClientProvider
@@ -146,9 +158,9 @@ describe('my contacts', () => {
    */
   it('issues no code until the member asks for one', async () => {
     const fetchMock = stub()
-    renderAt()
+    renderNewTab()
 
-    await screen.findByRole('link', { name: 'Dieter Beispiel' })
+    await screen.findByRole('button', { name: 'Code anzeigen' })
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('connection-code'))).toBe(false)
 
@@ -165,7 +177,7 @@ describe('my contacts', () => {
    */
   it('draws the link the server issued, and says how long it lasts', async () => {
     stub()
-    const { container } = renderAt()
+    const { container } = renderNewTab()
 
     await screen.findByRole('button', { name: 'Code anzeigen' })
     await userEvent.click(screen.getByRole('button', { name: 'Code anzeigen' }))
@@ -208,7 +220,7 @@ describe('my contacts', () => {
     })
 
     vi.stubGlobal('fetch', fetchMock)
-    renderAt()
+    renderNewTab()
 
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('connection-link'))).toBe(false)
 
@@ -253,7 +265,7 @@ describe('my contacts', () => {
     })
 
     vi.stubGlobal('fetch', fetchMock)
-    renderAt()
+    renderNewTab()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Zurückziehen' }))
 
@@ -268,7 +280,7 @@ describe('my contacts', () => {
 
   it('can put the code away again', async () => {
     const fetchMock = stub()
-    renderAt()
+    renderNewTab()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Code anzeigen' }))
     await screen.findByRole('img', { name: /QR-Code/ })
@@ -293,7 +305,7 @@ describe('my contacts', () => {
    */
   it('composes the branch and the number into one SB number', async () => {
     const fetchMock = stub()
-    renderAt()
+    renderNewTab()
 
     await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
     await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
@@ -322,7 +334,7 @@ describe('my contacts', () => {
    */
   it('will not send a number that has no branch', async () => {
     stub()
-    renderAt()
+    renderNewTab()
 
     await userEvent.type(await screen.findByLabelText('Nummer'), '1335.21')
 
@@ -336,7 +348,7 @@ describe('my contacts', () => {
    */
   it('sends a number typed whole, without touching the wheel', async () => {
     const fetchMock = stub()
-    renderAt()
+    renderNewTab()
 
     await userEvent.type(await screen.findByLabelText('Nummer'), '35/1335.21')
     await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
@@ -357,7 +369,7 @@ describe('my contacts', () => {
    */
   it('sends a number with a marker on its end untouched', async () => {
     const fetchMock = stub()
-    renderAt()
+    renderNewTab()
 
     await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
     await userEvent.type(screen.getByLabelText('Nummer'), '1335.21!')
@@ -409,7 +421,7 @@ describe('my contacts', () => {
     })
 
     vi.stubGlobal('fetch', fetchMock)
-    renderAt()
+    renderNewTab()
 
     await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
     await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
@@ -463,12 +475,110 @@ describe('my contacts', () => {
 
   it('says so when the family has switched connections off', async () => {
     stub({ enabled: false })
-    renderAt()
+    renderNewTab()
 
     expect(await screen.findByText('Verbindungen sind ausgeschaltet')).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Code anzeigen' })).toBeNull()
+
     // The list stays: a member must still be able to end what they agreed to.
+    await userEvent.click(screen.getByRole('tab', { name: 'Kontakte' }))
+
     expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+  })
+
+  /**
+   * The address book and the ways of adding to it are two tabs, because the
+   * one a member comes back to had four cards of machinery stacked on top of
+   * it.
+   *
+   * The tab that opens is the address book, and a request waiting for an
+   * answer is at the top of it: it is a thing asked of you.
+   */
+  it('opens on the contacts, with the waiting request above them', async () => {
+    stub()
+    renderAt()
+
+    expect(await screen.findByRole('tab', { name: 'Kontakte' })).toHaveProperty(
+      'ariaSelected',
+      'true',
+    )
+
+    expect(screen.getByText('Karla Beispiel')).toBeDefined()
+    expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+
+    // And the machinery is not on this half at all — not merely out of sight.
+    expect(screen.queryByRole('button', { name: 'Code anzeigen' })).toBeNull()
+  })
+
+  /**
+   * A member with an empty address book is put on the tab that fills it. The
+   * empty half is not what they came for.
+   */
+  it('opens on the second tab while there is nothing to show on the first', async () => {
+    stub({ connections: [], incoming: [], outgoing: [] })
+    renderAt()
+
+    expect(await screen.findByRole('tab', { name: 'Neu verbinden' })).toHaveProperty(
+      'ariaSelected',
+      'true',
+    )
+
+    expect(screen.getByRole('button', { name: 'Code anzeigen' })).toBeDefined()
+  })
+
+  /**
+   * Which tab is open is in the address bar, so a refresh, the Back button
+   * and a link all keep it — and it outranks the default, which is the whole
+   * reason for putting it there.
+   */
+  it('takes the open tab from the address bar', async () => {
+    stub()
+    renderNewTab()
+
+    expect(await screen.findByRole('tab', { name: 'Neu verbinden' })).toHaveProperty(
+      'ariaSelected',
+      'true',
+    )
+
+    // One panel on screen, named by its tab.
+    const panel = screen.getByRole('tabpanel')
+
+    expect(panel).toHaveProperty('id', 'contacts-panel-new')
+    expect(panel.getAttribute('aria-labelledby')).toBe('contacts-tab-new')
+
+    // And tapping the other one shows the other half.
+    await userEvent.click(screen.getByRole('tab', { name: 'Kontakte' }))
+
+    expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Code anzeigen' })).toBeNull()
+  })
+
+  /**
+   * `role="tab"` promises a screen reader that the arrow keys move between
+   * them, so they do — and only the chosen tab is in the tab order, which is
+   * what makes Tab land in the panel rather than on the other tab.
+   */
+  it('moves between the tabs with the arrow keys', async () => {
+    stub()
+    renderAt()
+
+    const mine = await screen.findByRole('tab', { name: 'Kontakte' })
+
+    expect(screen.getByRole('tab', { name: 'Neu verbinden' })).toHaveProperty('tabIndex', -1)
+
+    mine.focus()
+    await userEvent.keyboard('{ArrowRight}')
+
+    expect(screen.getByRole('tab', { name: 'Neu verbinden' })).toHaveProperty(
+      'ariaSelected',
+      'true',
+    )
+    expect(screen.getByRole('button', { name: 'Code anzeigen' })).toBeDefined()
+
+    await userEvent.keyboard('{ArrowRight}')
+
+    // Two tabs, and the wheel comes round rather than stopping.
+    expect(screen.getByRole('tab', { name: 'Kontakte' })).toHaveProperty('ariaSelected', 'true')
   })
 
   it('counts the waiting requests on the navigation bar', async () => {

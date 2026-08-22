@@ -270,6 +270,9 @@ export const en: Translations = {
   },
   contacts: {
     title: 'My contacts',
+    tabs: 'Contacts and new connections',
+    tabMine: 'Contacts',
+    tabNew: 'Add someone',
     intro:
       'The people you have connected with. A connection is always made by two, and you can end it at any time.',
     find: 'Find somebody in the portal',

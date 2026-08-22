@@ -271,6 +271,9 @@ export const de = {
   },
   contacts: {
     title: 'Meine Kontakte',
+    tabs: 'Kontakte und neue Verbindungen',
+    tabMine: 'Kontakte',
+    tabNew: 'Neu verbinden',
     intro:
       'Hier stehen die Menschen, mit denen Sie sich verbunden haben. Eine Verbindung entsteht immer zu zweit — und Sie können sie jederzeit wieder lösen.',
     find: 'Jemanden im Portal suchen',
