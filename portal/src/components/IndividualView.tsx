@@ -72,9 +72,14 @@ function RelativeList({ title, people }: { title: string; people: IndividualRef[
             >
               <Portrait person={person} />
               <span className="min-w-0">
-                <span className="block text-base font-medium text-sky-900 underline underline-offset-4">
-                  {person.name}
-                </span>
+                {/*
+                  Not underlined. The whole card has been the link since the
+                  tree was first walkable, and underlining the name inside it
+                  says the opposite — that the word is the target and the rest
+                  of the row is decoration. It reads as a name in a row you can
+                  tap, which is what it is.
+                */}
+                <span className="block text-base font-medium text-slate-900">{person.name}</span>
                 {person.lifespan !== null && (
                   <span className="mt-1 block text-base text-slate-700">{person.lifespan}</span>
                 )}

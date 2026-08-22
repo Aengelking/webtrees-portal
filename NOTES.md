@@ -2514,6 +2514,30 @@ Where a member is looking after pressing a button is at the button. The e2e
 test asserts `toBeInViewport()` rather than mere visibility, because "in the
 document" was true the whole time it was wrong.
 
+
+### 2.45 The card is the target, not the name in it
+
+Two screens named in one report — Kontakte and Mein Profil — and they turned
+out to be two different faults with the same appearance.
+
+**Kontakte was really a name-sized link.** One card per contact, and only the
+name inside it navigated. On a phone that is a thumb-sized miss in a
+card-sized row, and it is inconsistent with every other list in the portal:
+relatives, conversations and directory rows have all been whole-card links
+since the tree was first walkable. The card is now the link. Nothing
+interactive sits inside it — ending a connection is asked for on the member's
+own page, §2.x's reason — so there is nothing a link may not contain.
+
+**Mein Profil already was one, and looked like it was not.** The relative rows
+have always been whole-card links; the name inside them was underlined, which
+says the opposite — that the word is the target and the rest of the row is
+decoration. The underline is gone. What is left is a name in a row you can
+tap, which is what it is.
+
+Worth keeping as a rule: **underline a link inside a card only when the card is
+not one.** A contact who has no profile row yet is exactly that case — nothing
+to open, so the card stays a card, and it does not pretend otherwise.
+
 ---
 
 ## 3. Things that were guessed
