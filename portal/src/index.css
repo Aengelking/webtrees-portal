@@ -18,6 +18,13 @@ body {
   line-height: 1.6;
 }
 
+/*
+ * "Roomy enough for the desktop layout" — both directions, not just width.
+ * A phone on its side clears 640px wide and is nowhere near 640px tall, and
+ * asking about width alone gave it a layout meant for a screen on a desk.
+ */
+@custom-variant wide (@media (min-width: 40rem) and (min-height: 40rem));
+
 /* Never remove focus rings — they are how a keyboard user knows where they are. */
 :focus-visible {
   outline-offset: 2px;

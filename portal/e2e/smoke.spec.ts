@@ -267,6 +267,52 @@ test.describe('phase 7', () => {
   })
 })
 
+test.describe('the navigation bar', () => {
+  /**
+   * It stays at the bottom of the screen while the page moves under it. That
+   * is the whole of it, and it was broken on a phone held sideways: the bar
+   * went into the flow of the page above 640px *wide*, which a phone on its
+   * side is, and scrolled away on the one screen shape with the least room to
+   * spare.
+   */
+  test('stays at the bottom of a phone, upright and on its side', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture members.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    const nav = page.getByRole('navigation', { name: 'Hauptnavigation' })
+
+    for (const size of [
+      { width: 390, height: 560 },
+      // The same phone, turned. Wide enough for the desktop layout by width
+      // alone, and nowhere near tall enough to want it.
+      { width: 780, height: 390 },
+    ]) {
+      await page.setViewportSize(size)
+      await page.evaluate(() => window.scrollTo(0, 0))
+
+      // Something to scroll, whatever the fixture happens to be worth.
+      await page.evaluate(() => {
+        document.querySelector('main')?.insertAdjacentHTML(
+          'beforeend',
+          '<div style="height:3000px" data-filler></div>',
+        )
+      })
+
+      await page.evaluate(() => window.scrollBy(0, 1200))
+      await expect
+        .poll(async () => Math.round((await nav.boundingBox())!.y + (await nav.boundingBox())!.height))
+        .toBe(size.height)
+
+      await page.evaluate(() => document.querySelector('[data-filler]')?.remove())
+    }
+  })
+})
+
 test.describe('phase 9', () => {
   test('a member is warned that their address travels with a message', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Would send a real message.')

@@ -1657,6 +1657,12 @@ unsafe requests and retries once on a stale token; a 401 anywhere resets the
 app to the login screen; nothing but the language preference reaches browser
 storage.
 
+**The navigation bar** (`portal/e2e/smoke.spec.ts`) — it stays at the bottom of
+the screen while the page scrolls under it, on a phone held upright *and* on
+one held sideways. The second is the case that was broken: the bar went into
+the flow of the page above 640px wide, which a phone on its side is, and
+scrolled away on the screen shape with the least room to spare.
+
 **The installed app** (`portal/sw/strategy.test.ts`, `portal/src/Pwa.test.tsx`,
 `portal/e2e/pwa.spec.ts`) — the offer to install appears only when a browser
 has given the portal a prompt to show, goes away for good once the app is
