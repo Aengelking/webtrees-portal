@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useMe, useUpdateProfile } from '../api/queries'
 import { ContactSettings as ContactSettingsForm } from '../components/ContactSettings'
 import { InstallPortal } from '../components/InstallPortal'
+import { Notifications } from '../components/Notifications'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import {
   Button,
@@ -54,6 +55,9 @@ export function Settings() {
         permanent and can afford the scroll.
       */}
       <InstallPortal />
+
+      {/* Renders nothing where notifications cannot happen at all. */}
+      <Notifications />
 
       <Section title={t('settings.language')}>
         <LanguageSwitcher />

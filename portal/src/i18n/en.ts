@@ -413,6 +413,19 @@ export const en: Translations = {
       'This page was opened inside another app, which cannot do this. Tap the three dots and then "Open in browser", where it works.',
     done: 'The app is already on this device’s home screen.',
   },
+  notifications: {
+    title: 'Notifications',
+    body:
+      'You can be told when a new message arrives, even while the app is closed.',
+    privacy:
+      'The lock screen says only that a message is there. Neither the sender’s name nor the text is shown.',
+    switchOn: 'Turn notifications on',
+    switchOff: 'Turn off on this device',
+    working: 'One moment …',
+    on: 'This device is being notified.',
+    blocked:
+      'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
+  },
   settings: {
     contacts: 'My contacts',
     contactsBody:

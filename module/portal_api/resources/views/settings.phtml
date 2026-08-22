@@ -29,6 +29,7 @@ use Illuminate\Support\Collection;
  * @var string               $member_contact
  * @var string               $member_messages
  * @var string               $message_limit
+ * @var string               $push
  * @var string               $member_connections
  * @var string               $connection_code_minutes
  */
@@ -256,6 +257,21 @@ foreach ($trees as $a_tree) {
         <div class="col-sm-9">
             <input class="form-control" type="number" min="0" max="200" id="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>" name="<?= PortalApiModule::SETTING_MESSAGE_LIMIT ?>" value="<?= e($message_limit) ?>">
             <div class="form-text"><?= I18N::translate('Zero stops members from writing at all, the same as switching it off above.') ?></div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Notify members on their phone when a message arrives'), 'name' => PortalApiModule::SETTING_PUSH, 'checked' => $push === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('The notification carries nothing: it says that a message arrived, and neither the sender’s name nor a word of the text is sent with it. Anybody who picks the phone up learns only that there is something to read.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Each member switches this on for themselves, on each device, under “Einstellungen” in the portal. Switching it off here stops all of it, and members are no longer offered it.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('This needs the portal address above to be set: the browser’s push service is told who is sending, and the portal’s own address is the answer.') ?>
+            </div>
         </div>
     </div>
 

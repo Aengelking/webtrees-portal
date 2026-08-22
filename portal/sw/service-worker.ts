@@ -93,6 +93,59 @@ worker.addEventListener('activate', (event) => {
   )
 })
 
+/**
+ * A knock, and what a lock screen is allowed to say about it.
+ *
+ * The push carries **no payload** — see `PushSubscriptions` in the module —
+ * so there is nothing here to unpack and nothing that could name a person.
+ * The text below is the whole of what anybody picking up the phone can read:
+ * that something arrived in this app. Who wrote it, and what they wrote, is
+ * behind the member's own sign-in, where it belongs.
+ *
+ * The notification is `tag`ged, so a burst of messages collapses into one
+ * entry instead of a stack of identical ones. `renotify` is left off: the
+ * second message in a conversation should not buzz the phone again.
+ *
+ * A notification is shown unconditionally, even when the portal is open in a
+ * visible window. That is not politeness, it is the bargain: the subscription
+ * was made with `userVisibleOnly`, and a browser that receives a push and sees
+ * nothing shown puts up its own "this site was updated in the background"
+ * instead — which says more about the member's browsing than this ever would.
+ */
+worker.addEventListener('push', (event) => {
+  event.waitUntil(
+    worker.registration.showNotification('Sack Familienapp', {
+      body: 'Sie haben eine neue Nachricht.',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: 'sack-message',
+      lang: 'de',
+    }),
+  )
+})
+
+/**
+ * Tapping it opens the messages, reusing a window the member already has open
+ * rather than stacking a second one on top of it.
+ */
+worker.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+
+  event.waitUntil(
+    worker.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          void client.navigate('/messages')
+
+          return client.focus()
+        }
+      }
+
+      return worker.clients.openWindow('/messages')
+    }),
+  )
+})
+
 worker.addEventListener('fetch', (event) => {
   const handling = handlingFor(event.request, worker.registration.scope)
 
