@@ -2208,6 +2208,50 @@ an explanation of where its own switch is instead of a button that would do
 nothing — §2.33's rule, applied on purpose this time rather than after somebody
 reported it.
 
+### 2.37 The one thing the silence was allowed to say
+
+The number search answers a number nobody carries exactly as it answers a
+number belonging to somebody unlisted (§2.32). That is what lets a member who
+stayed out of the directory be reachable at all, and it is worth what it
+costs — except that it was also swallowing a case where there was nothing to
+protect.
+
+Type the number of somebody already in your contacts. `link()` makes no second
+row, so nothing was wrong with the data; the *answer* was wrong twice over. A
+listed contact came back as "you are now connected with Dieter", which reads as
+though the number had just done something. An unlisted one fell into the quiet
+branch and came back as "if that number belongs to a member, your request is on
+its way" — untrue, since nothing was sent, and it left the member waiting for
+an answer that could not arrive. Discretion that misleads the person it is
+protecting is not discretion.
+
+So an accepted connection is checked before anything else is decided, and
+answered by name whether or not that member is listed. **Naming them discloses
+nothing**: they are this member's own contact, and their name is already on the
+other half of the same screen. The silence exists to stop the search becoming a
+way of asking who has an account; about somebody in the address book, that
+question was answered when they accepted.
+
+**A request still waiting for an answer keeps the silence.** This is the line,
+and it is not the same line. "You already asked this person" would say that the
+number belongs to somebody — the exact fact the quiet answer withholds — and it
+would be an oracle anybody could work: type a number, get nothing, type it
+again, and the second answer tells you what the first would not. Typing a number
+twice must tell you no more than typing it once.
+
+One case does come out of the silence with it: a request that **crosses** one
+coming the other way. Typing the number of somebody who has already asked you
+is the answer to their request, and `link()` accepts it on the spot (§2.32).
+Here that can mean nothing else — the crossing path is the only way an
+unaccepted request becomes accepted at this call — and their request was in the
+member's own list, under their name, before a number was typed. Staying quiet
+would have reported as waiting something already settled.
+
+The result grew a third `status`, `already_connected`, rather than reusing
+`connected`. "You are now connected" and "you already were" are different
+sentences and only one of them is true; a screen cannot say the right one from a
+status that means both.
+
 ---
 
 ## 3. Things that were guessed

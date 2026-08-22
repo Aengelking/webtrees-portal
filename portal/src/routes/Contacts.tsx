@@ -694,9 +694,11 @@ function ByReference() {
               */}
               {connect.data.name === null
                 ? t('contacts.requestedQuietly')
-                : connect.data.status === 'connected'
-                  ? t('contacts.connected', { name: connect.data.name })
-                  : t('contacts.requested', { name: connect.data.name })}
+                : connect.data.status === 'already_connected'
+                  ? t('contacts.alreadyConnected', { name: connect.data.name })
+                  : connect.data.status === 'connected'
+                    ? t('contacts.connected', { name: connect.data.name })
+                    : t('contacts.requested', { name: connect.data.name })}
             </SuccessNote>
           </div>
         )}

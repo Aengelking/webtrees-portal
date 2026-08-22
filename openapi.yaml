@@ -1593,8 +1593,10 @@ paths:
         '201':
           description: |
             The result, and the member's lists as they now stand. `status` is
-            `connected` when the two are now in touch and `requested` when the
-            other member still has to answer.
+            `connected` when the two are now in touch, `requested` when the
+            other member still has to answer, and `already_connected` when the
+            number belongs to somebody this member is already connected with —
+            in which case nothing was written.
           headers:
             Cache-Control:
               $ref: '#/components/headers/CacheControl'
@@ -3131,7 +3133,13 @@ components:
           properties:
             status:
               type: string
-              enum: [connected, requested]
+              enum: [connected, requested, already_connected]
+              description: |
+                `already_connected` means nothing was written: the number
+                belongs to somebody this member is already connected with.
+                It is answered by name whether or not that member is listed
+                in the directory — they are already in the asking member's
+                own contacts, so there is nothing left to disclose.
             name:
               type: [string, 'null']
               description: The other member, so the screen can say who.
