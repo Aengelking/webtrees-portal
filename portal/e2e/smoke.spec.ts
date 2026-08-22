@@ -288,6 +288,30 @@ test.describe('phase 7', () => {
   })
 })
 
+test.describe('the reference number', () => {
+  /**
+   * On the card, not one tap further in. The family tells two people of the
+   * same name apart by this number, so a row without it is a row that has to
+   * be opened to be sure who it is.
+   */
+  test('is on a directory row, beside the years', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture members.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/members')
+
+    const row = page.getByRole('listitem').filter({ hasText: 'Dieter Beispiel' }).first()
+
+    await expect(row).toContainText('SB 4714')
+    await expect(row).toContainText('1990')
+  })
+})
+
 test.describe('the navigation bar', () => {
   /**
    * It stays at the bottom of the screen while the page moves under it. That

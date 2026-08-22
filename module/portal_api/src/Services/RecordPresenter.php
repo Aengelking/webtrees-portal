@@ -100,6 +100,13 @@ class RecordPresenter
             'is_deceased' => $individual->isDead(),
             'lifespan'    => $this->lifespan($birth, $death, $individual->isDead()),
             'portrait'    => $this->photos->portrait($individual, $access_level),
+            // The reference number travels with every mention of a person, not
+            // only with the full record. In this family it is how people are
+            // told apart in conversation — there is more than one Dieter
+            // Beispiel — so a card without it is a card that needs opening to
+            // be sure. It discloses nothing new: same facts, same access
+            // level, and it was already on the record one tap away.
+            'references'  => $this->references($facts),
         ];
     }
 

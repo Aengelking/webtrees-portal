@@ -45,7 +45,15 @@ const DIETER: Connection = {
   requested_by_me: true,
   member_id: 3,
   name: 'Dieter Beispiel',
-  individual: { xref: 'X4', name: 'Dieter Beispiel', sex: 'M', is_deceased: false, lifespan: '1990–', portrait: null },
+  individual: {
+    xref: 'X4',
+    name: 'Dieter Beispiel',
+    sex: 'M',
+    is_deceased: false,
+    lifespan: '1990–',
+    portrait: null,
+    references: [{ number: '4714', type: 'SB' }],
+  },
   since: '2026-08-01T10:00:00+00:00',
 }
 
@@ -155,8 +163,11 @@ describe('my contacts', () => {
 
     expect(link.getAttribute('href')).toBe('/members/3')
 
-    // What the tree knows of them is inside the same link, not beside it.
+    // What the tree knows of them is inside the same link, not beside it —
+    // including the archive's number, which is how this family tells two
+    // people of the same name apart.
     expect(link.textContent).toMatch(/1990/)
+    expect(link.textContent).toContain('SB 4714')
   })
 
   /**

@@ -72,7 +72,14 @@ const MEMBERS = [
   {
     id: 2,
     display_name: 'Dieter Beispiel',
-    individual: { xref: 'X4', name: 'Dieter Beispiel', sex: 'M', is_deceased: false, lifespan: '1990–' },
+    individual: {
+      xref: 'X4',
+      name: 'Dieter Beispiel',
+      sex: 'M',
+      is_deceased: false,
+      lifespan: '1990–',
+      references: [{ number: '4714', type: 'SB' }],
+    },
   },
   { id: 3, display_name: 'Nora Ohnesatz', individual: null },
 ]

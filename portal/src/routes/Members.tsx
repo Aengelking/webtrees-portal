@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAcceptConnection, useConnect, useMembers } from '../api/queries'
 import type { MemberSummary } from '../api/types'
+import { referenceLabel } from '../components/reference'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading } from '../components/ui'
 
 const PER_PAGE = 25
@@ -168,7 +169,14 @@ function MemberRow({ member, offerConnection }: { member: MemberSummary; offerCo
           <span className="mt-1 block text-base text-slate-700">
             {member.individual === null
               ? t('members.noRecord')
-              : [member.individual.name, member.individual.lifespan]
+              : [
+                  member.individual.name,
+                  member.individual.lifespan,
+                  // The archive's number, on the row rather than one tap
+                  // further in: it is how this family tells two people of the
+                  // same name apart.
+                  referenceLabel(member.individual.references),
+                ]
                   .filter((part): part is string => part !== null && part !== '')
                   .join(' · ')}
           </span>
