@@ -524,6 +524,22 @@ letterheads and out of Christmas cards:
   `10/1335.21` and `101/335.21` are one string once it is gone, and the portal
   says it found nobody rather than guessing which cousin was meant.
 
+**A number that is already a contact says so.** Nothing is sent, and the
+answer names them — listed in the directory or not. They are already in this
+member's own address book, on the other half of the same screen, so there is
+nothing left to keep quiet about. This is the one exception to the silence
+below, and it exists because the silence was telling people something untrue:
+an unlisted contact typed by number used to be answered "your request is on
+its way", and the member then waited for an answer that could not come.
+
+A request still *waiting* for one keeps the quiet answer, though. "You already
+asked this person" would say that the number belongs to somebody, which is the
+whole of what a member who stayed out of the directory is owed silence about.
+The exception is a request that crosses one coming the other way: typing the
+number of somebody who has already asked *you* is the answer to their request,
+and that is said out loud, because their name was in your own list before you
+typed anything.
+
 **A member who is not in the directory can be asked too** — and this is the
 one place where the portal deliberately answers vaguely. A number that reaches
 somebody unlisted and a number nobody carries get the *same* answer, byte for
@@ -1581,7 +1597,9 @@ an SB number
 *asks* rather than connects, and a request that crosses one coming the other
 way is treated as the answer to it; the family's "SB" prefix finds a record
 stored without a `TYPE` of its own while a prefix the record contradicts finds
-nobody; a branch number is found however it is punctuated, a number carrying
+nobody; a number that already belongs to a contact says so by name and writes
+nothing, while a request still waiting for an answer keeps the quiet answer;
+a branch number is found however it is punctuated, a number carrying
 letters is found as written, the slash keeps
 `10/1335.21` and `101/335.21` apart, and leaving it out is refused where it
 would be a guess between the two; the `!` on the end keeps a couple apart and

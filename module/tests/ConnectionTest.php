@@ -622,6 +622,94 @@ class ConnectionTest extends PortalTestCase
     }
 
     /**
+     * A number that belongs to somebody already in my contacts says so, and
+     * writes nothing.
+     *
+     * `link()` never made a second row for them, but the answer was wrong in
+     * both directions: a listed contact was told "you are now connected",
+     * which reads as though the number had just done something, and an
+     * unlisted one was told a request was on its way — which was untrue, and
+     * left the member waiting for an answer that could not come.
+     */
+    public function testANumberThatBelongsToAContactSaysSoInsteadOfAsking(): void
+    {
+        $this->connect(['reference' => '4714']);
+        $this->accept($this->dieter);
+
+        $before = DB::table(Connections::TABLE)->count();
+        $result = $this->json($this->connect(['reference' => '10/1335.21']));
+
+        self::assertSame('already_connected', $result['status']);
+        self::assertSame('Dieter Beispiel', $result['name']);
+        self::assertSame($before, DB::table(Connections::TABLE)->count(), 'Nothing should have been written.');
+
+        // And the contact is where it was.
+        self::assertCount(1, $result['connections']);
+    }
+
+    /**
+     * And it says so for a contact who is *not* in the directory, which is
+     * the half the quiet answer used to swallow.
+     *
+     * Nothing is disclosed by naming them: they are this member's own
+     * contact, already on the other half of the same screen. The silence is
+     * there to keep the search from becoming a way of asking who has an
+     * account, and about somebody in the address book that question was
+     * answered when they accepted.
+     */
+    public function testAnUnlistedContactIsNamedRatherThanAnsweredQuietly(): void
+    {
+        $this->connect(['reference' => '4716']);
+        $this->accept($this->fritz);
+
+        $before = DB::table(Connections::TABLE)->count();
+        $result = $this->json($this->connect(['reference' => '4716']));
+
+        self::assertSame('already_connected', $result['status']);
+        self::assertSame('Fritz Beispiel', $result['name']);
+        self::assertSame($before, DB::table(Connections::TABLE)->count());
+    }
+
+    /**
+     * A request that crosses one coming the other way is the answer to it —
+     * and that is said out loud, even for a member who is not listed.
+     *
+     * It can mean nothing else: `link()` only accepts on the spot here when
+     * the other member had already asked, and their request was in this
+     * member's own list, under their name, before a number was typed. Staying
+     * quiet would report a request as waiting that is already settled.
+     */
+    public function testANumberThatAnswersAWaitingRequestSaysWhoItConnected(): void
+    {
+        $this->login($this->fritz);
+        $this->connect(['reference' => '4711']);
+        $this->login($this->anna);
+
+        $result = $this->json($this->connect(['reference' => '4716']));
+
+        self::assertSame('connected', $result['status']);
+        self::assertSame('Fritz Beispiel', $result['name']);
+        self::assertCount(1, $result['connections']);
+    }
+
+    /**
+     * A request still waiting for an answer keeps the quiet answer, though.
+     *
+     * "You already asked this person" would say that the number belongs to
+     * somebody — which is exactly what a member who stayed out of the
+     * directory is owed silence about. Typing a number twice must tell you no
+     * more than typing it once did.
+     */
+    public function testAnUnansweredRequestStillReachesNobodyOutLoud(): void
+    {
+        $this->connect(['reference' => '4716']);
+
+        $waiting = $this->raw($this->connect(['reference' => '4716']));
+
+        self::assertSame($waiting, $this->raw($this->connect(['reference' => '1234'])));
+    }
+
+    /**
      * The case that made this feature look broken in an installation where
      * it was working exactly as written.
      *
@@ -682,6 +770,27 @@ class ConnectionTest extends PortalTestCase
 
         // Not in the directory at all, so not in the table either.
         self::assertArrayNotHasKey('Fritz Beispiel', $rows);
+    }
+
+    /**
+     * Let the other member say yes, and hand the session back to Anna.
+     *
+     * The half of a connection the tests about *her* screen need to have
+     * happened, without repeating four lines of PATCH each time.
+     */
+    private function accept(User $other): void
+    {
+        $this->login($other);
+
+        $this->api(
+            ConnectionUpdate::class,
+            RequestMethodInterface::METHOD_PATCH,
+            attributes: ['id' => $this->connections()['incoming'][0]['id']],
+            body: ['status' => 'accepted'],
+            headers: $this->csrfHeader(),
+        );
+
+        $this->login($this->anna);
     }
 
     /** Put somebody into the directory who was deliberately left out of it. */
