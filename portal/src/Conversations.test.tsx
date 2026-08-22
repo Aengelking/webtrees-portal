@@ -226,6 +226,20 @@ describe('a conversation', () => {
     expect(screen.getByText('Ja, gerne!')).toBeDefined()
   })
 
+  /**
+   * The other person is told something arrived. They are not told what, or by
+   * whom — not in the e-mail and not on a lock screen. Said next to the box a
+   * member types into, because a member who started this from the messages
+   * screen never passes the other person's page, where it used to be said.
+   */
+  it('says what the other person will be told, next to the box', async () => {
+    stub()
+    renderAt('/conversations/3')
+
+    expect(await screen.findByText(/nur, dass eine Nachricht im Portal wartet/)).toBeDefined()
+    expect(screen.getByText(/weder Ihr Name noch der Text/)).toBeDefined()
+  })
+
   it('offers the other person’s profile, because a name is not a link', async () => {
     stub()
     renderAt('/conversations/3')

@@ -284,15 +284,18 @@ test.describe('phase 9', () => {
     // writes to themselves.
     await page.getByRole('listitem').filter({ hasText: 'Dieter' }).first().getByRole('link').click()
 
-    // The warning is above the button, not after it is pressed. Phase 12 turned
-    // the form here into the way into a conversation; the disclosure it carries
-    // did not change, because webtrees' notification still travels with the
-    // sender's address on it.
-    await expect(page.getByText(/Ihre E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeVisible()
+    // Said above the button, not after it is pressed. It used to be a warning —
+    // webtrees' notification carried the sender's address as the reply address
+    // — and it is now a statement of what the other person gets, because the
+    // announcement carries no address, no name and no text at all.
+    await expect(page.getByText(/nur, dass eine Nachricht im Portal wartet/)).toBeVisible()
 
     await page.getByRole('button', { name: 'Nachricht schreiben' }).click()
 
     await expect(page).toHaveURL(/\/conversations\//)
+
+    // And again next to the box, for everybody who never came this way.
+    await expect(page.getByText(/weder Ihr Name noch der Text/)).toBeVisible()
   })
 
   test('each contact detail has its own audience', async ({ page }) => {

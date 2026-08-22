@@ -298,7 +298,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service);
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
-        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections);
+        $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections, $container->get(EmailService::class));
         $web_push       = new WebPush($this);
 
         // Once, on the first boot after this module is installed or upgraded.

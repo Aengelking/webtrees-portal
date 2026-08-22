@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\I18N;
+
+/**
+ * The same knock, for mail readers that show HTML. See the text version for
+ * why there is nothing in it.
+ *
+ * @var string             $url
+ * @var UserInterface      $recipient
+ */
+
+?>
+<div dir="<?= I18N::locale()->direction() ?>" lang="<?= I18N::locale()->languageTag() ?>">
+    <p>
+        <?= I18N::translate('Hello %s…', '<bdi>' . e($recipient->realName()) . '</bdi>') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('A new message is waiting for you in the family portal.') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('Who wrote it, and what it says, is in the portal itself.') ?>
+    </p>
+
+    <?php if ($url !== '') : ?>
+        <p>
+            <a href="<?= e($url) ?>"><?= e($url) ?></a>
+        </p>
+    <?php endif ?>
+</div>

@@ -11,10 +11,14 @@ use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Http\Exceptions\HttpTooManyRequestsException;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Log;
+use Fisharebest\Webtrees\Services\EmailService;
 use Fisharebest\Webtrees\Services\MessageService;
 use Fisharebest\Webtrees\Services\RateLimitService;
 use Fisharebest\Webtrees\Site;
+use Fisharebest\Webtrees\SiteUser;
+use Throwable;
 
+use function error_log;
 use function mb_strlen;
 use function max;
 use function min;
@@ -33,9 +37,15 @@ use function trim;
  * `Auth::user()->email()` on the stored message and sets the sender as the
  * `Reply-To` of the email, so that a reply is possible at all. There is no
  * version of "write to me and I will answer" that avoids it. So the portal
- * says so on the form, before the send button — see
- * `portal/src/routes/MemberDetail.tsx`. Hiding an unavoidable disclosure
- * would be worse than the disclosure.
+ * says so on the form, before the send button — see the reply box in
+ * `portal/src/routes/Messages.tsx`. Hiding an unavoidable disclosure would be
+ * worse than the disclosure.
+ *
+ * That applies to `send()` and `reply()`, which are one-shot messages with
+ * nowhere else to live. It does **not** apply to `announce()`, which tells
+ * somebody that a conversation has something new in it: there the message
+ * already has a home both people sign in to, so nothing about it — text,
+ * name, or address — needs to travel, and none of it does.
  *
  * Two limits, for the two things that go wrong with a message box in a
  * family: only members who put themselves in the directory — or who connected
@@ -61,6 +71,7 @@ class MemberMessages
         private readonly MemberService $members,
         private readonly Inbox $inbox,
         private readonly Connections $connections,
+        private readonly EmailService $email_service,
     ) {
     }
 
@@ -183,6 +194,75 @@ class MemberMessages
         $this->refuseIfTooMany($sender);
 
         $this->notify($sender, $recipient, $subject, $body, $ip);
+    }
+
+    /**
+     * Say that something is waiting, and say nothing else.
+     *
+     * This is not `notify()`, and the difference is the whole point.
+     * `notify()` is webtrees' own delivery: it puts the text of the message
+     * into an e-mail, files a second copy in the recipient's webtrees inbox,
+     * and sets the sender's address as the `Reply-To` so that an answer is
+     * possible. All three are right for a one-shot message, which has no other
+     * home, and all three are wrong for a conversation:
+     *
+     * - **The text.** It is already on a screen both people share. An e-mail
+     *   carrying it puts a family's conversation into a mailbox, in the clear,
+     *   on whatever server their address happens to live on. §2.36 refused to
+     *   put a name on a lock screen; putting the whole exchange in an inbox is
+     *   the same disclosure with more of it.
+     * - **The filed copy.** It appeared under *Sonstige Nachrichten* as well,
+     *   so the recipient saw the same message twice — once as a conversation
+     *   and once as post. The inbox is for what has nowhere else to go.
+     * - **The reply address.** Answering by e-mail would answer into a void:
+     *   the conversation is in the portal and that is where a reply belongs.
+     *   Nothing of the sender's address needs to travel, so none of it does.
+     *
+     * What is left is a knock with a link, in the recipient's language. Who
+     * wrote and what they said is on the other side of their own sign-in.
+     */
+    public function announce(UserInterface $recipient): void
+    {
+        $this->ensureRecipientCanBeReached($recipient);
+
+        // A member who is reached only through webtrees' internal messaging
+        // gets nothing here, and needs nothing: the message is already in
+        // their conversation list, with the count in the navigation. That is
+        // the screen they would have been sent to anyway.
+        if (!$this->messages->sendEmail($recipient)) {
+            return;
+        }
+
+        $this->ensureRecipientHasALanguage($recipient);
+
+        $language = I18N::languageTag();
+
+        // Written in the recipient's language, like webtrees' own — the person
+        // reading it is not the person who wrote.
+        I18N::init($recipient->getPreference(UserInterface::PREF_LANGUAGE));
+
+        try {
+            $view = [
+                'recipient' => $recipient,
+                'url'       => $this->module->getPreference(PortalApiModule::SETTING_PORTAL_URL, ''),
+            ];
+
+            $this->email_service->send(
+                new SiteUser(),
+                $recipient,
+                // Reply-To is the site, not the sender. There is no name in
+                // this e-mail and there is not going to be one in its headers
+                // either.
+                new SiteUser(),
+                I18N::translate('A new message in the family portal'),
+                view($this->module->name() . '::emails/conversation-text', $view),
+                view($this->module->name() . '::emails/conversation-html', $view),
+            );
+        } catch (Throwable $exception) {
+            error_log('portal_api: could not send a conversation notification: ' . $exception->getMessage());
+        } finally {
+            I18N::init($language);
+        }
     }
 
     /**

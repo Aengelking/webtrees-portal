@@ -12,6 +12,7 @@ use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\User;
 
 use function array_map;
+use function error_log;
 use function count;
 use function gmdate;
 use function max;
@@ -190,7 +191,7 @@ class Conversations
         ]);
 
         if (!$waiting) {
-            $this->tell($me, $other, $body, $ip);
+            $this->tell($other);
         }
 
         // The knock goes out on *every* message, unlike the e-mail above.
@@ -259,20 +260,27 @@ class Conversations
     }
 
     /**
-     * Tell the other side that a conversation has started — once.
+     * Tell the other side that something is waiting — once, and without
+     * saying what.
      *
-     * A chat that sends an e-mail per line is a chat nobody stays in. So the
-     * message goes out through the path Phase 9 already built and tested —
-     * `MemberMessages`, which respects the recipient's contact preference,
-     * files webtrees' own copy and sends the e-mail — but only when they have
-     * nothing waiting from this member already. Once something is unread, they
-     * have been told; telling them again says nothing new.
+     * A chat that sends an e-mail per line is a chat nobody stays in, so this
+     * runs only while the other side has nothing unread from this member
+     * already. Once something is waiting, they have been told; telling them
+     * again says nothing new.
+     *
+     * **The e-mail carries no message.** `MemberMessages::announce()` says
+     * that something is in the portal and gives the address of it — no text,
+     * no name, no reply address, and no copy filed in webtrees' inbox. The
+     * transcript lives on a screen both people sign in to, and an inbox is not
+     * that screen: it is read by whoever holds the phone and stored by
+     * whoever runs the mail server. §2.36 refused to put a name on a lock
+     * screen for the same reason; this is the same refusal one channel over.
      *
      * A failure here is not the member's problem: the message is in the
      * conversation, which is where they will read it. Notification is a
      * courtesy, and a courtesy that fails must not fail the message.
      */
-    private function tell(UserInterface $me, int $other_id, string $body, string $ip): void
+    private function tell(int $other_id): void
     {
         $recipient = $this->user_service->find($other_id);
 
@@ -281,13 +289,7 @@ class Conversations
         }
 
         try {
-            $this->messages->notify(
-                $me,
-                $recipient,
-                I18N::translate('A message in the family portal'),
-                $body,
-                $ip,
-            );
+            $this->messages->announce($recipient);
         } catch (\Throwable $exception) {
             error_log('portal_api: could not announce a conversation message: ' . $exception->getMessage());
         }

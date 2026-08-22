@@ -2249,6 +2249,57 @@ this list was a step on the way to a conversation, and a member who has arrived
 in the conversation is finished with it. Pushing it would put a screen nobody
 wants to return to between them and where they started.
 
+
+### 2.38 The e-mail was still carrying everything the push refused to
+
+§2.36 built the push notification around one condition — nothing about the
+message may reach a lock screen — and then left the older channel exactly as it
+was. Asked whether these messages also send an e-mail, the answer turned out to
+be yes, and the e-mail contained **the full text of the message and the
+sender's name**, with the sender's address in the `Reply-To`. The portal was
+refusing to put a name on a lock screen while posting the whole conversation to
+an inbox.
+
+That is worse than the lock screen, not better. An inbox is read by whoever
+holds the phone, sits at the shared computer, or runs the mail server — and
+unlike a notification, it is kept.
+
+**So a conversation announces itself and says nothing else.** Not webtrees'
+`deliverMessage()` any more, which is built to carry a message because a
+one-shot message has nowhere else to live. A conversation does: it is on a
+screen both people sign in to. What goes out is a knock with a link, written in
+the recipient's language, from the site's own address, with the site as the
+`Reply-To` as well — answering by e-mail would answer into a void.
+
+`send()` and `reply()` are untouched. They are one-shot messages, the address
+*is* unavoidable there, and §2.28's rule stands: an unavoidable disclosure that
+nobody mentions is worse than the disclosure. What changed is that the two
+cases are no longer the same case.
+
+**The duplicate went with it.** `deliverMessage()` also files a copy in
+webtrees' `message` table, so every first message of a conversation appeared a
+second time under *Sonstige Nachrichten*. Not filtered out afterwards —
+never written. The inbox is for what has nowhere else to go.
+
+One consequence worth naming: a member whose webtrees contact method is
+internal messaging only now gets no e-mail for a conversation, where before
+they got the filed copy. They are not un-told — the message is in their
+conversation list and the navigation carries the count. That is the same
+argument §2.28 used in the other direction, when a filed copy stopped being a
+copy nobody reads.
+
+**And the sentence on the screen was wrong for a day.** It said the sender's
+address travels with the message, which was true when the button under it sent
+one and stopped being true when the button started opening a conversation.
+Worse, it lived only on the other person's page, so §2.37's new way in walked
+straight past it. It now says what is true — the other person is told that
+something is waiting and nothing else — and it says it next to the box a
+member types into, which is the one place everybody who writes will see.
+
+Rows already filed by the old path stay where they are. They are real messages
+that were really delivered; deleting somebody's post to tidy up a changed mind
+is not the portal's to do.
+
 ---
 
 ## 3. Things that were guessed

@@ -307,10 +307,20 @@ reported as not found, exactly as a member id that never existed. Once a
 conversation exists, either side may write in it whatever changes afterwards —
 the transcript is proof they know each other.
 
-**Notification.** The other side is told by e-mail, through webtrees and
-respecting their contact preference, when a conversation has something new and
-they have nothing unread from that person already. Not once per message: a
-chat that e-mails every line is a chat nobody stays in.
+**Notification carries nothing.** The other side gets an e-mail saying that a
+message is waiting in the portal, with a link to it — **no text, no sender's
+name, and no reply address.** The transcript is on a screen both people sign
+in to, and an inbox is not that screen: it is read by whoever picks up the
+phone and stored by whoever runs the mail server. It is the same refusal as
+the push notification's, one channel over.
+
+It goes out when a conversation has something new and the other side has
+nothing unread from that person already — not once per message: a chat that
+e-mails every line is a chat nobody stays in. No copy is filed in webtrees'
+inbox either, so a conversation message does not also appear under *Sonstige
+Nachrichten*. A member who is reached only through webtrees' internal
+messaging gets no e-mail at all, and needs none: the message is in their
+conversation list with the count in the navigation.
 
 **Deleting is for yourself.** A message you delete leaves the other person's
 copy alone, and the screen says so before you confirm. A message both sides
@@ -1534,7 +1544,9 @@ member page yet is left out rather than offered as a button that fails; a
 member with no contacts is sent to the contacts screen rather than a dead end;
 a refusal from the server is shown rather than swallowed; and in a real
 browser the whole path — messages, pick a name, write, and Back — ends where
-it started.
+it started. A conversation message files nothing in webtrees' inbox, so it
+cannot arrive twice; and the announcement e-mail, rendered, names neither the
+writer nor a word of what they wrote, in both the text and the HTML version.
 
 **Notifications** (`module/tests/PushTest.php`,
 `portal/src/Notifications.test.tsx`) — the columns a payload would need do not

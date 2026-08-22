@@ -178,6 +178,8 @@ export const de = {
     deleteExplain:
       'Die Nachricht verschwindet nur bei Ihnen. Die andere Person behält ihre Kopie.',
     deleteConfirm: 'Löschen',
+    notifyNotice:
+      'Die andere Person erfährt nur, dass eine Nachricht im Portal wartet — weder Ihr Name noch der Text stehen in der Benachrichtigung.',
   },
   newConversation: {
     title: 'Neues Gespräch',
@@ -199,8 +201,8 @@ export const de = {
     opening: 'Wird geöffnet …',
     sending: 'Wird gesendet …',
     sent: 'Ihre Nachricht ist unterwegs.',
-    replyAddressNotice:
-      'Damit man Ihnen antworten kann, wird Ihre E-Mail-Adresse als Absenderadresse mitgeschickt — auch dann, wenn Sie sie oben nicht freigegeben haben.',
+    notifyNotice:
+      'Die andere Person erfährt nur, dass eine Nachricht im Portal wartet — weder Ihr Name noch der Text stehen in der Benachrichtigung. Ihre E-Mail-Adresse wird nicht mitgeschickt.',
   },
   messages: {
     inboxTitle: 'Sonstige Nachrichten',

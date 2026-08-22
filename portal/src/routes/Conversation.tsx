@@ -137,6 +137,14 @@ export function Conversation() {
                 {send.isPending ? t('conversation.sending') : t('conversation.send')}
               </Button>
             </div>
+
+            {/*
+              Said here because this is where writing happens. A member who
+              started this conversation from the messages screen never passes
+              the other person's page, so a sentence that lives only there is a
+              sentence half the family never reads.
+            */}
+            <p className="mt-3 text-sm text-slate-600">{t('conversation.notifyNotice')}</p>
           </form>
         </>
       )}

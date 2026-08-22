@@ -235,16 +235,18 @@ describe('another member', () => {
 
 describe('writing to another member', () => {
   /**
-   * The single most important assertion in this file. webtrees sends the
-   * message with the sender's own address as the reply address, and there is
-   * no way to allow a reply without it — so the member has to be told before
-   * they press the button, not after.
+   * This assertion used to read the other way round: webtrees delivered the
+   * announcement with the sender's own address as the reply address, and an
+   * unavoidable disclosure had to be said out loud. It is not unavoidable any
+   * more — the announcement carries no text, no name and no reply address — so
+   * what has to be said out loud is what the other person actually gets.
    */
-  it('warns that my address travels with the message, before I send it', async () => {
+  it('says what the other person will be told, before I write anything', async () => {
     stub()
     renderAt('/members/7')
 
-    expect(await screen.findByText(/Ihre E-Mail-Adresse als Absenderadresse mitgeschickt/)).toBeDefined()
+    expect(await screen.findByText(/nur, dass eine Nachricht im Portal wartet/)).toBeDefined()
+    expect(screen.getByText(/Ihre E-Mail-Adresse wird nicht mitgeschickt/)).toBeDefined()
   })
 
   /**

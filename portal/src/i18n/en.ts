@@ -177,6 +177,8 @@ export const en: Translations = {
     delete: 'Delete for me',
     deleteExplain: 'The message disappears for you only. The other person keeps their copy.',
     deleteConfirm: 'Delete',
+    notifyNotice:
+      'The other person is told only that a message is waiting in the portal — neither your name nor the text is in the notification.',
   },
   newConversation: {
     title: 'New conversation',
@@ -198,8 +200,8 @@ export const en: Translations = {
     opening: 'Opening …',
     sending: 'Sending …',
     sent: 'Your message is on its way.',
-    replyAddressNotice:
-      'So that they can reply, your email address travels with the message as the reply address — even if you have not shared it above.',
+    notifyNotice:
+      'The other person is told only that a message is waiting in the portal — neither your name nor the text is in the notification. Your email address does not travel with it.',
   },
   messages: {
     inboxTitle: 'Other messages',
