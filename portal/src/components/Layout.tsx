@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { useNotificationRoute } from '../pwa/notificationRoute'
 import { InstallPrompt } from './InstallPrompt'
+import { NotificationPrompt } from './NotificationPrompt'
 
 /**
  * Four destinations.
@@ -69,6 +70,13 @@ export function Layout() {
         banner across the top of every screen.
       */}
       <InstallPrompt />
+
+      {/*
+        And once more inside the installed app, for the thing that only works
+        there. The two never appear together: one asks in a browser, the other
+        only when this window *is* the app.
+      */}
+      <NotificationPrompt />
 
       {/*
         The gap under the content is the height of the bar plus whatever the

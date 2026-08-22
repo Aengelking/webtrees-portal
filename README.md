@@ -372,6 +372,16 @@ message leaves the server at all. It also means the portal stores no encryption
 keys for it — `portal_push_subscription` holds the device address and nothing
 else — because there is no payload to encrypt.
 
+**The offer is made once, on the first run of the installed app.** That is the
+moment worth asking: notifications reach a member only through the app on
+their home screen — on iOS that is the only way they work at all — so asking
+in a browser tab would be asking for something they cannot have yet. The
+dialogue says what a lock screen will show *before* the browser's own
+permission box appears, and refusing costs nothing: the switch stays in
+*Einstellungen*. Asked once per device, remembered in a second flag, and never
+shown to somebody whose browser is already blocking — only they can undo that,
+in the browser's settings.
+
 **Tapping it** opens *Nachrichten* — the list, not one message, because the
 push carries nothing that could say which. If the app is already running it is
 brought forward and moved to that screen without reloading; if it is not, a

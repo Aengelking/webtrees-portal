@@ -108,6 +108,11 @@ export async function installOfferAnswered(page: Page): Promise<void> {
   await page.addInitScript(() => {
     try {
       window.localStorage.setItem('portal.install.offered', '1')
+      // The notification offer only appears inside the installed app, so no
+      // walk here should meet it — answered anyway, because a dialogue that
+      // turns up unexpectedly would stop every one of them and the failure
+      // would look like anything but this.
+      window.localStorage.setItem('portal.notifications.offered', '1')
     } catch {
       // A browser with no storage will show the offer. Nothing to do here.
     }

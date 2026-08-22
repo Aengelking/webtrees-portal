@@ -2576,6 +2576,39 @@ through a helper, and the offer has a file of its own — clearing the flag from
 an init script does not work, because that script runs again on the reload the
 test needs.
 
+
+### 2.47 The second offer, and why it waits for the first to have worked
+
+Notifications reach a member only through the installed app — on iOS that is
+not a preference but the whole mechanism — so the moment worth asking is the
+first run of that app, and `standalone` is what says so. Asking in a browser
+tab would be asking for something the member cannot have yet, and a member who
+says no to a question they could not have answered has said no for good.
+
+It mirrors `InstallPrompt` deliberately, down to the shape of the dismissal:
+two dialogues that behaved differently would be two dialogues to learn. Asked
+once, remembered before it can be asked twice, one tap either way, and the
+sentence saying the switch stays in Settings — because that is what makes
+asking once fair rather than a single chance.
+
+**It says what a lock screen will show before the browser's box appears.** Not
+after, and not in the settings screen the member may never open: §2.36 built
+the whole feature around the promise that a notification names nobody, and the
+person best placed to care about that is the one sitting next to somebody on a
+sofa deciding right now. `notifications.privacy` is the same sentence Settings
+uses, in the same words, one screen earlier.
+
+**Three states get no dialogue at all**, and each for its own reason: a family
+that has switched notifications off has nothing to offer; a browser already
+blocking can only be undone in its own settings, which is a sentence for a
+screen somebody went looking at (§2.46 said the same about a chat app's
+browser); and `granted` means this is already arranged.
+
+The e2e walks now answer both offers before they start. The notification one
+should never appear there — no walk runs in standalone display mode — but a
+dialogue that turns up unexpectedly stops every test, and the failure looks
+like anything except what it is.
+
 ---
 
 ## 3. Things that were guessed
