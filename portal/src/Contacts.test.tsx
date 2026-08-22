@@ -16,8 +16,8 @@ import './i18n'
  * here and none of it is asserted here. What this pins is what only the
  * screen can get wrong: that a live code is never on screen until it is
  * asked for, that the code shown is the link the server issued rather than
- * anything the portal made up, that a request is answered in one tap and a
- * connection is not ended in one, and that a member whose family switched the
+ * anything the portal made up, that a request is answered in one tap and not
+ * refused in one, and that a member whose family switched the
  * whole thing off is told so instead of being shown buttons that refuse.
  */
 
@@ -446,31 +446,44 @@ describe('my contacts', () => {
   })
 
   /**
-   * Ending a connection is not undoable by tapping again, so it is not done
-   * by one tap either — and the question is asked where the tap was, rather
-   * than in a browser dialogue that a thumb dismisses by reflex.
+   * Refusing a request is not undoable by tapping again, so it is not done by
+   * one tap either — and the question is asked where the tap was, rather than
+   * in a browser dialogue that a thumb dismisses by reflex.
    */
-  it('asks before ending a connection', async () => {
+  it('asks before refusing a request', async () => {
     const fetchMock = stub()
     renderAt()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Verbindung lösen' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Ablehnen' }))
 
     expect(
       fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE'),
     ).toBe(false)
 
-    expect(screen.getByText(/Verbindung mit Dieter Beispiel wirklich beenden/)).toBeDefined()
+    expect(screen.getByText(/Verbindung mit Karla Beispiel wirklich beenden/)).toBeDefined()
 
     await userEvent.click(screen.getByRole('button', { name: 'Ja, beenden' }))
 
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.some(
-          ([url, init]) => String(url).includes('/connections/7') && init?.method === 'DELETE',
+          ([url, init]) => String(url).includes('/connections/9') && init?.method === 'DELETE',
         ),
       ).toBe(true)
     })
+  })
+
+  /**
+   * The address book is a list to read, not a row of destructive buttons to
+   * mis-tap. Ending a connection is asked for on the member's own page, which
+   * the name in the row leads to.
+   */
+  it('does not offer to end a connection from the list', async () => {
+    stub()
+    renderAt()
+
+    expect(await screen.findByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Verbindung lösen' })).toBeNull()
   })
 
   it('says so when the family has switched connections off', async () => {
@@ -480,10 +493,40 @@ describe('my contacts', () => {
     expect(await screen.findByText('Verbindungen sind ausgeschaltet')).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Code anzeigen' })).toBeNull()
 
-    // The list stays: a member must still be able to end what they agreed to.
+    // The list stays: a member must still be able to see what they agreed to.
     await userEvent.click(screen.getByRole('tab', { name: 'Kontakte' }))
 
     expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+  })
+
+  /**
+   * A number that belongs to somebody already in the address book says so,
+   * rather than reporting a request that was never sent.
+   */
+  it('says a number already belongs to a contact', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/connections')) {
+        return (init?.method ?? 'GET') === 'POST'
+          ? jsonResponse({ ...OVERVIEW, status: 'already_connected', name: 'Dieter Beispiel' }, 201)
+          : jsonResponse(OVERVIEW)
+      }
+
+      return jsonResponse(ME)
+    })
+
+    vi.stubGlobal('fetch', fetchMock)
+    renderNewTab()
+
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '10')
+    await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
+    await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
+
+    expect(await screen.findByText(/Sie sind bereits verbunden/)).toBeDefined()
+    expect(screen.queryByText(/Ihre Anfrage ist bei/)).toBeNull()
   })
 
   /**

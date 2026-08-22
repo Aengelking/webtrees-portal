@@ -335,6 +335,7 @@ export const en: Translations = {
     requestedQuietly:
       'If that number belongs to a member, your request is on its way. You will hear nothing until it is accepted — and then they appear here as a contact.',
     requested: 'Your request has reached {{name}}. Once they confirm it, they appear here.',
+    alreadyConnected: 'That number belongs to {{name}}, who is already one of your contacts. Nothing was sent.',
     connected: 'You are now connected with {{name}}.',
     incoming: 'Requests to you',
     outgoing: 'Your requests',
@@ -363,7 +364,7 @@ export const en: Translations = {
     },
     off: {
       title: 'Connections are switched off',
-      body: 'This family does not make new connections through the portal. You can still see and end the ones you have.',
+      body: 'This family does not make new connections through the portal. You can still see the ones you have.',
     },
   },
   connect: {

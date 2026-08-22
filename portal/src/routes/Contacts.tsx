@@ -694,9 +694,11 @@ function ByReference() {
               */}
               {connect.data.name === null
                 ? t('contacts.requestedQuietly')
-                : connect.data.status === 'connected'
-                  ? t('contacts.connected', { name: connect.data.name })
-                  : t('contacts.requested', { name: connect.data.name })}
+                : connect.data.status === 'already_connected'
+                  ? t('contacts.alreadyConnected', { name: connect.data.name })
+                  : connect.data.status === 'connected'
+                    ? t('contacts.connected', { name: connect.data.name })
+                    : t('contacts.requested', { name: connect.data.name })}
             </SuccessNote>
           </div>
         )}
@@ -748,6 +750,16 @@ function IncomingCard({ connection }: { connection: Connection }) {
   )
 }
 
+/**
+ * A row of the address book, and nothing else: a name, what the tree knows of
+ * them, and the way to their page.
+ *
+ * Ending the connection is not offered here. It is not something a member
+ * comes to this list to do, and a destructive button on every row of a list
+ * that is scrolled and tapped is the one place it should not be. It lives on
+ * the member's own page (`MemberDetail`), which is where the decision is
+ * actually made — the link above leads there.
+ */
 function ContactCard({ connection }: { connection: Connection }) {
   const { t } = useTranslation()
 
@@ -771,15 +783,14 @@ function ContactCard({ connection }: { connection: Connection }) {
           ? t('contacts.noRecord')
           : [connection.individual.name, lifespan].filter((part) => part !== null && part !== '').join(' · ')}
       </p>
-
-      <EndButton connection={connection} label={t('contacts.disconnect')} />
     </Card>
   )
 }
 
 /**
- * Ending a connection, refusing a request and withdrawing one are one button,
- * because they are one thing: this row should not exist any more.
+ * Refusing a request and withdrawing one are one button, because they are one
+ * thing: this row should not exist any more. (Ending a connection is the same
+ * act to the server, but it is asked for on the member's page, not here.)
  *
  * It asks once first. Not a browser dialogue — those are dismissed by reflex
  * on a telephone — but the button turning into the question, so the answer is
