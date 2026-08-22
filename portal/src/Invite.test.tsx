@@ -77,6 +77,28 @@ function stub(overrides: Partial<InvitationOverview> = {}, post?: () => Response
       return jsonResponse(overview)
     }
 
+    if (url.includes('/individuals/X4')) {
+      return jsonResponse({
+        xref: 'X4',
+        name: 'Dieter Beispiel',
+        sex: 'M',
+        is_deceased: false,
+        lifespan: '1990–',
+        portrait: null,
+        name_alternative: null,
+        relationship: 'Ihr Bruder',
+        birth: null,
+        death: null,
+        events: [],
+        parents: [],
+        siblings: [],
+        spouses: [],
+        children: [],
+        pending_change: false,
+        webtrees_url: 'https://tree.example.test/X4',
+      })
+    }
+
     return jsonResponse(ME)
   })
 
@@ -85,18 +107,22 @@ function stub(overrides: Partial<InvitationOverview> = {}, post?: () => Response
   return fetchMock
 }
 
-function renderInvite() {
+function renderAt(path: string) {
   return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
     >
-      <MemoryRouter initialEntries={['/invite']}>
+      <MemoryRouter initialEntries={[path]}>
         <AuthProvider>
           <App />
         </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
+}
+
+function renderInvite() {
+  return renderAt('/invite')
 }
 
 describe('inviting close family', () => {
@@ -213,5 +239,75 @@ describe('inviting close family', () => {
         ),
       ).toBe(true)
     })
+  })
+})
+
+/**
+ * Walking the tree is how a member finds out that their brother is not in the
+ * portal. Until now the way to act on that was to remember the invite screen
+ * exists and find him again on it — §2.38's lesson, one screen over.
+ */
+describe('inviting from the person’s own page', () => {
+  it('offers an invitation for somebody who may be invited', async () => {
+    stub()
+    renderAt('/individuals/X4')
+
+    expect(await screen.findByText('Noch nicht im Portal')).toBeDefined()
+    expect(screen.getByText(/Dieter Beispiel hat noch keinen Zugang/)).toBeDefined()
+
+    const invite = screen.getByRole('link', { name: 'Einladen' })
+
+    expect(invite.getAttribute('href')).toBe('/invite?xref=X4')
+  })
+
+  /**
+   * The absence of the button is deliberately uninformative. Dead, already an
+   * account holder, already invited and too distant are one answer — that is
+   * what `GET /invitations` was built to do, and a button here must not undo
+   * it by being present for exactly one of the four.
+   */
+  it('says nothing at all about somebody who is not a candidate', async () => {
+    stub({ candidates: [] })
+    renderAt('/individuals/X4')
+
+    // The person is on screen; the offer is not.
+    expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
+    expect(screen.queryByText('Noch nicht im Portal')).toBeNull()
+  })
+
+  it('makes no offer where the family has switched invitations off', async () => {
+    stub({ enabled: false })
+    renderAt('/individuals/X4')
+
+    expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
+  })
+
+  /** The quota is the server's answer, and a button that will be refused is worse than none. */
+  it('makes no offer once the quota is spent', async () => {
+    stub({ remaining: 0 })
+    renderAt('/individuals/X4')
+
+    expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
+  })
+
+  it('arrives on the invite screen with that person already chosen', async () => {
+    stub()
+    renderAt('/invite?xref=X4')
+
+    const chosen = await screen.findByRole('radio', { name: /Dieter Beispiel/ })
+
+    expect((chosen as HTMLInputElement).checked).toBe(true)
+  })
+
+  /** A URL is not an authority on who may be invited; the server re-checks anyway. */
+  it('chooses nobody when the address bar names somebody who is not on the list', async () => {
+    stub()
+    renderAt('/invite?xref=X999')
+
+    const offered = await screen.findByRole('radio', { name: /Dieter Beispiel/ })
+
+    expect((offered as HTMLInputElement).checked).toBe(false)
   })
 })

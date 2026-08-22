@@ -2376,6 +2376,40 @@ of a screen is not under the bar either.
 Worth keeping in mind for anything else pinned to an edge: `viewport-fit=cover`
 is a promise to handle the insets, and until now nothing did.
 
+
+### 2.41 The offer belongs where the member notices it is missing
+
+§2.38 put the way into a conversation on the screen a member is standing on,
+rather than a sentence about where it lives. Inviting had the same shape of
+problem: the invite screen is reached from *Einstellungen*, and the moment a
+member realises their uncle is not in the portal is somewhere else entirely —
+walking the tree, on his page. Acting on it meant remembering the screen
+exists, going there, and finding him a second time on a list.
+
+So his page carries the button, and the button carries him: `/invite?xref=X4`
+arrives with that person already selected, one tap from the link.
+
+**The offer says nothing the invite screen does not already say.** It is shown
+for exactly the people `GET /invitations` already returns as candidates — the
+same walk, the same access level, the same limit — so no new person and no new
+fact is disclosed by opening somebody's page.
+
+**And its absence stays uninformative, which took the most thought.** The
+candidate list was built so that dead, already an account holder, already
+invited and too distant are one answer, because "your brother already has an
+account" routes around the consent the member directory rests on. A button that
+appeared for exactly one of those four would have undone that from a different
+screen. It appears for candidates and for nobody else, so "no button" means the
+same nothing it means on the list.
+
+The quota is treated the same way: at zero remaining there is no button, because
+the server would refuse and a button that will be refused is worse than none.
+
+**`?xref=` is a starting position, not an authority.** The list stays the list,
+the choice can be changed, and an XREF nobody offered simply selects nobody —
+the server re-checks every rule on POST regardless, which is what
+`createInvitation` was written to do.
+
 ---
 
 ## 3. Things that were guessed

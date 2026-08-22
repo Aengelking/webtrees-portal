@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useInvitations, useInvite, useWithdrawInvitation } from '../api/queries'
 import { ApiError } from '../api/client'
@@ -18,6 +19,12 @@ import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading, Section
  * The link appears once. That is not an interface decision: the server keeps
  * only a hash of it, so there is nothing to show again later. The screen says
  * so where the link is, not in a help page nobody opens.
+ *
+ * `?xref=` preselects somebody — how a member arrives from that person's own
+ * page. It is a starting position and nothing more: the list is still the
+ * list, the choice can still be changed, and an XREF that is not on it simply
+ * selects nobody, because the server re-checks every rule anyway and a URL is
+ * not an authority on who may be invited.
  */
 export function Invite() {
   const { t } = useTranslation()
@@ -25,7 +32,9 @@ export function Invite() {
   const invite = useInvite()
   const withdraw = useWithdrawInvitation()
 
-  const [selected, setSelected] = useState('')
+  const [params] = useSearchParams()
+
+  const [selected, setSelected] = useState(params.get('xref') ?? '')
   const [email, setEmail] = useState('')
   const [link, setLink] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
