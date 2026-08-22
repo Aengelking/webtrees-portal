@@ -142,13 +142,21 @@ function renderAt(path = '/contacts') {
 }
 
 describe('my contacts', () => {
-  it('lists the people I am connected to, and links to their page', async () => {
+  /**
+   * The whole row, not the name in it. A name-sized target in a card-sized row
+   * is a thumb-sized miss on a phone, and every other card in the portal has
+   * been a whole-card link since the tree was first walkable.
+   */
+  it('lists the people I am connected to, and makes the whole card the link', async () => {
     stub()
     renderAt()
 
-    const link = await screen.findByRole('link', { name: 'Dieter Beispiel' })
+    const link = await screen.findByRole('link', { name: /Dieter Beispiel/ })
 
     expect(link.getAttribute('href')).toBe('/members/3')
+
+    // What the tree knows of them is inside the same link, not beside it.
+    expect(link.textContent).toMatch(/1990/)
   })
 
   /**
@@ -482,7 +490,7 @@ describe('my contacts', () => {
     stub()
     renderAt()
 
-    expect(await screen.findByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+    expect(await screen.findByRole('link', { name: /Dieter Beispiel/ })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Verbindung lösen' })).toBeNull()
   })
 
@@ -496,7 +504,7 @@ describe('my contacts', () => {
     // The list stays: a member must still be able to see what they agreed to.
     await userEvent.click(screen.getByRole('tab', { name: 'Kontakte' }))
 
-    expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+    expect(screen.getByRole('link', { name: /Dieter Beispiel/ })).toBeDefined()
   })
 
   /**
@@ -547,7 +555,7 @@ describe('my contacts', () => {
     )
 
     expect(screen.getByText('Karla Beispiel')).toBeDefined()
-    expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+    expect(screen.getByRole('link', { name: /Dieter Beispiel/ })).toBeDefined()
 
     // And the machinery is not on this half at all — not merely out of sight.
     expect(screen.queryByRole('button', { name: 'Code anzeigen' })).toBeNull()
@@ -592,7 +600,7 @@ describe('my contacts', () => {
     // And tapping the other one shows the other half.
     await userEvent.click(screen.getByRole('tab', { name: 'Kontakte' }))
 
-    expect(screen.getByRole('link', { name: 'Dieter Beispiel' })).toBeDefined()
+    expect(screen.getByRole('link', { name: /Dieter Beispiel/ })).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Code anzeigen' })).toBeNull()
   })
 
