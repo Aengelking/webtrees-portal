@@ -6,10 +6,13 @@ namespace Engelking\Webtrees\PortalApi\Services;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Log;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
 use Fig\Http\Message\StatusCodeInterface;
 
@@ -45,6 +48,18 @@ class MemberInvitations
     public const int DEFAULT_QUOTA = 3;
     public const int MAX_QUOTA     = 20;
 
+    /**
+     * How many people the screen is handed at once when the whole tree is
+     * eligible.
+     *
+     * Only the *list* is capped. Whether a particular person may be invited is
+     * asked of the rule, not of this list — so somebody who is not among the
+     * first two hundred is still invitable, they are just reached by searching
+     * rather than by scrolling. A wheel with four thousand names in it is not
+     * a way of choosing anybody.
+     */
+    public const int LISTED = 200;
+
     public function __construct(
         private readonly PortalApiModule $module,
         private readonly PortalTreeService $trees,
@@ -76,6 +91,25 @@ class MemberInvitations
     }
 
     /**
+     * Whether this reader is one of the people who keep the tree.
+     *
+     * **The three hedges in the class comment above are about a member**, and
+     * an editor is not one. They already choose who is family: they open the
+     * control panel and issue an invitation to anybody in it, with no distance
+     * and no quota. Applying either here would not stop them doing it — it
+     * would only stop them doing it from the screen they were already looking
+     * at, having just found the person on it.
+     *
+     * So an editor may invite anybody they can see, as many as they like. It
+     * is the same line `SearchConsent` draws, and the same one webtrees draws
+     * with "editors are never restricted".
+     */
+    public function keepsTheTree(Tree $tree): bool
+    {
+        return Auth::isEditor($tree);
+    }
+
+    /**
      * Everything the invite screen needs, in one shape.
      *
      * When the facility is off this still answers, with `enabled: false` and
@@ -100,25 +134,31 @@ class MemberInvitations
                 'linked'     => $viewer instanceof Individual,
                 'quota'      => $this->quota(),
                 'remaining'  => 0,
+                'scope'      => 'close_family',
                 'candidates' => [],
                 'invitations' => $this->presentAll($mine),
             ];
         }
 
-        $candidates = $this->close_family->invitable(
-            $viewer,
-            $tree,
-            $access_level,
-            $this->steps(),
-            $this->invitations
-        );
+        $anyone     = $this->keepsTheTree($tree);
+        $candidates = $anyone
+            ? $this->everybodyInvitable($tree, $access_level)
+            : $this->close_family->invitable($viewer, $tree, $access_level, $this->steps(), $this->invitations);
 
         return [
             'enabled'     => true,
             'linked'      => true,
             'quota'       => $this->quota(),
-            'remaining'   => max(0, $this->quota() - count($mine)),
-            'candidates'  => $this->presentCandidates($candidates, $access_level),
+            // An editor has no quota — see `keepsTheTree()`. `remaining` is
+            // what the screen decides on, so it is told the truth rather than
+            // a number that would stop it offering anything.
+            'remaining'   => $anyone ? self::LISTED : max(0, $this->quota() - count($mine)),
+            // Which of the two screens to draw: a wheel of close family, or a
+            // search over everybody. The client cannot work this out from the
+            // list, because a short list is also what a small family looks
+            // like.
+            'scope'       => $anyone ? 'anyone' : 'close_family',
+            'candidates'  => $this->presentCandidates($candidates, $access_level, $viewer),
             'invitations' => $this->presentAll($mine),
         ];
     }
@@ -152,8 +192,11 @@ class MemberInvitations
 
         $tree   = $this->trees->tree();
         $viewer = $this->trees->linkedIndividual($tree, $user);
+        $anyone = $this->keepsTheTree($tree);
 
-        if (!$viewer instanceof Individual) {
+        // An editor needs no record of their own: what they may invite is not
+        // measured from anywhere. A member's is.
+        if (!$anyone && !$viewer instanceof Individual) {
             throw new ApiException(
                 'no_linked_record',
                 StatusCodeInterface::STATUS_FORBIDDEN,
@@ -161,7 +204,7 @@ class MemberInvitations
             );
         }
 
-        if (count($this->mine($tree, $user)) >= $this->quota()) {
+        if (!$anyone && count($this->mine($tree, $user)) >= $this->quota()) {
             throw new ApiException(
                 'quota_reached',
                 StatusCodeInterface::STATUS_CONFLICT,
@@ -170,9 +213,9 @@ class MemberInvitations
         }
 
         $access_level = $this->trees->accessLevel($tree);
-        $candidates   = $this->close_family->invitable($viewer, $tree, $access_level, $this->steps(), $this->invitations);
+        $individual   = $this->invitable($user, $xref);
 
-        if (!isset($candidates[$xref])) {
+        if (!$individual instanceof Individual) {
             // One answer for "too distant", "already has an account",
             // "already invited", "no such person" and "hidden from you". A
             // member who posts an XREF they were not offered learns nothing
@@ -183,8 +226,6 @@ class MemberInvitations
                 I18N::translate('You cannot invite this person.')
             );
         }
-
-        $individual = $candidates[$xref]['individual'];
 
         $token = $this->invitations->create(
             $tree,
@@ -241,16 +282,131 @@ class MemberInvitations
     }
 
     /**
+     * The one rule, asked about one person.
+     *
+     * Every screen that offers an invitation and the endpoint that issues one
+     * ask this and nothing else, so the offer and the answer cannot disagree.
+     * It returns the record rather than a boolean because every caller wants
+     * it next, and looking it up twice is how the two get out of step.
+     *
+     * **A list is never the rule.** For an editor the eligible set is the
+     * whole tree, and the screen is handed the first `LISTED` of it — asking
+     * "is this person in that list" would refuse number two hundred and one
+     * for no reason anybody could explain.
+     */
+    public function invitable(UserInterface $user, string $xref): Individual|null
+    {
+        if (!$this->enabled()) {
+            return null;
+        }
+
+        $tree         = $this->trees->tree();
+        $access_level = $this->trees->accessLevel($tree);
+
+        if (!$this->keepsTheTree($tree)) {
+            $viewer = $this->trees->linkedIndividual($tree, $user);
+
+            if (!$viewer instanceof Individual) {
+                return null;
+            }
+
+            // The quota belongs here as much as the distance does. An offer
+            // that the endpoint would refuse is worse than no offer: the
+            // member acts on it, and learns what they could have been told
+            // before they tried.
+            if (count($this->mine($tree, $user)) >= $this->quota()) {
+                return null;
+            }
+
+            $candidates = $this->close_family->invitable(
+                $viewer,
+                $tree,
+                $access_level,
+                $this->steps(),
+                $this->invitations
+            );
+
+            return $candidates[$xref]['individual'] ?? null;
+        }
+
+        $individual = Registry::individualFactory()->make($xref, $tree);
+
+        if (!$individual instanceof Individual || !$individual->canShow($access_level)) {
+            return null;
+        }
+
+        return $this->openToInvitation($tree, $individual) ? $individual : null;
+    }
+
+    /**
+     * Whether an invitation would mean anything for this person.
+     *
+     * Three ways it would not, and they are the same three for everybody: the
+     * dead cannot accept one, somebody with an account does not need one, and
+     * somebody already invited has one waiting.
+     */
+    private function openToInvitation(Tree $tree, Individual $individual): bool
+    {
+        if ($individual->isDead()) {
+            return false;
+        }
+
+        if ($this->close_family->hasAccount($tree, $individual->xref())) {
+            return false;
+        }
+
+        return !$this->invitations->outstanding($tree)
+            ->contains(static fn (Invitation $invitation): bool => (string) $invitation->xref === $individual->xref());
+    }
+
+    /**
+     * Everybody in the tree an editor could invite, capped for the screen.
+     *
+     * Read rather than queried, for the same reason the surname index is:
+     * "living", "visible" and "has no account yet" are three questions no
+     * single SQL statement answers, and two of them are privacy questions that
+     * a query would have to ignore.
+     *
+     * @return array<string,array{individual:Individual,relationship:string|null}>
+     */
+    private function everybodyInvitable(Tree $tree, int $access_level): array
+    {
+        $rows = DB::table('individuals')
+            ->where('i_file', '=', $tree->id())
+            ->select(['individuals.*'])
+            ->get();
+
+        $mapper = Registry::individualFactory()->mapper($tree);
+        $found  = [];
+
+        foreach ($rows as $row) {
+            $individual = $mapper($row);
+
+            if (!$individual->canShow($access_level) || !$this->openToInvitation($tree, $individual)) {
+                continue;
+            }
+
+            $found[$individual->xref()] = ['individual' => $individual, 'relationship' => null];
+
+            if (count($found) >= self::LISTED) {
+                break;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * @param array<string,array{individual:Individual,relationship:string|null}> $candidates
      *
      * @return array<int,array<string,mixed>>
      */
-    private function presentCandidates(array $candidates, int $access_level): array
+    private function presentCandidates(array $candidates, int $access_level, Individual|null $viewer): array
     {
         $presented = [];
 
         foreach ($candidates as $candidate) {
-            $reference = $this->presenter->individualRef($candidate['individual'], $access_level);
+            $reference = $this->presenter->individualRef($candidate['individual'], $access_level, $viewer);
 
             // Null would mean the presenter disagrees with the walk about
             // visibility. It should not happen — both ask canShow() at the
@@ -260,11 +416,15 @@ class MemberInvitations
                 continue;
             }
 
-            // `array_merge`, not `+`. The reference shape now names the
-            // relationship itself, and this walk's answer is the one to keep:
-            // it is the same question asked from the inviting member's side,
-            // which is whose screen this is.
-            $presented[] = array_merge($reference, ['relationship' => $candidate['relationship']]);
+            // `array_merge`, not `+`. The reference shape names the
+            // relationship itself, and where this walk has an answer it is
+            // the one to keep: it is the same question asked from the
+            // inviting member's side, which is whose screen this is. An
+            // editor's list has no walk behind it, so the shape's own answer
+            // — the tree, then the archive number — stands.
+            $presented[] = $candidate['relationship'] === null
+                ? $reference
+                : array_merge($reference, ['relationship' => $candidate['relationship']]);
         }
 
         return $presented;

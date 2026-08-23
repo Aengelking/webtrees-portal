@@ -3340,6 +3340,66 @@ suite exactly as marginal.
 
 ---
 
+### 2.60 An editor is not a member, on the other screen too
+
+The same correction as §2.58, one screen over. A member's invitation is hedged
+three ways — a distance, a quota, and a switch — because a member is being
+*trusted* to decide who is family. An editor is not being trusted to: they
+already decide, from the control panel, with no distance and no quota. Applying
+either here never stopped them inviting anybody; it only stopped them doing it
+from the screen they were already looking at, having just found the person on
+it.
+
+So the distance and the quota lift for an editor, and the switch does not. Off
+is off for everybody, because that one is the family saying the facility should
+not exist.
+
+#### A list is never the rule
+
+This is the part worth remembering. `create()` used to check the posted xref
+against the candidate list, which is exactly right while that list is a
+member's close family — a dozen people, built in full. For an editor the
+eligible set is the whole archive, and the screen is handed the first two
+hundred of it. Checking against *that* would have refused number two hundred
+and one for no reason anybody could explain.
+
+So there is now one method, `invitable()`, that answers about one person
+without building any list, and both the screen and the endpoint ask it. The
+list is a convenience; the rule is the rule.
+
+The same move fixed the offer on a person's own page. It was working the
+question out client-side from `GET /invitations`, which for an editor would
+have meant shipping thousands of records to answer one question about one of
+them — so `invitable` is a field on the record now, and the page asks nobody
+else. One request fewer, and the comment about "a second request that must not
+break the screen" went with it.
+
+Writing that check found a bug that predated all of this: **the quota was not
+part of it.** A member with none left was still offered the button on a
+relative's page, pressed it, and was refused by the endpoint. An offer the
+server would refuse is worse than no offer.
+
+#### Thousands of names is not a wheel
+
+The invite screen picks from a `<select>`, which is the right control for a
+handful of relatives and useless for an archive. So the screen has two shapes,
+and the server says which — `scope`, because a client cannot tell them apart
+from the list: a short list is also what a small family looks like.
+
+The editor's shape is the search the Stammbaum screen already has, over the
+same endpoint. It costs almost nothing, and it composes: that search already
+shows an editor the living (§2.58), which is exactly who an invitation is for,
+and it already matches nicknames and archive numbers (§2.58 again), so an
+editor holding a number can type it.
+
+**The result list makes no promises about who may be invited.** It is the
+archive's search, so somebody who already has an account is in it like anybody
+else, and the answer comes when the invitation is issued — in the same words as
+every other refusal. Filtering it would need the whole eligible set on the
+screen, which is the thing this exists to avoid.
+
+---
+
 ---
 
 ## 3. Things that were guessed

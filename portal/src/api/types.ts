@@ -53,6 +53,18 @@ export interface MemberInvitation {
 export interface InvitationOverview {
   /** False when the family has switched member invitations off entirely. */
   enabled: boolean
+  /**
+   * Whom this reader may invite: their close family, or anybody they can see.
+   *
+   * The second is what an editor gets, and it is why the screen has two
+   * shapes — a wheel of a handful of relatives, or a search over the whole
+   * archive. It cannot be worked out from the list, because a short list is
+   * also what a small family looks like.
+   *
+   * Optional: the module and the portal deploy separately, and a server that
+   * predates it means the close-family screen, which is what it did before.
+   */
+  scope?: 'close_family' | 'anyone'
   /** False when this account is not linked to anybody in the tree. */
   linked: boolean
   quota: number
@@ -330,6 +342,17 @@ export interface Individual extends IndividualRef {
   siblings: IndividualRef[]
   spouses: IndividualRef[]
   children: IndividualRef[]
+  /**
+   * Whether this reader could invite this person into the portal.
+   *
+   * Answered by the server with the same rule the invitation endpoint
+   * applies, so an offer and its answer cannot disagree. `false` for every
+   * reason there could be — dead, already an account holder, already invited,
+   * too distant — on purpose: nobody can learn which by looking.
+   *
+   * Optional: the module and the portal deploy separately.
+   */
+  invitable?: boolean
   /** True while an edit of the member's own record awaits approval. */
   pending_change: boolean
   webtrees_url: string

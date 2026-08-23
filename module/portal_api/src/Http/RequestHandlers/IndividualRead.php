@@ -6,6 +6,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Services\MemberInvitations;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Fisharebest\Webtrees\Auth;
@@ -28,6 +29,7 @@ class IndividualRead implements RequestHandlerInterface
     public function __construct(
         private readonly PortalTreeService $trees,
         private readonly RecordPresenter $presenter,
+        private readonly MemberInvitations $invitations,
     ) {
     }
 
@@ -52,6 +54,21 @@ class IndividualRead implements RequestHandlerInterface
         if ($payload === null) {
             throw ApiException::notFound();
         }
+
+        // Whether this reader could invite this person, asked here rather
+        // than worked out on the screen from a list of candidates.
+        //
+        // It used to be the latter, which was fine while the list was a
+        // member's close family and wrong the moment it became an editor's
+        // whole tree: the screen would have had to hold thousands of records
+        // to answer one question about one of them. And this is the same rule
+        // the endpoint that issues the invitation applies, so the offer and
+        // the answer cannot disagree.
+        //
+        // Its absence stays as uninformative as it was: dead, already an
+        // account holder, already invited and too distant are all `false`,
+        // exactly so that nobody can learn which by looking.
+        $payload['invitable'] = $this->invitations->invitable(Auth::user(), $xref) instanceof Individual;
 
         return Json::response($payload);
     }
