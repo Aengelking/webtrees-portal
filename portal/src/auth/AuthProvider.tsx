@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, forgetCsrfToken, setUnauthenticatedHandler } from '../api/client'
 import type { Credentials, InvitationAcceptance, Me } from '../api/types'
+import i18n, { portalLanguage } from '../i18n'
 import { disable } from '../pwa/notifications'
 
 type Status = 'checking' | 'signed-in' | 'signed-out'
@@ -72,6 +73,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [])
+
+  /**
+   * The member's own language, from their account.
+   *
+   * A language is a fact about a person, not about a telephone: somebody who
+   * reads English reads English on the tablet too, and on the phone they buy
+   * next year. So the account decides, and the device preference is only what
+   * answers before anybody is signed in.
+   *
+   * It runs when `me` arrives — a reload, a sign-in, an accepted invitation —
+   * and never fights the switcher, which changes the account at the same time
+   * as it changes the screen. A tag the portal has no translation for leaves
+   * the language alone rather than dropping the member into German.
+   */
+  useEffect(() => {
+    // Defensively addressed: a payload without a language, or without a user
+    // at all, must leave the portal in the language it is already reading.
+    const code = portalLanguage(me?.user?.language)
+
+    if (code !== null && code !== i18n.language) {
+      void i18n.changeLanguage(code)
+    }
+  }, [me?.user?.language])
 
   const signIn = useCallback(
     async (credentials: Credentials) => {

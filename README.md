@@ -230,10 +230,12 @@ invitations in place there is no reason to leave it on.
 
 *Control panel → Modules → Member portal API → preferences.*
 
-A member opens *Einstellungen → Jemanden einladen*, chooses one of their close
-relatives from a dropdown — named by relationship, "Ihr Bruder — Dieter
-Beispiel (1990–)" — and gets a link to pass on. No administrator is in the
-loop. The link appears directly under the button that made it.
+A member opens *Jemanden einladen* — the offer stands on *Mein Profil* and
+under *Einstellungen*, always, whether or not their own account is linked to a
+record of its own — chooses one of their close relatives from a dropdown, named
+by relationship, "Ihr Bruder — Dieter Beispiel (1990–)", and gets a link to
+pass on. No administrator is in the loop. The link appears directly under the
+button that made it.
 
 **Handing the link over** is **Teilen** where the browser has a share sheet —
 a phone, an installed app — which puts it straight into WhatsApp or a text
@@ -293,11 +295,32 @@ under *Einstellungen → Meine Kontaktdaten*, and chooses **for each one
 separately** whether nobody, only their close family, or every member may see
 it. Nothing is shared until they choose it.
 
+**The screen reads before it writes.** It opens on what the member is
+currently sharing — each entry, in plain sentences, with who may see it, and
+"Nicht angegeben" for the ones they have not filled in — and the form that
+changes any of it is behind *Kontaktdaten ändern*. Looking is the commoner
+errand, and it no longer means reading three text boxes and twelve radio
+buttons.
+
+**The address is four fields**: street and number, postcode, town, country.
+Typed as fields, so a telephone can offer its numeric keyboard for the
+postcode and its autofill for the rest; stored as fields *and* as the one
+readable block of text that every reader gets. An address that was typed as
+one line before this — or by a client that still only has a box — is read back
+into the fields as best it can be, and the member's next save replaces the
+guess with their own answers.
+
 **These are not the contact details in the family tree.** Those stay
 unpublished, as they have been since Phase 1. Contact data in a GEDCOM record
 is maintained by whoever keeps the tree, and nobody can meaningfully consent
 to "whatever my record happens to say". What is shared here is what the member
 typed about themselves, and clearing the field deletes it.
+
+**„Niemand" heißt aufheben, nicht löschen.** An entry set to *Niemand* is kept
+and shown to no one in the portal — an address shared with no relative is
+still the address the family magazine is posted to, and one day the
+subscription list it is kept in. The only way to delete an entry is to empty
+the field and save, and the form says so where the choice is made.
 
 *Close family* is the same distance as for invitations — one definition, set
 once.
@@ -1625,8 +1648,10 @@ the way they open everything else on that phone.
 **The offer is made once, after signing in**, as a dialogue: a member who can
 install is asked, answers in one tap, and is never asked again on that device.
 What is remembered is one flag saying the question was asked — a device
-preference, like the language, and the only other thing the portal keeps in
-browser storage. Saying no costs nothing: the offer stays in *Einstellungen*
+preference, and one of the two things the portal keeps in browser storage.
+(The other is the language, and only as the answer for the moment before the
+portal knows who is reading: once somebody is signed in, their language comes
+from their account.) Saying no costs nothing: the offer stays in *Einstellungen*
 for good, and the dialogue says so. Somebody whose browser cannot install at
 all is not stopped on their way in, and neither is somebody reading inside
 another app's browser — that case needs "leave this app first", which is not
@@ -1854,7 +1879,11 @@ relative list. The reference number behind that badge is published in
 fact labels and written-out dates come back in the language the request asked
 for; `Accept-Language` goes out on every request; switching language in the
 portal refetches rather than leaving English labels on a German screen; an
-unavailable language changes nothing rather than failing.
+unavailable language changes nothing rather than failing. The choice is kept
+on the *account*: the switch saves it, a signed-in member's language comes
+from their account rather than from the browser, a tag the portal has no
+translation for leaves the language alone, and the login screen — where there
+is no account yet — saves nothing.
 
 **Invitations** (`module/tests/InvitationTest.php`,
 `portal/src/Invitation.test.tsx`) — the raw token appears in no column of

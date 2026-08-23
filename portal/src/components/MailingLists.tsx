@@ -20,7 +20,7 @@ import { Card, ErrorNotice, Section, Toggle } from '../components/ui'
  *
  * What a member is never shown is the list's address, or the reason a change
  * could not be delivered. The first is the administrator's business — see
- * `Schema/Migration11.php` in the module — and the second is a sentence about
+ * `Schema/Migration12.php` in the module — and the second is a sentence about
  * a tenant, an application registration and a cmdlet, none of which are things
  * a family member can act on. "Somebody is looking at it" is both kinder and
  * more accurate.

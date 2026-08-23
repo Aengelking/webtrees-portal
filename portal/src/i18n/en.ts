@@ -146,6 +146,9 @@ export const en: Translations = {
   contact: {
     intro:
       'Enter what makes you reachable — and decide for each entry separately who may see it. Anything you leave empty is not shared.',
+    keptHint:
+      '"Nobody" means the entry is kept — for posting the family magazine, for instance — but shown to nobody in the portal. To delete it for good, empty the field and save.',
+    keptNote: 'Kept, but shown to nobody.',
     kind: {
       email: 'Email address',
       phone: 'Telephone number',
@@ -163,6 +166,17 @@ export const en: Translations = {
       connections: 'Only my contacts',
       members: 'Every member of the portal',
     },
+    address: {
+      street: 'Street and number',
+      postcode: 'Postcode',
+      city: 'Town',
+      country: 'Country',
+    },
+    summaryIntro: 'This is what you are sharing at the moment. You can change it, or remove it, whenever you like.',
+    empty: 'Not given',
+    sharedWith: 'Visible to: {{audience}}',
+    change: 'Change contact details',
+    cancel: 'Cancel',
     save: 'Save contact details',
     saving: 'Saving …',
     saved: 'Your contact details are saved.',
@@ -542,6 +556,8 @@ export const en: Translations = {
     inviteAction: 'Invite somebody',
     language: 'Language',
     languageHint: 'Applies to this device.',
+    languageAccountHint:
+      'Applies to your account — on every other device too, and to email from the family tree.',
     account: 'Account',
     directory: 'Directory',
     directoryVisible: 'You are visible in the member directory.',

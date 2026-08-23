@@ -52,7 +52,7 @@ use function trim;
  * moves the subscriptions with it; see `outstanding()`.
  *
  * **Which lists exist is an administrator's setting**, one per line, and a
- * member is never shown the addresses — see `Schema/Migration11.php` for why
+ * member is never shown the addresses — see `Schema/Migration12.php` for why
  * a list is identified by a hash of its address.
  */
 class DistributionLists

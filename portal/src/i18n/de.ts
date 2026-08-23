@@ -147,6 +147,9 @@ export const de = {
   contact: {
     intro:
       'Tragen Sie ein, was Sie erreichbar macht — und entscheiden Sie für jeden Eintrag einzeln, wer ihn sehen darf. Was Sie leer lassen, wird nicht geteilt.',
+    keptHint:
+      '„Niemand“ heißt: Der Eintrag bleibt gespeichert — etwa für den Versand der Familienzeitschrift — wird aber niemandem im Portal gezeigt. Zum endgültigen Löschen leeren Sie das Feld und speichern.',
+    keptNote: 'Gespeichert, aber niemandem gezeigt.',
     kind: {
       email: 'E-Mail-Adresse',
       phone: 'Telefonnummer',
@@ -164,6 +167,17 @@ export const de = {
       connections: 'Nur meine Kontakte',
       members: 'Alle Mitglieder im Portal',
     },
+    address: {
+      street: 'Straße und Hausnummer',
+      postcode: 'Postleitzahl',
+      city: 'Ort',
+      country: 'Land',
+    },
+    summaryIntro: 'Das teilen Sie zurzeit. Sie können es jederzeit ändern oder wieder löschen.',
+    empty: 'Nicht angegeben',
+    sharedWith: 'Sichtbar für: {{audience}}',
+    change: 'Kontaktdaten ändern',
+    cancel: 'Abbrechen',
     save: 'Kontaktdaten speichern',
     saving: 'Wird gespeichert …',
     saved: 'Ihre Kontaktdaten sind gespeichert.',
@@ -544,6 +558,8 @@ export const de = {
     inviteAction: 'Jemanden einladen',
     language: 'Sprache',
     languageHint: 'Gilt für dieses Gerät.',
+    languageAccountHint:
+      'Gilt für Ihr Konto — also auch auf jedem anderen Gerät und für E-Mails aus dem Stammbaum.',
     account: 'Konto',
     directory: 'Verzeichnis',
     directoryVisible: 'Sie sind im Mitgliederverzeichnis sichtbar.',

@@ -837,9 +837,15 @@ paths:
       summary: Change what I share
       description: |
         A kind absent from the body is left alone. A kind that arrives with an
-        empty value, or with `nobody` as its audience, is **deleted** —
-        clearing the field and withdrawing consent are deliberately the same
-        act, so nothing is left behind to leak later.
+        **empty value is deleted**, and that is the only thing that deletes
+        one: clearing the field is the withdrawal, so nothing is left behind
+        to leak later.
+
+        `nobody` **keeps** the entry and discloses it to no one. An address
+        shared with no relative is still the address the family magazine is
+        posted to — an audience of nobody and no entry at all are the same
+        thing for disclosure and not for the family. Clients are expected to
+        say so where the choice is made.
 
         Unknown kinds and unknown audiences are ignored, and an unrecognised
         audience resolves to `nobody`.
@@ -2712,6 +2718,32 @@ components:
           nullable: true
           description: The id to ask `?before=` with, or null at the beginning.
 
+    AddressParts:
+      type: object
+      additionalProperties: false
+      description: |
+        An address as fields rather than as one line. Sent by a client that
+        has fields; returned always — from the row where it has them, and
+        otherwise from the best reading of the text, so that a row written
+        before addresses had fields still fills the form in.
+
+        Where parts are sent they also decide `value`: the two are one address
+        written twice, and only one of them can be the member's own words.
+      properties:
+        street:
+          type: string
+          maxLength: 120
+          description: Street and house number.
+        postcode:
+          type: string
+          maxLength: 20
+        city:
+          type: string
+          maxLength: 120
+        country:
+          type: string
+          maxLength: 80
+
     ContactEntry:
       type: object
       additionalProperties: false
@@ -2720,6 +2752,16 @@ components:
         value:
           type: string
           maxLength: 255
+          description: |
+            The entry as one readable piece of text, and the only shape any
+            reader ever gets — an address arrives here as its lines, street
+            first, postcode and town together, country last.
+        parts:
+          allOf:
+            - $ref: '#/components/schemas/AddressParts'
+          description: |
+            The address only. Absent for an e-mail address and a telephone
+            number, which are genuinely one value each.
         audience:
           type: string
           description: |
@@ -3094,6 +3136,18 @@ components:
         display_name_override:
           type: [string, 'null']
           maxLength: 128
+        language:
+          type: string
+          description: |
+            The member's own language, as the account's webtrees preference —
+            not a device setting. `de` or `en` from the portal; the site
+            resolves it to a tag it actually has enabled (`de`, `en-US`), and
+            refuses with 400 when it has none.
+
+            This is what makes the choice follow the member to their next
+            telephone, and what decides the language a notification e-mail
+            from webtrees reaches them in.
+          example: de
 
     IndividualUpdate:
       description: |

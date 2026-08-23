@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Tests;
 
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ProfileUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Fig\Http\Message\RequestMethodInterface;
+use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Gedcom;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Not everything the portal shows is translated in the browser.
@@ -188,5 +193,116 @@ class LanguageTest extends PortalTestCase
 
         self::assertSame('Cookie, Accept-Language', $response->getHeaderLine('Vary'));
         self::assertSame('private, no-store', $response->getHeaderLine('Cache-Control'));
+    }
+
+    // -----------------------------------------------------------------
+    // The language belongs to the member, not to the telephone
+    // -----------------------------------------------------------------
+
+    /**
+     * A member has one language, not one per device. It is kept where
+     * webtrees keeps it — the account preference its own settings page sets —
+     * so it follows them to the next telephone, and so the mail webtrees sends
+     * them arrives in the language they read.
+     */
+    public function testTheChosenLanguageIsKeptOnTheAccount(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'geheim', 'member', 'X1');
+        $this->login($anna);
+
+        $response = $this->patchProfile($anna, ['language' => 'de']);
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame('de', $this->languageOf($anna));
+    }
+
+    /** Nothing else has to change with it. */
+    public function testTheLanguageCanBeTheOnlyChange(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'geheim', 'member', 'X1');
+        $this->login($anna);
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $this->patchProfile($anna, ['language' => 'de'])->getStatusCode());
+    }
+
+    /**
+     * The portal knows "de" and "en"; a site has whatever tags its
+     * administrator enabled. Storing the portal's own code would put a
+     * preference on the account that webtrees cannot read.
+     */
+    public function testAPortalCodeIsStoredAsATagTheSiteActuallyHas(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'geheim', 'member', 'X1');
+        $this->login($anna);
+
+        $this->patchProfile($anna, ['language' => 'en']);
+
+        self::assertStringStartsWith('en', $this->languageOf($anna));
+    }
+
+    /**
+     * Refused rather than stored. An unusable preference sits on the account
+     * for ever, and everything that reads it later has to guess around it.
+     */
+    public function testALanguageThisSiteDoesNotHaveIsRefused(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'geheim', 'member', 'X1');
+        $this->login($anna);
+
+        $response = $this->patchProfile($anna, ['language' => 'xx-YY']);
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $response->getStatusCode());
+        self::assertSame('', $this->languageOf($anna));
+    }
+
+    public function testALanguageThatIsNotTextIsRefused(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'geheim', 'member', 'X1');
+        $this->login($anna);
+
+        self::assertSame(
+            StatusCodeInterface::STATUS_BAD_REQUEST,
+            $this->patchProfile($anna, ['language' => 7])->getStatusCode()
+        );
+    }
+
+    /**
+     * The answer is already in the new language. A member who switches to
+     * German should not be handed one more screen of English first.
+     */
+    public function testTheAnswerIsAlreadyInTheNewLanguage(): void
+    {
+        $anna = $this->createUser('anna', 'Anna Beispiel', 'geheim', 'member', 'X1');
+        $this->login($anna);
+
+        $this->patchProfile($anna, ['language' => 'de']);
+
+        self::assertSame('de', I18N::languageTag());
+    }
+
+    /**
+     * @param array<string,mixed> $body
+     */
+    private function patchProfile(User $user, array $body): ResponseInterface
+    {
+        return $this->api(
+            ProfileUpdate::class,
+            RequestMethodInterface::METHOD_PATCH,
+            body: $body,
+            headers: $this->csrfHeader(),
+        );
+    }
+
+    /**
+     * Straight from the database: `User::getPreference()` answers from a cache
+     * filled when the object was made, so this instance cannot see what a
+     * different one inside the handler wrote.
+     */
+    private function languageOf(User $user): string
+    {
+        return (string) DB::table('user_setting')
+            ->where('user_id', '=', $user->id())
+            ->where('setting_name', '=', UserInterface::PREF_LANGUAGE)
+            ->value('setting_value');
     }
 }
