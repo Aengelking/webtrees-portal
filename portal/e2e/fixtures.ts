@@ -609,6 +609,102 @@ export async function stubApi(page: Page): Promise<void> {
       })
     }
 
+    // Phase 16. Looking through the archive: a search, and two indexes.
+    if (path === '/search') {
+      const surname = url.searchParams.get('surname') ?? ''
+      const place = url.searchParams.get('place') ?? ''
+      const q = (url.searchParams.get('q') ?? '').toLowerCase()
+
+      const matched = ARCHIVE.filter((person) => {
+        if (surname !== '') return person.surname === surname
+        if (place !== '') return person.places.includes(place)
+
+        return (
+          q !== '' &&
+          (person.name.toLowerCase().includes(q) ||
+            person.references.some((reference) => reference.number === q))
+        )
+      })
+
+      return json(route, {
+        items: matched.map(({ surname: _surname, places: _places, ...person }) => person),
+        total: matched.length,
+        page: 1,
+        per_page: 25,
+        truncated: false,
+      })
+    }
+
+    if (path === '/index') {
+      return json(route, {
+        surnames: [
+          { name: 'Beispiel', count: 2 },
+          { name: 'Fernab', count: 1 },
+        ],
+        places: [{ name: 'Celle, Niedersachsen, Deutschland', count: 1 }],
+        truncated: false,
+      })
+    }
+
     return json(route, { error: 'not_found', message: 'This item does not exist.' }, 404)
   })
 }
+
+/**
+ * The handful of people the search fixture knows about.
+ *
+ * `surname` and `places` are not part of the API's own shape — they are what
+ * the fixture matches on, so that a spec can tap an index entry and get a
+ * believable answer back.
+ */
+interface ArchiveEntry {
+  xref: string
+  name: string
+  sex: string
+  is_deceased: boolean
+  lifespan: string
+  portrait: null
+  references: { number: string; type: string }[]
+  relationship: string | null
+  surname: string
+  places: string[]
+}
+
+const ARCHIVE: ArchiveEntry[] = [
+  {
+    xref: 'X2',
+    name: 'Bertha Beispiel',
+    sex: 'F',
+    is_deceased: true,
+    lifespan: '1889–1976',
+    portrait: null,
+    references: [{ number: '4712', type: 'SB' }],
+    relationship: 'Ihre Großmutter',
+    surname: 'Beispiel',
+    places: ['Celle, Niedersachsen, Deutschland'],
+  },
+  {
+    xref: 'X5',
+    name: 'Emil Beispiel',
+    sex: 'M',
+    is_deceased: true,
+    lifespan: '1884–1961',
+    portrait: null,
+    references: [],
+    relationship: 'Ihr Großvater',
+    surname: 'Beispiel',
+    places: [],
+  },
+  {
+    xref: 'X12',
+    name: 'Otto Fernab',
+    sex: 'M',
+    is_deceased: true,
+    lifespan: '1830–1899',
+    portrait: null,
+    references: [],
+    relationship: null,
+    surname: 'Fernab',
+    places: [],
+  },
+]

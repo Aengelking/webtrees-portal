@@ -61,8 +61,13 @@ class MemberList implements RequestHandlerInterface
         // one row of one table.
         $states = $this->connections->statesFor(Auth::user());
 
+        // Read once for the page, for the same reason: every row asks how the
+        // reader is related to it, and every row would otherwise fetch the
+        // reader's own record to find out.
+        $viewer = $this->trees->linkedIndividual($tree, Auth::user());
+
         $items = $result['items']
-            ->map(fn (Member $member): array => $this->summary($member, $tree, $access_level, $states))
+            ->map(fn (Member $member): array => $this->summary($member, $tree, $access_level, $states, $viewer))
             ->all();
 
         return Json::response([
@@ -81,7 +86,13 @@ class MemberList implements RequestHandlerInterface
      *
      * @return array<string,mixed>
      */
-    private function summary(Member $member, Tree $tree, int $access_level, array $states): array
+    private function summary(
+        Member $member,
+        Tree $tree,
+        int $access_level,
+        array $states,
+        Individual|null $viewer
+    ): array
     {
         $individual = $this->trees->linkedIndividual($tree, $member->user);
 
@@ -89,7 +100,7 @@ class MemberList implements RequestHandlerInterface
             'id'           => $member->id,
             'display_name' => $member->display_name,
             'individual'   => $individual instanceof Individual
-                ? $this->presenter->individualRef($individual, $access_level)
+                ? $this->presenter->individualRef($individual, $access_level, $viewer)
                 : null,
             // Where the reader and this member stand, so the row can offer
             // the one thing that means something — ask, answer, or nothing,

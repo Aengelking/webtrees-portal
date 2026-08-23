@@ -29,6 +29,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/conversations/{id}/messages/{message}',
       '/csrf',
       '/health',
+      '/index',
       '/individuals/{xref}',
       '/individuals/{xref}/ancestors',
       '/invitation/accept',
@@ -54,6 +55,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/photos',
       '/photos/{xref}',
       '/push',
+      '/search',
       '/session',
     ])
   })

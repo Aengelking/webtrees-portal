@@ -43,6 +43,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MessageCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndexRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
@@ -54,6 +55,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ReplyCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SearchList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
@@ -79,6 +81,8 @@ use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
+use Engelking\Webtrees\PortalApi\Services\SearchConsent;
+use Engelking\Webtrees\PortalApi\Services\TreeSearch;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\FlashMessages;
@@ -97,6 +101,7 @@ use Fisharebest\Webtrees\Services\MigrationService;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\RateLimitService;
 use Fisharebest\Webtrees\Services\RelationshipService;
+use Fisharebest\Webtrees\Services\SearchService;
 use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\Session;
@@ -296,6 +301,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $presenter      = new RecordPresenter($pending, $relationships, $photos);
         $ancestors      = new AncestorTree($presenter);
         $members        = new MemberService($user_service);
+        $search_consent = new SearchConsent($members, $portal_trees);
+        $tree_search    = new TreeSearch($portal_trees, $container->get(SearchService::class), $search_consent);
         $rate_limiter   = new LoginRateLimiter($this);
         $gedcom_editor  = new GedcomEditor($pending);
         $invitations    = new InvitationService();
@@ -364,6 +371,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
         $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
         $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections));
+        $container->set(SearchList::class, new SearchList($portal_trees, $presenter, $tree_search));
+        $container->set(IndexRead::class, new IndexRead($portal_trees, $tree_search));
         $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
@@ -486,6 +495,13 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $map->get(MemberRead::class, self::ROUTE_PREFIX . '/members/{id}', MemberRead::class)
             ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $private]);
+
+        // Phase 16 — looking through the tree rather than walking it.
+        $map->get(SearchList::class, self::ROUTE_PREFIX . '/search', SearchList::class)
+            ->extras(['middleware' => $private]);
+
+        $map->get(IndexRead::class, self::ROUTE_PREFIX . '/index', IndexRead::class)
             ->extras(['middleware' => $private]);
 
         // Phase 2 — writes. Authenticated *and* CSRF-checked: these are the

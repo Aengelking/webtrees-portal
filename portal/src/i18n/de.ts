@@ -386,6 +386,44 @@ export const de = {
       body: 'Bitte scannen Sie den Code noch einmal. Falls das nicht klappt, lassen Sie sich einen neuen Code zeigen.',
     },
   },
+  tree: {
+    title: 'Stammbaum',
+    intro:
+      'Suchen Sie im Familienarchiv nach einem Namen oder einer SB-Nr. — oder blättern Sie durch die Namen und die Orte.',
+    tabSearch: 'Suche',
+    tabSurnames: 'Namen',
+    tabPlaces: 'Orte',
+    search: 'Name oder SB-Nr.',
+    searchHint:
+      'Verstorbene sind vollständig durchsuchbar. Lebende erscheinen nur, wenn sie sich selbst im Mitgliederverzeichnis freigegeben haben.',
+    open: 'Stammbaum durchsuchen',
+    count_one: '{{count}} Person',
+    count_other: '{{count}} Personen',
+    noResults: {
+      title: 'Keine Treffer',
+      body: 'Für „{{query}}" wurde niemand gefunden. Versuchen Sie einen kürzeren Suchbegriff.',
+      action: 'Suche zurücksetzen',
+    },
+    tooMany:
+      'Es gibt mehr Treffer, als hier gezeigt werden können. Ein genauerer Suchbegriff grenzt die Liste ein.',
+    truncated: 'Der Stammbaum ist größer als diese Übersicht. Die Zahlen sind Mindestangaben.',
+    backToSurnames: 'Zurück zu den Namen',
+    backToPlaces: 'Zurück zu den Orten',
+    showingSurname: 'Alle mit dem Namen {{name}}',
+    showingPlace: 'Alle mit einem Ereignis in {{name}}',
+    surnames: {
+      empty: {
+        title: 'Noch keine Namen',
+        body: 'Im Stammbaum ist für Sie noch kein Name sichtbar.',
+      },
+    },
+    places: {
+      empty: {
+        title: 'Noch keine Orte',
+        body: 'Im Stammbaum ist für Sie noch kein Ort sichtbar.',
+      },
+    },
+  },
   members: {
     back: 'Zurück zu Kontakte',
     title: 'Mitglieder',

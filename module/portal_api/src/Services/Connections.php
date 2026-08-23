@@ -134,6 +134,9 @@ class Connections
 
     private const int MAX_REFERENCE_LENGTH = 40;
 
+    /** @var array<int,Individual|null> Readers' own records, per request. */
+    private array $viewer_records = [];
+
     public function __construct(
         private readonly PortalApiModule $module,
         private readonly PortalTreeService $trees,
@@ -918,6 +921,23 @@ class Connections
     /**
      * @return array<string,mixed>|null
      */
+    /**
+     * The reader's own record, fetched once however many contacts they have.
+     *
+     * Every card now says how the reader is related to the person on it, and
+     * every card would otherwise look the reader up to find out.
+     */
+    private function viewerRecord(UserInterface $user, Tree $tree): Individual|null
+    {
+        $key = $user->id();
+
+        if (!array_key_exists($key, $this->viewer_records)) {
+            $this->viewer_records[$key] = $this->trees->linkedIndividual($tree, $user);
+        }
+
+        return $this->viewer_records[$key];
+    }
+
     private function present(object $row, UserInterface $user, Tree $tree, int $access_level): array|null
     {
         $other_id = (int) $row->requested_by === $user->id() ? (int) $row->requested_of : (int) $row->requested_by;
@@ -932,6 +952,7 @@ class Connections
         $individual = $this->trees->linkedIndividual($tree, $other);
         $profile    = $this->members->profileForUser($other);
         $override   = $profile['display_name_override'] ?? null;
+        $viewer     = $this->viewerRecord($user, $tree);
 
         return [
             'id'     => (int) $row->id,
@@ -946,7 +967,7 @@ class Connections
             'member_id' => $profile === null ? null : $profile['id'],
             'name'      => $override === null || $override === '' ? $other->realName() : (string) $override,
             'individual' => $individual instanceof Individual
-                ? $this->presenter->individualRef($individual, $access_level)
+                ? $this->presenter->individualRef($individual, $access_level, $viewer)
                 : null,
             'since' => gmdate('c', (int) ($row->decided_at ?? $row->created_at)),
         ];

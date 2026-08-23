@@ -2926,6 +2926,124 @@ that section does not know.
 
 ---
 
+### 2.54 Phase 16: a search is a different disclosure from a walk
+
+Until now every route to a person went through somebody. Your own record, a
+relative of a relative, a member in the directory — and each of those is a
+reason to be looking. "Wie könnten wir noch eine Möglichkeit schaffen die
+genealogische Datenbank zu durchforsten" is a request for the first screen that
+has no such reason: type a name, get a list.
+
+That difference is the whole of the design. Everything else about this phase —
+two endpoints, a screen with three tabs — is ordinary. The part worth writing
+down is that **webtrees' access level was not enough on its own**, and why.
+
+#### The rule, and why it is the directory's rule
+
+A member can already see most living people in the tree; §2.25's setting is
+the only thing that narrows it, and it is off by default. So a search built on
+the access level alone would have handed every member a complete, searchable
+list of every living relative — names, years, archive numbers, one page at a
+time. Nobody in that list agreed to be in it. They agreed to nothing; they
+appear in a GEDCOM.
+
+The rule is therefore: **the dead are findable, the living are findable only if
+they listed themselves in the member directory.** `SearchConsent` is the whole
+of it, and it is deliberately not a new consent question. The portal already
+has exactly one recorded answer to "may this person be listed to every member",
+and asking a second, nearly identical question would mean two switches that can
+disagree and a member who has to find both. One switch, one meaning: leaving
+the directory now leaves the search too.
+
+Three things follow, and each is a test:
+
+* **It narrows, never widens.** It runs after `canShow()`, so listing a
+  confidential record in the directory does not surface it. A rule that could
+  only ever hide is the direction worth being wrong in.
+* **It is not a hiding rule.** A member who stayed out of the directory is
+  still reachable by tapping through the family. What they are not is
+  *enumerable*, which is a different property and the one at stake here.
+* **The counts inherit it.** The surname and place indexes count people the
+  reader may find, not people in the tree. Two members can honestly see
+  different numbers, and that is correct rather than a bug.
+
+#### The indexes read the records; the search queries
+
+Two code paths, on purpose. A search has a term, so the database finds the few
+rows that match and the work is proportional to the answer. An index has no
+term — "which surnames are here, and how many people has each" cannot be asked
+in SQL without ignoring both rules above, and a count that ignores them is a
+count of people the reader may not see.
+
+So the indexes scan, bounded by `MAX_SCAN`, and the response says `truncated`
+when the bound is reached. That is the honest failure: a shorter list that
+does not admit it is a list a member will believe.
+
+Both indexes come back from one endpoint because both come from one pass. Two
+endpoints would have meant doing the expensive thing twice for a screen that
+shows them side by side.
+
+#### The number, written as the family writes it
+
+Searching by archive number nearly shipped as digits-only — strip everything
+that is not `0-9`, compare. It finds "4712" and loses "10/1335.21", which is
+half of how this archive numbers things. What it requires instead is that the
+query contain a digit at all, which is only there to keep every name search
+from dragging the GEDCOM through a `LIKE`.
+
+The `LIKE` is a way of not reading the whole tree, not the test. Rows come back
+loosely and the number is then compared against the REFN facts *the member may
+see*, so a confidential number finds nobody — the same answer the record gives.
+`%` in a query is turned into `_` rather than escaped: escaping needs an
+`ESCAPE` clause, and SQLite has no default escape character where MySQL does,
+so the same pattern would mean two things on two hosts. Loosening a pre-filter
+costs nothing when the real comparison happens in PHP.
+
+#### The relationship moved onto the card
+
+A page of search results is names and years — a phone book of strangers who
+happen to be relatives. `individualRef` carries `relationship` now, so each
+card says "Ihre Großmutter" and the list becomes a list of family.
+
+That made the walk in `RelationshipNamer` twenty-five times as expensive, so it
+stopped being a walk per question. The reader's neighbourhood is walked once
+and cached for the request; every card is then a lookup. Same algorithm, same
+access level, same refusal to name a path through somebody hidden (§2.25) — one
+pass instead of twenty-five.
+
+One thing broke, quietly, and a test caught it: `MemberInvitations` built its
+candidate rows as `$reference + ['relationship' => …]`, and with `+` the *left*
+operand wins a duplicate key. The reference shape had just grown a
+`relationship` of its own, so the walk's answer was silently discarded.
+`array_merge` where the override is meant to win.
+
+#### There is no fifth tab
+
+§2.32's rule — four destinations, and a fifth does not fit a 320px phone —
+still holds, so the way in is on the record: beside *Vorfahren anzeigen*, which
+is the other way of going further from a person. It is on Mein Profil too,
+because Mein Profil renders the same component. Putting a second, identical
+button there as well was written and then removed: two links to one screen,
+differing in nothing, is the thing that makes people wonder which is the right
+one.
+
+#### The fixture had been lying about living people
+
+Adding the first test that searched for a living member turned up something
+older and worse than the feature. webtrees builds its `name` search index with
+`Individual::getAllNames()`, which is **privacy filtered**. The test harness
+imported the GEDCOM with nobody signed in, so every living person went into the
+index under the literal string "Private" — unfindable by name, for ever.
+
+In production the import is done by whoever is signed in to the control panel,
+so the index holds real names. The harness was building a different database
+from the one under test, and no test had ever asked the question that would
+notice. `PortalTestCase` now imports as a site administrator and drops the
+account again. Nothing else changed, which is the reassuring part: 364 tests
+were green before and after.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
@@ -2952,6 +3070,17 @@ Flagging these so they get a second look rather than being inherited as fact.
    behaviour we want here, but it does mean that if `base_url` on the host is
    wrong or unset, these links point somewhere useless. Worth one click to
    confirm after install.
+8. **The search stops at 500 matches and the indexes at 5,000 records.** Both
+   arbitrary, both reported to the client as `truncated` so the screen can say
+   so rather than lie by omission. 500 is well past the point where a member
+   should be typing something more specific; 5,000 is several times the family
+   this portal serves. A tree that genuinely outgrows the second number needs
+   its index built somewhere other than inside a web request.
+9. **Places are indexed by their whole GEDCOM name.** "Celle, Niedersachsen,
+   Deutschland" is one entry, not three. Grouping by the town alone would
+   collide across countries, and grouping by the country alone would be a list
+   of two things. If the archive ever wants a hierarchy, webtrees' `places`
+   table already has one.
 
 ---
 

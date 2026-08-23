@@ -86,6 +86,8 @@ tags:
     description: Genealogy records
   - name: members
     description: Member directory
+  - name: tree
+    description: Searching and browsing the family tree
 
 paths:
   /csrf:
@@ -2132,6 +2134,110 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /search:
+    get:
+      tags: [tree]
+      summary: Look through the family tree
+      description: |
+        Three ways of asking, one shape of answer. `q` matches names and
+        archive reference numbers at once — a member typing "1487" and a
+        member typing "Bertha" are doing the same thing and should not have to
+        say which. `surname` and `place` are the second half of the indexes at
+        `/index`, and match exactly rather than by substring, because the
+        member got here by tapping an entry that came out of one of them.
+
+        The three are alternatives, not filters that combine: `surname` wins
+        over `place`, which wins over `q`.
+
+        **A search discloses differently from tapping through a family, so it
+        obeys a second rule.** On top of webtrees' own access level, which
+        applies here exactly as it does everywhere else, a *living* person
+        appears only if they are a portal member who is visible in the
+        directory. Somebody dead appears whenever the access level allows it.
+        A member who stayed out of the directory is still reachable by walking
+        the tree from a relative — the search simply does not become a second,
+        quieter way of enumerating the living.
+      operationId: searchTree
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: q
+          in: query
+          required: false
+          description: A name, part of one, or an archive reference number.
+          schema:
+            type: string
+            maxLength: 100
+        - name: surname
+          in: query
+          required: false
+          description: An exact surname, as listed by `/index`.
+          schema:
+            type: string
+            maxLength: 100
+        - name: place
+          in: query
+          required: false
+          description: An exact place name, as listed by `/index`.
+          schema:
+            type: string
+            maxLength: 100
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        '200':
+          description: A page of people
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /index:
+    get:
+      tags: [tree]
+      summary: The surnames and the places in the tree
+      description: |
+        For the member who has not got a question yet. A search answers one; an
+        index is what makes an archive something you can look through rather
+        than something you have to query.
+
+        Both lists come from one pass over the records, which is why they are
+        one endpoint. Both obey the same two rules as `/search`, so the counts
+        are counts of people this member may find — never a total that hints
+        at records they may not see.
+      operationId: readIndex
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The two indexes
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TreeIndex'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /members/{id}:
     get:
       tags: [members]
@@ -2893,13 +2999,75 @@ components:
         place:
           type: [string, 'null']
 
+    SearchPage:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, per_page, truncated]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IndividualRef'
+        total:
+          type: integer
+          description: How many people matched, across all pages.
+        page:
+          type: integer
+        per_page:
+          type: integer
+        truncated:
+          type: boolean
+          description: |
+            True when the query matched more than the server will consider, or
+            when the tree is larger than one request will read. `total` is then
+            a floor rather than a total, and the screen says so — a number that
+            is quietly wrong is worse than no number.
+
+    TreeIndex:
+      type: object
+      additionalProperties: false
+      required: [surnames, places, truncated]
+      properties:
+        surnames:
+          type: array
+          description: |
+            Every surname in the tree, in the request language's alphabetical
+            order. A person recorded under both a maiden and a married name is
+            counted under each, which is the whole reason a genealogy database
+            keeps both.
+          items:
+            $ref: '#/components/schemas/IndexEntry'
+        places:
+          type: array
+          description: |
+            Every place an event happened in, most people first. Nobody reads a
+            place list looking for one entry — they read it to see where this
+            family has been.
+          items:
+            $ref: '#/components/schemas/IndexEntry'
+        truncated:
+          type: boolean
+          description: True when the tree outgrew what one request will read.
+
+    IndexEntry:
+      type: object
+      additionalProperties: false
+      required: [name, count]
+      properties:
+        name:
+          type: string
+          description: Pass this back to `/search` as `surname` or `place`.
+        count:
+          type: integer
+          minimum: 1
+
     IndividualRef:
       description: |
         A reference to an individual the caller is allowed to see. Individuals
         the caller may not see are omitted from the containing list entirely.
       type: object
       additionalProperties: false
-      required: [xref, name, sex, is_deceased, lifespan, portrait]
+      required: [xref, name, sex, is_deceased, lifespan, portrait, references, relationship]
       properties:
         xref:
           type: string
@@ -2928,6 +3096,42 @@ components:
           oneOf:
             - $ref: '#/components/schemas/Photo'
             - type: 'null'
+        references:
+          type: array
+          description: |
+            User reference numbers (`REFN`) on the record — the archive's own
+            numbering, not webtrees'. Usually none or one. Empty when the
+            record carries none, or when fact-level privacy hides them.
+
+            On the *reference* shape as well as the full record, because in
+            this family the number is how two people with the same name are
+            told apart: a card without it is a card that has to be opened.
+            It discloses nothing new — same facts, same access level.
+
+            Deliberately a field rather than an entry in `events`: it is
+            bookkeeping, not something that happened to the person. It is
+            never part of `name`.
+          items:
+            $ref: '#/components/schemas/Reference'
+        relationship:
+          type: [string, 'null']
+          description: |
+            How the authenticated member is related to this person, named by
+            webtrees in the request's language — "Ihre Cousine", "your
+            great-grandfather".
+
+            Carried wherever a card names somebody: a page of search results
+            is otherwise names and years, and this is the line that turns one
+            of them into the person the reader was looking for.
+
+            `null` whenever there is nothing safe or useful to say: the
+            member's account is not linked to a record, this *is* their
+            record, no relationship was found within four steps, or — the one
+            that matters — every path between them runs through someone the
+            member may not see. A relationship name encodes the shape of the
+            path that produced it, so naming one through a hidden person would
+            disclose that they exist.
+          example: Ihre Urgroßmutter
 
     Reference:
       type: object
@@ -3026,9 +3230,7 @@ components:
           additionalProperties: false
           required:
             - name_alternative
-            - relationship
             - photos
-            - references
             - birth
             - death
             - events
@@ -3042,21 +3244,6 @@ components:
             name_alternative:
               type: [string, 'null']
               description: A name in an alternative character set, where one exists.
-            relationship:
-              type: [string, 'null']
-              description: |
-                How the authenticated member is related to this person, named
-                by webtrees in the request's language — "Ihre Cousine", "your
-                great-grandfather".
-
-                `null` whenever there is nothing safe or useful to say: the
-                member's account is not linked to a record, this *is* their
-                record, no relationship was found within four steps, or — the
-                one that matters — every path between them runs through
-                someone the member may not see. A relationship name encodes
-                the shape of the path that produced it, so naming one through
-                a hidden person would disclose that they exist.
-              example: Ihre Urgroßmutter
             photos:
               type: array
               description: |
@@ -3065,19 +3252,6 @@ components:
                 placeholder, not a count.
               items:
                 $ref: '#/components/schemas/Photo'
-            references:
-              type: array
-              description: |
-                User reference numbers (`REFN`) on the record — the archive's
-                own numbering, not webtrees'. Usually none or one. Empty when
-                the record carries none, or when fact-level privacy hides
-                them.
-
-                Deliberately a field rather than an entry in `events`: it is
-                bookkeeping, not something that happened to the person. It is
-                never part of `name`.
-              items:
-                $ref: '#/components/schemas/Reference'
             birth:
               oneOf:
                 - $ref: '#/components/schemas/Event'

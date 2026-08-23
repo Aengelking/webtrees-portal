@@ -36,7 +36,9 @@ import type {
   Photo,
   PendingIndividual,
   PushState,
+  SearchPage,
   Transcript,
+  TreeIndex,
 } from './types'
 
 const BASE = '/api/v1'
@@ -297,6 +299,33 @@ export const api = {
       query: { q: params.q, page: params.page, per_page: params.per_page },
       ...(signal === undefined ? {} : { signal }),
     })
+  },
+
+  /**
+   * Looking through the tree: a name, a reference number, a surname, a place.
+   *
+   * One call for all four because the server treats them as one question with
+   * four ways of asking — see openapi.yaml.
+   */
+  search(
+    params: { q?: string; surname?: string; place?: string; page?: number },
+    signal?: AbortSignal,
+  ): Promise<SearchPage> {
+    return request<SearchPage>('/search', {
+      query: {
+        q: params.q,
+        surname: params.surname,
+        place: params.place,
+        page: params.page,
+        per_page: 25,
+      },
+      ...(signal === undefined ? {} : { signal }),
+    })
+  },
+
+  /** The surnames and the places, for reading down rather than querying. */
+  treeIndex(signal?: AbortSignal): Promise<TreeIndex> {
+    return request<TreeIndex>('/index', signal === undefined ? {} : { signal })
   },
 
   member(id: number, signal?: AbortSignal): Promise<MemberDetail> {
