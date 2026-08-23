@@ -3621,6 +3621,81 @@ proving the opposite of the truth.
 
 ---
 
+### 2.67 A name and white space is not an address book
+
+§2.66 fixed what the card *said*. What it showed was still a name and nothing
+else, and for a member whose record is closed to the reader that is the
+ordinary case rather than the exception: a connection request arrives, and the
+person it is from cannot be recognised at all.
+
+The record is closed for a good reason and stays closed. But two things on
+that card do not come from the archive's account of the person, and each has
+its own permission behind it.
+
+**A photograph they uploaded here themselves.** §2.50 already says a living
+person's picture is shown only where they put it — `portal_photo` is that
+consent, given to this portal, for exactly this. Withholding it because
+webtrees hides the record it hangs on would be honouring a rule about the
+*family's* data against the person the data is about. So it crosses, and
+nothing else in the gallery does: the family's photographs of them stay behind
+the record's privacy where they belong.
+
+**The archive number, if the family says so.** Off by default, and a switch in
+the control panel rather than a per-member choice, because the number is the
+family's naming scheme rather than anybody's personal data — it comes off a
+letterhead. And §2.57 already lets any member *type* a number and reach the
+person it belongs to whether or not they may read the record: showing it makes
+legible what was already searchable.
+
+A number the record marks confidential is still withheld. `Fact::canShow()`
+asks about the `RESN` on the fact rather than the privacy of the record around
+it, which is exactly the half that belongs here — the same split the number
+search relies on.
+
+**And nothing else.** Not the name on the record, not the years, not the
+nickname, not the relationship. `Recognition` is the whole rule and it is two
+fields wide.
+
+#### Two traps, and they are the same trap
+
+`GedcomRecord::facts()` hands back **nothing at all** for a record the reader
+may not see. So both halves of this walk into it:
+
+* `Media::firstImageFile()` reads `facts(['FILE'])`, and a media object counts
+  as private whenever any record it is linked to is
+  (`Media::canShowByType()`). The ordinary call therefore answers "this
+  photograph has no files in it" for precisely the pictures this exists to
+  show.
+* The archive number is a `REFN` fact, with the same answer — which is why
+  `Connections::memberByReference()` already reads at `PRIV_HIDE` and filters
+  fact by fact, and why this does too.
+
+The permission is decided first and the reading is done afterwards, at
+`PRIV_HIDE`, in both places.
+
+The third instance of the same trap is the one that would have shipped a
+broken image: `MediaRead` gates on `Media::canShow()`, so the URL in the
+payload would have answered 404 for every portrait this feature adds. A
+consent that is honoured in the JSON and refused at the image is not a feature,
+it is a grey box — so the handler knows the rule too, and knows only this one:
+a `portal_photo` row, and nothing else, opens that door.
+
+#### Where it appears, and where it does not
+
+Three payloads carry the two fields — the directory row, the member's own
+page, and a connection card — **and only where `individual` is null**. Where
+the record is readable both live inside it and follow its rules; a second copy
+beside it would be two answers to one question, and they would not always
+agree (a dead person's family photograph is a portrait, and never a
+`portal_photo` row).
+
+Deliberately *not* on the tree screens. `individualRef()` returning null is
+what keeps a hidden relative out of a relative list altogether, and that
+must not change: this is an address book of people who already have accounts,
+not a way around the archive's own privacy.
+
+---
+
 ---
 
 ## 3. Things that were guessed

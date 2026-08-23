@@ -53,6 +53,11 @@
 1 FAMS @F1@
 1 FAMC @F3@
 0 @X3@ INDI
+1 REFN 4713
+2 TYPE SB
+1 REFN 8888
+2 TYPE Intern
+2 RESN confidential
 1 NAME Clara /Beispiel/
 2 GIVN Clara
 2 SURN Beispiel

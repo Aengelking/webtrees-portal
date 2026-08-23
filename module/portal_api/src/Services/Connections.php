@@ -143,6 +143,7 @@ class Connections
         private readonly MemberService $members,
         private readonly RecordPresenter $presenter,
         private readonly UserService $user_service,
+        private readonly Recognition $recognition,
     ) {
     }
 
@@ -953,6 +954,9 @@ class Connections
         $profile    = $this->members->profileForUser($other);
         $override   = $profile['display_name_override'] ?? null;
         $viewer     = $this->viewerRecord($user, $tree);
+        $ref        = $individual instanceof Individual
+            ? $this->presenter->individualRef($individual, $access_level, $viewer)
+            : null;
 
         return [
             'id'     => (int) $row->id,
@@ -966,9 +970,12 @@ class Connections
             // yet — and there is nothing to link to until then anyway.
             'member_id' => $profile === null ? null : $profile['id'],
             'name'      => $override === null || $override === '' ? $other->realName() : (string) $override,
-            'individual' => $individual instanceof Individual
-                ? $this->presenter->individualRef($individual, $access_level, $viewer)
-                : null,
+            'individual' => $ref,
+            // Only where the record is not this reader's to read, and only
+            // ever a face its subject uploaded here and a number the family
+            // publishes. A request from somebody a member cannot look up used
+            // to be a name and white space. See `Recognition`.
+            ...($ref === null ? $this->recognition->of($other, $access_level) : []),
             'since' => gmdate('c', (int) ($row->decided_at ?? $row->created_at)),
         ];
     }

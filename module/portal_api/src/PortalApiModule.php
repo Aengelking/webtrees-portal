@@ -80,6 +80,7 @@ use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
+use Engelking\Webtrees\PortalApi\Services\Recognition;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Engelking\Webtrees\PortalApi\Services\SackNumbers;
@@ -141,7 +142,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     use ModuleConfigTrait;
     use ViewResponseTrait;
 
-    public const string CUSTOM_VERSION = '1.2.1';
+    public const string CUSTOM_VERSION = '1.3.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
     private const int SCHEMA_VERSION = 12;
@@ -179,6 +180,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_INVITE_STEPS = 'member_invite_steps';
     public const string SETTING_MEMBER_INVITE_QUOTA = 'member_invite_quota';
     public const string SETTING_MEMBER_PATH_LENGTH  = 'member_path_length';
+    public const string SETTING_MEMBER_SHOW_NUMBER  = 'member_show_number';
     public const string SETTING_MEMBER_CONTACT      = 'member_contact';
     public const string SETTING_MEMBER_MESSAGES     = 'member_messages';
     public const string SETTING_MESSAGE_LIMIT       = 'message_limit';
@@ -315,7 +317,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
-        $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service);
+        $recognition    = new Recognition($this, $portal_trees, $photos);
+        $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service, $recognition);
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
         $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections, $container->get(EmailService::class));
@@ -348,6 +351,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(CloseFamily::class, $close_family);
         $container->set(MemberInvitations::class, $member_invites);
         $container->set(Connections::class, $connections);
+        $container->set(Recognition::class, $recognition);
         $container->set(ContactDetails::class, $contacts);
         $container->set(Inbox::class, $inbox);
         $container->set(Conversations::class, $conversations);
@@ -375,12 +379,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MeRead::class, new MeRead($me));
         $container->set(IndividualRead::class, new IndividualRead($portal_trees, $presenter, $member_invites));
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
-        $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
-        $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections));
+        $container->set(MediaRead::class, new MediaRead($portal_trees, $photos, $photo_store));
+        $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections, $recognition));
         $container->set(SearchList::class, new SearchList($portal_trees, $presenter, $tree_search));
         $container->set(IndexRead::class, new IndexRead($portal_trees, $tree_search));
         $container->set(RelationshipRead::class, new RelationshipRead($sack));
-        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections));
+        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections, $recognition));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
@@ -704,6 +708,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_invite_steps' => $this->getPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) CloseFamily::DEFAULT_STEPS),
             'member_invite_quota' => $this->getPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) MemberInvitations::DEFAULT_QUOTA),
             'member_path_length'  => $this->getPreference(self::SETTING_MEMBER_PATH_LENGTH, '0'),
+            'member_show_number'  => $this->getPreference(self::SETTING_MEMBER_SHOW_NUMBER, '0'),
             'member_contact'      => $this->getPreference(self::SETTING_MEMBER_CONTACT, '1'),
             'member_messages'     => $this->getPreference(self::SETTING_MEMBER_MESSAGES, '1'),
             'message_limit'       => $this->getPreference(self::SETTING_MESSAGE_LIMIT, (string) MemberMessages::DEFAULT_DAILY_LIMIT),
@@ -735,6 +740,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) max(1, min(CloseFamily::MAX_STEPS, $body->integer(self::SETTING_MEMBER_INVITE_STEPS, CloseFamily::DEFAULT_STEPS))));
         $this->setPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) max(0, min(MemberInvitations::MAX_QUOTA, $body->integer(self::SETTING_MEMBER_INVITE_QUOTA, MemberInvitations::DEFAULT_QUOTA))));
         $this->setPreference(self::SETTING_MEMBER_PATH_LENGTH, (string) $this->pathLength($body->integer(self::SETTING_MEMBER_PATH_LENGTH, 0)));
+        $this->setPreference(self::SETTING_MEMBER_SHOW_NUMBER, $body->boolean(self::SETTING_MEMBER_SHOW_NUMBER, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_CONTACT, $body->boolean(self::SETTING_MEMBER_CONTACT, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_MESSAGES, $body->boolean(self::SETTING_MEMBER_MESSAGES, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MESSAGE_LIMIT, (string) max(0, min(MemberMessages::MAX_DAILY_LIMIT, $body->integer(self::SETTING_MESSAGE_LIMIT, MemberMessages::DEFAULT_DAILY_LIMIT))));

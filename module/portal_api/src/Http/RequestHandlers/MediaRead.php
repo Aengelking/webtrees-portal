@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Middleware\ApiEnvelope;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
+use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Media;
@@ -49,7 +50,8 @@ class MediaRead implements RequestHandlerInterface
 
     public function __construct(
         private readonly PortalTreeService $trees,
-        private readonly PhotoPresenter $photos,
+        private readonly PhotoPresenter $presenter,
+        private readonly Photos $photos,
     ) {
     }
 
@@ -65,7 +67,20 @@ class MediaRead implements RequestHandlerInterface
 
         // A picture this member may not see and one that does not exist give
         // the same answer, as everywhere else in this API.
-        if (!$media instanceof Media || !$media->canShow($access_level)) {
+        //
+        // **The exception is a picture somebody put here of themselves.**
+        // `Media::canShowByType()` hides a media object whose linked record is
+        // private, so a member whose record is closed to this reader would
+        // have their own portrait answered with a 404 — and the card that
+        // shows it (`PhotoPresenter::consentedPortrait()`) would be a broken
+        // image rather than a face. The permission is the uploader's own and
+        // was given for this: `portal_photo` is that permission, and it is the
+        // only thing that opens this door.
+        if (!$media instanceof Media) {
+            throw ApiException::notFound();
+        }
+
+        if (!$media->canShow($access_level) && !$this->photos->isPortalUpload($media->xref())) {
             throw ApiException::notFound();
         }
 
@@ -94,9 +109,18 @@ class MediaRead implements RequestHandlerInterface
         return $response->withHeader(ApiEnvelope::PRIVATE_CACHE_HEADER, (string) self::CACHE_SECONDS);
     }
 
+    /**
+     * Read at `PRIV_HIDE`, because whether this member may see the picture was
+     * settled above — including the one case where the answer is yes and
+     * `facts()` would still hand back nothing: a photograph somebody uploaded
+     * of themselves, hanging on a record this reader may not read. See
+     * `PhotoPresenter::firstImage()`.
+     */
     private function file(Media $media, string $fact): MediaFile|null
     {
-        foreach ($media->mediaFiles() as $file) {
+        foreach ($media->facts(['FILE'], false, Auth::PRIV_HIDE) as $found) {
+            $file = new MediaFile($found->gedcom(), $media);
+
             // Not `isExternal()`: those are files on somebody else's server,
             // and the portal does not fetch arbitrary URLs on a member's
             // behalf. PhotoPresenter does not offer them either.

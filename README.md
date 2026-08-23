@@ -324,6 +324,33 @@ the field and save, and the form says so where the choice is made.
 *Close family* is the same distance as for invitations — one definition, set
 once.
 
+### What a member sees of somebody whose record is closed to them
+
+*Control panel → Modules → Member portal API → preferences → What members can
+see.*
+
+Where a limit above hides living people, a member appears to their relatives
+in the directory and on a connection request as a **name from the portal
+profile and nothing else** — the family tree has said no, and the portal does
+not argue with it.
+
+Two things may still cross that line, and the switch controls only the second:
+
+* **A photograph they uploaded to the portal themselves.** No setting: the
+  permission is theirs, it was given for this portal, and the rule that a
+  living person's picture is shown only where they put it is what makes it
+  theirs to give. The family's photographs of them stay hidden with the
+  record.
+* **The archive number**, with *Show the archive number even where the record
+  is closed*. Off by default. The number is on the letterhead, and any member
+  can already type one to reach the person it belongs to — this makes legible
+  what was already searchable. A number the record marks confidential stays
+  hidden even then.
+
+Nothing else: no name from the record, no dates, no relationship. If you want
+members to see more than that, the answer is the setting above it — *How much
+of the tree a member sees* — not this one.
+
 **Messages.** A member can write to another member from their directory page.
 Delivery is webtrees' own message system, so each person is reached the way
 they chose in webtrees, and the portal never learns their address.
@@ -1753,6 +1780,14 @@ access levels plus an unauthenticated caller:
   their portal name and no record — the name is consent, the record is
   genealogy, and the two are answered by different rules;
 * every response, including errors, carries `Cache-Control: private, no-store`.
+
+**Recognition** (`module/tests/RecognitionTest.php`) — what may still be shown
+of somebody whose record is closed to the reader: a photograph they uploaded
+themselves crosses (and its URL actually serves, which is the half that would
+otherwise ship a broken image), the same picture stops the moment the consent
+row goes, the archive number is withheld until the family publishes it and a
+confidential one even then, nothing else from the record travels, and where
+the record *is* readable there is no second copy of either field.
 
 A note on the harness behind those: `PortalTestCase::login()` resets webtrees'
 in-memory cache, because `canShow()` is cached per record and access level and

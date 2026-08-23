@@ -465,6 +465,7 @@ class InvitationTest extends PortalTestCase
             'member_invite_steps' => '2',
             'member_invite_quota' => '3',
             'member_path_length'  => '2',
+            'member_show_number'  => '0',
             'member_contact'      => '1',
             'member_messages'     => '1',
             'message_limit'       => '20',
@@ -487,6 +488,7 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('/diagnosis', $html);
         self::assertStringContainsString('member_invite_steps', $html);
         self::assertStringContainsString('member_path_length', $html);
+        self::assertStringContainsString('member_show_number', $html);
         self::assertStringContainsString('message_limit', $html);
         self::assertStringContainsString('push_notifications', $html);
         self::assertStringContainsString('remember_days', $html);

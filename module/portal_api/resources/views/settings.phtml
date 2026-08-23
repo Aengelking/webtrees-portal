@@ -28,6 +28,7 @@ use Illuminate\Support\Collection;
  * @var string               $member_invite_steps
  * @var string               $member_invite_quota
  * @var string               $member_path_length
+ * @var string               $member_show_number
  * @var string               $member_contact
  * @var string               $member_messages
  * @var string               $message_limit
@@ -224,6 +225,21 @@ foreach ($trees as $a_tree) {
 
             <div class="form-text">
                 <?= I18N::translate('Editors, moderators, managers and administrators are never restricted — they need the whole tree to maintain it.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Show the archive number even where the record is closed'), 'name' => PortalApiModule::SETTING_MEMBER_SHOW_NUMBER, 'checked' => $member_show_number === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('A member whose record is hidden from the reader appears in the directory and on a connection request as a name and nothing else. With this on, their archive number appears with the name — and so does a photograph they uploaded to the portal themselves, which needs no setting because that permission is their own.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('The number is the family’s own naming scheme rather than personal data: it is on the letterhead, and any member can already type it here to reach the person it belongs to. A number the record marks confidential stays hidden, and nothing else from the record is disclosed — no name, no dates, no relationship.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Off by default. It only makes a difference where a limit above hides living people in the first place.') ?>
             </div>
         </div>
     </div>
