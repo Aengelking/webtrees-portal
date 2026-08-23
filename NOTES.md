@@ -4242,6 +4242,13 @@ Flagging these so they get a second look rather than being inherited as fact.
     a guess: it is what the first live tenant cost. See §2.66. Since §2.72 the
     assumption announces itself: members coming back with no readable address
     among them is reported as a failure rather than returned as an empty list.
+
+    **No longer a guess.** A member object from the live tenant is a fixture in
+    `ExchangeConnectorTest` now. A mail contact carries the address three
+    times — `PrimarySmtpAddress` bare, `ExternalEmailAddress` and
+    `EmailAddresses[]` with an `SMTP:` prefix — which is why searching every
+    string and de-duplicating is right, and why trusting one chosen field would
+    have been a coin toss between three.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than

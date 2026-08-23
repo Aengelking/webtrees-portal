@@ -261,6 +261,48 @@ class ExchangeConnectorTest extends PortalTestCase
         self::assertSame(['anna@example.test', 'opa@gmx.de', 'tante@web.de'], $members);
     }
 
+    /**
+     * A real member object from a real tenant, in the shape Exchange Online
+     * actually returns it.
+     *
+     * Everything above this is a fixture somebody wrote by hand from reading
+     * the documentation, which is how NOTES §3 came to list "the address is
+     * somewhere in each member object" as a guess. This one is a mail contact
+     * as it came back from a live `Get-DistributionGroupMember`, trimmed of the
+     * hundred-odd fields that carry no address and with the addresses changed.
+     *
+     * Three fields hold it and they disagree about the form: an `SMTP:` prefix
+     * on two of them, a bare address on the third, and one of the two is inside
+     * an array. Which is exactly why this searches every string rather than
+     * trusting a chosen field — and why the same person must come back once.
+     */
+    public function testTheShapeALiveTenantActuallyReturns(): void
+    {
+        $this->exchange->answers = [[200, (string) json_encode(['value' => [[
+            'Identity'                             => '22/1a32.124 Antje Beispiel',
+            'Alias'                                => '22/1a32',
+            'ArchiveGuid'                          => '00000000-0000-0000-0000-000000000000',
+            'City'                                 => '',
+            'ExternalDirectoryObjectId'            => '4c91c8c4-d7db-4e79-8e45-3ef55c50ad36',
+            'EmailAddresses@odata.type'            => '#Collection(String)',
+            'EmailAddresses'                       => ['SMTP:antje@gmx.example'],
+            'ExternalEmailAddress'                 => 'SMTP:antje@gmx.example',
+            'DisplayName'                          => '22/1a32.124 Antje Beispiel',
+            'PrimarySmtpAddress'                   => 'antje@gmx.example',
+            'RecipientType'                        => 'MailContact',
+            'RecipientTypeDetails'                 => 'MailContact',
+            // The fields that look like addresses and are not. None of them
+            // may end up in the answer.
+            'ObjectCategory'                       => 'DEUP281A005.PROD.OUTLOOK.COM/Configuration/Schema/Person',
+            'OrganizationalUnit'                   => 'deup281a005.prod.outlook.com/Microsoft Exchange Hosted Organizations/example.onmicrosoft.com',
+            'DistinguishedName'                    => 'CN=22/1a32.124 Antje Beispiel,OU=example.onmicrosoft.com,DC=DEUP281A005,DC=PROD,DC=OUTLOOK,DC=COM',
+            'OriginatingServer'                    => 'DBBP281A05DC006.DEUP281A005.PROD.OUTLOOK.COM',
+        ]]])]];
+
+        // Once, not three times, and without the SMTP: prefix.
+        self::assertSame(['antje@gmx.example'], $this->exchange->members(self::LIST));
+    }
+
     public function testAnEmptyListIsAnEmptyAnswerAndNotAFailure(): void
     {
         $this->exchange->answers = [[200, (string) json_encode(['value' => []])]];
