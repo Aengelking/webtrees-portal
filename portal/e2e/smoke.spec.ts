@@ -80,6 +80,44 @@ test.describe('the smoke path', () => {
     await expect(page.getByText('Mütterliche Linie')).toBeVisible()
   })
 
+  test('the archive can be searched and read down', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture tree.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    // The way in is on the record, beside the pedigree — the two ways of
+    // going further from a person.
+    await page.getByRole('link', { name: 'Stammbaum durchsuchen' }).click()
+    await expect(page.getByRole('heading', { name: 'Stammbaum' })).toBeVisible()
+
+    // Typing a name finds the person, and the card says who they are to me.
+    await page.getByLabel('Name oder SB-Nr.').fill('Bertha')
+    const card = page.getByRole('link', { name: /Bertha Beispiel/ })
+    await expect(card).toBeVisible()
+    await expect(card).toContainText('SB 4712')
+    await expect(card).toContainText('Für Sie: Ihre Großmutter')
+
+    // The archive number finds her too, which is how this family quotes
+    // people to each other.
+    await page.getByLabel('Name oder SB-Nr.').fill('4712')
+    await expect(page.getByRole('link', { name: /Bertha Beispiel/ })).toBeVisible()
+
+    // And the other half: reading down the names rather than asking for one.
+    await page.getByRole('tab', { name: 'Namen' }).click()
+    await page.getByRole('button', { name: /Fernab/ }).click()
+
+    await expect(page.getByRole('heading', { name: /Alle mit dem Namen Fernab/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: /Otto Fernab/ })).toBeVisible()
+
+    // Back out to the index, which is where the member came from.
+    await page.getByRole('button', { name: 'Zurück zu den Namen' }).click()
+    await expect(page.getByRole('button', { name: /Beispiel/ })).toBeVisible()
+  })
+
   test('a wrong password says nothing useful', async ({ page }) => {
     test.skip(REAL_BACKEND, 'Do not fire failed logins at a real installation.')
 

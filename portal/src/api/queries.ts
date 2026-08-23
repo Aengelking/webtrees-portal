@@ -32,6 +32,8 @@ import type {
   IssuedInvitation,
   OwnContact,
   PendingIndividual,
+  SearchPage,
+  TreeIndex,
 } from './types'
 
 export const queryKeys = {
@@ -40,6 +42,9 @@ export const queryKeys = {
   ancestors: (xref: string, generations: number) => ['ancestors', xref, generations] as const,
   members: (q: string, page: number) => ['members', q, page] as const,
   member: (id: number) => ['member', id] as const,
+  search: (params: SearchParams) =>
+    ['search', params.q ?? '', params.surname ?? '', params.place ?? '', params.page] as const,
+  treeIndex: ['tree-index'] as const,
   invitations: ['invitations'] as const,
   contact: ['contact'] as const,
   messages: ['messages'] as const,
@@ -101,6 +106,54 @@ export function useMembers(q: string, page: number) {
     // Keeps the list on screen while a new search runs, instead of flashing
     // an empty page under the reader's thumb.
     placeholderData: keepPreviousData,
+  })
+}
+
+/** What the tree screen is asking, in the one shape the API takes. */
+export interface SearchParams {
+  q?: string
+  surname?: string
+  place?: string
+  page: number
+}
+
+/**
+ * Looking through the tree.
+ *
+ * Disabled until there is something to ask, so that arriving on the screen
+ * does not fire a search for the empty string — which the server would answer
+ * with nothing anyway, at the cost of a request.
+ */
+export function useSearch(params: SearchParams) {
+  const language = useLanguage()
+  const asked =
+    (params.q ?? '') !== '' || (params.surname ?? '') !== '' || (params.place ?? '') !== ''
+
+  return useQuery<SearchPage>({
+    queryKey: [...queryKeys.search(params), language],
+    queryFn: ({ signal }) => api.search(params, signal),
+    enabled: asked,
+    // The list stays put while the next page or the next term loads, rather
+    // than blanking under the reader's thumb.
+    placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * The indexes.
+ *
+ * Kept for a while: they are the most expensive thing the module computes —
+ * one pass over every record — and they change when the family archive
+ * changes, which is not while somebody is tapping between two tabs.
+ */
+export function useTreeIndex(enabled: boolean) {
+  const language = useLanguage()
+
+  return useQuery<TreeIndex>({
+    queryKey: [...queryKeys.treeIndex, language],
+    queryFn: ({ signal }) => api.treeIndex(signal),
+    enabled,
+    staleTime: 10 * 60 * 1000,
   })
 }
 

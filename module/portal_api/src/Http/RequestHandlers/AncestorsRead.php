@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Validator;
@@ -49,7 +50,8 @@ class AncestorsRead implements RequestHandlerInterface
             throw ApiException::notFound();
         }
 
-        $people = $this->ancestors->build($individual, $access_level, $generations);
+        $viewer = $this->trees->linkedIndividual($tree, Auth::user());
+        $people = $this->ancestors->build($individual, $access_level, $generations, $viewer);
 
         return Json::response([
             'generations' => min(max(1, $generations), AncestorTree::MAX_GENERATIONS),

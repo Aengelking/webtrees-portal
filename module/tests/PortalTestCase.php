@@ -86,7 +86,39 @@ abstract class PortalTestCase extends TestCase
     // Fixtures
     // -----------------------------------------------------------------
 
+    /**
+     * Import the fixture the way a real installation imports a GEDCOM.
+     *
+     * **As an administrator**, and that is not a detail. webtrees builds the
+     * `name` search index with `Individual::getAllNames()`, which is privacy
+     * filtered: with nobody signed in, every living person is indexed under
+     * the literal name "Private" and can never be found by searching. In
+     * production the import is done by whoever is signed in to the control
+     * panel, so the index holds real names — and a harness that imports as
+     * nobody quietly builds a different database from the one under test.
+     *
+     * The account is dropped again afterwards, so no test inherits a session
+     * or an extra user it did not ask for.
+     */
     private function importPortalTree(): Tree
+    {
+        $importer = Registry::container()
+            ->get(UserService::class)
+            ->create('fixture-import', 'Fixture import', 'fixture-import@example.test', 'geheim');
+
+        $importer->setPreference(UserInterface::PREF_IS_ADMINISTRATOR, '1');
+
+        Auth::login($importer);
+
+        try {
+            return $this->loadPortalTree();
+        } finally {
+            Auth::logout();
+            Registry::container()->get(UserService::class)->delete($importer);
+        }
+    }
+
+    private function loadPortalTree(): Tree
     {
         $gedcom_import_service = new GedcomImportService();
         $tree_service          = new TreeService($gedcom_import_service);

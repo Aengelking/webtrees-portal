@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { referenceLabel } from './reference'
+import { PersonCard } from './PersonCard'
 import { useTranslation } from 'react-i18next'
 import type { Individual, IndividualRef, Event, Reference, Role } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
@@ -53,6 +54,9 @@ function References({ references }: { references: Reference[] }) {
  * so following one can never reach further than the list itself already
  * showed. The link goes to the same screen, which is what makes the tree
  * walkable: tap a parent, then their parent, and so on.
+ *
+ * The card is `PersonCard`, which is the same card the search results and the
+ * indexes use. One design, one place to change it.
  */
 function RelativeList({ title, people }: { title: string; people: IndividualRef[] }) {
   if (people.length === 0) {
@@ -64,28 +68,7 @@ function RelativeList({ title, people }: { title: string; people: IndividualRef[
       <ul className="space-y-2">
         {people.map((person) => (
           <li key={person.xref}>
-            <Link
-              to={`/individuals/${encodeURIComponent(person.xref)}`}
-              className="flex items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-            >
-              <Portrait person={person} />
-              <span className="min-w-0">
-                {/*
-                  Not underlined. The whole card has been the link since the
-                  tree was first walkable, and underlining the name inside it
-                  says the opposite — that the word is the target and the rest
-                  of the row is decoration. It reads as a name in a row you can
-                  tap, which is what it is.
-                */}
-                <span className="block text-base font-medium text-slate-900">{person.name}</span>
-                {/*
-                  The number under the name on every card. This family has more
-                  than one Dieter Beispiel, and the card that does not say which
-                  is a card that has to be opened.
-                */}
-                <RefLine person={person} />
-              </span>
-            </Link>
+            <PersonCard person={person} />
           </li>
         ))}
       </ul>
@@ -173,14 +156,33 @@ export function IndividualView({ individual }: { individual: Individual }) {
         )}
       </Section>
 
-      <p className="mt-6">
+      {/*
+        The two ways of going further from a person: up their own line, or out
+        into the rest of the archive. Side by side because they are the same
+        kind of offer, and a member who came here from a search wants the
+        second one to still be within reach.
+
+        This is the *only* way into the archive, and it is deliberately on the
+        record rather than on the navigation bar or on Mein Profil as well.
+        There is no fifth place on the bar — see `Layout` for why four is the
+        limit — and Mein Profil renders this same component, so putting one
+        there too would be two identical buttons on one screen, which is the
+        thing that makes people wonder which is the right one.
+      */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Link
           to={`/individuals/${encodeURIComponent(individual.xref)}/ancestors`}
-          className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-sky-800 px-5 py-3 text-base font-semibold text-sky-900"
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-sky-800 px-5 py-3 text-base font-semibold text-sky-900"
         >
           {t('individual.showAncestors')}
         </Link>
-      </p>
+        <Link
+          to="/tree"
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-sky-800 px-5 py-3 text-base font-semibold text-sky-900"
+        >
+          {t('tree.open')}
+        </Link>
+      </div>
 
       <RelativeList title={t('individual.parents')} people={individual.parents} />
       <RelativeList title={t('individual.siblings')} people={individual.siblings} />
@@ -209,22 +211,4 @@ export function IndividualView({ individual }: { individual: Individual }) {
       )}
     </article>
   )
-}
-
-/**
- * The line under a name on a card: the years, and the reference number.
- *
- * One element rather than two so that a record with only one of them does not
- * leave a blank line where the other would be.
- */
-export function RefLine({ person }: { person: IndividualRef }) {
-  const parts = [person.lifespan, referenceLabel(person.references)].filter(
-    (part): part is string => part !== null && part !== '',
-  )
-
-  if (parts.length === 0) {
-    return null
-  }
-
-  return <span className="mt-1 block text-base text-slate-700">{parts.join(' · ')}</span>
 }

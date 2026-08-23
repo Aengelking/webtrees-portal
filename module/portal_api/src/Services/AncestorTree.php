@@ -41,13 +41,20 @@ class AncestorTree
     }
 
     /**
-     * @param int $generations How many generations *above* the root to include.
+     * @param int             $generations How many generations *above* the root to include.
+     * @param Individual|null $viewer      The reader's own record, so each
+     *                                     rung can say how they stand to it.
      *
      * @return array<int,array<string,mixed>> One entry per visible ancestor,
      *                                        the root included, in Ahnentafel
      *                                        order.
      */
-    public function build(Individual $root, int $access_level, int $generations): array
+    public function build(
+        Individual $root,
+        int $access_level,
+        int $generations,
+        Individual|null $viewer = null
+    ): array
     {
         $generations = max(1, min($generations, self::MAX_GENERATIONS));
 
@@ -58,7 +65,7 @@ class AncestorTree
             $next = [];
 
             foreach ($pending as $position => $individual) {
-                $ref = $this->presenter->individualRef($individual, $access_level);
+                $ref = $this->presenter->individualRef($individual, $access_level, $viewer);
 
                 if ($ref === null) {
                     // Not visible: no entry, and no going further up this

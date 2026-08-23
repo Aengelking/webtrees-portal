@@ -47,6 +47,24 @@ class RelationshipNamer
      */
     private const int MAX_STEPS = 4;
 
+    /**
+     * The walk, once per reader.
+     *
+     * Cached because of where this is now called from. Naming one relationship
+     * on one record was a single question; naming one on every card of a list
+     * of search results is the same question twenty-five times, and the walk
+     * that answers it does not depend on which card is asking — it depends
+     * only on where the reader stands. So the reader's neighbourhood is walked
+     * once and every card is answered from it.
+     *
+     * Keyed by the reader *and* the access level, because a walk is only valid
+     * for the eyes it was made for. Nothing in a request changes either, so in
+     * practice this holds one entry.
+     *
+     * @var array<string,array<string,array<int,Individual|Family>>>
+     */
+    private array $reach = [];
+
     public function __construct(private readonly RelationshipService $relationships)
     {
     }
@@ -64,7 +82,7 @@ class RelationshipNamer
             return null;
         }
 
-        $path = $this->path($viewer, $target, $access_level);
+        $path = $this->reach($viewer, $access_level)[$target->xref()] ?? [];
 
         if ($path === []) {
             return null;
@@ -76,24 +94,41 @@ class RelationshipNamer
     }
 
     /**
-     * A visible path between two people, as the alternating list of
-     * individuals and families that `nameFromPath()` expects.
+     * Every person within reach of this one, with the path that gets there.
      *
-     * @return array<int,Individual|Family> Empty when there is no such path.
+     * @return array<string,array<int,Individual|Family>> keyed by xref
      */
-    private function path(Individual $from, Individual $to, int $access_level): array
+    private function reach(Individual $from, int $access_level): array
     {
-        // Every record on the path is fetched at $access_level, so a person or
-        // a family the member may not see is simply not there to walk through.
-        // That is the whole difference from webtrees' own version.
+        $key = $from->xref() . '@' . $access_level;
+
+        return $this->reach[$key] ??= $this->walk($from, $access_level);
+    }
+
+    /**
+     * A breadth-first walk outwards, as the alternating lists of individuals
+     * and families that `nameFromPath()` expects.
+     *
+     * Every record on the path is fetched at $access_level, so a person or a
+     * family the member may not see is simply not there to walk through. That
+     * is the whole difference from webtrees' own version.
+     *
+     * Breadth-first and marked on arrival, so the path kept for somebody is
+     * the shortest one — which is the one that names the relationship a family
+     * would actually use.
+     *
+     * @return array<string,array<int,Individual|Family>> keyed by xref
+     */
+    private function walk(Individual $from, int $access_level): array
+    {
         $visited = [$from->xref() => true];
         $paths   = [[$from]];
-        $steps   = self::MAX_STEPS;
+        $found   = [];
 
-        while ($steps >= 0) {
-            $steps--;
+        for ($step = 0; $step <= self::MAX_STEPS; $step++) {
+            $next = [];
 
-            foreach ($paths as $i => $path) {
+            foreach ($paths as $path) {
                 $last = $path[count($path) - 1];
 
                 if (!$last instanceof Individual) {
@@ -101,31 +136,31 @@ class RelationshipNamer
                 }
 
                 foreach ($this->families($last, $access_level) as $family) {
-                    $visited[$family->xref()] = true;
-
                     foreach ($this->members($family, $access_level) as $relative) {
                         if (isset($visited[$relative->xref()])) {
                             continue;
                         }
 
+                        $visited[$relative->xref()] = true;
+
                         $extended   = $path;
                         $extended[] = $family;
                         $extended[] = $relative;
 
-                        if ($relative->xref() === $to->xref()) {
-                            return $extended;
-                        }
-
-                        $paths[]                    = $extended;
-                        $visited[$relative->xref()] = true;
+                        $found[$relative->xref()] = $extended;
+                        $next[]                   = $extended;
                     }
                 }
-
-                unset($paths[$i]);
             }
+
+            if ($next === []) {
+                break;
+            }
+
+            $paths = $next;
         }
 
-        return [];
+        return $found;
     }
 
     /**

@@ -221,6 +221,43 @@ export interface IndividualRef {
    * same reason as the portrait.
    */
   references?: Reference[]
+  /**
+   * How the signed-in member is related to this person, in their language, or
+   * null when there is nothing safe to say — see openapi.yaml.
+   *
+   * On the card and not only on the record: a page of search results is
+   * otherwise names and years, and this is the line that turns one of them
+   * into the person the reader was looking for. Optional for the same reason
+   * as the portrait.
+   */
+  relationship?: string | null
+}
+
+/** A page of people found by looking through the tree. */
+export interface SearchPage {
+  items: IndividualRef[]
+  total: number
+  page: number
+  per_page: number
+  /**
+   * True when the answer was cut short — too many matches, or a tree larger
+   * than one request will read. `total` is then a floor, and the screen says
+   * so rather than letting a member believe the list is complete.
+   */
+  truncated: boolean
+}
+
+/** One line of an index: a surname or a place, and how many people it has. */
+export interface IndexEntry {
+  name: string
+  count: number
+}
+
+/** The two ways of reading down the archive rather than querying it. */
+export interface TreeIndex {
+  surnames: IndexEntry[]
+  places: IndexEntry[]
+  truncated: boolean
 }
 
 /** Everything a member may change about themselves. */
@@ -267,21 +304,7 @@ export interface AncestorPage {
 
 export interface Individual extends IndividualRef {
   name_alternative: string | null
-  /**
-   * How the signed-in member is related to this person, in their language,
-   * or null when there is nothing safe to say — see openapi.yaml.
-   *
-   * Optional for the same reason as `references`: the module and the portal
-   * deploy separately and can be a version apart.
-   */
-  relationship?: string | null
   photos?: Photo[]
-  /**
-   * Optional on purpose. The module and the portal deploy separately — the
-   * module by SFTP, the portal by CI — so the portal has to survive a server
-   * that predates this field rather than throwing on the profile screen.
-   */
-  references?: Reference[]
   birth: Event | null
   death: Event | null
   events: Event[]

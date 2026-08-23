@@ -61,12 +61,14 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `PATCH|DELETE /messages/{id}`, `POST /messages/{id}/reply`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
-`DELETE /me/connection-links/{id}`, `GET /health`.
+`DELETE /me/connection-links/{id}`, `GET /search`, `GET /index`,
+`GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
-My profile, edit my details, person, ancestors, Contacts (with the directory
-search in it), the member directory, member detail, Messages, connect (where a
-scanned code lands), invite close family, Settings.
+My profile, edit my details, person, ancestors, Stammbaum (search the archive,
+and the surname and place indexes), Contacts (with the directory search in
+it), the member directory, member detail, Messages, connect (where a scanned
+code lands), invite close family, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -791,6 +793,46 @@ nephews and parents-in-law.
 
 The Diagnosis screen reports the current state under *What a member can see*,
 including how many accounts still have no limit.
+
+### Searching the family archive
+
+*No setting. This one is a rule, and it is worth knowing what it is.*
+
+Members can search the whole tree — by name, by archive reference number, or
+by reading down a list of every surname and every place. It is reached from
+**Stammbaum durchsuchen** on any person's page, including a member's own.
+
+**Who turns up in a search is narrower than who a member can see.** Every
+other screen reaches a person because the reader was already somewhere — their
+own record, a relative's, a member in the directory. A search starts from
+nobody and hands back a list of people the reader had no particular reason to
+be looking at, so it applies a second rule on top of webtrees' access level:
+
+* **Somebody who has died is findable**, whenever the access level allows it.
+  The family archive is what the portal is for.
+* **Somebody living is findable only if they are a portal member who is
+  listed in the member directory** — the switch each member sets for
+  themselves under *Einstellungen → Im Verzeichnis anzeigen*. Nobody else's
+  living record appears in a search result, an index or a count.
+
+A member who stays out of the directory is not hidden — a relative can still
+reach them by tapping through the family, exactly as before. What they are not
+is *enumerable*: the search does not become a quieter way of listing the
+living. Turning the directory switch off takes somebody out of both places at
+once, which is the point of reusing the one consent rather than inventing a
+second.
+
+Two consequences worth expecting:
+
+* **The surname and place counts are counts of people the reader may find**,
+  not totals for the tree. Two members can honestly see different numbers.
+* **Reference numbers match exactly, as they are written** — "4712" and
+  "10/1335.21" both work. A number the tree marks confidential finds nobody,
+  the same answer the record itself gives.
+
+On a very large tree the two indexes stop after 5,000 records and the screen
+says so, because they are built by reading the records rather than by a query
+that would have to ignore the rule above.
 
 ### When something goes wrong
 

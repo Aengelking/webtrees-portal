@@ -15,6 +15,7 @@ import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
 import { Ancestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
+import { Tree } from './routes/Tree'
 import { Conversation } from './routes/Conversation'
 import { NewConversation } from './routes/NewConversation'
 import { Messages } from './routes/Messages'
@@ -72,6 +73,7 @@ export function App() {
           <Route path="/individuals/:xref/ancestors" element={<Ancestors />} />
           <Route path="/invite" element={<Invite />} />
           <Route path="/members" element={<Members />} />
+          <Route path="/tree" element={<Tree />} />
           <Route path="/contacts" element={<Contacts />} />
           {/*
             Behind the session like everything else: a scanned code that

@@ -81,10 +81,17 @@ class RecordPresenter
     /**
      * A reference to an individual, for relative lists and the directory.
      *
+     * @param Individual|null $viewer The reader's own record, when they have
+     *                                one. Only used to say how they are
+     *                                related to this person.
+     *
      * @return array<string,mixed>|null null when this caller may not see the record.
      */
-    public function individualRef(Individual $individual, int $access_level): array|null
-    {
+    public function individualRef(
+        Individual $individual,
+        int $access_level,
+        Individual|null $viewer = null
+    ): array|null {
         if (!$individual->canShow($access_level)) {
             return null;
         }
@@ -107,6 +114,12 @@ class RecordPresenter
             // be sure. It discloses nothing new: same facts, same access
             // level, and it was already on the record one tap away.
             'references'  => $this->references($facts),
+            // And how the reader stands to them, wherever a card names
+            // somebody. A list of search results is names and years, and
+            // "Ihre Cousine" is the line that turns one of them into the
+            // person the reader was looking for. Null when there is no path
+            // within reach, or when the reader has no record of their own.
+            'relationship' => $this->relationships->name($viewer, $individual, $access_level),
         ];
     }
 
@@ -131,7 +144,7 @@ class RecordPresenter
         bool $own_record = false,
         Individual|null $viewer = null
     ): array|null {
-        $ref = $this->individualRef($individual, $access_level);
+        $ref = $this->individualRef($individual, $access_level, $viewer);
 
         if ($ref === null) {
             return null;
@@ -152,16 +165,15 @@ class RecordPresenter
 
         return $ref + [
             'name_alternative' => $this->alternateName($individual, $access_level),
-            'relationship'     => $this->relationships->name($viewer, $individual, $access_level),
             'photos'           => $this->photos->gallery($individual, $access_level),
             'references'       => $this->references($facts),
             'birth'            => $birth === null ? null : $this->event($birth),
             'death'            => $death === null ? null : $this->event($death),
             'events'           => $events,
-            'parents'          => $this->parents($individual, $access_level),
-            'siblings'         => $this->siblings($individual, $access_level),
-            'spouses'          => $this->spouses($individual, $access_level),
-            'children'         => $this->children($individual, $access_level),
+            'parents'          => $this->parents($individual, $access_level, $viewer),
+            'siblings'         => $this->siblings($individual, $access_level, $viewer),
+            'spouses'          => $this->spouses($individual, $access_level, $viewer),
+            'children'         => $this->children($individual, $access_level, $viewer),
             'pending_change'   => $own_record && $this->pending_changes->existsFor($individual),
             'webtrees_url'     => $this->webtreesUrl($individual),
         ];
@@ -190,11 +202,14 @@ class RecordPresenter
      *
      * @return array<int,array<string,mixed>>
      */
-    public function individualRefs(Collection $individuals, int $access_level): array
-    {
+    public function individualRefs(
+        Collection $individuals,
+        int $access_level,
+        Individual|null $viewer = null
+    ): array {
         return array_values(array_filter(
             $individuals
-                ->map(fn (Individual $individual): array|null => $this->individualRef($individual, $access_level))
+                ->map(fn (Individual $individual): array|null => $this->individualRef($individual, $access_level, $viewer))
                 ->all(),
             static fn (array|null $ref): bool => $ref !== null
         ));
@@ -207,7 +222,7 @@ class RecordPresenter
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function parents(Individual $individual, int $access_level): array
+    private function parents(Individual $individual, int $access_level, Individual|null $viewer): array
     {
         $parents = new Collection();
 
@@ -217,13 +232,13 @@ class RecordPresenter
             }
         }
 
-        return $this->individualRefs($this->unique($parents), $access_level);
+        return $this->individualRefs($this->unique($parents), $access_level, $viewer);
     }
 
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function siblings(Individual $individual, int $access_level): array
+    private function siblings(Individual $individual, int $access_level, Individual|null $viewer): array
     {
         $siblings = new Collection();
 
@@ -235,13 +250,13 @@ class RecordPresenter
             }
         }
 
-        return $this->individualRefs($this->unique($siblings), $access_level);
+        return $this->individualRefs($this->unique($siblings), $access_level, $viewer);
     }
 
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function spouses(Individual $individual, int $access_level): array
+    private function spouses(Individual $individual, int $access_level, Individual|null $viewer): array
     {
         $spouses = new Collection();
 
@@ -253,13 +268,13 @@ class RecordPresenter
             }
         }
 
-        return $this->individualRefs($this->unique($spouses), $access_level);
+        return $this->individualRefs($this->unique($spouses), $access_level, $viewer);
     }
 
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function children(Individual $individual, int $access_level): array
+    private function children(Individual $individual, int $access_level, Individual|null $viewer): array
     {
         $children = new Collection();
 
@@ -269,7 +284,7 @@ class RecordPresenter
             }
         }
 
-        return $this->individualRefs($this->unique($children), $access_level);
+        return $this->individualRefs($this->unique($children), $access_level, $viewer);
     }
 
     /**

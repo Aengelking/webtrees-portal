@@ -63,8 +63,8 @@ class MemberRead implements RequestHandlerInterface
         $detail     = null;
 
         if ($individual instanceof Individual) {
-            $ref    = $this->presenter->individualRef($individual, $access_level);
             $viewer = $this->trees->linkedIndividual($tree, $viewer_user);
+            $ref    = $this->presenter->individualRef($individual, $access_level, $viewer);
             $detail = $this->presenter->individualDetail($individual, $access_level, false, $viewer);
         }
 

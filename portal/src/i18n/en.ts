@@ -385,6 +385,44 @@ export const en: Translations = {
       body: 'Please scan the code again. If that does not work, ask for a new code to be shown.',
     },
   },
+  tree: {
+    title: 'Family tree',
+    intro:
+      'Search the family archive by name or archive number — or read down the surnames and the places.',
+    tabSearch: 'Search',
+    tabSurnames: 'Names',
+    tabPlaces: 'Places',
+    search: 'Name or archive number',
+    searchHint:
+      'The dead are fully searchable. Living people appear only where they have listed themselves in the member directory.',
+    open: 'Search the family tree',
+    count_one: '{{count}} person',
+    count_other: '{{count}} people',
+    noResults: {
+      title: 'No matches',
+      body: 'Nobody was found for "{{query}}". Try a shorter search term.',
+      action: 'Clear the search',
+    },
+    tooMany:
+      'There are more matches than can be shown here. A more precise search term narrows the list.',
+    truncated: 'The tree is larger than this overview. The counts are a lower bound.',
+    backToSurnames: 'Back to the names',
+    backToPlaces: 'Back to the places',
+    showingSurname: 'Everybody named {{name}}',
+    showingPlace: 'Everybody with an event in {{name}}',
+    surnames: {
+      empty: {
+        title: 'No names yet',
+        body: 'No surname in the tree is visible to you yet.',
+      },
+    },
+    places: {
+      empty: {
+        title: 'No places yet',
+        body: 'No place in the tree is visible to you yet.',
+      },
+    },
+  },
   members: {
     back: 'Back to contacts',
     title: 'Members',

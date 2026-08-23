@@ -13,6 +13,7 @@ use Fisharebest\Webtrees\Log;
 use Fisharebest\Webtrees\Tree;
 use Fig\Http\Message\StatusCodeInterface;
 
+use function array_merge;
 use function count;
 use function max;
 use function min;
@@ -259,7 +260,11 @@ class MemberInvitations
                 continue;
             }
 
-            $presented[] = $reference + ['relationship' => $candidate['relationship']];
+            // `array_merge`, not `+`. The reference shape now names the
+            // relationship itself, and this walk's answer is the one to keep:
+            // it is the same question asked from the inviting member's side,
+            // which is whose screen this is.
+            $presented[] = array_merge($reference, ['relationship' => $candidate['relationship']]);
         }
 
         return $presented;
