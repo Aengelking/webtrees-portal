@@ -147,6 +147,9 @@ export const de = {
   contact: {
     intro:
       'Tragen Sie ein, was Sie erreichbar macht — und entscheiden Sie für jeden Eintrag einzeln, wer ihn sehen darf. Was Sie leer lassen, wird nicht geteilt.',
+    keptHint:
+      '„Niemand“ heißt: Der Eintrag bleibt gespeichert — etwa für den Versand der Familienzeitschrift — wird aber niemandem im Portal gezeigt. Zum endgültigen Löschen leeren Sie das Feld und speichern.',
+    keptNote: 'Gespeichert, aber niemandem gezeigt.',
     kind: {
       email: 'E-Mail-Adresse',
       phone: 'Telefonnummer',

@@ -1171,13 +1171,15 @@ different answers and one switch forces the narrower onto both. `nobody`,
 `close_family` or `members`, where close family is the same distance as for
 invitations — one definition of "close family" in the module, not three.
 
-**Clearing a field and withdrawing consent are the same act.** An empty value,
-or an audience of `nobody`, deletes the row rather than hiding it. A member
-who deletes their telephone number has plainly finished sharing it, and
-keeping a copy behind a narrower flag would be a way of not listening. The
-client therefore submits every kind on every save, including the empty ones —
-sending only the filled ones would leave the old row standing and the member
-would believe they had deleted it.
+**Clearing a field and withdrawing consent are the same act.** An empty value
+deletes the row rather than hiding it. A member who deletes their telephone
+number has plainly finished sharing it, and keeping a copy behind a narrower
+flag would be a way of not listening. The client therefore submits every kind
+on every save, including the empty ones — sending only the filled ones would
+leave the old row standing and the member would believe they had deleted it.
+
+(An audience of `nobody` deleted the row too, until §2.65. It now keeps the
+entry and discloses it to nobody.)
 
 **The narrowest answer is the default, everywhere.** An unknown audience, a
 missing row, a viewer with no linked record, a subject with no linked record,
@@ -3531,6 +3533,44 @@ look complete when it is not. And the summary reads from the *server*, not
 from the form's state, so an abandoned half-typed change is not quietly
 displayed as though it were being shared; *Abbrechen* puts the form back to
 what the server says as well.
+
+---
+
+### 2.65 Nobody is an audience, not a delete
+
+`nobody` used to delete the row, and the reasoning was sound as far as it
+went: an audience of nobody and no entry at all disclose exactly the same
+amount, so keeping one looked like keeping a copy behind a narrower flag —
+§2.26's "a way of not listening".
+
+What that missed is that the portal is not the only thing the family does with
+an address. The magazine is posted to it, and there is a subscription list
+coming. A member who chose *Niemand* meaning "do not show this to my
+relatives" was made to say "the family does not have my address" instead —
+which is a different sentence, was not what they meant, and could not be taken
+back.
+
+So the two are separated. **`nobody` keeps the entry and discloses it to no
+one** (`visibleTo()` was already right: it never matched `nobody`, so nothing
+about disclosure changed). **An empty value deletes it**, and is now the only
+thing that does.
+
+#### The trade only holds if the screen says so
+
+This is the part that would make it a bad change if it were skipped. A stored
+entry that a member believes they deleted is worse than either behaviour it
+replaces, so the form says both halves out loud before the first field —
+what *Niemand* keeps, and that emptying the field is the delete — and the
+summary marks such an entry "Gespeichert, aber niemandem gezeigt" rather than
+listing it as though it were shared. `openapi.yaml` says the same to any other
+client: this is a rule about consent, and a client that hides it is lying on
+the server's behalf.
+
+The GDPR reading is the same one: this is data the member entered about
+themselves and can delete at any time, in one step, from the screen it was
+entered on. What changed is that "show this to nobody" and "erase this" are
+now two answers instead of one, which is what a member who wants the magazine
+but not the directory actually needs.
 
 ---
 

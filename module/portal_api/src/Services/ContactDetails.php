@@ -188,11 +188,25 @@ class ContactDetails
     /**
      * Replace the member's entries with what they just submitted.
      *
-     * An empty value deletes the row. That is the point rather than a
-     * shortcut: clearing the field and withdrawing consent should be the same
-     * act, because a member who deletes their telephone number has plainly
-     * finished sharing it, and leaving a hidden copy behind would be a way of
-     * not listening.
+     * **An empty value deletes the row, and it is the only thing that does.**
+     * Clearing the field is the withdrawal: a member who deletes their
+     * telephone number has plainly finished sharing it, and leaving a hidden
+     * copy behind would be a way of not listening.
+     *
+     * `nobody` used to delete the row too, on the reasoning that an audience
+     * of nobody and no entry at all amount to the same thing. They do for
+     * *disclosure* — see `visibleTo()`, where `nobody` reaches nobody — but
+     * not for the family: an address that is in the portal and shared with
+     * nobody is still the address the family magazine is posted to, and one
+     * day the subscription list it is kept in. Deleting it made a member who
+     * wanted "do not show this to my relatives" say "the family does not have
+     * my address" instead, which was not what they meant and was not
+     * recoverable.
+     *
+     * That trade only holds if the screen is honest about it, which is why
+     * the form says what `nobody` now means and where the delete is
+     * (`contact.intro`). A stored entry that a member believes they deleted
+     * would be the worse bargain.
      *
      * **An address may arrive either way.** `parts` if the client has fields,
      * `value` if it has a box — the module and the portal ship separately and
@@ -221,9 +235,10 @@ class ContactDetails
                 ? mb_substr(trim((string) ($submitted['value'] ?? '')), 0, self::MAX_VALUE_LENGTH)
                 : mb_substr($this->compose($parts), 0, self::MAX_VALUE_LENGTH);
 
-            // Nothing to share, or nobody to share it with. Either way the
-            // row goes, so there is nothing left to leak later.
-            if ($value === '' || $audience === self::AUDIENCE_NOBODY) {
+            // Nothing left in the field: the entry goes, and there is
+            // nothing to leak later. An audience of `nobody` is not that —
+            // it is an entry the member keeps and shows to no one.
+            if ($value === '') {
                 DB::table(self::TABLE)
                     ->where('wt_user_id', '=', $user->id())
                     ->where('kind', '=', $kind)

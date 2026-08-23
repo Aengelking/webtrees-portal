@@ -146,6 +146,9 @@ export const en: Translations = {
   contact: {
     intro:
       'Enter what makes you reachable — and decide for each entry separately who may see it. Anything you leave empty is not shared.',
+    keptHint:
+      '"Nobody" means the entry is kept — for posting the family magazine, for instance — but shown to nobody in the portal. To delete it for good, empty the field and save.',
+    keptNote: 'Kept, but shown to nobody.',
     kind: {
       email: 'Email address',
       phone: 'Telephone number',
