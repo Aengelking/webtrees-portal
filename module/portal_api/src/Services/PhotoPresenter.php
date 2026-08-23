@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Services;
 
+use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Fact;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Media;
 use Fisharebest\Webtrees\MediaFile;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Tree;
 
 /**
  * The photographs on a record, as links the portal can put in an `<img>`.
@@ -60,6 +64,72 @@ class PhotoPresenter
 
             if ($file instanceof MediaFile) {
                 return $this->photo($media, $file);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The picture somebody put into the portal of themselves, or null.
+     *
+     * **Deliberately not filtered by the reader's access level**, which is the
+     * whole of it. A member whose record is closed to the reader — living, and
+     * outside their few steps of the tree (§2.34) — appears on a card as a
+     * name and nothing else, and there is one thing on such a card that is
+     * unambiguously theirs to give: a photograph they uploaded here. The
+     * permission was given for exactly this, and it does not lapse because
+     * webtrees withholds the record the picture hangs on.
+     *
+     * Only their *own* uploads, so the family's photographs of them stay
+     * behind the record's privacy where they belong. Only the first, because
+     * this is a portrait rather than a gallery.
+     *
+     * `MediaRead` has to know the same rule, or the URL this produces would
+     * answer 404.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function consentedPortrait(UserInterface $subject, Tree $tree): array|null
+    {
+        foreach ($this->photos->uploadsOf($subject) as $xref) {
+            $media = Registry::mediaFactory()->make($xref, $tree);
+
+            if (!$media instanceof Media) {
+                continue;
+            }
+
+            $file = $this->firstImage($media);
+
+            if ($file instanceof MediaFile) {
+                return $this->photo($media, $file);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * `Media::firstImageFile()`, read past the privacy of the record the
+     * picture hangs on.
+     *
+     * `GedcomRecord::facts()` hands back *nothing at all* for a record the
+     * reader may not see — and a media object counts as private whenever any
+     * record it is linked to is (`Media::canShowByType()`). So the ordinary
+     * call answers "this photograph has no files in it" for exactly the
+     * pictures this exists to show. The permission was checked before we got
+     * here; what is left is reading the file name.
+     *
+     * The same trap the archive number falls into, and the same answer —
+     * `Recognition::references()` says the rest.
+     */
+    private function firstImage(Media $media): MediaFile|null
+    {
+        foreach ($media->facts(['FILE'], false, Auth::PRIV_HIDE) as $fact) {
+            $file = new MediaFile($fact->gedcom(), $media);
+
+            if ($file->isImage() && !$file->isExternal()) {
+                return $file;
             }
         }
 

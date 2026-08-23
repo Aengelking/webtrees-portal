@@ -841,11 +841,18 @@ function ContactLines({ connection }: { connection: Connection }) {
 
   const individual = connection.individual ?? null
 
+  // Where the record is closed to this reader, two things may still stand in
+  // for it: a photograph they uploaded themselves, and — if the family says
+  // so — the archive number. Both come from the server as siblings of
+  // `individual`, and only when it is null. See `Recognition`.
+  const portrait = individual?.portrait ?? connection.portrait ?? null
+  const number = referenceLabel(individual?.references ?? connection.references)
+
   // No record *of a kind this reader may see* — which is not the same as no
   // record, and the row used to say the second. See `individual.notVisible`.
   const detail =
     individual === null
-      ? t('individual.notVisible')
+      ? number ?? t('individual.notVisible')
       : [individual.name, individual.lifespan, referenceLabel(individual.references)]
           .filter((part) => part !== null && part !== '')
           .join(' · ')
@@ -854,7 +861,7 @@ function ContactLines({ connection }: { connection: Connection }) {
 
   return (
     <span className="flex items-center gap-3">
-      {individual !== null && <Portrait person={individual} />}
+      <Portrait person={{ name: individual?.name ?? connection.name, portrait }} />
       <span className="min-w-0">
         <span className="block text-lg font-semibold text-slate-900">{connection.name}</span>
         <span className="mt-1 block text-base text-slate-700">{detail}</span>

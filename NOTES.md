@@ -3361,9 +3361,9 @@ not exist.
 This is the part worth remembering. `create()` used to check the posted xref
 against the candidate list, which is exactly right while that list is a
 member's close family — a dozen people, built in full. For an editor the
-eligible set is the whole archive, and the screen is handed the first two
-hundred of it. Checking against *that* would have refused number two hundred
-and one for no reason anybody could explain.
+eligible set is the whole archive, and the screen was handed the first two
+hundred of it (since §2.69, none at all). Checking against *that* would have
+refused number two hundred and one for no reason anybody could explain.
 
 So there is now one method, `invitable()`, that answers about one person
 without building any list, and both the screen and the endpoint ask it. The
@@ -3693,6 +3693,212 @@ of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
 request gets, and the test says what it means to say. Any test in this suite
 that signs two people in and asks about privacy was until now capable of
 proving the opposite of the truth.
+
+---
+
+### 2.66 A card said "no record" and meant "not yours to see"
+
+A member opened a connection request and read *Kein verknüpfter Eintrag im
+Stammbaum* under a name. The archive had a record for that person. The line
+was simply false.
+
+The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
+returns null when the caller may not see the record, and
+`Connections::present()` also has nothing to hand over when nobody linked that
+account to a record at all. One field, two meanings — and the card picked the
+rarer one and stated it as a fact about the archive, out of an answer that was
+about the *reader*.
+
+**Which of the two it is cannot be disclosed**, and that is not an oversight:
+saying "there is a record here that is not yours to see" is exactly the
+sentence webtrees' privacy exists to withhold. So the server keeps both cases
+as one null, and the client says the only thing that is true of both —
+"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
+that way since Phase 2 (`member.private`); the two list rows had invented
+their own wording and got it wrong. They now share one string,
+`individual.notVisible`, so they cannot drift apart again.
+
+Worth knowing how ordinary the hidden case is: with a path-length limit set,
+every living person outside a member's own few steps is hidden from them
+(§2.34), so on such an installation *most* incoming requests arrive as a name
+with no record. The line was wrong far more often than it was right.
+
+#### The harness was answering privacy questions from the wrong member
+
+Pinning this found a fault in the tests rather than in the module. webtrees
+caches `canShow()` in `Registry::cache()->array()` under record, tree and
+access level — **not** under user, which is right in production, where that
+cache lives and dies inside one request. `PortalTestCase::login()` does not
+end a request, so a `true` computed for the member looking at *their own*
+record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
+handed to the next member who asked the same question at the same access
+level.
+
+The first version of this test said a confidential record travelled with a
+connection request. It does not; the harness had cached the subject's own view
+of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
+request gets, and the test says what it means to say. Any test in this suite
+that signs two people in and asks about privacy was until now capable of
+proving the opposite of the truth.
+
+---
+
+### 2.67 A name and white space is not an address book
+
+§2.66 fixed what the card *said*. What it showed was still a name and nothing
+else, and for a member whose record is closed to the reader that is the
+ordinary case rather than the exception: a connection request arrives, and the
+person it is from cannot be recognised at all.
+
+The record is closed for a good reason and stays closed. But two things on
+that card do not come from the archive's account of the person, and each has
+its own permission behind it.
+
+**A photograph they uploaded here themselves.** §2.50 already says a living
+person's picture is shown only where they put it — `portal_photo` is that
+consent, given to this portal, for exactly this. Withholding it because
+webtrees hides the record it hangs on would be honouring a rule about the
+*family's* data against the person the data is about. So it crosses, and
+nothing else in the gallery does: the family's photographs of them stay behind
+the record's privacy where they belong.
+
+**The archive number, if the family says so.** Off by default, and a switch in
+the control panel rather than a per-member choice, because the number is the
+family's naming scheme rather than anybody's personal data — it comes off a
+letterhead. And §2.57 already lets any member *type* a number and reach the
+person it belongs to whether or not they may read the record: showing it makes
+legible what was already searchable.
+
+A number the record marks confidential is still withheld. `Fact::canShow()`
+asks about the `RESN` on the fact rather than the privacy of the record around
+it, which is exactly the half that belongs here — the same split the number
+search relies on.
+
+**And nothing else.** Not the name on the record, not the years, not the
+nickname, not the relationship. `Recognition` is the whole rule and it is two
+fields wide.
+
+#### Two traps, and they are the same trap
+
+`GedcomRecord::facts()` hands back **nothing at all** for a record the reader
+may not see. So both halves of this walk into it:
+
+* `Media::firstImageFile()` reads `facts(['FILE'])`, and a media object counts
+  as private whenever any record it is linked to is
+  (`Media::canShowByType()`). The ordinary call therefore answers "this
+  photograph has no files in it" for precisely the pictures this exists to
+  show.
+* The archive number is a `REFN` fact, with the same answer — which is why
+  `Connections::memberByReference()` already reads at `PRIV_HIDE` and filters
+  fact by fact, and why this does too.
+
+The permission is decided first and the reading is done afterwards, at
+`PRIV_HIDE`, in both places.
+
+The third instance of the same trap is the one that would have shipped a
+broken image: `MediaRead` gates on `Media::canShow()`, so the URL in the
+payload would have answered 404 for every portrait this feature adds. A
+consent that is honoured in the JSON and refused at the image is not a feature,
+it is a grey box — so the handler knows the rule too, and knows only this one:
+a `portal_photo` row, and nothing else, opens that door.
+
+#### Where it appears, and where it does not
+
+Three payloads carry the two fields — the directory row, the member's own
+page, and a connection card — **and only where `individual` is null**. Where
+the record is readable both live inside it and follow its rules; a second copy
+beside it would be two answers to one question, and they would not always
+agree (a dead person's family photograph is a portrait, and never a
+`portal_photo` row).
+
+Deliberately *not* on the tree screens. `individualRef()` returning null is
+what keeps a hidden relative out of a relative list altogether, and that
+must not change: this is an address book of people who already have accounts,
+not a way around the archive's own privacy.
+
+---
+
+### 2.68 An invitation is for somebody who cannot see the tree yet
+
+**The bug: every invitation link was dead on arrival**, on any tree with
+`REQUIRE_AUTHENTICATION` switched on — which is every tree this portal is
+built for. The invitee opened the link and read *„Diese Einladung gilt nicht
+mehr“*. Withdrawing it and issuing another produced another dead link, because
+nothing was wrong with either of them.
+
+Both endpoints on that path began with `PortalTreeService::tree()`, and that
+method resolves the portal's tree through webtrees' `TreeService::all()` —
+which is filtered by whoever is asking. webtrees' rule for a non-administrator
+is that a tree requiring authentication is visible only to somebody who holds a
+role on it. A person holding an invitation holds nothing: that is the entire
+premise. So the list came back empty, the configured tree looked deleted, and
+`POST /invitation/preview` and `POST /invitation/accept` both answered 503
+*before either of them looked at the token*.
+
+This class had already been bitten twice by the same filtering — `GET /health`
+answered `not_configured` for a healthy installation, and the link out to
+webtrees dead-ended for signed-out readers — and both were fixed in place, each
+with a paragraph explaining it. The third time it is a method:
+`PortalTreeService::configuredTree()` reads the module's configured tree from
+the `gedcom` table and hands back the `Tree`, asking nobody's permission. Only
+the two invitation endpoints use it. Nothing is granted by it — a `Tree` is an
+id, a name and a title, the two callers read no records through it, and what
+actually opens an invitation is the token, checked on the very next line.
+
+**Two things came out of the same hole.**
+
+*The test harness was hiding it.* `TreeService::all()` caches its answer for
+the request, and `PortalTestCase` kept one cache across every request a test
+made — so a visitor's request was answered out of the list built by the
+administrator who imports the fixture. `api()` now clears that cache before
+each dispatch, which is what a request boundary does in production. The
+fixture also leaves `REQUIRE_AUTHENTICATION` off, so the three new tests in
+`InvitationTest` turn it on: that is how the portal is actually run.
+
+*The screen was blaming the invitation.* `Invitation.tsx` treated **any**
+failed preview as a spent link. A 503 is not an answer about the token, and
+saying it is sends the invitee to ask for a replacement that fails identically
+— which is exactly the loop this bug produced. Only `invalid_token` now reads
+as "no longer valid"; everything else gets the ordinary error notice, with its
+retry and its reference number, and the accept form names `not_configured` and
+`server_error` rather than shrugging.
+
+---
+
+### 2.69 The list an editor never saw
+
+Two complaints about one screen, and the same sentence answers both: **an
+editor's invite screen is a search box, and it was being handed a list.**
+
+*It took a long time to open.* `overview()` built the editor's candidate list
+by reading every record in the archive and asking three questions of each — is
+this person visible to me, are they living, do they already have an account.
+The third went back to the database once per record (`outstanding()`), and the
+one behind it walked every user account in the installation (`hasAccount()`).
+Then the first two hundred survivors were presented in full — name,
+relationship, portrait — and the screen **threw all of it away**, because for
+`scope: anyone` it draws a search box and never looks at `candidates`. §2.60
+already knew the list was not the rule; what it kept was the list.
+
+So the editor gets no list: `candidates` is empty, and the search is the list.
+Nothing is lost by it. The rule lives in `invitable()` and is asked when the
+invitation is issued, which is where every refusal has always come from — and
+the two tests that used to read the list now ask the endpoint instead, which is
+the thing they were really about. `LISTED` is gone; the number an editor is
+told is left of their quota is now called `NO_QUOTA` and says why it is 200
+rather than a sentinel: a client one deploy behind would print "noch -1
+Einladungen". The screen no longer prints it at all where there is no quota —
+"Sie können noch 200 Einladungen offen haben" was a number invented to fill a
+line.
+
+*And the person was not shown.* Arriving from somebody's own page is the
+ordinary way onto this screen and it carries them in `?xref=`. The search
+component only recognised a choice that appeared in its own results, and it had
+searched for nothing — so the person the editor had just pressed the button for
+had to be found again by typing their name. It now fetches that one record when
+the choice came from the address bar rather than from a result, and says
+*Ausgewählt: …* before anything is typed. One record, and only when somebody is
+already chosen.
 
 ---
 

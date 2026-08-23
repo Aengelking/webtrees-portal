@@ -13,6 +13,7 @@ use Engelking\Webtrees\PortalApi\Services\MemberInvitations;
 use Engelking\Webtrees\PortalApi\Services\MemberMessages;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
+use Engelking\Webtrees\PortalApi\Services\Recognition;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Individual;
@@ -37,6 +38,7 @@ class MemberRead implements RequestHandlerInterface
         private readonly MemberMessages $messages,
         private readonly MemberInvitations $invitations,
         private readonly Connections $connections,
+        private readonly Recognition $recognition,
     ) {
     }
 
@@ -84,6 +86,10 @@ class MemberRead implements RequestHandlerInterface
             'display_name'      => $member->display_name,
             'individual'        => $ref,
             'individual_detail' => $detail,
+            // Only where the record is not this reader's to read, and only
+            // ever a face its subject uploaded here and a number the family
+            // publishes. See `Recognition`.
+            ...($ref === null ? $this->recognition->of($member->user, $access_level) : []),
             'contact'           => $contact,
             // Whether the *form* is worth showing. The endpoint checks again;
             // this only saves the member from a button that would refuse.

@@ -145,16 +145,39 @@ class MemberInvitationTest extends PortalTestCase
      * editor already decides: they open the control panel and invite anybody
      * in the tree. Applying the distance here would not stop them, only stop
      * them doing it from the screen they were already looking at.
+     *
+     * Asked of the rule rather than of a list, because for an editor there is
+     * no list — see the test below.
      */
-    public function testAnEditorIsOfferedEverybodyTheyCanSee(): void
+    public function testAnEditorMayInviteEverybodyTheyCanSee(): void
     {
         $this->signInAsEditor();
 
-        $offered = $this->candidateXrefs();
+        // Fritz is nowhere near Anna's close family, and living. Dieter is
+        // within it, and both are the same answer to an editor.
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->invite('X6')->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->invite('X4')->getStatusCode());
+    }
 
-        // Fritz is nowhere near Anna's close family, and living.
-        self::assertContains('X6', $offered);
-        self::assertContains('X4', $offered);
+    /**
+     * **An editor is handed no candidate list at all**, and that is the point
+     * of `scope`.
+     *
+     * Building one meant reading every record in the archive, asking three
+     * questions of each and going back to the database for one of them —
+     * thousands of records and thousands of queries, for a screen that then
+     * ignored the answer and drew a search box. This is the assertion that
+     * keeps the scan from coming back: it is about how long the screen takes
+     * to open, which nothing else here measures.
+     */
+    public function testAnEditorIsHandedNoListToScrollThrough(): void
+    {
+        $this->signInAsEditor();
+
+        $body = $this->json($this->list());
+
+        self::assertSame('anyone', $body['scope']);
+        self::assertSame([], $body['candidates']);
     }
 
     public function testAnEditorIsToldTheScreenIsASearch(): void
@@ -170,18 +193,20 @@ class MemberInvitationTest extends PortalTestCase
     }
 
     /** The dead, the already-invited and the already-accounted-for are out for everybody. */
-    public function testAnEditorIsNotOfferedSomebodyAnInvitationWouldNotHelp(): void
+    public function testAnEditorMayNotInviteSomebodyAnInvitationWouldNotHelp(): void
     {
         $this->signInAsEditor();
 
-        $offered = $this->candidateXrefs();
-
         // Dead.
-        self::assertNotContains('X2', $offered);
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->invite('X2')->getStatusCode());
         // Confidential, so not visible even to this account's access level.
-        self::assertNotContains('X3', $offered);
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->invite('X3')->getStatusCode());
         // Edith's own linked record already has an account: hers.
-        self::assertNotContains('X1', $offered);
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->invite('X1')->getStatusCode());
+
+        // And once Fritz has one outstanding, a second is refused too.
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->invite('X6')->getStatusCode());
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->invite('X6')->getStatusCode());
     }
 
     public function testAnEditorCanIssueAnInvitationToSomebodyDistant(): void

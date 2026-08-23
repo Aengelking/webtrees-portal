@@ -196,6 +196,69 @@ class PortalTreeService
     }
 
     /**
+     * The portal's tree itself, resolved without asking who wants it.
+     *
+     * `configuredTreeName()` above answers the same question and hands back a
+     * name. This hands back the tree, for the callers that need the record
+     * rather than a URL — and it is the third time this class has had to say
+     * the same thing, so it is worth saying plainly:
+     *
+     * **`tree()` cannot serve a visitor.** It resolves through
+     * `TreeService::all()`, which is filtered by whoever is asking: on a tree
+     * with `REQUIRE_AUTHENTICATION` — the setting a private family portal is
+     * built on — a signed-out reader's list is empty, so the configured tree
+     * looks deleted and `tree()` refuses with `not_configured`.
+     *
+     * That is the right answer for every authenticated endpoint. It is the
+     * wrong answer for the two that run *precisely* when nobody is signed in:
+     * `POST /invitation/preview` and `POST /invitation/accept`. The whole
+     * point of an invitation is that the person holding it has no account
+     * yet, so measuring their access to the tree before reading the token
+     * refuses everybody, always. The invitee sees "this invitation is no
+     * longer valid" and the invitation is perfectly good.
+     *
+     * Nothing is granted by resolving it this way. A `Tree` is an id, a name
+     * and a title; every record read through it is still privacy filtered at
+     * `Auth::accessLevel()`, and the only two callers read no records at all.
+     * What opens an invitation is the token, which is a credential, and it is
+     * checked immediately afterwards.
+     *
+     * @throws ApiException when no tree is configured and none can be guessed.
+     */
+    public function configuredTree(): Tree
+    {
+        $name  = $this->configuredTreeName();
+        $query = DB::table('gedcom')->where('gedcom_id', '>', 0);
+
+        if ($name !== '') {
+            $query->where('gedcom_name', '=', $name);
+        } else {
+            // `tree()`'s last resort, in its own order: no setting and no site
+            // default, so whichever tree exists.
+            $query->orderBy('gedcom_id');
+        }
+
+        $row = $query->first();
+
+        if ($row === null) {
+            throw $this->notConfigured(
+                $name === ''
+                    ? 'this webtrees installation has no family trees.'
+                    : 'the configured tree "' . $name . '" does not exist. Available: ' . $this->treeNames()
+            );
+        }
+
+        // The title is a tree setting rather than a column, and a tree that
+        // has never been given one still has to be usable.
+        $title = (string) DB::table('gedcom_setting')
+            ->where('gedcom_id', '=', $row->gedcom_id)
+            ->where('setting_name', '=', 'title')
+            ->value('setting_value');
+
+        return new Tree((int) $row->gedcom_id, $row->gedcom_name, $title === '' ? $row->gedcom_name : $title);
+    }
+
+    /**
      * Refuse, telling the member nothing and the administrator everything.
      *
      * The member-facing message stays generic — it is shown to whoever is

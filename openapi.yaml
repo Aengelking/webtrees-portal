@@ -2917,13 +2917,14 @@ components:
 
             `anyone` is what somebody who can edit the tree gets — everybody
             they can see, which in a real archive is thousands of people.
-            `candidates` is then only the first couple of hundred, and the
-            screen should search rather than list. **A person absent from
-            `candidates` may still be invited**: the endpoint applies the rule,
-            not the list.
+            `candidates` is then **empty** and the screen searches: a wheel
+            with four thousand names in it is not a way of choosing anybody,
+            and building the list meant reading the whole archive for a screen
+            that ignored it. **A person absent from `candidates` may still be
+            invited**: the endpoint applies the rule, not the list.
 
-            It cannot be inferred from `candidates`, because a short list is
-            also what a small family looks like.
+            It cannot be inferred from `candidates`, because an empty list is
+            also what a member with nobody left to invite looks like.
         enabled:
           type: boolean
           description: False when the family has switched member invitations off.
@@ -3727,7 +3728,27 @@ components:
             - type: 'null'
           description: |
             `null` when the member has no linked record, or when the caller
-            may not see it.
+            may not see it. The two are deliberately indistinguishable —
+            saying which would disclose the thing privacy withholds.
+        portrait:
+          oneOf:
+            - $ref: '#/components/schemas/Photo'
+            - type: 'null'
+          description: |
+            **Present only where `individual` is null.** A photograph the
+            person uploaded to the portal themselves, which their own consent
+            covers whatever the record's privacy says — see `Recognition`. When
+            `individual` is present its own `portrait` is the one to use, and
+            follows the record's rules.
+        references:
+          type: array
+          description: |
+            **Present only where `individual` is null**, and empty unless the
+            family has switched *Show the archive number even where the record
+            is closed* on. A number the record marks confidential is withheld
+            even then. When `individual` is present, read its `references`.
+          items:
+            $ref: '#/components/schemas/Reference'
         connection:
           allOf:
             - $ref: '#/components/schemas/ConnectionState'
@@ -3805,6 +3826,25 @@ components:
             Their record in the tree, privacy-filtered like everywhere else,
             and `null` when there is none or the reader may not see it. Being
             connected does not lift the tree's own privacy rules.
+        portrait:
+          oneOf:
+            - $ref: '#/components/schemas/Photo'
+            - type: 'null'
+          description: |
+            **Present only where `individual` is null.** A photograph the
+            person uploaded to the portal themselves, which their own consent
+            covers whatever the record's privacy says — see `Recognition`. When
+            `individual` is present its own `portrait` is the one to use, and
+            follows the record's rules.
+        references:
+          type: array
+          description: |
+            **Present only where `individual` is null**, and empty unless the
+            family has switched *Show the archive number even where the record
+            is closed* on. A number the record marks confidential is withheld
+            even then. When `individual` is present, read its `references`.
+          items:
+            $ref: '#/components/schemas/Reference'
         since:
           type: string
           format: date-time
