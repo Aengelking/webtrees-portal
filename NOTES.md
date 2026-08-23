@@ -3361,9 +3361,9 @@ not exist.
 This is the part worth remembering. `create()` used to check the posted xref
 against the candidate list, which is exactly right while that list is a
 member's close family — a dozen people, built in full. For an editor the
-eligible set is the whole archive, and the screen is handed the first two
-hundred of it. Checking against *that* would have refused number two hundred
-and one for no reason anybody could explain.
+eligible set is the whole archive, and the screen was handed the first two
+hundred of it (since §2.69, none at all). Checking against *that* would have
+refused number two hundred and one for no reason anybody could explain.
 
 So there is now one method, `invitable()`, that answers about one person
 without building any list, and both the screen and the endpoint ask it. The
@@ -3815,6 +3815,90 @@ Deliberately *not* on the tree screens. `individualRef()` returning null is
 what keeps a hidden relative out of a relative list altogether, and that
 must not change: this is an address book of people who already have accounts,
 not a way around the archive's own privacy.
+
+---
+
+### 2.68 An invitation is for somebody who cannot see the tree yet
+
+**The bug: every invitation link was dead on arrival**, on any tree with
+`REQUIRE_AUTHENTICATION` switched on — which is every tree this portal is
+built for. The invitee opened the link and read *„Diese Einladung gilt nicht
+mehr“*. Withdrawing it and issuing another produced another dead link, because
+nothing was wrong with either of them.
+
+Both endpoints on that path began with `PortalTreeService::tree()`, and that
+method resolves the portal's tree through webtrees' `TreeService::all()` —
+which is filtered by whoever is asking. webtrees' rule for a non-administrator
+is that a tree requiring authentication is visible only to somebody who holds a
+role on it. A person holding an invitation holds nothing: that is the entire
+premise. So the list came back empty, the configured tree looked deleted, and
+`POST /invitation/preview` and `POST /invitation/accept` both answered 503
+*before either of them looked at the token*.
+
+This class had already been bitten twice by the same filtering — `GET /health`
+answered `not_configured` for a healthy installation, and the link out to
+webtrees dead-ended for signed-out readers — and both were fixed in place, each
+with a paragraph explaining it. The third time it is a method:
+`PortalTreeService::configuredTree()` reads the module's configured tree from
+the `gedcom` table and hands back the `Tree`, asking nobody's permission. Only
+the two invitation endpoints use it. Nothing is granted by it — a `Tree` is an
+id, a name and a title, the two callers read no records through it, and what
+actually opens an invitation is the token, checked on the very next line.
+
+**Two things came out of the same hole.**
+
+*The test harness was hiding it.* `TreeService::all()` caches its answer for
+the request, and `PortalTestCase` kept one cache across every request a test
+made — so a visitor's request was answered out of the list built by the
+administrator who imports the fixture. `api()` now clears that cache before
+each dispatch, which is what a request boundary does in production. The
+fixture also leaves `REQUIRE_AUTHENTICATION` off, so the three new tests in
+`InvitationTest` turn it on: that is how the portal is actually run.
+
+*The screen was blaming the invitation.* `Invitation.tsx` treated **any**
+failed preview as a spent link. A 503 is not an answer about the token, and
+saying it is sends the invitee to ask for a replacement that fails identically
+— which is exactly the loop this bug produced. Only `invalid_token` now reads
+as "no longer valid"; everything else gets the ordinary error notice, with its
+retry and its reference number, and the accept form names `not_configured` and
+`server_error` rather than shrugging.
+
+---
+
+### 2.69 The list an editor never saw
+
+Two complaints about one screen, and the same sentence answers both: **an
+editor's invite screen is a search box, and it was being handed a list.**
+
+*It took a long time to open.* `overview()` built the editor's candidate list
+by reading every record in the archive and asking three questions of each — is
+this person visible to me, are they living, do they already have an account.
+The third went back to the database once per record (`outstanding()`), and the
+one behind it walked every user account in the installation (`hasAccount()`).
+Then the first two hundred survivors were presented in full — name,
+relationship, portrait — and the screen **threw all of it away**, because for
+`scope: anyone` it draws a search box and never looks at `candidates`. §2.60
+already knew the list was not the rule; what it kept was the list.
+
+So the editor gets no list: `candidates` is empty, and the search is the list.
+Nothing is lost by it. The rule lives in `invitable()` and is asked when the
+invitation is issued, which is where every refusal has always come from — and
+the two tests that used to read the list now ask the endpoint instead, which is
+the thing they were really about. `LISTED` is gone; the number an editor is
+told is left of their quota is now called `NO_QUOTA` and says why it is 200
+rather than a sentinel: a client one deploy behind would print "noch -1
+Einladungen". The screen no longer prints it at all where there is no quota —
+"Sie können noch 200 Einladungen offen haben" was a number invented to fill a
+line.
+
+*And the person was not shown.* Arriving from somebody's own page is the
+ordinary way onto this screen and it carries them in `?xref=`. The search
+component only recognised a choice that appeared in its own results, and it had
+searched for nothing — so the person the editor had just pressed the button for
+had to be found again by typing their name. It now fetches that one record when
+the choice came from the address bar rather than from a result, and says
+*Ausgewählt: …* before anything is typed. One record, and only when somebody is
+already chosen.
 
 ---
 

@@ -8,7 +8,6 @@ use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
-use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Log;
@@ -49,16 +48,15 @@ class MemberInvitations
     public const int MAX_QUOTA     = 20;
 
     /**
-     * How many people the screen is handed at once when the whole tree is
-     * eligible.
+     * What an editor is told is left of their quota.
      *
-     * Only the *list* is capped. Whether a particular person may be invited is
-     * asked of the rule, not of this list — so somebody who is not among the
-     * first two hundred is still invitable, they are just reached by searching
-     * rather than by scrolling. A wheel with four thousand names in it is not
-     * a way of choosing anybody.
+     * They have none — see `keepsTheTree()` — but `remaining` is a number and
+     * the screen decides on it, so it has to be one that means "go ahead". A
+     * sentinel like `-1` would do that only for a client that knows about it,
+     * and the module and the portal deploy separately: a client one version
+     * behind would print "noch -1 Einladungen".
      */
-    public const int LISTED = 200;
+    public const int NO_QUOTA = 200;
 
     public function __construct(
         private readonly PortalApiModule $module,
@@ -140,9 +138,25 @@ class MemberInvitations
             ];
         }
 
-        $anyone     = $this->keepsTheTree($tree);
+        $anyone = $this->keepsTheTree($tree);
+
+        // **An editor is given no list at all**, and that is the whole of what
+        // this screen costs them. Building one meant reading every record in
+        // the archive and asking three questions of each — is this person
+        // visible, are they living, do they already have an account — and the
+        // last of those went back to the database once per person. On a real
+        // archive that is thousands of records and thousands of queries, and
+        // the screen then *threw the answer away*: an editor's screen is a
+        // search box, because a wheel with four thousand names in it is not a
+        // way of choosing anybody.
+        //
+        // So the search is the list, and it is the archive's own — one query,
+        // when the editor has typed something. Nothing is lost by it: the list
+        // was never the rule (see `invitable()`), and a person who is not
+        // invitable is refused when the invitation is issued, in the one
+        // wording every refusal has.
         $candidates = $anyone
-            ? $this->everybodyInvitable($tree, $access_level)
+            ? []
             : $this->close_family->invitable($viewer, $tree, $access_level, $this->steps(), $this->invitations);
 
         return [
@@ -152,7 +166,7 @@ class MemberInvitations
             // An editor has no quota — see `keepsTheTree()`. `remaining` is
             // what the screen decides on, so it is told the truth rather than
             // a number that would stop it offering anything.
-            'remaining'   => $anyone ? self::LISTED : max(0, $this->quota() - count($mine)),
+            'remaining'   => $anyone ? self::NO_QUOTA : max(0, $this->quota() - count($mine)),
             // Which of the two screens to draw: a wheel of close family, or a
             // search over everybody. The client cannot work this out from the
             // list, because a short list is also what a small family looks
@@ -290,9 +304,10 @@ class MemberInvitations
      * it next, and looking it up twice is how the two get out of step.
      *
      * **A list is never the rule.** For an editor the eligible set is the
-     * whole tree, and the screen is handed the first `LISTED` of it — asking
-     * "is this person in that list" would refuse number two hundred and one
-     * for no reason anybody could explain.
+     * whole tree and the screen is handed no list at all — asking "is this
+     * person on the screen's list" would refuse everybody, and asking it of a
+     * capped list would refuse number two hundred and one for no reason
+     * anybody could explain.
      */
     public function invitable(UserInterface $user, string $xref): Individual|null
     {
@@ -357,43 +372,6 @@ class MemberInvitations
 
         return !$this->invitations->outstanding($tree)
             ->contains(static fn (Invitation $invitation): bool => (string) $invitation->xref === $individual->xref());
-    }
-
-    /**
-     * Everybody in the tree an editor could invite, capped for the screen.
-     *
-     * Read rather than queried, for the same reason the surname index is:
-     * "living", "visible" and "has no account yet" are three questions no
-     * single SQL statement answers, and two of them are privacy questions that
-     * a query would have to ignore.
-     *
-     * @return array<string,array{individual:Individual,relationship:string|null}>
-     */
-    private function everybodyInvitable(Tree $tree, int $access_level): array
-    {
-        $rows = DB::table('individuals')
-            ->where('i_file', '=', $tree->id())
-            ->select(['individuals.*'])
-            ->get();
-
-        $mapper = Registry::individualFactory()->mapper($tree);
-        $found  = [];
-
-        foreach ($rows as $row) {
-            $individual = $mapper($row);
-
-            if (!$individual->canShow($access_level) || !$this->openToInvitation($tree, $individual)) {
-                continue;
-            }
-
-            $found[$individual->xref()] = ['individual' => $individual, 'relationship' => null];
-
-            if (count($found) >= self::LISTED) {
-                break;
-            }
-        }
-
-        return $found;
     }
 
     /**

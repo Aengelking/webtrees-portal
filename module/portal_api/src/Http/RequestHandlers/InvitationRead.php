@@ -49,7 +49,12 @@ class InvitationRead implements RequestHandlerInterface
         $body  = Json::body($request);
         $token = Json::requiredString($body, 'token');
         $ip    = Validator::attributes($request)->string('client-ip', '');
-        $tree  = $this->trees->tree();
+        // Not `tree()`: this endpoint runs for somebody with no account, and
+        // `tree()` resolves through a list filtered by who is asking. On a
+        // tree that requires authentication that list is empty for a visitor,
+        // so every invitation would be refused before its token was read. See
+        // `PortalTreeService::configuredTree()`.
+        $tree  = $this->trees->configuredTree();
 
         // Fails closed, like the login limiter: an unreachable attempt store
         // is not a reason to let someone work through the token space.

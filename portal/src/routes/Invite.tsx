@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useInvitations, useInvite, useSearch, useWithdrawInvitation } from '../api/queries'
+import { useIndividual, useInvitations, useInvite, useSearch, useWithdrawInvitation } from '../api/queries'
 import { ApiError } from '../api/client'
 import type { IndividualRef, InvitationCandidate, MemberInvitation } from '../api/types'
 import { referenceLabel } from '../components/reference'
@@ -148,9 +148,17 @@ export function Invite() {
                     {invite.isPending ? t('invite.creating') : t('invite.create')}
                   </Button>
 
-                  <p className="mt-3 text-base text-slate-700">
-                    {t('invite.remaining', { count: data.remaining })}
-                  </p>
+                  {/*
+                    A member's quota, and only theirs. An editor has none — see
+                    `keepsTheTree()` — and telling them they may have two
+                    hundred invitations outstanding is a number invented to
+                    fill this line.
+                  */}
+                  {data.scope !== 'anyone' && (
+                    <p className="mt-3 text-base text-slate-700">
+                      {t('invite.remaining', { count: data.remaining })}
+                    </p>
+                  )}
                 </form>
               )}
 
@@ -271,7 +279,19 @@ function FindAnybody({
   const { data, isFetching } = useSearch({ q: asked, page: 1 })
 
   const found = data?.items ?? []
-  const chosen = found.find((person) => person.xref === selected) ?? null
+  const fromResults = found.find((person) => person.xref === selected) ?? null
+
+  // Somebody can already be chosen before a single letter is typed: arriving
+  // from a person's own page is the ordinary way onto this screen, and it
+  // carries them in `?xref=`. Without this the screen showed an empty search
+  // box, so the person the editor had just been looking at had to be found
+  // again by name — and the invitation they pressed the button for looked
+  // like it had lost them.
+  const { data: preselected } = useIndividual(
+    fromResults === null && selected !== '' ? selected : undefined,
+  )
+
+  const chosen = fromResults ?? preselected ?? null
 
   return (
     <>
