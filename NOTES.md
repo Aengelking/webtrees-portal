@@ -2507,6 +2507,100 @@ lock-screen sentence: *„Wenn Sie sich abmelden, wird das auf diesem Gerät wie
 ausgeschaltet."* A member who finds notifications silently off after signing
 back in has been surprised by their own portal.
 
+### 2.44 Angemeldet bleiben, and the two failures that are not theft
+
+§2.43 established that the session dies with the browser (`lifetime => 0` in
+webtrees' `Session::start()`), and that the server-side row behind it goes a
+few minutes later. For an administrator at a desk that is correct. For the
+member this portal exists for — a telephone, opened twice a month, a password
+that has to be found again each time — it is most of the reason the portal
+feels like a website rather than an app.
+
+**The obvious implementation is the wrong one.** Lengthening webtrees' session
+cookie would have been four lines, and it changes the security posture of the
+control panel for every editor and administrator on the site to solve a problem
+the portal has. PHP's own garbage collection would reap the session anyway, so
+the cookie would outlive what it points at and the member would be signed out
+at a time nobody could predict. So: a second credential, which is what this is
+for.
+
+**Everything about the storage is `portal_invitation` again** (§2.22). A series
+and a token in a cookie, a SHA-256 of the token in the table, and the value
+itself in one browser and nowhere else. A database is backed up, dumped and
+read by more people than were handed the credential.
+
+**The token rotates, which is the whole reason for the series.** A single
+long-lived token can be stolen and used for thirty days without anybody ever
+finding out; a rotating one cannot, because the thief and the member end up
+presenting the same series with different tokens and the second one to arrive
+is holding something already spent. Neither can be identified as the member, so
+neither is trusted: every remembered device for that account goes, and the
+authentication log says why. An occasional unexplained sign-in is the price,
+and it is the right way round — the alternative is a silent theft that works
+for a month.
+
+**But two ordinary things look exactly like that, and both had to be answered
+before this could ship.**
+
+The first is two requests leaving one telephone together. A retry, a double
+tap, a connection that dropped halfway: both carry the token that was current
+when they were sent, and the second arrives after the first has replaced it.
+Punishing that would mean a flaky connection signs a member out of every
+device they own. So `previous_hash` and `rotated_at`: the token one step back
+stays good for a minute, and only something older is theft. Sixty seconds is
+long enough for the requests that genuinely crossed and far too short to be
+worth stealing.
+
+The second is subtler and was found by writing the test rather than by
+thinking. **A token is spent the moment it is read**, so its replacement has to
+reach the browser — and a `Set-Cookie` cannot ride on an exception. Ask for a
+record you may not see, get a 404 from `IndividualRead`, and the reply that
+carries the refusal was carrying no cookie: the device had just spent its token
+and been given nothing back, and its next visit would have been treated as
+theft. That is a lockout caused by a 404. `ResumeRememberedSession::answer()`
+catches `ApiException` and builds the same reply `ApiEnvelope` would have —
+which is safe precisely because the envelope records none of them, an
+`ApiException` being a refusal this module worded on purpose. Anything else
+still belongs to the envelope, which has a reference to hand the member and a
+log to write.
+
+**Where it is honoured is a design decision, not an implementation detail.**
+The middleware sits on the module's own route map and nowhere else, so a
+remember cookie opens the portal API and cannot become a way into webtrees'
+control panel. The Worker rewriting it host-only to the portal's origin
+(§2.30) makes the same point from the other end: the webtrees host never sees
+it.
+
+**Off by default, and the switch says what it costs.** This is a key left on a
+device — whoever picks up an unlocked telephone is that member, with no
+password, in a portal about living relatives. That is a judgement about a
+family's telephones rather than about software, so an administrator makes it,
+the setting is a number of days rather than a boolean, and the login screen
+states the number it was given. A switch promising "stay signed in" without
+saying until when is a promise the member has no way to check.
+
+**Which forced `remember_days` onto `GET /csrf`.** Everything else a screen
+needs to know about what this portal allows arrives with `GET /me`, and the
+login screen is the one screen with no session and therefore no `/me`. So the
+one endpoint it can already reach carries it. It discloses nothing — a setting
+about this portal's own login, identical for every member and every visitor,
+on an endpoint that exists to be called before anybody is known — and it warms
+the CSRF token that the submit needed anyway. A failure is deliberately silent:
+"we could not find out whether you may stay signed in" is not a sentence to put
+in front of somebody who came here to type a password.
+
+**Not ticking the box is an instruction.** `remember: false` revokes and clears
+whatever cookie the browser is holding, rather than leaving it alone. A member
+who ticked it last month and did not this time has said something, and a
+sign-in that ignored it would leave a device remembered that its owner has just
+declined to have remembered.
+
+**And a password reset ends it everywhere.** The one place `forgetAll` is
+right: somebody resetting a password is quite often somebody who believes
+another person is in their account, and a new password that leaves a month-old
+cookie working on a device they no longer hold would answer that with nothing.
+Everywhere else, one device is one device.
+
 **The iPhone was reading a blank space.** §2.33's rule is that silence is right
 for something impossible and wrong for something merely harder, and this had
 been filed under the wrong one. iOS has no push API in a Safari tab *at all* —

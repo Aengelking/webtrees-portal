@@ -97,6 +97,15 @@ export interface Health {
 
 export interface CsrfToken {
   csrf_token: string
+  /**
+   * How many days a member may stay signed in for, or 0 where the family has
+   * not switched that on.
+   *
+   * On this endpoint because the login screen is the one screen with no
+   * session, and therefore no `/me` to ask. It is also the number the offer
+   * has to state, so a boolean would not have been enough.
+   */
+  remember_days: number
 }
 
 /**
@@ -124,6 +133,11 @@ export interface InvitationAcceptance {
 export interface Credentials {
   username: string
   password: string
+  /**
+   * Stay signed in on this device. Honoured only if the family allows it, and
+   * only by the request that carried the password.
+   */
+  remember?: boolean
 }
 
 export interface Tree {

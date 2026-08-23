@@ -42,8 +42,9 @@ users; there is no second identity system.
 their privacy level, change their own portal settings, propose changes to
 their own record, reset their own password, share contact details with an
 audience they choose per entry, write to each other, read and answer their
-messages in the portal, and connect with each other into a contact list of
-their own.
+messages in the portal, connect with each other into a contact list of their
+own, and — where an administrator has allowed it — stay signed in on their own
+telephone instead of typing a password every visit.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -1146,6 +1147,48 @@ Two things to know if you go that way:
   `/api/v1/…`. To serve it from a subdirectory, set Vite's `base` and adjust
   `BASE` in `portal/src/api/client.ts` to match.
 
+### Letting members stay signed in
+
+*Setting: **Let members stay signed in (days)**, `0` — off — by default.*
+
+webtrees' session cookie has no lifetime: it dies with the browser, and the
+session behind it is reaped a few minutes after the member stops reading. That
+is right for an administrator at a desk and awkward for a member who opens the
+portal twice a month on a telephone and has to find their password each time.
+
+Set this to a number of days and the login screen grows a **Angemeldet
+bleiben** switch, off by default, that says how long it lasts. 30 is a
+reasonable figure. `0` withdraws the offer entirely — the switch is not drawn,
+and a request that asks to be remembered anyway is ignored.
+
+**What it is.** A second credential, in a cookie: `HttpOnly` so no script can
+read it, `Secure`, `SameSite=Lax`, and host-only to the portal's origin. The
+database stores a SHA-256 of it and never the value, exactly as invitations
+are stored. It is honoured on the portal's own API routes and nowhere else, so
+it is not a way into webtrees' own pages.
+
+**It is a key left on a device, and that is the decision.** Whoever picks up an
+unlocked telephone is that member, with no password — able to read the
+directory, contact details shared with them, and that member's messages. This
+is a judgement about your family's telephones rather than about the portal,
+which is why it ships switched off and why the switch on the login screen says
+so before anybody touches it.
+
+**Three things end it.** Signing out ends it on that device and only that one —
+a telephone signing out says nothing about the tablet. Resetting a password
+ends it on *every* device, because somebody resetting a password is often
+somebody who thinks another person is in their account. And the days running
+out ends it.
+
+**A stolen cookie is noticed, not merely time-limited.** The cookie carries a
+series and a token; the token is replaced every time it is used. If a token
+that was spent some time ago turns up, two parties are holding cookies for one
+device and there is no telling which of them is the member — so every
+remembered device for that member is forgotten, everybody signs in again, and
+a line goes into webtrees' authentication log. Two requests that left one
+telephone together are not that: the token one step back stays usable for a
+minute, so a flaky connection is not mistaken for a theft.
+
 ### webtrees' own login is untouched
 
 `/login` on the webtrees host still works exactly as before, for editors,
@@ -1262,6 +1305,11 @@ Without that the browser rejects the cookie: login returns 200 with a valid
 body, nothing is stored, and the next request is a 401 that bounces the member
 back to the login screen. If you ever see "signing in appears to work but I am
 immediately signed out again", this is the first thing to check.
+
+The portal sets one cookie of its own, `PORTAL_REMEMBER`, and only where the
+administrator has switched that on — see *Letting members stay signed in*. It
+goes through the same rewriting, and is written with the attributes that
+matter already on it, so nothing about it depends on the Worker being there.
 
 ### Caching
 

@@ -6,9 +6,11 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Http\Middleware\CookieJar;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
+use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Log;
@@ -32,6 +34,11 @@ use function time;
  * account awaiting an administrator, and rate limiting — produces the same
  * 401 body. The real reason goes to webtrees' authentication log, which an
  * administrator can read and an attacker cannot.
+ *
+ * `remember` asks to stay signed in on this device. It is honoured only when
+ * the family allows it, and only *after* the password has been checked: the
+ * cookie is issued by the same request that proved who this is, and by no
+ * other.
  */
 class SessionCreate implements RequestHandlerInterface
 {
@@ -42,6 +49,7 @@ class SessionCreate implements RequestHandlerInterface
         private readonly UserService $user_service,
         private readonly LoginRateLimiter $rate_limiter,
         private readonly MeAssembler $me,
+        private readonly RememberedDevices $devices,
     ) {
     }
 
@@ -50,6 +58,7 @@ class SessionCreate implements RequestHandlerInterface
         $body      = Json::body($request);
         $username  = Json::requiredString($body, 'username');
         $password  = Json::requiredString($body, 'password');
+        $remember  = ($body['remember'] ?? false) === true;
         $ip        = Validator::attributes($request)->string('client-ip', '');
 
         if (!$this->rate_limiter->allows($ip, $username)) {
@@ -85,7 +94,26 @@ class SessionCreate implements RequestHandlerInterface
 
         $this->rate_limiter->clear($ip, $username);
 
-        return Json::response($this->me->assemble($user));
+        $response = Json::response($this->me->assemble($user));
+
+        if (!$remember) {
+            // Not merely "do not set one": a member who ticked the box on
+            // Tuesday and did not on Thursday has changed their mind, and the
+            // cookie from Tuesday is still in the browser.
+            $this->devices->forget(CookieJar::read($request, RememberedDevices::COOKIE));
+
+            return CookieJar::clear($response, $request, RememberedDevices::COOKIE);
+        }
+
+        // Expired rows are swept here rather than on a schedule: this module
+        // has no cron, and a login is a write that already happened.
+        $this->devices->prune();
+
+        $cookie = $this->devices->remember($user);
+
+        return $cookie === null
+            ? $response
+            : CookieJar::set($response, $request, RememberedDevices::COOKIE, $cookie, $this->devices->lifetime());
     }
 
     private function authenticate(string $username, string $password, string $ip): User

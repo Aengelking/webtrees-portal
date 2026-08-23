@@ -25,6 +25,11 @@ export const en: Translations = {
     password: 'Password',
     submit: 'Sign in',
     submitting: 'One moment …',
+    remember: 'Stay signed in',
+    rememberHint_one:
+      'This device stays signed in for a day, so you will not have to type your password again in that time. Whoever picks the device up unlocked is then you — so switch this on only on your own phone. "Sign out" in Settings ends it at once.',
+    rememberHint_other:
+      'This device stays signed in for {{count}} days, so you will not have to type your password again in that time. Whoever picks the device up unlocked is then you — so switch this on only on your own phone. "Sign out" in Settings ends it at once.',
     forgotten: 'Forgotten your password?',
     failed: 'That username or password is not right. Please try again.',
     missing: 'Please fill in both fields.',

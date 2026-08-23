@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\ApiEnvelope;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireAuthentication;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireCsrfToken;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
+use Engelking\Webtrees\PortalApi\Http\Middleware\ResumeRememberedSession;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeCreate;
@@ -74,6 +75,7 @@ use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
+use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\FlashMessages;
@@ -130,7 +132,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.1.1';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 9;
+    private const int SCHEMA_VERSION = 10;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -183,6 +185,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_VAPID_PRIVATE       = 'vapid_private_key';
     public const string SETTING_MEMBER_CONNECTIONS  = 'member_connections';
     public const string SETTING_CONNECTION_CODE_MINUTES = 'connection_code_minutes';
+    public const string SETTING_REMEMBER_DAYS       = 'remember_days';
 
     /**
      * How far a member may *see*, as opposed to how far they may invite.
@@ -311,6 +314,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $push           = new PushSubscriptions($this, $web_push);
         $conversations  = new Conversations($members, $connections, $member_msgs, $user_service, $push);
         $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections, $conversations);
+        $devices        = new RememberedDevices($this, $user_service);
 
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
@@ -336,17 +340,19 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
+        $container->set(RememberedDevices::class, $devices);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
         $container->set(UsePortalLanguage::class, new UsePortalLanguage($container->get(ModuleService::class)));
         $container->set(RequireProxySecret::class, new RequireProxySecret($this));
         $container->set(RequireCsrfToken::class, new RequireCsrfToken());
         $container->set(RequireAuthentication::class, new RequireAuthentication());
+        $container->set(ResumeRememberedSession::class, new ResumeRememberedSession());
 
-        $container->set(CsrfTokenRead::class, new CsrfTokenRead());
+        $container->set(CsrfTokenRead::class, new CsrfTokenRead($devices));
         $container->set(HealthRead::class, new HealthRead($this, $portal_trees));
-        $container->set(SessionCreate::class, new SessionCreate($user_service, $rate_limiter, $me));
-        $container->set(SessionDelete::class, new SessionDelete());
+        $container->set(SessionCreate::class, new SessionCreate($user_service, $rate_limiter, $me, $devices));
+        $container->set(SessionDelete::class, new SessionDelete($devices));
         $container->set(MeRead::class, new MeRead($me));
         $container->set(IndividualRead::class, new IndividualRead($portal_trees, $presenter));
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
@@ -390,7 +396,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $container->get(EmailService::class),
             $container->get(RateLimitService::class),
         ));
-        $container->set(PasswordResetCreate::class, new PasswordResetCreate($user_service, $me));
+        $container->set(PasswordResetCreate::class, new PasswordResetCreate($user_service, $me, $devices));
 
         // Phase 5 — invitations. Unauthenticated by necessity: the whole
         // point is that the person holding the link does not have an account
@@ -422,10 +428,15 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             RequireCsrfToken::class,
         ];
 
+        // The resume sits immediately in front of the authentication check,
+        // and only on the chains that have one: it is the answer to "there is
+        // no session", so everywhere that does not mind a missing session has
+        // no use for it either.
         $private = [
             ApiEnvelope::class,
             UsePortalLanguage::class,
             RequireProxySecret::class,
+            ResumeRememberedSession::class,
             RequireAuthentication::class,
         ];
 
@@ -478,6 +489,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             UsePortalLanguage::class,
             RequireProxySecret::class,
             RequireCsrfToken::class,
+            ResumeRememberedSession::class,
             RequireAuthentication::class,
         ];
 
@@ -658,6 +670,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'push'                => $this->getPreference(self::SETTING_PUSH, '1'),
             'member_connections'  => $this->getPreference(self::SETTING_MEMBER_CONNECTIONS, '1'),
             'connection_code_minutes' => $this->getPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) Connections::DEFAULT_CODE_MINUTES),
+            'remember_days'       => $this->getPreference(self::SETTING_REMEMBER_DAYS, (string) RememberedDevices::DEFAULT_DAYS),
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -684,6 +697,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_PUSH, $body->boolean(self::SETTING_PUSH, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_CONNECTIONS, $body->boolean(self::SETTING_MEMBER_CONNECTIONS, false) ? '1' : '0');
         $this->setPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) max(1, min(Connections::MAX_CODE_MINUTES, $body->integer(self::SETTING_CONNECTION_CODE_MINUTES, Connections::DEFAULT_CODE_MINUTES))));
+        $this->setPreference(self::SETTING_REMEMBER_DAYS, (string) max(0, min(RememberedDevices::MAX_DAYS, $body->integer(self::SETTING_REMEMBER_DAYS, RememberedDevices::DEFAULT_DAYS))));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 
