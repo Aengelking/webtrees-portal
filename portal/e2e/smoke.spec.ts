@@ -303,8 +303,12 @@ test.describe('phase 7', () => {
     await page.getByLabel('Passwort').fill(password)
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
-    // Reached from Settings, not from the navigation bar: three destinations
-    // was a decision, and this is a thing a member does once or twice.
+    // Reached from Mein Profil or from Settings, not from the navigation bar:
+    // three destinations was a decision. Mein Profil is the screen a member is
+    // looking at when they notice who is missing, so the offer stands there
+    // too — including for an account with no record of its own.
+    await expect(page.getByRole('link', { name: 'Jemanden einladen' })).toHaveCount(1)
+
     await page.getByRole('link', { name: 'Einstellungen' }).click()
     await page.getByRole('link', { name: 'Jemanden einladen' }).click()
 

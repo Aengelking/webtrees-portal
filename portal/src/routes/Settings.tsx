@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useMe, useUpdateProfile } from '../api/queries'
 import { ContactSettings as ContactSettingsForm } from '../components/ContactSettings'
 import { InstallPortal } from '../components/InstallPortal'
+import { InviteCard } from '../components/InviteCard'
 import { Notifications } from '../components/Notifications'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import {
@@ -85,17 +86,7 @@ export function Settings() {
         </Card>
       </Section>
 
-      <Section title={t('settings.invite')}>
-        <Card>
-          <p className="text-base text-slate-700">{t('settings.inviteBody')}</p>
-          <Link
-            to="/invite"
-            className="mt-4 inline-flex min-h-[44px] items-center rounded-lg bg-sky-800 px-5 py-3 text-base font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-          >
-            {t('settings.inviteAction')}
-          </Link>
-        </Card>
-      </Section>
+      <InviteCard />
 
       {me !== null && (
         <>

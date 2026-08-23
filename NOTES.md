@@ -3400,6 +3400,35 @@ screen, which is the thing this exists to avoid.
 
 ---
 
+### 2.61 An entry that comes and goes is one nobody learns the place of
+
+*Einstellungen → Jemanden einladen* was the only way in. Settings is where a
+member goes to change something about themselves, and that is not the frame of
+mind in which anybody thinks "my brother is not in here". Mein Profil is: it is
+the screen the app opens on, the one with their own family on it, and the one
+they are looking at when they notice who is missing.
+
+So the offer stands on both, from one component — `InviteCard` — rather than
+the same markup twice, because two copies of one offer drift into being two
+different offers.
+
+**Unconditional, and deliberately so.** It does not wait for the record to
+load, and it is outside the branch that handles an account with no record at
+all — which is, if anything, the account likeliest to want somebody else
+brought in. A person's own page keeps its own conditional offer (§2.60), and
+that is a different thing: that one is about *them* and is only there when they
+can actually be invited. This one is about the facility.
+
+This is §2.33's rule the other way up. Silence is right for something
+*impossible* — an editor's button on a screen where nothing can be edited says
+nothing useful. It is wrong for something merely **not started yet**: the
+invite screen already explains every reason an invitation may not be possible
+— the family switched the facility off, the account is not linked, the quota is
+spent — and a sentence saying which is worth more than a button that quietly is
+not there.
+
+---
+
 ---
 
 ## 3. Things that were guessed

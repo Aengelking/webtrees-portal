@@ -229,10 +229,12 @@ invitations in place there is no reason to leave it on.
 
 *Control panel → Modules → Member portal API → preferences.*
 
-A member opens *Einstellungen → Jemanden einladen*, chooses one of their close
-relatives from a dropdown — named by relationship, "Ihr Bruder — Dieter
-Beispiel (1990–)" — and gets a link to pass on. No administrator is in the
-loop. The link appears directly under the button that made it.
+A member opens *Jemanden einladen* — the offer stands on *Mein Profil* and
+under *Einstellungen*, always, whether or not their own account is linked to a
+record of its own — chooses one of their close relatives from a dropdown, named
+by relationship, "Ihr Bruder — Dieter Beispiel (1990–)", and gets a link to
+pass on. No administrator is in the loop. The link appears directly under the
+button that made it.
 
 **Handing the link over** is **Teilen** where the browser has a share sheet —
 a phone, an installed app — which puts it straight into WhatsApp or a text

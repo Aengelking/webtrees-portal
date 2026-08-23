@@ -601,3 +601,55 @@ describe('inviting anybody, as somebody who keeps the tree', () => {
     expect(screen.queryByLabelText('Person suchen')).toBeNull()
   })
 })
+
+/**
+ * The way in, which is now on two screens rather than one.
+ *
+ * Settings is where a member goes to change something about themselves, and
+ * that is not the frame of mind in which anybody thinks "my brother is not in
+ * here". Mein Profil is: it is the screen the app opens on, the one with their
+ * own family on it, and the one they are looking at when they notice who is
+ * missing.
+ */
+describe('the standing offer to invite somebody', () => {
+  it('is on Mein Profil', async () => {
+    stub()
+    renderAt('/me')
+
+    await screen.findByRole('heading', { name: 'Mein Profil' })
+
+    expect(screen.getByRole('link', { name: 'Jemanden einladen' })).toBeDefined()
+  })
+
+  /**
+   * `ME` has no linked record, which is exactly the account this had to be
+   * checked on: the record is what the rest of the screen is made of, and the
+   * offer must not have been hung off it. A member with no record of their own
+   * is if anything the likeliest to want somebody else brought in.
+   */
+  it('is there even when the account has no record of its own', async () => {
+    stub()
+    renderAt('/me')
+
+    // The screen says there is no record — and still offers the invitation.
+    expect(await screen.findByText('Ihr Eintrag im Stammbaum fehlt noch')).toBeDefined()
+    expect(screen.getByRole('link', { name: 'Jemanden einladen' })).toBeDefined()
+  })
+
+  it('is still on Einstellungen', async () => {
+    stub()
+    renderAt('/settings')
+
+    expect(await screen.findByRole('link', { name: 'Jemanden einladen' })).toBeDefined()
+  })
+
+  it('leads to the invitation screen', async () => {
+    stub()
+    renderAt('/me')
+
+    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Jemanden einladen' }))
+
+    expect(await screen.findByLabelText('Person auswählen')).toBeDefined()
+  })
+})
