@@ -9,6 +9,7 @@ use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\Member;
 use Engelking\Webtrees\PortalApi\Services\MemberService;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
+use Engelking\Webtrees\PortalApi\Services\Recognition;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Individual;
@@ -40,6 +41,7 @@ class MemberList implements RequestHandlerInterface
         private readonly RecordPresenter $presenter,
         private readonly MemberService $members,
         private readonly Connections $connections,
+        private readonly Recognition $recognition,
     ) {
     }
 
@@ -95,13 +97,18 @@ class MemberList implements RequestHandlerInterface
     ): array
     {
         $individual = $this->trees->linkedIndividual($tree, $member->user);
+        $ref        = $individual instanceof Individual
+            ? $this->presenter->individualRef($individual, $access_level, $viewer)
+            : null;
 
         return [
             'id'           => $member->id,
             'display_name' => $member->display_name,
-            'individual'   => $individual instanceof Individual
-                ? $this->presenter->individualRef($individual, $access_level, $viewer)
-                : null,
+            'individual'   => $ref,
+            // Only where the record is not this reader's to read, and only
+            // ever a face its subject uploaded here and a number the family
+            // publishes. See `Recognition`.
+            ...($ref === null ? $this->recognition->of($member->user, $access_level) : []),
             // Where the reader and this member stand, so the row can offer
             // the one thing that means something — ask, answer, or nothing,
             // because they are already in touch or because it is themselves.

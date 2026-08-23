@@ -422,6 +422,21 @@ export interface MemberSummary {
   display_name: string
   individual: IndividualRef | null
   /**
+   * What may be shown of somebody whose record this reader may not read —
+   * **only ever present when `individual` is null**.
+   *
+   * `portrait` is a photograph that person uploaded to the portal themselves;
+   * their own consent covers it whatever the record's privacy says.
+   * `references` is their archive number, and is empty unless the family
+   * switched that on in the control panel.
+   *
+   * Where `individual` *is* present, both live inside it and follow the
+   * record's own rules — so read `individual?.portrait ?? portrait` and never
+   * both.
+   */
+  portrait?: Photo | null
+  references?: Reference[]
+  /**
    * Where the reader and this member stand. Carried on every row of the
    * directory, so a request can be sent from the list without opening the
    * person first — it is one row of one table, unlike contact details, which
@@ -536,6 +551,21 @@ export interface Connection {
   member_id: number | null
   name: string
   individual: IndividualRef | null
+  /**
+   * What may be shown of somebody whose record this reader may not read —
+   * **only ever present when `individual` is null**.
+   *
+   * `portrait` is a photograph that person uploaded to the portal themselves;
+   * their own consent covers it whatever the record's privacy says.
+   * `references` is their archive number, and is empty unless the family
+   * switched that on in the control panel.
+   *
+   * Where `individual` *is* present, both live inside it and follow the
+   * record's own rules — so read `individual?.portrait ?? portrait` and never
+   * both.
+   */
+  portrait?: Photo | null
+  references?: Reference[]
   since: string
 }
 

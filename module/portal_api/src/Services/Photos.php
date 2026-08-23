@@ -100,6 +100,38 @@ class Photos
         return DB::table('portal_photo')->where('media_xref', '=', $media->xref())->exists();
     }
 
+    /**
+     * Did somebody put this photograph into the portal themselves?
+     *
+     * The same row `mayShow()` looks for, asked without a record in hand —
+     * which is the point. A picture with a row is one its subject uploaded so
+     * that the family could see them, and that permission does not lapse
+     * because webtrees withholds the record it hangs on. See
+     * `PhotoPresenter::consentedPortrait()` and `MediaRead`.
+     */
+    public function isPortalUpload(string $media_xref): bool
+    {
+        return DB::table('portal_photo')->where('media_xref', '=', $media_xref)->exists();
+    }
+
+    /**
+     * The photographs this member put there, oldest first.
+     *
+     * Oldest rather than newest because the first one is the one they chose
+     * when they were asked for a picture; the later ones are additions.
+     *
+     * @return array<int,string> media xrefs
+     */
+    public function uploadsOf(UserInterface $user): array
+    {
+        return DB::table('portal_photo')
+            ->where('wt_user_id', '=', $user->id())
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->pluck('media_xref')
+            ->all();
+    }
+
     /** Whether this member uploaded this photograph, and may therefore remove it. */
     public function uploadedBy(UserInterface $user, string $media_xref): bool
     {

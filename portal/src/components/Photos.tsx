@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { IndividualRef, Photo } from '../api/types'
+import type { Photo } from '../api/types'
 import { Section } from './ui'
 
 /**
@@ -15,7 +15,21 @@ import { Section } from './ui'
  * a screen reader announcing "photograph of Anna Beispiel, Anna Beispiel" is
  * worse than one that skips a decorative image.
  */
-export function Portrait({ person, size = 48 }: { person: IndividualRef; size?: number }) {
+/**
+ * A face, or the initial of a name.
+ *
+ * Takes a name and a picture rather than a whole record, because the two
+ * places that most need it have no record to give: a member whose record is
+ * closed to the reader is a portal display name plus, where they uploaded one,
+ * their own photograph. An `IndividualRef` fits this shape as it is.
+ */
+export function Portrait({
+  person,
+  size = 48,
+}: {
+  person: { name: string; portrait?: Photo | null }
+  size?: number
+}) {
   const portrait = person.portrait ?? null
 
   if (portrait === null) {
