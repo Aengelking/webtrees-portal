@@ -36,6 +36,7 @@ import type {
   Photo,
   PendingIndividual,
   PushState,
+  RelationshipResult,
   SearchPage,
   Transcript,
   TreeIndex,
@@ -319,6 +320,19 @@ export const api = {
         page: params.page,
         per_page: 25,
       },
+      ...(signal === undefined ? {} : { signal }),
+    })
+  },
+
+  /**
+   * How two archive numbers are related.
+   *
+   * Touches no records at all — the number *is* the ancestral path, so this is
+   * arithmetic on two strings. See openapi.yaml.
+   */
+  relationship(a: string, b: string, signal?: AbortSignal): Promise<RelationshipResult> {
+    return request<RelationshipResult>('/relationship', {
+      query: { a, b },
       ...(signal === undefined ? {} : { signal }),
     })
   },

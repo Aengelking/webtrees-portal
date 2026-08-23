@@ -32,6 +32,7 @@ import type {
   IssuedInvitation,
   OwnContact,
   PendingIndividual,
+  RelationshipResult,
   SearchPage,
   TreeIndex,
 } from './types'
@@ -45,6 +46,7 @@ export const queryKeys = {
   search: (params: SearchParams) =>
     ['search', params.q ?? '', params.surname ?? '', params.place ?? '', params.page] as const,
   treeIndex: ['tree-index'] as const,
+  relationship: (a: string, b: string) => ['relationship', a, b] as const,
   invitations: ['invitations'] as const,
   contact: ['contact'] as const,
   messages: ['messages'] as const,
@@ -154,6 +156,24 @@ export function useTreeIndex(enabled: boolean) {
     queryFn: ({ signal }) => api.treeIndex(signal),
     enabled,
     staleTime: 10 * 60 * 1000,
+  })
+}
+
+/**
+ * The archive-number calculator.
+ *
+ * Only asked once both fields have something in them: half a question has no
+ * answer, and firing on every keystroke of the first number would fill the
+ * screen with "keine gültige Nummer" while somebody is still typing it.
+ */
+export function useRelationship(a: string, b: string) {
+  const language = useLanguage()
+
+  return useQuery<RelationshipResult>({
+    queryKey: [...queryKeys.relationship(a, b), language],
+    queryFn: ({ signal }) => api.relationship(a, b, signal),
+    enabled: a !== '' && b !== '',
+    placeholderData: keepPreviousData,
   })
 }
 

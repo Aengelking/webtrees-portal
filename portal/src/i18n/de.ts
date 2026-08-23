@@ -391,6 +391,22 @@ export const de = {
     intro:
       'Suchen Sie im Familienarchiv nach einem Namen oder einer SB-Nr. — oder blättern Sie durch die Namen und die Orte.',
     tabSearch: 'Suche',
+    tabCalculator: 'Rechner',
+    calc: {
+      intro:
+        'Die SB-Nr. ist keine Bezeichnung, sondern ein Weg: Linie, dann ein Zeichen je Generation. Deshalb lässt sich aus zwei Nummern allein der Verwandtschaftsgrad berechnen — ohne Daten, ohne Grenze, auch für Personen, die gar nicht im Stammbaum stehen.',
+      first: 'SB-Nr. 1',
+      firstHint: 'Ihre eigene Nummer ist schon eingetragen. Sie können sie überschreiben.',
+      second: 'SB-Nr. 2',
+      result: '{{second}} zu {{first}}',
+      note: 'Es wird nichts nachgeschlagen und niemand genannt — gerechnet wird nur mit den beiden Nummern.',
+      problem: {
+        invalid_a: 'SB-Nr. 1 ist keine gültige Nummer.',
+        invalid_b: 'SB-Nr. 2 ist keine gültige Nummer.',
+        identical: 'Beide Nummern bezeichnen dieselbe Person.',
+        incomplete: '',
+      },
+    },
     tabSurnames: 'Namen',
     tabPlaces: 'Orte',
     search: 'Name oder SB-Nr.',

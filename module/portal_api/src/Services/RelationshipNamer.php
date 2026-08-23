@@ -11,8 +11,10 @@ use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Services\RelationshipService;
 
 use function array_filter;
+use function array_key_exists;
 use function array_values;
 use function count;
+use function trim;
 
 /**
  * "Ihre Cousine", "Ihr Urgroßvater" — how a member is related to someone.
@@ -65,8 +67,13 @@ class RelationshipNamer
      */
     private array $reach = [];
 
-    public function __construct(private readonly RelationshipService $relationships)
-    {
+    /** The reader's own archive number, looked up once. @var array<string,string|null> */
+    private array $own_numbers = [];
+
+    public function __construct(
+        private readonly RelationshipService $relationships,
+        private readonly SackRelationship $sack,
+    ) {
     }
 
     /**
@@ -84,13 +91,90 @@ class RelationshipNamer
 
         $path = $this->reach($viewer, $access_level)[$target->xref()] ?? [];
 
-        if ($path === []) {
+        if ($path !== []) {
+            $name = $this->relationships->nameFromPath($path, I18N::language());
+
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        return $this->fromNumbers($viewer, $target, $access_level);
+    }
+
+    /**
+     * The answer the walk could not give, from the two archive numbers.
+     *
+     * **Why the walk goes first.** The tree knows things the numbering system
+     * cannot: a wife, a stepfather, an adopted child. An SB number describes
+     * one thing — descent — and describes it perfectly. So the tree answers
+     * wherever it can, and this fills in what is left, which is nearly always
+     * the same case: two people too far apart for four steps to reach.
+     *
+     * **And why this is allowed to cross what the walk refuses to.** §2.25
+     * will not name a relationship through somebody the reader may not see,
+     * because the name would betray that they exist. This crosses that ground
+     * freely, and it is not a hole in the rule: an SB number *is* the
+     * ancestral path, both numbers are already printed on both cards, and
+     * anybody holding the two of them can do this arithmetic on the back of an
+     * envelope. Computing it here discloses nothing the two numbers did not.
+     *
+     * A number the reader may not see is a different matter, and `facts()`
+     * settles it — a confidential `REFN` is not in the list, so it cannot be
+     * used, and the answer is silence.
+     */
+    private function fromNumbers(Individual $viewer, Individual $target, int $access_level): string|null
+    {
+        $mine = $this->ownNumber($viewer, $access_level);
+
+        if ($mine === null) {
             return null;
         }
 
-        $name = $this->relationships->nameFromPath($path, I18N::language());
+        foreach ($this->numbersOf($target, $access_level) as $theirs) {
+            $name = $this->sack->name($mine, $theirs, $target->sex());
 
-        return $name === '' ? null : $name;
+            if ($name !== null) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    private function ownNumber(Individual $viewer, int $access_level): string|null
+    {
+        $key = $viewer->xref() . '@' . $access_level;
+
+        if (!array_key_exists($key, $this->own_numbers)) {
+            $this->own_numbers[$key] = $this->numbersOf($viewer, $access_level)[0] ?? null;
+        }
+
+        return $this->own_numbers[$key];
+    }
+
+    /**
+     * The reference numbers on a record that are archive numbers.
+     *
+     * Not filtered by `TYPE`: the archive writes `2 TYPE SB` on most of them
+     * and on some older records on none, and a number that parses as one of
+     * these paths is one — nothing else in the tree looks like `24/b521.12`.
+     *
+     * @return array<int,string>
+     */
+    private function numbersOf(Individual $individual, int $access_level): array
+    {
+        $numbers = [];
+
+        foreach ($individual->facts(['REFN'], false, $access_level) as $fact) {
+            $value = trim($fact->value());
+
+            if ($value !== '' && $this->sack->isNumber($value)) {
+                $numbers[] = $value;
+            }
+        }
+
+        return $numbers;
     }
 
     /**

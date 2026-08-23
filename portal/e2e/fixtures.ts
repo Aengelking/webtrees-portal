@@ -16,7 +16,10 @@ const ANNA = {
   lifespan: '1985–',
   name_alternative: null,
   relationship: null,
-  references: [{ number: '4711', type: 'SB' }],
+  references: [
+    { number: '4711', type: 'SB' },
+    { number: '10/1335.11', type: 'SB' },
+  ],
   birth: {
     tag: 'INDI:BIRT',
     label: 'Geburt',
@@ -632,6 +635,23 @@ export async function stubApi(page: Page): Promise<void> {
         page: 1,
         per_page: 25,
         truncated: false,
+      })
+    }
+
+    if (path === '/relationship') {
+      const a = url.searchParams.get('a') ?? ''
+      const b = url.searchParams.get('b') ?? ''
+      const valid = /^\d{1,2}\/[1-9a-z. ]+$/i
+
+      return json(route, {
+        a,
+        b,
+        problem: !valid.test(a) ? 'invalid_a' : !valid.test(b) ? 'invalid_b' : null,
+        relationship: valid.test(a) && valid.test(b) ? 'Cousin/Cousine 3. Grades' : null,
+        detail:
+          valid.test(a) && valid.test(b)
+            ? { kind: 'cousin', generations: 0, distance: 4, degree: 3 }
+            : null,
       })
     }
 

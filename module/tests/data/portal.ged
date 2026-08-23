@@ -177,6 +177,8 @@
 1 HUSB @X11@
 1 CHIL @X7@
 0 @X12@ INDI
+1 REFN 10/133
+2 TYPE SB
 1 NAME Otto /Fernab/
 2 GIVN Otto
 2 SURN Fernab

@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useSearch, useTreeIndex } from '../api/queries'
+import { useRelationship, useSearch, useTreeIndex } from '../api/queries'
 import type { IndexEntry, SearchPage } from '../api/types'
 import { PersonCard } from '../components/PersonCard'
+import { useAuth } from '../auth/AuthProvider'
+import { ownReference } from '../components/reference'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading } from '../components/ui'
 
 const PER_PAGE = 25
 
 const TAB_PARAM = 'tab'
 
-type Tab = 'search' | 'surnames' | 'places'
+type Tab = 'search' | 'surnames' | 'places' | 'calculator'
 
 /**
  * Looking through the family archive, rather than walking it.
@@ -48,7 +50,7 @@ export function Tree() {
 
   const chosen = params.get(TAB_PARAM)
   const active: Tab =
-    chosen === 'surnames' || chosen === 'places' || chosen === 'search'
+    chosen === 'surnames' || chosen === 'places' || chosen === 'search' || chosen === 'calculator'
       ? chosen
       : surname !== ''
         ? 'surnames'
@@ -81,7 +83,7 @@ export function Tree() {
   // Only fetched for the tabs that show it. It is the most expensive thing the
   // module computes — one pass over every record — and a member who came here
   // to type a name should not pay for it.
-  const index = useTreeIndex(active !== 'search')
+  const index = useTreeIndex(active === 'surnames' || active === 'places')
 
   const pages =
     search.data === undefined ? 1 : Math.max(1, Math.ceil(search.data.total / PER_PAGE))
@@ -133,8 +135,11 @@ export function Tree() {
           search: t('tree.tabSearch'),
           surnames: t('tree.tabSurnames'),
           places: t('tree.tabPlaces'),
+          calculator: t('tree.tabCalculator'),
         }}
       />
+
+      {active === 'calculator' && <Calculator />}
 
       {active === 'search' && (
         <div className="mt-5">
@@ -150,7 +155,7 @@ export function Tree() {
         </div>
       )}
 
-      {active !== 'search' && browsing === null && (
+      {(active === 'surnames' || active === 'places') && browsing === null && (
         <Index
           entries={active === 'surnames' ? (index.data?.surnames ?? []) : (index.data?.places ?? [])}
           pending={index.isPending}
@@ -184,7 +189,7 @@ export function Tree() {
         under an empty field would be the portal saying "no matches" about a
         question nobody put.
       */}
-      {(query !== '' || browsing !== null) && (
+      {active !== 'calculator' && (query !== '' || browsing !== null) && (
         <Results
           pending={search.isPending}
           error={search.isError ? search.error : null}
@@ -392,7 +397,7 @@ function TabBar({
 }) {
   return (
     <div role="tablist" className="mt-5 flex gap-2 border-b border-slate-300">
-      {(['search', 'surnames', 'places'] as const).map((tab) => (
+      {(['search', 'surnames', 'places', 'calculator'] as const).map((tab) => (
         <button
           key={tab}
           type="button"
@@ -400,7 +405,7 @@ function TabBar({
           aria-selected={active === tab}
           onClick={() => onSelect(tab)}
           className={[
-            '-mb-px min-h-[44px] flex-1 border-b-2 px-3 py-2 text-base font-semibold',
+            '-mb-px min-h-[44px] flex-1 border-b-2 px-2 py-2 text-base font-semibold',
             'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-700',
             active === tab
               ? 'border-sky-800 text-sky-900'
@@ -410,6 +415,100 @@ function TabBar({
           {labels[tab]}
         </button>
       ))}
+    </div>
+  )
+}
+
+/**
+ * Two archive numbers in, a relationship out.
+ *
+ * The family has had this as a page of its own since 2009, and it is the one
+ * screen here that touches no records at all: an SB number *is* an ancestral
+ * path, so this is arithmetic on two strings. Which means it answers where
+ * nothing else can — any distance at all, and about people who are not in the
+ * tree, or whose connecting relatives are not the reader's to see.
+ *
+ * **The first field is filled in with the reader's own number**, because the
+ * question somebody actually has at a family gathering is not "how are these
+ * two strangers related" but "how am I related to this person" — and the
+ * number they are holding is the other one, read off a card or the back of a
+ * photograph. Filled in, not fixed: both fields stay editable, which is what
+ * makes it the calculator the family already knows.
+ *
+ * Nothing is asked until both fields have something in them. Firing on every
+ * keystroke would answer "not a valid number" about a number somebody is
+ * halfway through typing.
+ */
+function Calculator() {
+  const { t } = useTranslation()
+  const { me } = useAuth()
+
+  const mine = ownReference(me?.individual?.references)
+
+  const [first, setFirst] = useState(mine ?? '')
+  const [second, setSecond] = useState('')
+  const [asked, setAsked] = useState<[string, string]>(['', ''])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAsked([first.trim(), second.trim()]), 300)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [first, second])
+
+  const { data, isError, error, refetch } = useRelationship(asked[0], asked[1])
+
+  return (
+    <div className="mt-5">
+      <p className="text-base text-slate-700">{t('tree.calc.intro')}</p>
+
+      <div className="mt-4 space-y-4">
+        <Field
+          label={t('tree.calc.first')}
+          {...(mine === null ? {} : { hint: t('tree.calc.firstHint') })}
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          spellCheck={false}
+          value={first}
+          onChange={(event) => setFirst(event.target.value)}
+        />
+        <Field
+          label={t('tree.calc.second')}
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          spellCheck={false}
+          value={second}
+          onChange={(event) => setSecond(event.target.value)}
+        />
+      </div>
+
+      {isError && (
+        <div className="mt-4">
+          <ErrorNotice error={error} onRetry={() => void refetch()} />
+        </div>
+      )}
+
+      {data !== undefined && data.problem !== 'incomplete' && (
+        <div className="mt-5">
+          <Card>
+            {data.relationship === null ? (
+              <p className="text-base text-slate-900">{t(`tree.calc.problem.${data.problem}`)}</p>
+            ) : (
+              <>
+                <p className="text-lg font-semibold text-slate-900">{data.relationship}</p>
+                <p className="mt-2 text-base text-slate-700">
+                  {t('tree.calc.result', { second: data.b, first: data.a })}
+                </p>
+              </>
+            )}
+          </Card>
+        </div>
+      )}
+
+      <p className="mt-4 text-sm text-slate-600">{t('tree.calc.note')}</p>
     </div>
   )
 }

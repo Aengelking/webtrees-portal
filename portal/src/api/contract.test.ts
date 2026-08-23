@@ -55,6 +55,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/photos',
       '/photos/{xref}',
       '/push',
+      '/relationship',
       '/search',
       '/session',
     ])

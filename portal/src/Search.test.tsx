@@ -33,7 +33,10 @@ const ANNA = {
   lifespan: '1985–',
   name_alternative: null,
   relationship: null,
-  references: [],
+  references: [
+    { number: '4711', type: 'SB' },
+    { number: '10/1335.11', type: 'SB' },
+  ],
   photos: [],
   birth: null,
   death: null,
@@ -71,6 +74,14 @@ const BERTHA = {
   relationship: 'Ihre Großmutter',
 }
 
+const CALCULATION = {
+  a: '10/1335.11',
+  b: '24/b6',
+  problem: null,
+  relationship: 'Cousin/Cousine 3. Grades',
+  detail: { kind: 'cousin', generations: 0, distance: 4, degree: 3 },
+}
+
 const INDEX = {
   surnames: [
     { name: 'Beispiel', count: 6 },
@@ -83,7 +94,10 @@ const INDEX = {
 /** Every search request the screen made, in order, as its query string. */
 const asked: string[] = []
 
-function stub(results: unknown = { items: [BERTHA], total: 1, page: 1, per_page: 25, truncated: false }) {
+function stub(
+  results: unknown = { items: [BERTHA], total: 1, page: 1, per_page: 25, truncated: false },
+  calculation: unknown = CALCULATION,
+) {
   asked.length = 0
 
   vi.stubGlobal(
@@ -97,6 +111,12 @@ function stub(results: unknown = { items: [BERTHA], total: 1, page: 1, per_page:
         asked.push(url.slice(url.indexOf('?') + 1))
 
         return jsonResponse(results)
+      }
+
+      if (url.includes('/relationship')) {
+        asked.push(url.slice(url.indexOf('?') + 1))
+
+        return jsonResponse(calculation)
       }
 
       if (url.includes('/index')) return jsonResponse(INDEX)
@@ -238,5 +258,62 @@ describe('the way in', () => {
     await userEvent.setup().click(link)
 
     expect(await screen.findByRole('heading', { name: 'Stammbaum' })).toBeDefined()
+  })
+})
+
+describe('the archive-number calculator', () => {
+  /**
+   * The question a member actually has is "how am I related to this", so the
+   * number they are holding goes in the second field and their own is already
+   * in the first.
+   */
+  it('starts from the member’s own number', async () => {
+    stub()
+    renderAt('/tree?tab=calculator')
+
+    const first = (await screen.findByLabelText('SB-Nr. 1')) as HTMLInputElement
+
+    // "4711" is the archive's older numbering and is not a path; the one that
+    // is gets picked out of the same list.
+    expect(first.value).toBe('10/1335.11')
+  })
+
+  it('asks nothing until both numbers are there', async () => {
+    stub()
+    renderAt('/tree?tab=calculator')
+
+    await screen.findByLabelText('SB-Nr. 1')
+
+    expect(asked).toEqual([])
+    expect(screen.queryByText(/Cousin/)).toBeNull()
+  })
+
+  it('names the relationship once both are given', async () => {
+    stub()
+    renderAt('/tree?tab=calculator')
+
+    await userEvent.type(await screen.findByLabelText('SB-Nr. 2'), '24/b6')
+
+    expect(await screen.findByText('Cousin/Cousine 3. Grades')).toBeDefined()
+    expect(asked.some((query) => query.includes('b=24%2Fb6'))).toBe(true)
+  })
+
+  /**
+   * A number somebody mistyped should say which field to fix, not report a
+   * failure — the request succeeded, the number is the problem.
+   */
+  it('points at the field that is wrong', async () => {
+    stub(undefined, {
+      a: '10/1335.11',
+      b: 'Bertha',
+      problem: 'invalid_b',
+      relationship: null,
+      detail: null,
+    })
+    renderAt('/tree?tab=calculator')
+
+    await userEvent.type(await screen.findByLabelText('SB-Nr. 2'), 'Bertha')
+
+    expect(await screen.findByText('SB-Nr. 2 ist keine gültige Nummer.')).toBeDefined()
   })
 })
