@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Tests;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Services\SackNumbers;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\I18N;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
 use function array_column;
@@ -26,9 +27,30 @@ use function array_column;
 #[CoversNothing]
 class SackBranchTest extends PortalTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The name now follows the language the request is answered in, and
+        // `I18N` is static: without this, whichever language the previous test
+        // asked for decides what this one reads. The bootstrap's own is en-US.
+        I18N::init('en-US');
+    }
+
     private function numbers(): SackNumbers
     {
         return new SackNumbers($this->module());
+    }
+
+    /**
+     * The branch as a reader of one language sees it.
+     *
+     * Said out loud in every one of these rather than left to whatever the
+     * harness initialised: the language is half of what is being asserted.
+     */
+    private function branch(string $number, string $language = 'de'): string|null
+    {
+        return $this->numbers()->branch($number, $language);
     }
 
     // -----------------------------------------------------------------
@@ -37,27 +59,103 @@ class SackBranchTest extends PortalTestCase
 
     public function testALineNumberIsNamedByTheBranchItSitsIn(): void
     {
-        $numbers = $this->numbers();
-
-        self::assertSame('Ernestinische Linie – Zweig Mansfeld', $numbers->branch('1/3215.1'));
-        self::assertSame('Ernestinische Linie – Zweig Pasewalk', $numbers->branch('4/12'));
-        self::assertSame('Ernestinische Linie – Zweig Dessau', $numbers->branch('7/22.9'));
-        self::assertSame('Ernestinische Linie – Zweig Cleve', $numbers->branch('10/1335.21'));
-        self::assertSame('Ernestinische Linie – Zweig Glogau', $numbers->branch('19/1'));
-        self::assertSame('Ernestinische Linie – Zweig Lübeck', $numbers->branch('20/1'));
-        self::assertSame('Ernestinische Linie – Zweig Rothenhof', $numbers->branch('24/b6'));
-        self::assertSame('Wilhelminische Linie', $numbers->branch('34/2131.6'));
-        self::assertSame('Cramer-Linie', $numbers->branch('36/141'));
+        self::assertSame('Ernestinische Linie – Zweig Mansfeld', $this->branch('1/3215.1'));
+        self::assertSame('Ernestinische Linie – Zweig Pasewalk', $this->branch('4/12'));
+        self::assertSame('Ernestinische Linie – Zweig Dessau', $this->branch('7/22.9'));
+        self::assertSame('Ernestinische Linie – Zweig Cleve', $this->branch('10/1335.21'));
+        self::assertSame('Ernestinische Linie – Zweig Glogau', $this->branch('19/1'));
+        self::assertSame('Ernestinische Linie – Zweig Lübeck', $this->branch('20/1'));
+        self::assertSame('Ernestinische Linie – Zweig Rothenhof', $this->branch('24/b6'));
+        self::assertSame('Wilhelminische Linie', $this->branch('34/2131.6'));
+        self::assertSame('Cramer-Linie', $this->branch('36/141'));
     }
 
     /** The archive zero-pads in places, and the case is nobody's to remember. */
     public function testHowTheNumberIsWrittenDoesNotChangeItsBranch(): void
     {
-        $numbers = $this->numbers();
+        self::assertSame($this->branch('7/22.9'), $this->branch('07/22.9'));
+        self::assertSame($this->branch('24/b6'), $this->branch('24/B6'));
+        self::assertSame($this->branch('24/b6'), $this->branch(' 24 / b6 '));
+    }
 
-        self::assertSame($numbers->branch('7/22.9'), $numbers->branch('07/22.9'));
-        self::assertSame($numbers->branch('24/b6'), $numbers->branch('24/B6'));
-        self::assertSame($numbers->branch('24/b6'), $numbers->branch(' 24 / b6 '));
+    // -----------------------------------------------------------------
+    // The name, in the language it is being read in
+    // -----------------------------------------------------------------
+
+    /**
+     * A branch name is a phrase, not only a place.
+     *
+     * "Zweig Rothenhof" against "Rothenhof Branch": the place in the middle
+     * does not change, and everything around it does. So the family writes
+     * both, in one row, and the reader gets the one they can read — §2.17, the
+     * rule the fact labels and the dates already follow.
+     */
+    public function testTheNameFollowsTheLanguageItIsReadIn(): void
+    {
+        self::assertSame('Ernestinische Linie – Zweig Rothenhof', $this->branch('24/b6', 'de'));
+        self::assertSame('Ernestine Line – Rothenhof Branch', $this->branch('24/b6', 'en'));
+
+        self::assertSame('Wilhelminische Linie', $this->branch('34/2131.6', 'de'));
+        self::assertSame('Wilhelmine Line', $this->branch('34/2131.6', 'en'));
+
+        self::assertSame('Nachkommen von Georg Sack', $this->branch('GS/755133', 'de'));
+        self::assertSame('Descendants of Georg Sack', $this->branch('GS/755133', 'en'));
+    }
+
+    /**
+     * webtrees has four Englishes and one German, and the family is not going
+     * to write a name for each. A tag matches the language, and the country
+     * after it only has to be answered where somebody wrote one.
+     */
+    public function testACountrysEnglishGetsTheEnglishName(): void
+    {
+        self::assertSame('Ernestine Line – Cleve Branch', $this->branch('10/1335.21', 'en-GB'));
+        self::assertSame('Ernestine Line – Cleve Branch', $this->branch('10/1335.21', 'en-US'));
+        self::assertSame('Ernestine Line – Cleve Branch', $this->branch('10/1335.21', 'EN'));
+    }
+
+    /**
+     * **A half-translated table still answers everybody.**
+     *
+     * A branch added on a Tuesday evening has one name until somebody writes
+     * the other, and a reader of the second language must get *that* name
+     * rather than nothing — a missing branch reads as "we do not know where
+     * you are from", which is a worse thing to say than saying it in German.
+     */
+    public function testALanguageWithNoNameOfItsOwnGetsTheOneThatWasWritten(): void
+    {
+        $this->module()->setPreference(
+            SackNumbers::SETTING_BRANCHES,
+            "8-14 = Zweig Cleve\n21-31 = Zweig Rothenhof | en: Rothenhof Branch"
+        );
+
+        self::assertSame('Zweig Cleve', $this->branch('10/1335.21', 'de'));
+        self::assertSame('Zweig Cleve', $this->branch('10/1335.21', 'en'));
+
+        // French is nobody's portal language, and answering in German is still
+        // better than answering not at all.
+        self::assertSame('Rothenhof Branch', $this->branch('24/b6', 'en'));
+        self::assertSame('Zweig Rothenhof', $this->branch('24/b6', 'fr'));
+    }
+
+    /**
+     * A part after the first that names no language is dropped rather than
+     * shown: it would otherwise turn up as somebody's branch in a language
+     * they are not reading, which is how a table like this quietly goes wrong.
+     */
+    public function testAnUntaggedSecondNameIsNotAName(): void
+    {
+        $this->module()->setPreference(
+            SackNumbers::SETTING_BRANCHES,
+            "8-14 = Zweig Cleve | Cleve Branch | zz: Zweig Zett | en: Cleve Branch"
+        );
+
+        self::assertSame('Zweig Cleve', $this->branch('10/1335.21', 'de'));
+        self::assertSame('Cleve Branch', $this->branch('10/1335.21', 'en'));
+
+        // "zz" is shaped like a language tag and is not one webtrees has; it
+        // simply never matches anybody.
+        self::assertSame('Zweig Cleve', $this->branch('10/1335.21', 'fr'));
     }
 
     /**
@@ -66,7 +164,7 @@ class SackBranchTest extends PortalTestCase
      */
     public function testTheHeadOfALineIsInThatLinesBranch(): void
     {
-        self::assertSame('Ernestinische Linie – Zweig Rothenhof', $this->numbers()->branch('24/'));
+        self::assertSame('Ernestinische Linie – Zweig Rothenhof', $this->branch('24/'));
     }
 
     /**
@@ -81,8 +179,8 @@ class SackBranchTest extends PortalTestCase
     {
         $numbers = $this->numbers();
 
-        self::assertSame('Nachkommen von Georg Sack', $numbers->branch('GS/755133'));
-        self::assertSame('Nachkommen von Heinrich Sack', $numbers->branch('HS/12'));
+        self::assertSame('Nachkommen von Georg Sack', $this->branch('GS/755133'));
+        self::assertSame('Nachkommen von Heinrich Sack', $this->branch('HS/12'));
         self::assertNull($numbers->path('HS/12'), 'HS is not a path the calculator reads.');
     }
 
@@ -97,19 +195,17 @@ class SackBranchTest extends PortalTestCase
      */
     public function testANumberWithoutAnObliqueIsNotRead(): void
     {
-        $numbers = $this->numbers();
-
-        self::assertNull($numbers->branch('24'), 'Could be line 24, could be the old numbering.');
-        self::assertNull($numbers->branch('9'));
-        self::assertNull($numbers->branch('4711'));
-        self::assertNull($numbers->branch(''));
+        self::assertNull($this->branch('24'), 'Could be line 24, could be the old numbering.');
+        self::assertNull($this->branch('9'));
+        self::assertNull($this->branch('4711'));
+        self::assertNull($this->branch(''));
 
         // Three digits in front of the oblique is not a line either.
-        self::assertNull($numbers->branch('101/335.21'));
+        self::assertNull($this->branch('101/335.21'));
 
         // A line that no branch covers, which is what an unmaintained table
         // looks like from here.
-        self::assertNull($numbers->branch('99/1'));
+        self::assertNull($this->branch('99/1'));
     }
 
     /**
@@ -121,7 +217,7 @@ class SackBranchTest extends PortalTestCase
     {
         self::assertSame(
             'Ernestinische Linie – Zweig Cleve',
-            $this->numbers()->branch('10/1335.21!')
+            $this->branch('10/1335.21!')
         );
     }
 
@@ -133,13 +229,11 @@ class SackBranchTest extends PortalTestCase
     {
         $this->module()->setPreference(SackNumbers::SETTING_BRANCHES, "8-9 = Zweig Kleve\n10-14 = Zweig Wesel");
 
-        $numbers = $this->numbers();
-
-        self::assertSame('Zweig Kleve', $numbers->branch('9/1'));
-        self::assertSame('Zweig Wesel', $numbers->branch('10/1335.21'));
+        self::assertSame('Zweig Kleve', $this->branch('9/1'));
+        self::assertSame('Zweig Wesel', $this->branch('10/1335.21'));
 
         // The rest of the table went with it, because the table *is* the list.
-        self::assertNull($numbers->branch('24/b6'));
+        self::assertNull($this->branch('24/b6'));
     }
 
     /** One bad row is a typo in an evening's news, not a broken portal. */
@@ -150,10 +244,8 @@ class SackBranchTest extends PortalTestCase
             "# a note\nnonsense\n14-8 = backwards\n8-14 = Zweig Cleve\n= nameless\n20 =\n"
         );
 
-        $numbers = $this->numbers();
-
-        self::assertSame('Zweig Cleve', $numbers->branch('10/1335.21'));
-        self::assertNull($numbers->branch('20/1'));
+        self::assertSame('Zweig Cleve', $this->branch('10/1335.21'));
+        self::assertNull($this->branch('20/1'));
     }
 
     // -----------------------------------------------------------------
@@ -167,9 +259,7 @@ class SackBranchTest extends PortalTestCase
      */
     public function testTheBranchTravelsWithTheNumberOnTheRecord(): void
     {
-        $this->login($this->createUser('anna', 'Anna Beispiel', 'geheim', UserInterface::ROLE_MEMBER, 'X1'));
-
-        $references = $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X4']))['references'];
+        $references = $this->referencesOfX4('de');
 
         self::assertSame(['9', '4714', '10/1335.21', '7/22.9'], array_column($references, 'number'));
         self::assertSame(
@@ -181,5 +271,38 @@ class SackBranchTest extends PortalTestCase
             ],
             array_column($references, 'branch')
         );
+    }
+
+    /**
+     * And the whole way through, not only in the service.
+     *
+     * The header is what the portal sends on every request, so this is the
+     * same path a member reading the portal in English actually takes.
+     */
+    public function testTheBranchOnTheRecordIsInTheLanguageAsked(): void
+    {
+        self::assertSame(
+            [null, null, 'Ernestine Line – Cleve Branch', 'Ernestine Line – Dessau Branch'],
+            array_column($this->referencesOfX4('en'), 'branch')
+        );
+    }
+
+    /**
+     * X4 is the one with four numbers, two of them paths in two different
+     * branches — the archive numbered him twice.
+     *
+     * @return array<int,array<string,string|null>>
+     */
+    private function referencesOfX4(string $language): array
+    {
+        $this->login($this->createUser('anna', 'Anna Beispiel', 'geheim', UserInterface::ROLE_MEMBER, 'X1'));
+
+        $response = $this->api(
+            IndividualRead::class,
+            attributes: ['xref' => 'X4'],
+            headers: ['Accept-Language' => $language],
+        );
+
+        return $this->json($response)['references'];
     }
 }

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Services;
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\I18N;
 
+use function array_shift;
 use function explode;
 use function preg_match;
 use function str_contains;
@@ -139,26 +141,35 @@ TEXT;
      * numbering the calculator does not read at all, and a member carrying one
      * should still be told which branch they are in.
      *
-     * **The names are family data and are not translated.** They are places
-     * and people — Mansfeld, Pasewalk, Georg Sack — and the family writes them
-     * the way it writes them. The word in front of the name on screen ("Zweig")
-     * is the portal's and *is* translated; the name itself is quoted.
+     * **A row may carry the name in more than one language**, separated by
+     * `|`, each after the first tagged with the language it is in. The portal
+     * is read in two languages and the API answers in the one it is being read
+     * in (§2.17) — a branch name is a phrase, "Ernestinische Linie – Zweig
+     * Cleve" against "Ernestine Line – Cleve Branch", and half of it is
+     * grammar rather than a proper noun. The place *inside* it does not
+     * change, which is why this is a second name and not a second table: the
+     * family writes both, the way it says both.
+     *
+     * The untagged name comes first and is what a reader gets when their
+     * language has no row of its own. So a family that adds a branch and
+     * writes one name is not broken — every reader gets that name — and the
+     * English can follow in its own evening.
      *
      * Ported from the webtrees badge the family already sees, so the portal
      * says the same thing as the back office.
      */
     public const string DEFAULT_BRANCHES = <<<'TEXT'
-1-2   = Ernestinische Linie – Zweig Mansfeld
-3-4   = Ernestinische Linie – Zweig Pasewalk
-5-7   = Ernestinische Linie – Zweig Dessau
-8-14  = Ernestinische Linie – Zweig Cleve
-15-19 = Ernestinische Linie – Zweig Glogau
-20    = Ernestinische Linie – Zweig Lübeck
-21-31 = Ernestinische Linie – Zweig Rothenhof
-32-35 = Wilhelminische Linie
-36    = Cramer-Linie
-GS    = Nachkommen von Georg Sack
-HS    = Nachkommen von Heinrich Sack
+1-2   = Ernestinische Linie – Zweig Mansfeld  | en: Ernestine Line – Mansfeld Branch
+3-4   = Ernestinische Linie – Zweig Pasewalk  | en: Ernestine Line – Pasewalk Branch
+5-7   = Ernestinische Linie – Zweig Dessau    | en: Ernestine Line – Dessau Branch
+8-14  = Ernestinische Linie – Zweig Cleve     | en: Ernestine Line – Cleve Branch
+15-19 = Ernestinische Linie – Zweig Glogau    | en: Ernestine Line – Glogau Branch
+20    = Ernestinische Linie – Zweig Lübeck    | en: Ernestine Line – Lübeck Branch
+21-31 = Ernestinische Linie – Zweig Rothenhof | en: Ernestine Line – Rothenhof Branch
+32-35 = Wilhelminische Linie                  | en: Wilhelmine Line
+36    = Cramer-Linie                          | en: Cramer Line
+GS    = Nachkommen von Georg Sack             | en: Descendants of Georg Sack
+HS    = Nachkommen von Heinrich Sack          | en: Descendants of Heinrich Sack
 TEXT;
 
     /**
@@ -245,7 +256,7 @@ TEXT;
     /** @var array<int,array{left:string,right:string,married_in:bool}>|null */
     private array|null $marriages = null;
 
-    /** @var array<int,array{head:string|null,low:int,high:int,name:string}>|null */
+    /** @var array<int,array{head:string|null,low:int,high:int,name:string,translations:array<string,string>}>|null */
     private array|null $branches = null;
 
     public function __construct(private readonly PortalApiModule $module)
@@ -391,8 +402,14 @@ TEXT;
      * the wrong branch on somebody's own record is a worse failure than naming
      * none. The 36 line heads written bare are the price, and they are written
      * "24/" as often as "24".
+     *
+     * The name comes back in the language the request is being answered in —
+     * §2.17, the same rule the fact labels and the dates follow — or in the
+     * table's untagged name where that language has none.
+     *
+     * @param string|null $language A language tag; the request's own when null.
      */
-    public function branch(string $number): string|null
+    public function branch(string $number, string|null $language = null): string|null
     {
         $head = $this->headOf($number);
 
@@ -402,13 +419,39 @@ TEXT;
 
         $line = preg_match('/^[0-9]{1,2}$/', $head) === 1 ? (int) $head : null;
 
-        foreach ($this->branches() as ['head' => $literal, 'low' => $low, 'high' => $high, 'name' => $name]) {
-            if ($literal !== null ? $literal === $head : ($line !== null && $line >= $low && $line <= $high)) {
-                return $name;
+        foreach ($this->branches() as $row) {
+            $matches = $row['head'] !== null
+                ? $row['head'] === $head
+                : ($line !== null && $line >= $row['low'] && $line <= $row['high']);
+
+            if ($matches) {
+                return $this->named($row, $language ?? I18N::locale()->languageTag());
             }
         }
 
         return null;
+    }
+
+    /**
+     * The row's name in one language, falling back to the one it was written
+     * with.
+     *
+     * "en-GB" takes an `en-GB:` name where the family wrote one and an `en:`
+     * name otherwise, because a branch name is a place and a phrase — the
+     * difference between two Englishes is not what this table is for. The
+     * untagged name is last and always answers, which is what keeps a row the
+     * family has only half-translated from showing a reader nothing.
+     *
+     * @param array{name:string,translations:array<string,string>} $row
+     */
+    private function named(array $row, string $language): string
+    {
+        $tag     = strtolower($language);
+        $primary = explode('-', $tag)[0];
+
+        return $row['translations'][$tag]
+            ?? $row['translations'][$primary]
+            ?? $row['name'];
     }
 
     /**
@@ -436,7 +479,10 @@ TEXT;
      * other two tables drop theirs: this is edited by hand, and one bad row
      * must not take the rest of it down.
      *
-     * @return array<int,array{head:string|null,low:int,high:int,name:string}>
+     * The name may be followed by `|` and further names, each tagged with the
+     * language it is written in — see `DEFAULT_BRANCHES`.
+     *
+     * @return array<int,array{head:string|null,low:int,high:int,name:string,translations:array<string,string>}>
      */
     public function branches(): array
     {
@@ -446,9 +492,11 @@ TEXT;
 
         $table = [];
 
-        foreach ($this->rows(self::SETTING_BRANCHES, self::DEFAULT_BRANCHES) as [$key, $name]) {
+        foreach ($this->rows(self::SETTING_BRANCHES, self::DEFAULT_BRANCHES) as [$key, $value]) {
             $key     = strtolower($key);
             $matches = [];
+
+            ['name' => $name, 'translations' => $translations] = $this->names($value);
 
             if ($name === '') {
                 continue;
@@ -459,18 +507,56 @@ TEXT;
                 $high = (int) ($matches[2] ?? $matches[1]);
 
                 if ($low <= $high) {
-                    $table[] = ['head' => null, 'low' => $low, 'high' => $high, 'name' => $name];
+                    $table[] = [
+                        'head'         => null,
+                        'low'          => $low,
+                        'high'         => $high,
+                        'name'         => $name,
+                        'translations' => $translations,
+                    ];
                 }
 
                 continue;
             }
 
             if (preg_match('/^[a-z]{2}$/', $key) === 1) {
-                $table[] = ['head' => $key, 'low' => 0, 'high' => 0, 'name' => $name];
+                $table[] = [
+                    'head'         => $key,
+                    'low'          => 0,
+                    'high'         => 0,
+                    'name'         => $name,
+                    'translations' => $translations,
+                ];
             }
         }
 
         return $this->branches = $table;
+    }
+
+    /**
+     * One row's names: the one it was written with, then the tagged ones.
+     *
+     * `Name | en: Name | fr: Nom`. A part after the first that carries no tag,
+     * or a tag that is not a language tag, is dropped — a name with nobody to
+     * read it is worse than no name, because it would show up as somebody's
+     * branch in a language they are not reading.
+     *
+     * @return array{name:string,translations:array<string,string>}
+     */
+    private function names(string $value): array
+    {
+        $parts        = explode('|', $value);
+        $name         = trim(array_shift($parts));
+        $translations = [];
+        $matches      = [];
+
+        foreach ($parts as $part) {
+            if (preg_match('/^\s*([a-z]{2}(?:-[a-z]{2,3})?)\s*:\s*(\S.*)$/i', $part, $matches) === 1) {
+                $translations[strtolower($matches[1])] = trim($matches[2]);
+            }
+        }
+
+        return ['name' => $name, 'translations' => $translations];
     }
 
     /**

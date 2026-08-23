@@ -3952,15 +3952,38 @@ somebody's own record is a worse failure than naming none, so the oblique is
 required. The 36 line heads written bare are the price, and they are written
 "24/" as often as "24".
 
-**The names are family data and are not translated.** The two tables in
-`SackNumbers` are already the family's to edit rather than the software's — a
-new line in the archive is an evening's news, not a release — and the branch
-table is a third of the same kind, `sack_branches`, with its own box in the
-preferences. What is on screen is a translated label the portal owns ("Zweig
-der Familie", for a screen reader) in front of a quoted name the family owns
-("Ernestinische Linie – Zweig Rothenhof"). Mansfeld, Pasewalk and Georg Sack
-are places and people; translating them would be inventing names the family
-does not use.
+**The names are family data, and the family writes them in both languages.**
+The two tables in `SackNumbers` are already the family's to edit rather than
+the software's — a new line in the archive is an evening's news, not a release
+— and the branch table is a third of the same kind, `sack_branches`, with its
+own box in the preferences.
+
+*This shipped once with the names untranslated*, on the reasoning that
+Mansfeld and Georg Sack are places and people rather than words. Which is true
+of the middle of the name and false of the rest of it: "Ernestinische Linie –
+Zweig Rothenhof" against "Ernestine Line – Rothenhof Branch" is two words of
+grammar around one unchanged place, and an English reader was getting a German
+sentence on their own record while every fact label and date beside it followed
+their language (§2.17). So a row now carries the name in as many languages as
+the family cares to write, `Name | en: Name`, and the reader gets theirs.
+
+Three things fall out of it, and each is the safe direction:
+
+* **The untagged name answers everybody who has no name of their own.** A
+  branch added on a Tuesday has one name until somebody writes the other, and
+  a reader of the second language must get *that* name — a branch missing
+  entirely reads as "we do not know where you are from", which is worse than
+  reading it in German.
+* **A country's English gets the English name.** webtrees has four Englishes
+  and one German; `en-GB` takes an `en:` name, because the difference between
+  two Englishes is not what this table is for.
+* **A second name with no language tag is dropped, not shown.** It would
+  otherwise appear as somebody's branch in a language they are not reading,
+  which is how a table like this goes quietly wrong.
+
+What the portal owns is still only the word in front: "Zweig der Familie", for
+a screen reader. The name itself is quoted, in whichever language it was
+quoted in.
 
 **On the record and nowhere else.** The number goes everywhere — every card in
 the portal has carried it since §2.51 — but the branch does not. `PersonCard`
