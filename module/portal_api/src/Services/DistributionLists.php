@@ -11,12 +11,16 @@ use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\I18N;
 use Throwable;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_slice;
+use function array_values;
 use function error_log;
 use function explode;
 use function hash;
+use function implode;
+use function in_array;
 use function is_bool;
 use function mb_strtolower;
 use function mb_substr;
@@ -66,6 +70,16 @@ class DistributionLists
 
     /** Seconds between retries, so that an Exchange outage is not felt as a slow portal. */
     private const int RETRY_AFTER = 600;
+
+    /**
+     * How long an answer about who is on a list stays worth having.
+     *
+     * Ten minutes is short enough that a change made in the admin centre shows
+     * up while somebody is still wondering why it has not, and long enough that
+     * a family reading their settings does not put a round trip to Exchange in
+     * front of every page.
+     */
+    private const int SNAPSHOT_TTL = 600;
 
     /** At most one outstanding row per request. The rest wait for the next one. */
     private const int PER_REQUEST = 1;
@@ -151,9 +165,12 @@ class DistributionLists
         }
 
         $this->apply($user);
+        $this->refresh();
 
-        $lists = [];
-        $rows  = $this->rows($user);
+        $lists     = [];
+        $rows      = $this->rows($user);
+        $snapshots = $this->snapshots();
+        $mine      = self::hash($user->email());
 
         foreach ($this->configured() as $hash => $list) {
             $row = $rows[$hash] ?? null;
@@ -162,7 +179,7 @@ class DistributionLists
                 'key'         => $hash,
                 'name'        => $list['name'],
                 'description' => $list['description'],
-                'subscribed'  => $row !== null && (bool) $row->subscribed,
+                'subscribed'  => $this->subscribed($row, $snapshots[$hash] ?? null, $mine),
                 'state'       => $this->rowState($row),
             ];
         }
@@ -384,6 +401,12 @@ class DistributionLists
                 $this->exchange->unsubscribe($list, $email);
             }
 
+            // Before the row, because the screen this is building reads the
+            // snapshot rather than the row: a member who has just unsubscribed
+            // would otherwise be told they are still on the list until the
+            // snapshot next expired, and watch their own switch flip back.
+            $this->remember((string) $row->list_hash, $email, $wanted);
+
             DB::table('portal_list_subscription')
                 ->where('id', '=', (int) $row->id)
                 ->update([
@@ -418,6 +441,156 @@ class DistributionLists
                 ->where('id', '=', (int) $row->id)
                 ->update(['attempts' => $attempts, 'attempted_at' => time()]);
         }
+    }
+
+    // -----------------------------------------------------------------
+    // What Exchange says is on the list
+    // -----------------------------------------------------------------
+
+    /**
+     * Whether this member gets the post, which is not the same question as
+     * what they last asked for.
+     *
+     * An outstanding decision wins, because it is the thing the member did a
+     * moment ago and the screen is about to say it is on its way; showing them
+     * the old truth under their own switch would read as the switch not having
+     * worked. Everything else defers to Exchange, because "am I on this list"
+     * is a question about Exchange and the portal is only a record of asking.
+     *
+     * The case this exists for is the member with no row at all — never touched
+     * a switch, put on the family list years before any of this was built. They
+     * used to be told they were not subscribed.
+     *
+     * @param array<int,string>|null $snapshot address hashes, or null if unknown
+     */
+    private function subscribed(object|null $row, array|null $snapshot, string $mine): bool
+    {
+        if ($row !== null && $row->applied_at === null) {
+            return (bool) $row->subscribed;
+        }
+
+        if ($snapshot !== null) {
+            return in_array($mine, $snapshot, true);
+        }
+
+        // No answer from Exchange — a list that has never been read, or one
+        // that could not be. The portal's own record is the next best thing,
+        // and "nothing recorded" is the honest floor.
+        return $row !== null && (bool) $row->subscribed;
+    }
+
+    /**
+     * Write into the snapshot what was just done to the list.
+     *
+     * Cheaper and more certain than re-reading: we know which address was
+     * added or removed, because we are what added or removed it. A list with no
+     * snapshot yet is left alone — `refresh()` will read it whole soon enough,
+     * and inventing a one-member roster here would be worse than no answer.
+     */
+    private function remember(string $list, string $address, bool $subscribed): void
+    {
+        $row = DB::table('portal_list_snapshot')->where('list_hash', '=', $list)->first();
+
+        if ($row === null) {
+            return;
+        }
+
+        $mine    = self::hash($address);
+        $members = array_values(array_filter(
+            explode("\n", (string) $row->members),
+            static fn (string $hash): bool => $hash !== '' && $hash !== $mine
+        ));
+
+        if ($subscribed) {
+            $members[] = $mine;
+        }
+
+        DB::table('portal_list_snapshot')
+            ->where('list_hash', '=', $list)
+            ->update(['members' => implode("\n", $members)]);
+    }
+
+    /**
+     * The address hashes on each list, as last read.
+     *
+     * @return array<string,array<int,string>>
+     */
+    private function snapshots(): array
+    {
+        $snapshots = [];
+
+        foreach (DB::table('portal_list_snapshot')->get() as $row) {
+            $snapshots[(string) $row->list_hash] = array_values(array_filter(
+                explode("\n", (string) $row->members),
+                static fn (string $hash): bool => $hash !== ''
+            ));
+        }
+
+        return $snapshots;
+    }
+
+    /**
+     * Read one list that nobody has asked about lately.
+     *
+     * One per request, for the reason `outstanding()` allows one: three lists
+     * times a ten-second timeout is not a delay to put in front of a screen on
+     * the day Exchange is the thing that is broken. A cold cache therefore
+     * warms over three visits rather than one, which for a family portal is a
+     * few minutes.
+     *
+     * Never throws, and marks the attempt rather than the success — a list that
+     * cannot be read must not be retried on every page load either.
+     */
+    private function refresh(): void
+    {
+        $stale = null;
+        $known = [];
+
+        foreach (DB::table('portal_list_snapshot')->get() as $row) {
+            $known[(string) $row->list_hash] = (int) $row->fetched_at;
+        }
+
+        foreach ($this->configured() as $hash => $list) {
+            if (!array_key_exists($hash, $known) || $known[$hash] < time() - self::SNAPSHOT_TTL) {
+                $stale = [$hash, $list['address'], array_key_exists($hash, $known)];
+
+                break;
+            }
+        }
+
+        if ($stale === null) {
+            return;
+        }
+
+        [$hash, $address, $exists] = $stale;
+
+        try {
+            $members = $this->exchange->members($address);
+            $column  = implode("\n", array_map(self::hash(...), $members));
+        } catch (ExchangeFailure) {
+            // Keep whatever was there. An answer from ten minutes ago beats no
+            // answer at all, and the only thing this attempt has established is
+            // that it is not worth repeating for a while.
+            $column = null;
+        } catch (Throwable $exception) {
+            error_log('portal_api: reading a mailing list failed. ' . $exception::class . ': ' . $exception->getMessage());
+
+            $column = null;
+        }
+
+        if ($exists) {
+            DB::table('portal_list_snapshot')
+                ->where('list_hash', '=', $hash)
+                ->update($column === null ? ['fetched_at' => time()] : ['members' => $column, 'fetched_at' => time()]);
+
+            return;
+        }
+
+        DB::table('portal_list_snapshot')->insert([
+            'list_hash'  => $hash,
+            'members'    => $column ?? '',
+            'fetched_at' => time(),
+        ]);
     }
 
     // -----------------------------------------------------------------

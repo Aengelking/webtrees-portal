@@ -264,7 +264,7 @@ class PrivacyTest extends PortalTestCase
         }
 
         self::assertNotContains('INDI:REFN', $tags);
-        self::assertSame([['number' => '4711', 'type' => 'SB']], $individual['references']);
+        self::assertSame([['number' => '4711', 'type' => 'SB', 'branch' => null]], $individual['references']);
         self::assertSame('Anna Beispiel', $individual['name']);
     }
 
@@ -290,7 +290,7 @@ class PrivacyTest extends PortalTestCase
         }
 
         self::assertNotNull($child, 'Anna is one of her mother’s children.');
-        self::assertSame([['number' => '4711', 'type' => 'SB']], $child['references']);
+        self::assertSame([['number' => '4711', 'type' => 'SB', 'branch' => null]], $child['references']);
     }
 
     /** And the filtering follows it there. A confidential number is on neither shape. */
@@ -304,8 +304,8 @@ class PrivacyTest extends PortalTestCase
             if ($parent['xref'] === 'X2') {
                 self::assertSame(
                     [
-                        ['number' => '4712', 'type' => null],
-                        ['number' => '47C12', 'type' => null],
+                        ['number' => '4712', 'type' => null, 'branch' => null],
+                        ['number' => '47C12', 'type' => null, 'branch' => null],
                     ],
                     $parent['references'],
                 );
@@ -328,8 +328,8 @@ class PrivacyTest extends PortalTestCase
 
         self::assertSame(
             [
-                ['number' => '4712', 'type' => null],
-                ['number' => '47C12', 'type' => null],
+                ['number' => '4712', 'type' => null, 'branch' => null],
+                ['number' => '47C12', 'type' => null, 'branch' => null],
             ],
             $this->json($response)['references']
         );
@@ -342,9 +342,9 @@ class PrivacyTest extends PortalTestCase
 
         self::assertSame(
             [
-                ['number' => '4712', 'type' => null],
-                ['number' => '47C12', 'type' => null],
-                ['number' => '9999', 'type' => 'Intern'],
+                ['number' => '4712', 'type' => null, 'branch' => null],
+                ['number' => '47C12', 'type' => null, 'branch' => null],
+                ['number' => '9999', 'type' => 'Intern', 'branch' => null],
             ],
             $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X2']))['references']
         );

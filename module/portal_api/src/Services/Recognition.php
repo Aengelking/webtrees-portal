@@ -56,6 +56,7 @@ class Recognition
         private readonly PortalApiModule $module,
         private readonly PortalTreeService $trees,
         private readonly PhotoPresenter $photos,
+        private readonly SackNumbers $sack_numbers,
     ) {
     }
 
@@ -119,7 +120,15 @@ class Recognition
 
             $type = trim($fact->attribute('TYPE'));
 
-            $references[] = ['number' => $number, 'type' => $type === '' ? null : $type];
+            // The same shape `RecordPresenter::references()` publishes, branch
+            // and all: the card that reads it does not know or care which of
+            // the two built it, and one of them being a field short is how a
+            // shape drifts into two shapes.
+            $references[] = [
+                'number' => $number,
+                'type'   => $type === '' ? null : $type,
+                'branch' => $this->sack_numbers->branch($number),
+            ];
         }
 
         return $references;

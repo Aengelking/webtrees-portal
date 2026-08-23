@@ -3653,6 +3653,80 @@ member of the group"* — matching Exchange's wording in Exchange's language,
 subject to Exchange's changes of mind, is the kind of dependency that breaks
 quietly in a year.
 
+**What the first live tenant taught, an hour after this was merged.** Both
+guesses survived. The recovery built on the second did not, and it failed in
+the worst available way: silently, and in the direction of looking fine.
+
+The application had been given *Exchange Recipient Administrator*, on the
+strength of a sentence in this repository's own README saying that was enough.
+It could read everything and write nothing. Every `Add-DistributionGroupMember`
+came back `403` with an empty body — and the read-back that followed said "yes,
+this address is on the list", because the administrator testing it was already
+a member of the list he was subscribing to. Three subscriptions reported as
+applied; none had been. The first *unsubscribe* was what broke the spell, and
+only because it is the one case where the wish and the world are obliged to
+disagree.
+
+Two things were wrong and each is worth stating on its own.
+
+The narrow one: **a refusal to act is not evidence about the world.** Reading
+the state back is a sound way to recover from "you asked for something that was
+already true" and a worthless one for "you may not ask" — in the second case
+the state says what it says for reasons that have nothing to do with the call.
+`ExchangeFailure` now carries `denied`, and a denied write is rethrown without
+the read-back. The regression test is the exact live configuration:
+`ExchangeConnectorTest`.
+
+The wide one: **the README was wrong about the role, and the code was what made
+it wrong.** Every write carries `-BypassSecurityGroupManagerCheck`, because a
+service principal can never be in a list's `ManagedBy` — it is not a recipient.
+That switch requires Organization Management or *Security Group Creation and
+Membership*, and Recipient Administrator is neither. So the least-privilege
+recommendation was never achievable *for this design*; it was achievable for a
+design that did not need the switch, and no such design exists here. Exchange
+Administrator is what it takes, unless a tenant can define its own Exchange role
+groups — which this one cannot.
+
+Worth keeping as a rule: **a fallback that turns failures into successes needs
+to know which failures it is entitled to forgive.** This one forgave all of
+them, and the cost was a feature that reported itself working for as long as
+nobody tried to undo anything.
+
+**The switch was answering the wrong question**, which the same afternoon made
+plain. Every member with no row was shown "not subscribed", and the family's
+lists are older than this portal — so that was wrong about nearly everybody,
+and it invited people to subscribe to post they already got. The fix is to read
+the membership and show that: a member asking "do I get this?" is asking about
+Exchange, and this portal is only the record of having asked for something.
+
+Three things that decides.
+
+**A pending decision still wins.** For the ten seconds between a member moving
+a switch and Exchange agreeing, the screen shows what they did — anything else
+is a switch springing back under their hand. Only a settled row defers to the
+world.
+
+**The answer is cached, and the cache is per list rather than per member.**
+There is no cmdlet for "which lists is this address on", so it has to be asked
+list by list; one answer then serves everybody who looks in the next ten
+minutes. One list is refreshed per request, for the same reason `outstanding()`
+applies one row per request — three lists times a ten-second timeout is not a
+delay to put in front of a screen on the day Exchange is what is broken. A cold
+cache warms over three visits.
+
+**Only hashes are kept.** `portal_list_snapshot` holds SHA-256 of each member
+address, which answers "is this address on that list" exactly as well as the
+address would and does not leave a second copy of the family's mailing list in
+a second database. Same reasoning as the list addresses themselves (§2.66,
+above) and the same non-claim: a hash of a known address is guessable by
+anybody who knows it. This is not secrecy, it is not keeping what there is no
+reason to keep.
+
+The one thing that had to be added rather than discovered: after a change is
+applied, the module writes the result into the snapshot itself instead of
+waiting for the next read. It knows what it just did, and without that a member
+who unsubscribed would be told for ten minutes that they had not.
+
 ---
 
 ### 2.66 A card said "no record" and meant "not yours to see"
@@ -3958,6 +4032,76 @@ namespace is a version pin that will not announce itself until a host upgrades.
 
 ---
 
+### 2.71 The number says which branch, and nobody was reading it
+
+A member reads *SB 10/1335.21* on their own record and the portal has told them
+nothing they did not already know. The part in front of the oblique is a line,
+and the family does not talk in lines: lines 8 to 14 are together the **Zweig
+Cleve**, 21 to 31 the **Zweig Rothenhof**, 32 to 35 the Wilhelminische Linie.
+Asked where they come from, nobody answers "line 12". The branch was in the
+number the whole time, and the portal was printing the number and dropping the
+one part of it a member would say out loud.
+
+webtrees already shows it, as a badge from the family's own module. So this is
+the portal catching up with the back office rather than a new idea, and the
+grouping is ported from there unchanged.
+
+**The branch is derived from the number, not stored on the record.** It is a
+reading of `REFN`, in `SackNumbers::branch()`, called from
+`RecordPresenter::references()` — which means it stays right when the family
+edits the table, and it discloses nothing: the number it reads has already been
+through `Fact::canShow()`, and a number the reader may not see is not in the
+response to be read. It travels on the `Reference` shape as a third field, so a
+record with two numbers can name two branches, which is a thing that happens.
+
+Two services build that shape — `RecordPresenter::references()` and
+`Recognition::references()`, the one that lets a number through for a record
+the reader may not open — and both carry the branch. A card reading the list
+does not know which of the two filled it, and one of them being a field short
+is how one shape quietly becomes two.
+
+Four decisions inside it, each of which could have gone the other way.
+
+**Read what is written, not the resolved path.** `path()` turns a number into
+an ancestral path and is the basis of the whole calculator — but it only reads
+what the calculator can use. `HS/…`, the descendants of Heinrich Sack, is a
+numbering it does not read at all, and a member carrying one would have got no
+branch from a path-based reading. Taking the head as written gives `GS` and
+`HS` a name for free, and the branch is a property of the line anyway: it is
+settled before a single character of the descent has been looked at.
+
+**A number without an oblique gets no branch.** This is the one place the
+portal is deliberately less helpful than it could be. "24" is how the archive
+writes the head of line 24 — and it is also what the older, unrelated numbering
+looks like once it reaches two digits (§2.57). The fixture's Dieter carries a
+bare "9" and a "10/1335.21", and reading the first as line 9 would print *Zweig
+Cleve* on a record that has nothing to do with it. Naming the wrong branch on
+somebody's own record is a worse failure than naming none, so the oblique is
+required. The 36 line heads written bare are the price, and they are written
+"24/" as often as "24".
+
+**The names are family data and are not translated.** The two tables in
+`SackNumbers` are already the family's to edit rather than the software's — a
+new line in the archive is an evening's news, not a release — and the branch
+table is a third of the same kind, `sack_branches`, with its own box in the
+preferences. What is on screen is a translated label the portal owns ("Zweig
+der Familie", for a screen reader) in front of a quoted name the family owns
+("Ernestinische Linie – Zweig Rothenhof"). Mansfeld, Pasewalk and Georg Sack
+are places and people; translating them would be inventing names the family
+does not use.
+
+**On the record and nowhere else.** The number goes everywhere — every card in
+the portal has carried it since §2.51 — but the branch does not. `PersonCard`
+already carries a name, a lifespan, a number and a kinship in one line; the
+branch is a thing to read about a person you have opened, not a fifth thing to
+skim past on the way somewhere. The branch wheel in the connect form (§2.57)
+still offers bare numbers for the same reason it always did — that is a control
+for somebody holding a number, not a place to learn the family's geography —
+and naming the branches there would need the table in the browser, which is a
+second decision and not this one.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
@@ -4022,13 +4166,14 @@ Flagging these so they get a second look rather than being inherited as fact.
     relative of the same name. A different failure therefore costs one wasted
     call before it is reported — which is cheaper than matching Exchange's
     wording, and does not rot when that wording changes.
-14. **A failed add or remove is checked by reading the membership back.** This
-    is how "already a member" and "not a member" are treated as successes
-    without recognising either sentence. It assumes
-    `Get-DistributionGroupMember` returns the address somewhere in each member
-    object — as `PrimarySmtpAddress`, or as an `SMTP:`-prefixed
-    `ExternalEmailAddress` — so every string in the answer is searched rather
-    than a chosen few.
+14. **A failed add or remove is checked by reading the membership back**, and
+    a refusal about *permission* deliberately is not. This is how "already a
+    member" and "not a member" are treated as successes without recognising
+    either sentence. It assumes `Get-DistributionGroupMember` returns the
+    address somewhere in each member object — as `PrimarySmtpAddress`, or as an
+    `SMTP:`-prefixed `ExternalEmailAddress` — so every string in the answer is
+    searched rather than a chosen few. The exclusion for `401` and `403` is not
+    a guess: it is what the first live tenant cost. See §2.66.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than
