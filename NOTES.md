@@ -3275,6 +3275,52 @@ nickname.
 
 ---
 
+### 2.59 The gesture the installed app was missing
+
+A browser tab can reload: drag past the top, or press the button in the
+address bar. **A portal opened from the home screen can do neither.** There is
+no chrome, and `display: standalone` switches the browser's own pull-to-refresh
+off — so a member looking at yesterday's list had no way at all to ask for
+today's, and closing the app did not help, because the service worker serves
+the shell from cache.
+
+So the gesture is ours now, and **only in the installed app**. Running it in a
+tab would put two pull-to-refreshes on one screen — ours firing at 72px and the
+browser's at whatever it likes, one reloading the data and the other reloading
+the page. That is the first thing the tests assert.
+
+**It refetches, it does not reload.** `refetchQueries({ type: 'active' })` asks
+TanStack Query for the queries that are mounted right now and no others: the
+person being looked at, the list being read. A page reload would throw away the
+shell, the session and the scroll position to answer a question about one
+record.
+
+Three details that are the difference between a gesture and a jump:
+
+* **The first 40px follow the finger, the rest are dragged through treacle**
+  towards a limit of 110. The screen says "this is as far as it goes" without
+  anything having to stop.
+* **The move listener is not passive**, because it is the one that has to hold
+  the page still — but only once the pull is real. Swallowing the first pixel
+  of every downward touch would make a screen that is already at the top feel
+  stuck. `overscroll-behavior-y: contain` does the rest, guarded by
+  `display-mode` so a tab keeps its own behaviour.
+* **The indicator stays until the refetch settles**, and a failure looks
+  exactly like a success. What went wrong belongs to the screen underneath,
+  which renders its own error; a second one on top of the first says nothing
+  new.
+
+A spinner is nothing to a screen reader and neither is the gesture that started
+it, so the indicator is a live region that says which of the three things is
+happening. `motion-reduce:animate-none` on the spin: a member who asked their
+phone to stop moving things asked this too, and the words still arrive.
+
+One collision worth remembering: `Loading` is a `role="status"` as well, so on
+a screen still fetching there are two. The tests ask for the gesture's own
+words rather than for its role.
+
+---
+
 ---
 
 ## 3. Things that were guessed

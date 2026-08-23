@@ -442,6 +442,11 @@ export const en: Translations = {
       },
     },
   },
+  refresh: {
+    pull: 'Pull down to refresh',
+    release: 'Release to refresh',
+    running: 'Refreshing …',
+  },
   members: {
     back: 'Back to contacts',
     title: 'Members',

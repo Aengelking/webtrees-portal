@@ -443,6 +443,11 @@ export const de = {
       },
     },
   },
+  refresh: {
+    pull: 'Zum Aktualisieren nach unten ziehen',
+    release: 'Loslassen zum Aktualisieren',
+    running: 'Wird aktualisiert …',
+  },
   members: {
     back: 'Zurück zu Kontakte',
     title: 'Mitglieder',
