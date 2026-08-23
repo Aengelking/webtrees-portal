@@ -25,7 +25,8 @@ use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\TestCase;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
-use Middleland\Dispatcher;
+use Fisharebest\Webtrees\Http\Dispatcher as WebtreesDispatcher;
+use Middleland\Dispatcher as MiddlelandDispatcher;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -34,6 +35,9 @@ use ReflectionProperty;
 use function json_decode;
 use function json_encode;
 use function preg_replace;
+use function class_exists;
+use function ini_set;
+use function sys_get_temp_dir;
 use function property_exists;
 use function time;
 
@@ -57,6 +61,13 @@ abstract class PortalTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Again here, not only in the bootstrap: webtrees' own `TestCase`
+        // re-bootstraps the program for every test, and PHPUnit restores ini
+        // settings around each one. The module's diagnostics belong in a file
+        // either way — on the runner's output they are counted as unexpected
+        // output, and this suite fails on risky tests by design.
+        ini_set('error_log', sys_get_temp_dir() . '/portal_api-tests.log');
 
         $this->correctTheRouterBasePath();
 
@@ -352,7 +363,15 @@ abstract class PortalTestCase extends TestCase
 
         $middleware = [...$route->extras['middleware'], RequestHandler::class];
 
-        return (new Dispatcher($middleware, Registry::container()))->dispatch($request);
+        // Whichever dispatcher this webtrees runs its own middleware through.
+        // 2.2.6 dropped `oscarotero/middleland` for a static dispatcher of its
+        // own, so a harness that names one of them is a harness that only
+        // works on one side of that release.
+        if (class_exists(WebtreesDispatcher::class)) {
+            return WebtreesDispatcher::dispatch($middleware, $request);
+        }
+
+        return (new MiddlelandDispatcher($middleware, Registry::container()))->dispatch($request);
     }
 
     /**

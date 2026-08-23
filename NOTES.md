@@ -4032,7 +4032,7 @@ namespace is a version pin that will not announce itself until a host upgrades.
 
 ---
 
-### 2.67 The number says which branch, and nobody was reading it
+### 2.71 The number says which branch, and nobody was reading it
 
 A member reads *SB 10/1335.21* on their own record and the portal has told them
 nothing they did not already know. The part in front of the oblique is a line,

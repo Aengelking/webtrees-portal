@@ -49,6 +49,16 @@ require __DIR__ . '/../portal_api/autoload.php';
 (new Fisharebest\Webtrees\Webtrees())->bootstrap();
 Fisharebest\Webtrees\I18N::init('en-US', true);
 
+// The module writes its diagnostics with `error_log()` — a tree that cannot be
+// served, a record that vanished between an invitation and its acceptance —
+// and several tests exercise exactly those paths on purpose. In the CLI SAPI
+// those lines land on the runner's own output, where PHPUnit 12 counts them as
+// unexpected output and marks the test risky; this suite fails on risky, and
+// should keep doing so. So they go to a file instead. Nothing reads it: the
+// tests that care about a failure being *recorded* read the module's own
+// table, and the one test that reads the log sets this itself and puts it back.
+ini_set('error_log', sys_get_temp_dir() . '/portal_api-tests.log');
+
 // The tests themselves.
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Engelking\\Webtrees\\PortalApi\\Tests\\';
