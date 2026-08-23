@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 
 use function array_shift;
 use function json_encode;
+use function sort;
 use function str_contains;
 use function substr;
 
@@ -231,6 +232,49 @@ class ExchangeConnectorTest extends PortalTestCase
         $this->exchange->unsubscribe(self::LIST, self::MEMBER);
 
         self::assertSame(['Remove-DistributionGroupMember'], $this->exchange->asked);
+    }
+
+    // -----------------------------------------------------------------
+    // Reading a list
+    // -----------------------------------------------------------------
+
+    /**
+     * An address can be in any of several fields, in more than one shape, and
+     * the same person can appear twice. Every string is searched for something
+     * shaped like an address rather than a chosen field being trusted.
+     */
+    public function testEveryShapeOfAddressIsFound(): void
+    {
+        $this->exchange->answers = [[200, (string) json_encode(['value' => [
+            ['PrimarySmtpAddress' => 'Anna@Example.test'],
+            ['ExternalEmailAddress' => 'SMTP:opa@gmx.de', 'DisplayName' => 'Opa'],
+            ['WindowsLiveID' => 'tante@web.de', 'Alias' => 'portal-abc'],
+            // The same person under two names, and a field with no address in
+            // it at all.
+            ['PrimarySmtpAddress' => 'anna@example.test', 'Name' => 'Anna Beispiel'],
+        ]])]];
+
+        $members = $this->exchange->members(self::LIST);
+
+        sort($members);
+
+        self::assertSame(['anna@example.test', 'opa@gmx.de', 'tante@web.de'], $members);
+    }
+
+    public function testAnEmptyListIsAnEmptyAnswerAndNotAFailure(): void
+    {
+        $this->exchange->answers = [[200, (string) json_encode(['value' => []])]];
+
+        self::assertSame([], $this->exchange->members(self::LIST));
+    }
+
+    public function testALisThatCannotBeReadSaysSoRatherThanLookingEmpty(): void
+    {
+        $this->exchange->answers = [[403, '']];
+
+        $this->expectException(ExchangeFailure::class);
+
+        $this->exchange->members(self::LIST);
     }
 
     // -----------------------------------------------------------------

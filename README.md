@@ -499,6 +499,24 @@ invitation and password resets go to, not the one they may have published under
 contact details. If they later change it, the portal takes the old address off
 the list and puts the new one on, in that order.
 
+**The switch shows what Exchange says, not what the portal was told.** The
+family's lists are older than this portal, so most members are on one or two of
+them without ever having seen a switch — and telling those people "not
+subscribed" is not a cautious answer, it is a wrong one that invites them to
+subscribe to something they already get. So each list is read from Exchange and
+the answer kept for ten minutes: one list per request, which means a cold cache
+warms over as many visits as there are lists rather than putting three round
+trips in front of one screen. A change made in the admin centre shows up within
+that ten minutes; a change made in the portal shows up at once, because the
+module knows what it just did and writes it into the same answer. A list that
+cannot be read falls back to what the portal recorded, which costs a
+wrong-looking switch and never a screen that will not open.
+
+Only the hashes of the addresses are kept (`portal_list_snapshot`). The useful
+question is "is *this* address on that list", which a SHA-256 answers as well
+as the address does — and a second copy of the family's mailing list is not
+something this portal has any reason to hold.
+
 **Members never see a list's address.** A list is identified to the portal by
 the SHA-256 of its address, so that offering a subscription does not hand the
 family's distribution addresses to every browser. What a member sees is the
@@ -2068,7 +2086,11 @@ account address takes the old one off the list before it puts the new one on; a
 key that names no configured list is a 400, the family's off switch is a 403
 that keeps what was already decided, and a signed-out caller gets 401 from
 both methods. On the client: the switch that moved is the only one sent, and a
-change that has not landed says so. `ExchangeConnectorTest` replaces the wire
+change that has not landed says so. A member who never touched a switch is
+shown what Exchange says about them, somebody else being on the list says
+nothing about them, a list is not re-read on every visit, leaving one is not
+undone by an answer read ten minutes ago, and a list that cannot be read at all
+falls back rather than failing. `ExchangeConnectorTest` replaces the wire
 with a script and pins what the connector may conclude from an answer: a write
 refused for want of a role is never excused by the list happening to look
 right — the shape of the one bug a live tenant found — while an ordinary

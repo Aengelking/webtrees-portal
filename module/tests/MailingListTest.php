@@ -21,7 +21,11 @@ use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use Psr\Http\Message\ResponseInterface;
 
+use function array_filter;
+use function array_values;
+use function count;
 use function str_contains;
+use function str_starts_with;
 
 /**
  * Exchange, with the wire cut.
@@ -40,9 +44,49 @@ class FakeExchange extends ExchangeOnline
 
     public ExchangeFailure|null $refuse = null;
 
+    /**
+     * Who Exchange thinks is on each list, by list address. The world as it
+     * stands, which is not the same as what this portal has been told.
+     *
+     * @var array<string,array<int,string>>
+     */
+    public array $onList = [];
+
+    /** Whether reading a list is refused, which must never break a screen. */
+    public bool $unreadable = false;
+
     public function configured(): bool
     {
         return true;
+    }
+
+    /**
+     * Only the calls that change something.
+     *
+     * Reading a list is bookkeeping the screen does on its own account, and a
+     * test about what a member's switch did should not have to know when the
+     * snapshot happened to be stale.
+     *
+     * @return array<int,string>
+     */
+    public function writes(): array
+    {
+        return array_values(array_filter(
+            $this->calls,
+            static fn (string $call): bool => !str_starts_with($call, 'read ')
+        ));
+    }
+
+    /** @return array<int,string> */
+    public function members(string $list, string|null $token = null): array
+    {
+        $this->calls[] = 'read ' . $list;
+
+        if ($this->unreadable) {
+            throw new ExchangeFailure('Exchange could not be reached: timeout');
+        }
+
+        return $this->onList[$list] ?? [];
     }
 
     public function subscribe(string $list, string $address, string $name): void
@@ -52,6 +96,8 @@ class FakeExchange extends ExchangeOnline
         if ($this->refuse !== null) {
             throw $this->refuse;
         }
+
+        $this->onList[$list][] = $address;
     }
 
     public function unsubscribe(string $list, string $address): void
@@ -61,6 +107,11 @@ class FakeExchange extends ExchangeOnline
         if ($this->refuse !== null) {
             throw $this->refuse;
         }
+
+        $this->onList[$list] = array_values(array_filter(
+            $this->onList[$list] ?? [],
+            static fn (string $member): bool => $member !== $address
+        ));
     }
 }
 
@@ -169,7 +220,7 @@ class MailingListTest extends PortalTestCase
     {
         $body = $this->json($this->subscribe(self::FAMILY));
 
-        self::assertSame(['add ' . self::FAMILY . ' anna@example.test'], $this->exchange->calls);
+        self::assertSame(['add ' . self::FAMILY . ' anna@example.test'], $this->exchange->writes());
         self::assertTrue($body['lists'][0]['subscribed']);
         self::assertSame('applied', $body['lists'][0]['state']);
 
@@ -198,7 +249,7 @@ class MailingListTest extends PortalTestCase
 
         $body = $this->json($this->patch([DistributionLists::hash(self::FAMILY) => false]));
 
-        self::assertSame(['remove ' . self::FAMILY . ' anna@example.test'], $this->exchange->calls);
+        self::assertSame(['remove ' . self::FAMILY . ' anna@example.test'], $this->exchange->writes());
         self::assertFalse($body['lists'][0]['subscribed']);
 
         $row = DB::table('portal_list_subscription')->first();
@@ -217,7 +268,7 @@ class MailingListTest extends PortalTestCase
 
         // Not "add familie" a second time. A PATCH carries the switch that
         // moved, and nothing else is re-applied on the strength of it.
-        self::assertSame(['add ' . self::INVITES . ' anna@example.test'], $this->exchange->calls);
+        self::assertSame(['add ' . self::INVITES . ' anna@example.test'], $this->exchange->writes());
     }
 
     public function testAListNobodyConfiguredIsRefused(): void
@@ -303,7 +354,7 @@ class MailingListTest extends PortalTestCase
         $this->read();
         $this->read();
 
-        self::assertSame([], $this->exchange->calls);
+        self::assertSame([], $this->exchange->writes());
     }
 
     public function testAnOutstandingChangeIsTriedAgainOnceTheWaitIsOver(): void
@@ -320,7 +371,7 @@ class MailingListTest extends PortalTestCase
 
         $body = $this->json($this->read());
 
-        self::assertSame(['add ' . self::FAMILY . ' anna@example.test'], $this->exchange->calls);
+        self::assertSame(['add ' . self::FAMILY . ' anna@example.test'], $this->exchange->writes());
         self::assertSame('applied', $body['lists'][0]['state']);
     }
 
@@ -350,7 +401,7 @@ class MailingListTest extends PortalTestCase
         self::assertSame([
             'remove ' . self::FAMILY . ' anna@example.test',
             'add ' . self::FAMILY . ' anna.neu@example.test',
-        ], $this->exchange->calls);
+        ], $this->exchange->writes());
 
         self::assertSame('anna.neu@example.test', $body['address']);
         self::assertSame('applied', $body['lists'][0]['state']);
@@ -359,6 +410,99 @@ class MailingListTest extends PortalTestCase
 
         self::assertNotNull($row);
         self::assertSame('anna.neu@example.test', (string) $row->address);
+    }
+
+    // -----------------------------------------------------------------
+    // What Exchange already says
+    // -----------------------------------------------------------------
+
+    /**
+     * The reason this reads Exchange at all.
+     *
+     * The family's lists are older than the portal. Somebody who has never seen
+     * a switch is on two of them, and being told "not subscribed" is not a
+     * cautious answer — it is a wrong one, and it invites them to subscribe to
+     * something they already get.
+     */
+    public function testAMemberWhoNeverTouchedASwitchIsShownWhatExchangeSays(): void
+    {
+        $this->exchange->onList = [self::FAMILY => ['anna@example.test']];
+
+        $body = $this->json($this->read());
+
+        self::assertTrue($body['lists'][0]['subscribed']);
+        self::assertSame('applied', $body['lists'][0]['state']);
+
+        // Nothing was decided here, so nothing is recorded as having been.
+        // A row would be a consent this member never gave.
+        self::assertSame(0, DB::table('portal_list_subscription')->count());
+    }
+
+    public function testSomebodyElseBeingOnTheListSaysNothingAboutMe(): void
+    {
+        $this->exchange->onList = [self::FAMILY => ['dieter@example.test']];
+
+        $body = $this->json($this->read());
+
+        self::assertFalse($body['lists'][0]['subscribed']);
+    }
+
+    /**
+     * The list is read once and the answer kept, or every member opening their
+     * settings would put a round trip to Exchange in front of the screen.
+     */
+    public function testAListIsNotReadAgainForEveryVisit(): void
+    {
+        $this->exchange->onList = [self::FAMILY => ['anna@example.test']];
+
+        $this->read();
+        $this->read();
+        $this->read();
+
+        $reads = array_filter($this->exchange->calls, static fn (string $call): bool => str_starts_with($call, 'read '));
+
+        // Two lists, one read each, and then no more: one list is read per
+        // request, so a cold cache warms over as many visits as there are
+        // lists rather than costing them all at once.
+        self::assertSame(2, count($reads));
+    }
+
+    /**
+     * The bug this pairing would otherwise have. A member unsubscribes, the
+     * change is applied, and the answer Exchange gave ten minutes ago still
+     * says they are on the list — so the switch they just moved springs back
+     * under their hand.
+     */
+    public function testLeavingIsNotUndoneByAStaleAnswer(): void
+    {
+        $this->exchange->onList = [self::FAMILY => ['anna@example.test']];
+
+        // The first read is what puts the stale answer in place.
+        self::assertTrue($this->json($this->read())['lists'][0]['subscribed']);
+
+        $off = $this->json($this->patch([DistributionLists::hash(self::FAMILY) => false]));
+
+        self::assertFalse($off['lists'][0]['subscribed']);
+
+        // And still off when the screen is opened again, without waiting for
+        // the answer to expire.
+        self::assertFalse($this->json($this->read())['lists'][0]['subscribed']);
+    }
+
+    /**
+     * A list that cannot be read must cost a wrong-looking switch at worst,
+     * never a screen that will not open.
+     */
+    public function testAnUnreadableListFallsBackToWhatThePortalRecorded(): void
+    {
+        $this->subscribe(self::FAMILY);
+
+        $this->exchange->unreadable = true;
+
+        $body = $this->json($this->read());
+
+        self::assertTrue($body['enabled']);
+        self::assertTrue($body['lists'][0]['subscribed']);
     }
 
     // -----------------------------------------------------------------

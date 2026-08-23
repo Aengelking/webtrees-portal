@@ -3686,6 +3686,41 @@ to know which failures it is entitled to forgive.** This one forgave all of
 them, and the cost was a feature that reported itself working for as long as
 nobody tried to undo anything.
 
+**The switch was answering the wrong question**, which the same afternoon made
+plain. Every member with no row was shown "not subscribed", and the family's
+lists are older than this portal — so that was wrong about nearly everybody,
+and it invited people to subscribe to post they already got. The fix is to read
+the membership and show that: a member asking "do I get this?" is asking about
+Exchange, and this portal is only the record of having asked for something.
+
+Three things that decides.
+
+**A pending decision still wins.** For the ten seconds between a member moving
+a switch and Exchange agreeing, the screen shows what they did — anything else
+is a switch springing back under their hand. Only a settled row defers to the
+world.
+
+**The answer is cached, and the cache is per list rather than per member.**
+There is no cmdlet for "which lists is this address on", so it has to be asked
+list by list; one answer then serves everybody who looks in the next ten
+minutes. One list is refreshed per request, for the same reason `outstanding()`
+applies one row per request — three lists times a ten-second timeout is not a
+delay to put in front of a screen on the day Exchange is what is broken. A cold
+cache warms over three visits.
+
+**Only hashes are kept.** `portal_list_snapshot` holds SHA-256 of each member
+address, which answers "is this address on that list" exactly as well as the
+address would and does not leave a second copy of the family's mailing list in
+a second database. Same reasoning as the list addresses themselves (§2.66,
+above) and the same non-claim: a hash of a known address is guessable by
+anybody who knows it. This is not secrecy, it is not keeping what there is no
+reason to keep.
+
+The one thing that had to be added rather than discovered: after a change is
+applied, the module writes the result into the snapshot itself instead of
+waiting for the next read. It knows what it just did, and without that a member
+who unsubscribed would be told for ten minutes that they had not.
+
 ---
 
 ### 2.66 A card said "no record" and meant "not yours to see"

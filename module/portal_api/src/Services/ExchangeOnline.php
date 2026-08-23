@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Services;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 
 use function array_filter;
+use function array_keys;
 use function array_walk_recursive;
 use function curl_close;
 use function curl_error;
@@ -16,16 +17,17 @@ use function curl_init;
 use function curl_setopt_array;
 use function http_build_query;
 use function is_array;
+use function in_array;
 use function is_string;
 use function json_decode;
 use function json_encode;
 use function mb_strtolower;
 use function mb_substr;
+use function preg_match_all;
 use function preg_replace;
 use function rawurlencode;
 use function sha1;
 use function sprintf;
-use function str_contains;
 use function trim;
 
 use const CURLINFO_HTTP_CODE;
@@ -280,24 +282,64 @@ class ExchangeOnline
     private function reconciles(string $token, string $list, string $address, bool $wanted): bool
     {
         try {
-            $members = $this->invoke($token, 'Get-DistributionGroupMember', [
-                'Identity'   => $list,
-                'ResultSize' => 'Unlimited',
-            ]);
+            $members = $this->members($list, $token);
         } catch (ExchangeFailure) {
             return false;
         }
 
-        $needle = mb_strtolower($address);
-        $found  = false;
+        return in_array(mb_strtolower($address), $members, true) === $wanted;
+    }
 
-        array_walk_recursive($members, static function ($value) use ($needle, &$found): void {
-            if (is_string($value) && str_contains(mb_strtolower($value), $needle)) {
-                $found = true;
+    /**
+     * Every address on a list, lower-cased.
+     *
+     * The one question Exchange can answer that this portal cannot: who is
+     * *actually* getting the post. A member who has never touched the switch
+     * has no row here, and before this the screen said "not subscribed" — which
+     * was not a cautious answer, it was a wrong one, and the family's mailing
+     * lists are old enough that it was wrong about nearly everybody.
+     *
+     * There is no cmdlet for "which lists is this address on", so the question
+     * is asked per list. Three lists is three questions, which is why the
+     * answer is kept for a while rather than asked afresh every time somebody
+     * opens their settings — see `DistributionLists::snapshot()`.
+     *
+     * A member's address can sit in any of several fields of the object
+     * Exchange returns — `PrimarySmtpAddress` for a mailbox, an
+     * `SMTP:`-prefixed `ExternalEmailAddress` for a contact, `WindowsLiveID`
+     * for others — so rather than trusting a chosen few, every string in the
+     * answer is searched for something shaped like an address. A member object
+     * that names the same person twice contributes them once.
+     *
+     * @return array<int,string>
+     */
+    public function members(string $list, string|null $token = null): array
+    {
+        $rows = $this->invoke($token ?? $this->token(), 'Get-DistributionGroupMember', [
+            'Identity'   => $list,
+            'ResultSize' => 'Unlimited',
+        ]);
+
+        $addresses = [];
+
+        array_walk_recursive($rows, static function ($value) use (&$addresses): void {
+            if (!is_string($value)) {
+                return;
+            }
+
+            // Deliberately a search rather than a match: the field may be
+            // "SMTP:anna@example.test" or a display name with an address in
+            // brackets after it.
+            if (preg_match_all('/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/u', $value, $found) === 0) {
+                return;
+            }
+
+            foreach ($found[0] as $address) {
+                $addresses[mb_strtolower($address)] = true;
             }
         });
 
-        return $found === $wanted;
+        return array_keys($addresses);
     }
 
     // -----------------------------------------------------------------
