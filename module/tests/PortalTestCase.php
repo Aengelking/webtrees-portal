@@ -189,6 +189,7 @@ abstract class PortalTestCase extends TestCase
      * @param array<string,mixed> $attributes  Route tokens, e.g. ['xref' => 'X1'].
      * @param array<string,mixed> $body        JSON request body.
      * @param array<string,string> $headers
+     * @param array<string,mixed>  $files       Uploads, as PSR-7 sees them.
      * @param array<string,string> $cookies     What the browser is offering.
      */
     protected function api(
@@ -198,6 +199,7 @@ abstract class PortalTestCase extends TestCase
         array $attributes = [],
         array|null $body = null,
         array $headers = [],
+        array $files = [],
         array $cookies = []
     ): ResponseInterface {
         $route = Registry::routeFactory()->routeMap()->getRoute($route_name);
@@ -228,6 +230,10 @@ abstract class PortalTestCase extends TestCase
             // Mirror a real JSON request: a body that core's form-decoding
             // middleware would not have parsed.
             $request = $request->withParsedBody(null)->withBody($stream);
+        }
+
+        if ($files !== []) {
+            $request = $request->withUploadedFiles($files);
         }
 
         Registry::container()->set(ServerRequestInterface::class, $request);

@@ -71,11 +71,12 @@ export function Notifications() {
   }
 
   if (state === 'unsupported') {
-    // `apple` means an iPhone or iPad in a tab, where installing is the whole
-    // difference between no push and push. Every other browser that lands
-    // here — an old iOS that is already `standalone`, a desktop without the
-    // API — genuinely cannot, and silence is right for that.
-    if (install !== 'apple') {
+    // Both iOS states, Safari and not: an iPhone or iPad in a tab, where
+    // installing is the whole difference between no push and push. Every
+    // other browser that lands here — an old iOS that is already
+    // `standalone`, a desktop without the API — genuinely cannot, and silence
+    // is right for that.
+    if (install !== 'apple' && install !== 'appleOther') {
       return null
     }
 

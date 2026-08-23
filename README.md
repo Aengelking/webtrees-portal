@@ -73,8 +73,20 @@ place of birth, occupation, and contact details (address, email, telephone,
 website). Contact details are published on the member's *own* record only,
 never on anyone else's.
 
-Photographs from webtrees are shown: a face beside every name, a gallery on a
-person's page, full size on a tap. Read-only — uploading is not built.
+Photographs: a face beside every name, a gallery on a person's page, full size
+on a tap. **A photograph of a living person is shown only where that person
+uploaded it themselves** — what the family tree happens to hold about somebody
+is not something they consented to publish. Photographs of the dead are
+unchanged, because the family archive is what a portal like this is for. A
+member adds and removes their own under *Mein Profil*, and what they upload is
+re-encoded on the way in, so the coordinates a phone writes into every picture
+never travel with it.
+
+Every card that names a person — a relative, a directory row, a contact —
+carries the archive's reference number under the name, beside the years,
+because this family tells two people of the same name apart by it. It is the
+same list the full record shows, filtered the same way: a confidential number
+appears on neither.
 
 The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
@@ -215,9 +227,10 @@ invitations in place there is no reason to leave it on.
 
 *Control panel → Modules → Member portal API → preferences.*
 
-A member opens *Einstellungen → Jemanden einladen*, sees a list of their close
-relatives named by relationship ("Ihr Bruder — Dieter Beispiel"), picks one and
-gets a link to pass on. No administrator is in the loop.
+A member opens *Einstellungen → Jemanden einladen*, chooses one of their close
+relatives from a dropdown — named by relationship, "Ihr Bruder — Dieter
+Beispiel (1990–)" — and gets a link to pass on. No administrator is in the
+loop. The link appears directly under the button that made it.
 
 **Handing the link over** is **Teilen** where the browser has a share sheet —
 a phone, an installed app — which puts it straight into WhatsApp or a text
@@ -371,6 +384,31 @@ and the service worker shows a sentence it already had. Nothing about the
 message leaves the server at all. It also means the portal stores no encryption
 keys for it — `portal_push_subscription` holds the device address and nothing
 else — because there is no payload to encrypt.
+
+**The count is on the app icon too**, where the installed app has one to put
+it on: the same number the navigation bar carries, messages and conversation
+messages added. A number and nothing else — no name, no text — for the reason
+the notification carries nothing, one surface over. A push arriving while the
+app is shut marks the icon *without* a number, because the push carries none
+and the service worker never asks `/api` for one; the app puts the real count
+there the moment it is opened. Signing out clears it, so a shared phone does
+not keep showing somebody else's unread count. Browsers without the Badging
+API simply do nothing, which is invisible in a tab that has no icon anyway.
+
+**The offer is made once, on the first run of the installed app.** That is the
+moment worth asking: notifications reach a member only through the app on
+their home screen — on iOS that is the only way they work at all — so asking
+in a browser tab would be asking for something they cannot have yet. The
+dialogue says what a lock screen will show *before* the browser's own
+permission box appears, and refusing costs nothing: the switch stays in
+*Einstellungen*. Asked once per device, remembered in a second flag, and never
+shown to somebody whose browser is already blocking — only they can undo that,
+in the browser's settings.
+
+**Tapping it** opens *Nachrichten* — the list, not one message, because the
+push carries nothing that could say which. If the app is already running it is
+brought forward and moved to that screen without reloading; if it is not, a
+window opens on it.
 
 **What the member needs.** An installed app on Android or a desktop browser;
 on an iPhone, iOS 16.4 or later *and* the app added to the home screen — Safari
@@ -1331,6 +1369,16 @@ makes it installable and `portal/sw/` becomes `/sw.js`, so a member can put it
 on their home screen and open it under its own icon, without an address bar,
 the way they open everything else on that phone.
 
+**The offer is made once, after signing in**, as a dialogue: a member who can
+install is asked, answers in one tap, and is never asked again on that device.
+What is remembered is one flag saying the question was asked — a device
+preference, like the language, and the only other thing the portal keeps in
+browser storage. Saying no costs nothing: the offer stays in *Einstellungen*
+for good, and the dialogue says so. Somebody whose browser cannot install at
+all is not stopped on their way in, and neither is somebody reading inside
+another app's browser — that case needs "leave this app first", which is not
+what a dialogue on the way in is for.
+
 **What is cached, and what never is.** The service worker keeps the shell —
 `index.html` and the hashed script, stylesheet and icons it names — and
 nothing else. Every request under `/api/` is left entirely alone: not answered
@@ -1523,9 +1571,16 @@ unverified email, unapproved account and rate limiting all produce the same
 401 body; the rate limiter refuses even a correct password once tripped; CSRF
 is required on every unsafe method; the proxy secret is enforced when set.
 
-**Photographs** (`module/tests/PhotoTest.php`, `portal/src/Photos.test.tsx`,
-`portal/edge/proxy.test.ts`) — a confidential picture is absent from the
-record and is not served if asked for by name; images load from the portal's
+**Photographs** (`module/tests/PhotoTest.php`, `module/tests/PhotoUploadTest.php`,
+`portal/src/Photos.test.tsx`, `portal/src/MyPhotos.test.tsx`,
+`portal/edge/proxy.test.ts`) — a living person's photograph from the tree is
+not shown until they upload one themselves, and the dead keep theirs; consent
+does not override webtrees, so a `RESN confidential` picture stays hidden with
+a consent row on it; an upload is recorded as that member's consent, is
+re-encoded so that the metadata directory and the tags in it do not reach the
+family, and can be taken down by the member who put it there and by nobody
+else; a confidential picture is absent from the record and is not served if
+asked for by name; images load from the portal's
 own origin, never webtrees'; a photograph may be kept by a browser and by
 nothing else, and webtrees' own `public, max-age=31536000` is refused at the
 proxy.
@@ -1645,6 +1700,14 @@ it started. A conversation message files nothing in webtrees' inbox, so it
 cannot arrive twice; and the announcement e-mail, rendered, names neither the
 writer nor a word of what they wrote, in both the text and the HTML version.
 
+**The app icon** (`portal/src/Badge.test.tsx`, `portal/sw/notify.test.ts`) —
+the number on the icon is both lists added, exactly as the navigation bar
+counts them; nothing is set at zero, it is cleared; it is cleared again when
+the member is no longer signed in, which is the assertion that matters on a
+shared phone; and a browser with no badges, or one that refuses, costs the
+portal nothing. From the service worker the flag carries no count, because the
+push carries none and asking would mean asking `/api`.
+
 **Notifications** (`module/tests/PushTest.php`,
 `portal/src/Notifications.test.tsx`) — the columns a payload would need do not
 exist in the table, so there is no place to put a name even by accident; a
@@ -1660,7 +1723,11 @@ hundred real signatures. The key pair is made once and the public key is the
 private one's point. On the client: the sentence about what a lock screen will
 show is on screen before anybody switches it on, a refusal sends nothing and
 reports nothing broken, and a browser that is blocking gets an explanation
-instead of a dead button.
+instead of a dead button. Tapping the notification is pinned from both sides
+(`portal/sw/notify.test.ts`): the worker asks the window that is open, still
+asks when focusing it fails, opens a window when nothing is running, and says
+nothing to a window belonging to somebody else — and the app acts on that
+message, while ignoring one that names a path leading off this site.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id

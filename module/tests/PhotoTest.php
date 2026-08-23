@@ -8,14 +8,23 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\ApiEnvelope;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\DB;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
  * Phase 4: photographs.
  *
- * Anna (X1) carries two: M1, which anybody in the family may see, and M2,
- * which is `1 RESN confidential`. Every test here is about the difference.
+ * Anna (X1) carries two: M1, which webtrees would let anybody in the family
+ * see, and M2, which is `1 RESN confidential`.
+ *
+ * **And since Phase 15 neither of them is shown**, because Anna is alive and
+ * did not put them there. The rule and the argument are in
+ * `Schema/Migration9.php`; what is tested here is that it holds in both
+ * directions — a living person's tree photographs are gone until they upload
+ * one themselves, and a dead person's (Bertha, X2, M3) are untouched, because
+ * the family archive is what a portal like this is for.
  */
 #[CoversNothing]
 class PhotoTest extends PortalTestCase
@@ -25,9 +34,55 @@ class PhotoTest extends PortalTestCase
         $this->login($this->createUser('anna', 'Anna Beispiel', 'geheim', UserInterface::ROLE_MEMBER, 'X1'));
     }
 
+    /**
+     * What an upload records: this member put this photograph there.
+     *
+     * Written directly rather than through the endpoint, because these tests
+     * are about what is *shown*. `PhotoUploadTest` covers the putting.
+     */
+    private function consentTo(string $media_xref): void
+    {
+        DB::table('portal_photo')->insert([
+            'wt_user_id' => Auth::id(),
+            'media_xref' => $media_xref,
+            'created_at' => time(),
+        ]);
+    }
+
+    /**
+     * The archive: somebody who died in 1976, whose photograph the family put
+     * in the tree. Nobody can consent on her behalf and nobody needs to.
+     */
+    public function testTheDeadKeepTheirPhotographs(): void
+    {
+        $this->signInAsAnna();
+
+        $mother = $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X2']));
+
+        self::assertCount(1, $mother['photos']);
+        self::assertSame('Bertha 1935', $mother['photos'][0]['title']);
+        self::assertNotNull($mother['portrait']);
+    }
+
+    /**
+     * The rule, in the direction that costs something: Anna's own record
+     * carries a photograph webtrees would show, and the portal does not,
+     * because she never agreed to it.
+     */
+    public function testALivingPersonsTreePhotographIsNotShown(): void
+    {
+        $this->signInAsAnna();
+
+        $individual = $this->json($this->api(MeRead::class))['individual'];
+
+        self::assertSame([], $individual['photos']);
+        self::assertNull($individual['portrait']);
+    }
+
     public function testARecordCarriesItsVisiblePhotographs(): void
     {
         $this->signInAsAnna();
+        $this->consentTo('M1');
 
         $individual = $this->json($this->api(MeRead::class))['individual'];
 
@@ -42,9 +97,26 @@ class PhotoTest extends PortalTestCase
         self::assertStringEndsWith('/image', $individual['photos'][0]['image_url']);
     }
 
+    /**
+     * Consent does not override webtrees. M2 is `RESN confidential`, and a row
+     * in the portal's table is permission from the member — not permission
+     * from the family's own restriction, which is a separate answer to a
+     * separate question and still no.
+     */
+    public function testAConfidentialPhotographStaysHiddenEvenWithConsent(): void
+    {
+        $this->signInAsAnna();
+        $this->consentTo('M2');
+
+        $individual = $this->json($this->api(MeRead::class))['individual'];
+
+        self::assertSame([], $individual['photos']);
+    }
+
     public function testAConfidentialPhotographIsAbsentEntirely(): void
     {
         $this->signInAsAnna();
+        $this->consentTo('M1');
 
         $response = $this->api(MeRead::class);
 
@@ -60,6 +132,7 @@ class PhotoTest extends PortalTestCase
     public function testAPortraitTravelsWithEveryReference(): void
     {
         $this->signInAsAnna();
+        $this->consentTo('M1');
 
         $individual = $this->json($this->api(MeRead::class))['individual'];
 
@@ -67,10 +140,10 @@ class PhotoTest extends PortalTestCase
         self::assertSame($individual['photos'][0]['id'], $individual['portrait']['id']);
 
         // Someone with no photograph says so, rather than being left out.
-        $mother = $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X2']));
+        $nobody = $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X4']));
 
-        self::assertNull($mother['portrait']);
-        self::assertSame([], $mother['photos']);
+        self::assertNull($nobody['portrait']);
+        self::assertSame([], $nobody['photos']);
     }
 
     public function testAConfidentialPhotographIsNotServedEither(): void
@@ -117,6 +190,7 @@ class PhotoTest extends PortalTestCase
     public function testAPhotographMayBeKeptByABrowserAndNoOneElse(): void
     {
         $this->signInAsAnna();
+        $this->consentTo('M1');
 
         $photo = $this->json($this->api(MeRead::class))['individual']['photos'][0];
 

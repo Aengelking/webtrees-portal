@@ -2445,7 +2445,309 @@ assertion written the modern way passes whatever the code does. The direct
 link's test already used them.
 
 
-### 2.43 A subscription is not session state, in both directions
+### 2.43 A service worker cannot route a React app
+
+Tapping the notification opened the app and left it exactly where the member
+had been. The handler looked right:
+
+    const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of clients) {
+      void client.navigate('/messages')
+      return client.focus()
+    }
+
+**`navigate()` is only allowed on a client the service worker controls**, and
+`includeUncontrolled: true` asks for exactly the clients it does not — a window
+loaded before this worker took over, one claimed by another registration. On
+those it rejects. The `void` swallowed the rejection, `focus()` ran anyway, and
+the app came up unmoved. Every part failed quietly, which is why it took a
+report from a phone rather than a test.
+
+**So the running app is asked rather than steered.** The worker focuses the
+window and posts `{type: 'portal:navigate', path: '/messages'}`; the app
+listens and calls the router. That is more reliable than a navigation imposed
+from outside and also better: no reload, no second render of a screen already
+on the glass. A window running an old build simply gets focused, which is no
+worse than what it did before.
+
+Three details that are each one line and each a bug otherwise:
+
+- **Focus first, and ignore its failure.** On a phone the tap has already
+  brought the app forward; a `focus()` that rejects must not cost the member
+  the navigation that was the point of tapping.
+- **A path, not a URL.** `//elsewhere.example/messages` starts with a slash and
+  is a URL — a page hears from extensions and frames as well as from its own
+  worker, so the check is `startsWith('/') && !startsWith('//')` and the shape
+  of the message is checked rather than assumed.
+- **Hold the `serviceWorker` reference for the cleanup.** Looking it up again on
+  unmount throws where `navigator` is no longer the same object, and a cleanup
+  that throws takes the unmount with it. The tests found this one.
+
+The logic moved out of `service-worker.ts` into `sw/notify.ts` for the same
+reason `strategy.ts` exists: it is the part worth testing, and it can only be
+tested if running it does not require a service worker.
+
+
+### 2.44 A card each is a list; a line each is a choice
+
+The invitation screen showed one card per relative — a radio button, the
+relationship, the name, the years — which is right for a list somebody reads
+and wrong for a choice somebody makes once. With a handful of close relatives
+it pushed the button off the bottom of a phone, and with it the link that
+button produces: the member pressed *Einladung erstellen* at the bottom of the
+screen and the one thing they had come for appeared above the whole list,
+behind them.
+
+Two changes, and the second is the one that was actually reported.
+
+**A dropdown.** One line per person, `Ihr Bruder — Dieter Beispiel (1990–)`.
+The relationship still comes first, because that is what makes it obvious the
+right person is about to be picked, and the years are kept because a family
+tree has more than one Dieter Beispiel and they are what tells two apart. A
+native `<select>` rather than a built one: on a phone it is the wheel the
+member already knows, it is searchable by typing, and it costs nothing to make
+accessible.
+
+**The link under the button.** It was rendered at the top of the screen, which
+was fine while the form was one line long and wrong the moment it was not.
+Where a member is looking after pressing a button is at the button. The e2e
+test asserts `toBeInViewport()` rather than mere visibility, because "in the
+document" was true the whole time it was wrong.
+
+
+### 2.45 The card is the target, not the name in it
+
+Two screens named in one report — Kontakte and Mein Profil — and they turned
+out to be two different faults with the same appearance.
+
+**Kontakte was really a name-sized link.** One card per contact, and only the
+name inside it navigated. On a phone that is a thumb-sized miss in a
+card-sized row, and it is inconsistent with every other list in the portal:
+relatives, conversations and directory rows have all been whole-card links
+since the tree was first walkable. The card is now the link. Nothing
+interactive sits inside it — ending a connection is asked for on the member's
+own page, §2.x's reason — so there is nothing a link may not contain.
+
+**Mein Profil already was one, and looked like it was not.** The relative rows
+have always been whole-card links; the name inside them was underlined, which
+says the opposite — that the word is the target and the rest of the row is
+decoration. The underline is gone. What is left is a name in a row you can
+tap, which is what it is.
+
+Worth keeping as a rule: **underline a link inside a card only when the card is
+not one.** A contact who has no profile row yet is exactly that case — nothing
+to open, so the card stays a card, and it does not pretend otherwise.
+
+
+### 2.46 Asked once is a different thing from asked always
+
+`InstallPortal` carries an argument against putting the install offer in front
+of members: a prompt that follows somebody around teaches them to dismiss
+whatever appears at the top of this portal, and the next thing to appear there
+is "no connection", which they need to read. That argument is about a
+**standing** banner and it still holds — the offer still lives in Settings.
+
+This is the other thing: asked **once**, after signing in, and never again on
+that device. What makes it acceptable is entirely in that sentence, so all of
+it is enforced:
+
+- **Once.** The answer is written to `localStorage` before the dialogue can be
+  shown a second time. One flag, `portal.install.offered`, saying the question
+  has been asked — a device preference in exactly the sense the language is,
+  and now the second and last thing the portal keeps in browser storage.
+- **In one tap**, with Escape and a tap outside doing the same thing as the
+  button, because those are what people try.
+- **Costing nothing.** The dialogue says the offer stays in Settings. A member
+  who taps "Später" — or taps it by accident, which on a phone is the same
+  thing — has not lost the app.
+
+**Two states are deliberately not stopped on their way in.** A browser where
+installing cannot happen says nothing, as everywhere else. And so does another
+app's browser: that case needs "leave this app first" (§2.30), which is a
+sentence for a screen a member went looking at, not for a dialogue they did not
+ask for. Settings still says it.
+
+**What the e2e run proved before the test did.** Adding this turned nineteen
+green walks red at once — every one of them stops on the first tap after
+signing in, because a modal on the first screen stops everything. That is the
+feature working, and it is also the cost, which is worth remembering the next
+time something wants to be a dialogue. The walks now pre-answer the offer
+through a helper, and the offer has a file of its own — clearing the flag from
+an init script does not work, because that script runs again on the reload the
+test needs.
+
+
+### 2.47 The second offer, and why it waits for the first to have worked
+
+Notifications reach a member only through the installed app — on iOS that is
+not a preference but the whole mechanism — so the moment worth asking is the
+first run of that app, and `standalone` is what says so. Asking in a browser
+tab would be asking for something the member cannot have yet, and a member who
+says no to a question they could not have answered has said no for good.
+
+It mirrors `InstallPrompt` deliberately, down to the shape of the dismissal:
+two dialogues that behaved differently would be two dialogues to learn. Asked
+once, remembered before it can be asked twice, one tap either way, and the
+sentence saying the switch stays in Settings — because that is what makes
+asking once fair rather than a single chance.
+
+**It says what a lock screen will show before the browser's box appears.** Not
+after, and not in the settings screen the member may never open: §2.36 built
+the whole feature around the promise that a notification names nobody, and the
+person best placed to care about that is the one sitting next to somebody on a
+sofa deciding right now. `notifications.privacy` is the same sentence Settings
+uses, in the same words, one screen earlier.
+
+**Three states get no dialogue at all**, and each for its own reason: a family
+that has switched notifications off has nothing to offer; a browser already
+blocking can only be undone in its own settings, which is a sentence for a
+screen somebody went looking at (§2.46 said the same about a chat app's
+browser); and `granted` means this is already arranged.
+
+The e2e walks now answer both offers before they start. The notification one
+should never appear there — no walk runs in standalone display mode — but a
+dialogue that turns up unexpectedly stops every test, and the failure looks
+like anything except what it is.
+
+
+### 2.48 A number on the icon, and the number the worker does not have
+
+The navigation bar has carried the unread count since Phase 10. Putting it on
+the home-screen icon is the same number one surface further out — and that
+surface is the only place the portal says anything about a member outside its
+own window, so it says a **number and nothing else**. No name, no text, no
+sender: §2.36's line for the lock screen, drawn again where the same argument
+applies for the same reason.
+
+**The interesting half is the service worker's.** A push arrives while the app
+is shut, and the worker does not know how many messages are waiting — the push
+carries no payload, deliberately. The obvious repair is for the worker to ask
+`/api` for the count, and that is the one thing `strategy.ts` says this worker
+never does. So it doesn't: `setAppBadge()` with no argument is the flag every
+platform draws for exactly this case — *something is there* — and the app
+replaces it with the real number the moment it is opened. The absence of a
+count in the worker is the payload-less design showing through, not a gap in
+it.
+
+**Clearing is the part worth testing.** Setting a badge is decoration;
+*failing to clear one* leaves a stranger's unread count on the icon of a phone
+that has been handed to somebody else. The layout is mounted only while
+somebody is signed in, so its unmount is exactly the moment the count stops
+being anybody's — and that is where the clear lives.
+
+Every call is guarded twice, because this API misbehaves in both directions:
+Safari rejects it until notifications are allowed and in a plain tab, and some
+browsers throw synchronously rather than rejecting. A badge nobody can see is
+not worth reporting to anybody — there is nothing they could do, and the count
+is on the screen in front of them.
+
+
+### 2.49 The right two taps, at the wrong end of the phone
+
+The iOS instruction said *"Tippen Sie **unten** auf das Teilen-Symbol"*, which
+is true in Safari and wrong in Chrome, where it is at the top. Reported by
+somebody who went and looked.
+
+The state machine had one state for all of iOS, and that was right about the
+thing it was built to answer — every browser there is WebKit underneath, none
+of them has `beforeinstallprompt`, and the way in is the same Share sheet and
+the same two taps. What it was not right about is the only thing the sentence
+actually says: **where the button is.**
+
+So `apple` splits into `apple` and `appleOther`, told apart by `CriOS`,
+`FxiOS`, `EdgiOS` and `OPT` in the user agent — Safari being what is left.
+Nothing else in the portal changes: same state machine, same offer, one more
+sentence.
+
+**The new sentence names both ends.** "Tippen Sie oben … In Safari sitzt dieses
+Symbol unten." Not tidiness — a member who has been sent to the wrong end of
+their phone once will not trust the next instruction either, and this
+portal's audience is exactly the audience that looks where it is told and then
+gives up. Saying where it is in the other browser costs nine words and buys
+back the sentence's credibility.
+
+Worth remembering as the general shape: a state that answers "what can be
+done here" is not automatically the right state to hang "how do you do it" on.
+This one was, until the how differed and the what did not.
+
+
+### 2.50 Phase 15: a face is the least deniable thing on a record
+
+Photographs came from webtrees, filtered by webtrees' access level, and were
+uploaded by whoever keeps the tree. So a living member's face could be in front
+of a hundred relatives without that member ever having put it there.
+
+The portal already had the argument, one field over: *contact details held in
+the family tree are never published — they are maintained by whoever keeps the
+tree, and nobody can consent to "whatever my record happens to say".* A
+photograph is the same sentence with more at stake.
+
+**The rule: for a living person, only what they uploaded themselves.** For
+somebody dead, nothing changes — nobody can consent on their behalf and nobody
+needs to, because consent is a question about people who can be harmed by the
+answer, and the family archive is what a portal like this is *for*. That split
+is one `isDead()` and it is the whole design.
+
+**Enforcing it needs a fact webtrees does not record.** A GEDCOM media object
+says what a file is, not who put it there; in webtrees that question has one
+answer and it is "the person with the keys". `portal_photo` is that missing
+fact, and a row in it *is* the consent — which is why the foreign key cascades:
+an account deleted takes its permissions with it and the photographs stop being
+shown. They are not deleted from the tree. That is the family's record, and
+withdrawing permission is not the same as pruning it.
+
+**A rule that hides without a way to add is not a privacy feature**, it is a
+portal with no faces in it. So the upload shipped in the same change, and three
+things about it are worth keeping:
+
+- **Re-encoded, never stored.** A phone writes GPS into every picture; a member
+  sharing their face would be publishing the address they took it at. Decoding
+  the pixels and writing a fresh JPEG drops every tag there is, which is more
+  complete than deleting the ones anybody has heard of — and it answers "is
+  this actually an image" in the same operation. The test asserts the metadata
+  directory is gone and the tag content with it, and asserts the *incoming*
+  file had one, so it cannot pass against a camera that writes none.
+- **Live at once, unlike every other edit** a member may make. A name is a claim
+  about a person and waits for the family; a photograph is permission *from*
+  one, and waiting for somebody else to approve your own consent has the thing
+  backwards.
+- **Except where an edit is already waiting.** webtrees' pending changes are
+  snapshots of the whole record, not patches — accepting the photograph would
+  accept the unapproved name change sitting under it. So there the photograph
+  waits too, and the member is told. Found while writing the code rather than
+  after; it is the kind of thing that would have quietly approved somebody's
+  edits for months.
+
+**And the screen says the rule.** A member whose picture vanished from their
+own record the day this shipped is owed the reason in words, on the screen
+where they can put it back — not left to guess that it was a bug.
+
+
+### 2.51 The number belongs on the card, not one tap further in
+
+The reference number was on the full record and nowhere else, so every card in
+the portal showed a name and years and left the reader to open it to find out
+*which* Dieter Beispiel this was. In a family with more than one of several
+names, that is the question the card exists to answer.
+
+So `individualRef` carries `references` now — the same list, from the same
+facts, at the same access level the full record uses. **Nothing new is
+disclosed by it**: a confidential `REFN` is filtered out of the short shape
+exactly as it is out of the long one, which is what the second new test in
+`PrivacyTest` pins. What changes is how far a reader has to go to see what was
+already theirs to see.
+
+Formatting moved to one place while doing it. Four cards each joining
+`type` and `number` their own way would be four subtly different numbers as far
+as a reader is concerned; `referenceLabel()` is the one answer, and it puts the
+type in front — "SB 4714" is how the family says it, not a bare 4714.
+
+The years and the number share one line and one element, so a person with only
+one of them does not leave a blank line where the other would be. Small, and
+the sort of thing that looks like a rendering bug when it happens on every
+second card.
+
+### 2.52 A subscription is not session state, in both directions
 
 The question was whether notifications survive being signed out. They do —
 `knock()` reads a row against a user id and never asks who is signed in, and
@@ -2507,9 +2809,9 @@ lock-screen sentence: *„Wenn Sie sich abmelden, wird das auf diesem Gerät wie
 ausgeschaltet."* A member who finds notifications silently off after signing
 back in has been surprised by their own portal.
 
-### 2.44 Angemeldet bleiben, and the two failures that are not theft
+### 2.53 Angemeldet bleiben, and the two failures that are not theft
 
-§2.43 established that the session dies with the browser (`lifetime => 0` in
+§2.52 established that the session dies with the browser (`lifetime => 0` in
 webtrees' `Session::start()`), and that the server-side row behind it goes a
 few minutes later. For an administrator at a desk that is correct. For the
 member this portal exists for — a telephone, opened twice a month, a password

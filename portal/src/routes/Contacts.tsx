@@ -14,6 +14,7 @@ import {
 } from '../api/queries'
 import type { Connection, SentLink } from '../api/types'
 import { QrCode } from '../components/QrCode'
+import { referenceLabel } from '../components/reference'
 import { ShareLink } from '../components/ShareLink'
 import {
   Button,
@@ -721,32 +722,45 @@ function IncomingCard({ connection }: { connection: Connection }) {
  * comes to this list to do, and a destructive button on every row of a list
  * that is scrolled and tapped is the one place it should not be. It lives on
  * the member's own page (`MemberDetail`), which is where the decision is
- * actually made — the link above leads there.
+ * actually made — and this whole card leads there.
+ *
+ * **The card is the target, not the name in it.** A name-sized link in a
+ * card-sized row is a thumb-sized miss on a phone, and it teaches the wrong
+ * thing about every other card in the portal, which have been whole-card
+ * links since the tree was first walkable. Nothing interactive sits inside,
+ * so there is nothing a link may not contain.
  */
 function ContactCard({ connection }: { connection: Connection }) {
   const { t } = useTranslation()
 
   const lifespan = connection.individual?.lifespan ?? null
 
-  return (
-    <Card>
-      {connection.member_id === null ? (
-        <p className="text-lg font-semibold text-slate-900">{connection.name}</p>
-      ) : (
-        <Link
-          to={`/members/${connection.member_id}`}
-          className="inline-flex min-h-[44px] items-center text-lg font-semibold text-sky-800 underline underline-offset-4"
-        >
-          {connection.name}
-        </Link>
-      )}
+  const detail =
+    connection.individual === null
+      ? t('contacts.noRecord')
+      : [connection.individual.name, lifespan, referenceLabel(connection.individual.references)]
+          .filter((part) => part !== null && part !== '')
+          .join(' · ')
 
-      <p className="mt-1 text-base text-slate-700">
-        {connection.individual === null
-          ? t('contacts.noRecord')
-          : [connection.individual.name, lifespan].filter((part) => part !== null && part !== '').join(' · ')}
-      </p>
-    </Card>
+  // Nobody to open: a contact whose request has not been answered has no
+  // profile row yet. A card that is not a link must not look like one.
+  if (connection.member_id === null) {
+    return (
+      <Card>
+        <p className="text-lg font-semibold text-slate-900">{connection.name}</p>
+        <p className="mt-1 text-base text-slate-700">{detail}</p>
+      </Card>
+    )
+  }
+
+  return (
+    <Link
+      to={`/members/${connection.member_id}`}
+      className="block rounded-xl border border-slate-300 bg-white p-4 shadow-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+    >
+      <span className="block text-lg font-semibold text-slate-900">{connection.name}</span>
+      <span className="mt-1 block text-base text-slate-700">{detail}</span>
+    </Link>
   )
 }
 

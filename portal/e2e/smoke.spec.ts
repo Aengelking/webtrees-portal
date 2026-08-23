@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { stubApi } from './fixtures'
+import { installOfferAnswered, stubApi } from './fixtures'
 
 const REAL_BACKEND = process.env.E2E_BASE_URL !== undefined
 
@@ -7,6 +7,8 @@ const username = process.env.E2E_USERNAME ?? 'anna'
 const password = process.env.E2E_PASSWORD ?? 'geheim'
 
 test.beforeEach(async ({ page }) => {
+  await installOfferAnswered(page)
+
   if (!REAL_BACKEND) {
     await stubApi(page)
   }
@@ -121,7 +123,15 @@ test.describe('the smoke path', () => {
       session: { ...window.sessionStorage },
     }))
 
-    expect(Object.keys(stored.local)).toEqual(['portal.language'])
+    // Three keys, and every one of them a device preference: which language to
+    // show, and whether each of the two offers has been made. Nothing about
+    // anybody.
+    expect(Object.keys(stored.local).sort()).toEqual([
+      'portal.install.offered',
+      'portal.language',
+      'portal.notifications.offered',
+    ])
+    expect(Object.values(stored.local).sort()).toEqual(['1', '1', 'en'])
     expect(Object.keys(stored.session)).toEqual([])
   })
 
@@ -251,15 +261,22 @@ test.describe('phase 7', () => {
     await page.getByRole('link', { name: 'Einstellungen' }).click()
     await page.getByRole('link', { name: 'Jemanden einladen' }).click()
 
-    // The relationship is named, so it is obvious who is about to be picked.
-    await expect(page.getByText('Ihr Bruder')).toBeVisible()
+    // The relationship is named on the line, so it is obvious who is about to
+    // be picked — and picked by value, because that is what the form sends.
+    const chooser = page.getByLabel('Person auswählen')
 
-    await page.getByRole('radio', { name: /Dieter Beispiel/ }).check()
+    await expect(chooser.getByRole('option', { name: /Ihr Bruder — Dieter Beispiel/ })).toHaveCount(1)
+    await chooser.selectOption('X4')
     await page.getByRole('button', { name: 'Einladung erstellen' }).click()
 
     const link = page.getByLabel('Einladungslink')
     await expect(link).toHaveValue(/token=einladung-fuer-dieter/)
     await expect(page.getByRole('status')).toContainText('nur dieses eine Mal')
+
+    // Where the member is looking, without scrolling. It used to be rendered
+    // above the whole list of relatives, so on a phone the one thing they came
+    // for appeared off-screen behind them.
+    await expect(link).toBeInViewport()
 
     // The link is shown once, so it has to leave the screen in one piece:
     // selecting a URL by hand on a phone is how half of one ends up in a chat.
@@ -268,6 +285,30 @@ test.describe('phase 7', () => {
     // Dieter is no longer on offer, and the invitation is listed as pending.
     await page.getByRole('button', { name: 'Habe ich kopiert' }).click()
     await expect(page.getByRole('button', { name: 'Zurücknehmen' })).toBeVisible()
+  })
+})
+
+test.describe('the reference number', () => {
+  /**
+   * On the card, not one tap further in. The family tells two people of the
+   * same name apart by this number, so a row without it is a row that has to
+   * be opened to be sure who it is.
+   */
+  test('is on a directory row, beside the years', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the fixture members.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/members')
+
+    const row = page.getByRole('listitem').filter({ hasText: 'Dieter Beispiel' }).first()
+
+    await expect(row).toContainText('SB 4714')
+    await expect(row).toContainText('1990')
   })
 })
 
@@ -339,7 +380,7 @@ test.describe('inviting from a person’s page', () => {
 
     // Arrived with him chosen, so the next tap is the last one.
     await expect(page).toHaveURL(/\/invite\?xref=X4$/)
-    await expect(page.getByRole('radio', { name: /Dieter Beispiel/ })).toBeChecked()
+    await expect(page.getByLabel('Person auswählen')).toHaveValue('X4')
 
     await page.getByRole('button', { name: 'Einladung erstellen' }).click()
     await expect(page.getByLabel('Einladungslink')).toHaveValue(/token=einladung-fuer-dieter/)

@@ -1,11 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { act, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InstallPortal } from './components/InstallPortal'
+import { InstallPrompt } from './components/InstallPrompt'
 import { OfflineNotice } from './components/OfflineNotice'
 import { de } from './i18n/de'
 import { en } from './i18n/en'
-import { createInstallStore } from './pwa/install'
+import { createInstallStore, installStore } from './pwa/install'
 import { registerServiceWorker } from './pwa/register'
 import './i18n'
 
@@ -237,7 +239,11 @@ describe('offering to install', () => {
     'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36'
   const ANDROID_WEBVIEW =
     'Mozilla/5.0 (Linux; Android 14; Pixel 7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.0.0 Mobile Safari/537.36'
-  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'
+  const IPHONE =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+  /** The same phone, in Chrome. Same engine, same two taps, different end of the screen. */
+  const IPHONE_CHROME =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/140.0.0.0 Mobile/15E148 Safari/604.1'
   const DESKTOP =
     'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 
@@ -316,6 +322,19 @@ describe('offering to install', () => {
     browser(IPHONE)
 
     expect(watching().state()).toBe('apple')
+  })
+
+  /**
+   * Every browser on iOS is WebKit underneath, so what differs is not what
+   * they can do but where their buttons are: Safari's Share button is at the
+   * bottom of the screen and Chrome's is at the top. An instruction naming the
+   * wrong end of the phone is worse than one naming neither — this portal's
+   * audience looks where it is told and then gives up.
+   */
+  it('tells Chrome on an iPhone apart from Safari, because the button is elsewhere', () => {
+    browser(IPHONE_CHROME)
+
+    expect(watching().state()).toBe('appleOther')
   })
 
   /** An iPad calls itself a Macintosh. Only the touch points give it away. */
@@ -398,6 +417,17 @@ describe('offering to install', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
+  it('says the Share button is at the top in Chrome on an iPhone', () => {
+    browser(IPHONE_CHROME)
+    render(<InstallPortal />)
+
+    expect(screen.getByText(/oben auf das Teilen-Symbol/)).toBeDefined()
+
+    // And says where it is in Safari, because a member who has been told the
+    // wrong place once will not trust the next sentence either.
+    expect(screen.getByText(/In Safari sitzt dieses Symbol unten/)).toBeDefined()
+  })
+
   it('points an Android member at the menu rather than at nothing', () => {
     browser(ANDROID)
     render(<InstallPortal />)
@@ -410,5 +440,99 @@ describe('offering to install', () => {
     render(<InstallPortal />)
 
     expect(screen.getByText(/Im Browser öffnen/)).toBeDefined()
+  })
+
+  /**
+   * The offer on the way in, which is a different thing from the standing one
+   * in Settings. It is acceptable only because it is asked **once**: a portal
+   * that puts a dialogue in front of a member every time they sign in is a
+   * portal that teaches them to dismiss dialogues.
+   */
+  describe('the offer after signing in', () => {
+    beforeEach(() => {
+      window.localStorage.removeItem('portal.install.offered')
+    })
+
+    it('shows the browser’s own dialogue where there is one to show', async () => {
+      browser(ANDROID)
+
+      // The component reads the shared store, so that is the one that has to
+      // be listening when Chrome's event arrives.
+      installStore.watch()
+      const { prompt } = fireInstallPrompt()
+
+      render(<InstallPrompt />)
+
+      expect(screen.getByRole('dialog')).toBeDefined()
+
+      // And it says the offer is not lost by saying no, which is what makes
+      // asking only once a fair thing to do.
+      expect(screen.getByText(/unter „Einstellungen“/)).toBeDefined()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Auf den Startbildschirm legen' }))
+
+      expect(prompt).toHaveBeenCalled()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('describes the taps where the browser has no dialogue', () => {
+      browser(IPHONE)
+      render(<InstallPrompt />)
+
+      expect(screen.getByText(/Zum Home-Bildschirm/)).toBeDefined()
+    })
+
+    /** Asked once. The second sign-in on this device is not asked again. */
+    it('never asks twice on the same device', async () => {
+      browser(ANDROID)
+      const { unmount } = render(<InstallPrompt />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Alles klar' }))
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+
+      unmount()
+      render(<InstallPrompt />)
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('says nothing where installing cannot happen at all', () => {
+      browser(DESKTOP)
+      const { container } = render(<InstallPrompt />)
+
+      expect(container.innerHTML).toBe('')
+    })
+
+    it('says nothing inside the installed app', () => {
+      browser(ANDROID)
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('standalone') }))
+
+      const { container } = render(<InstallPrompt />)
+
+      expect(container.innerHTML).toBe('')
+    })
+
+    /**
+     * A member in another app's browser cannot install from where they are
+     * standing, and "leave this app first" is not what a dialogue on the way
+     * in is for. Settings still says it.
+     */
+    it('does not stop somebody in a chat app’s browser on their way in', () => {
+      browser(ANDROID_WEBVIEW)
+      const { container } = render(<InstallPrompt />)
+
+      expect(container.innerHTML).toBe('')
+    })
+
+    /** One flag, and it says nothing about anybody. */
+    it('keeps only the fact that the question was asked', async () => {
+      browser(ANDROID)
+      render(<InstallPrompt />)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Alles klar' }))
+
+      expect({ ...window.localStorage }).toEqual({ 'portal.install.offered': '1' })
+    })
   })
 })

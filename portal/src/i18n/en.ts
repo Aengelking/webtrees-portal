@@ -96,6 +96,7 @@ export const en: Translations = {
       'You can set up portal access for your close family. Choose the person, get a link, and send it yourself — the way you would normally reach them.',
     chooseTitle: 'Who would you like to invite?',
     whoLegend: 'Choose a person',
+    whoPlaceholder: 'Please choose …',
     email: 'Email address (optional)',
     emailHint:
       'Only used to fill in their form for them. The link is not sent automatically — you send it yourself.',
@@ -424,11 +425,16 @@ export const en: Translations = {
       'You can put the Sack family app on your home screen. It then opens with one tap, without an address bar and without hunting for it in the browser.',
     action: 'Add to home screen',
     apple: 'Tap the share icon at the bottom, then "Add to Home Screen".',
+    appleOther:
+      'Tap the share icon at the top, then "Add to Home Screen". In Safari that icon is at the bottom.',
     android:
       'Tap the three dots at the top right, then "Install app" — depending on the version it may say "Add to Home screen".',
     webview:
       'This page was opened inside another app, which cannot do this. Tap the three dots and then "Open in browser", where it works.',
     done: 'The app is already on this device’s home screen.',
+    later: 'Later',
+    understood: 'Got it',
+    staysInSettings: 'You can find this again at any time under “Settings”.',
   },
   notifications: {
     title: 'Notifications',
@@ -502,6 +508,18 @@ export const en: Translations = {
     copy: 'Copy',
     share: 'Share',
     copied: 'The link is copied. Paste it into your message.',
+  },
+  myPhotos: {
+    title: 'My photographs',
+    body: 'You can add a photograph of yourself. It appears on your record and is shown to every member who may see you.',
+    rule:
+      'A photograph of a living person is shown in the portal only where that person uploaded it themselves — even if the family tree holds others. Photographs of people who have died are unchanged.',
+    choose: 'Choose a photograph',
+    hint: 'JPEG, PNG or WebP, at most 4 MB. Where it was taken, and anything else hidden in the file, is removed on upload.',
+    remove: 'Remove',
+    untitled: 'Photograph',
+    waiting:
+      'The photograph is saved. Because a change to your record is still waiting for approval, it appears once that has been approved.',
   },
   person: {
     title: 'Person',

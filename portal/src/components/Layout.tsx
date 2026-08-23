@@ -2,6 +2,10 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { useAppBadge } from '../pwa/badge'
+import { useNotificationRoute } from '../pwa/notificationRoute'
+import { InstallPrompt } from './InstallPrompt'
+import { NotificationPrompt } from './NotificationPrompt'
 
 /**
  * Four destinations.
@@ -38,6 +42,11 @@ export function Layout() {
   const { t } = useTranslation()
   const { me } = useAuth()
 
+  // A tapped notification arrives here, as a message from the service worker.
+  // It is set up on the layout because the layout is what every signed-in
+  // screen is inside — and because it needs a router to navigate with.
+  useNotificationRoute()
+
   // Both lists, added: the badge answers "is there something for me", and a
   // member who has one message and one conversation message has two things.
   const unread = (me?.unread_messages ?? 0) + (me?.unread_conversations ?? 0)
@@ -47,6 +56,11 @@ export function Layout() {
 
   const counts = { none: 0, unread, connections: requests } as const
 
+  // The same number, on the home-screen icon. Only the unread messages: a
+  // connection request is not something anybody needs to see from the
+  // lock screen, and two numbers on one icon is one number.
+  useAppBadge(unread)
+
   return (
     <div className="min-h-dvh bg-slate-100 text-slate-900">
       <a
@@ -55,6 +69,20 @@ export function Layout() {
       >
         {t('app.skipToContent')}
       </a>
+
+      {/*
+        Asked once, on the way in, and never again on this device. The standing
+        offer lives in Settings — see `InstallPortal` for why it is not a
+        banner across the top of every screen.
+      */}
+      <InstallPrompt />
+
+      {/*
+        And once more inside the installed app, for the thing that only works
+        there. The two never appear together: one asks in a browser, the other
+        only when this window *is* the app.
+      */}
+      <NotificationPrompt />
 
       {/*
         The gap under the content is the height of the bar plus whatever the

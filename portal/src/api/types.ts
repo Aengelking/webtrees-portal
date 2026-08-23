@@ -215,6 +215,12 @@ export interface IndividualRef {
   lifespan: string | null
   /** Optional: the module and the portal can be a version apart. */
   portrait?: Photo | null
+  /**
+   * The reference number, on every mention of a person and not only on the
+   * full record — this family tells its Dieters apart by it. Optional for the
+   * same reason as the portrait.
+   */
+  references?: Reference[]
 }
 
 /** Everything a member may change about themselves. */

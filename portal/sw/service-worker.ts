@@ -26,6 +26,7 @@
  * request exactly as it would have been with no service worker installed.
  */
 
+import { flagWaiting, openMessages } from './notify'
 import { assetsIn, handlingFor, mayStoreAsset } from './strategy'
 
 /**
@@ -113,6 +114,10 @@ worker.addEventListener('activate', (event) => {
  * instead — which says more about the member's browsing than this ever would.
  */
 worker.addEventListener('push', (event) => {
+  // The icon says something is waiting, without saying how much — see
+  // `flagWaiting`. The app puts the real number there when it is opened.
+  flagWaiting(worker.navigator)
+
   event.waitUntil(
     worker.registration.showNotification('Sack Familienapp', {
       body: 'Sie haben eine neue Nachricht.',
@@ -125,25 +130,14 @@ worker.addEventListener('push', (event) => {
 })
 
 /**
- * Tapping it opens the messages, reusing a window the member already has open
- * rather than stacking a second one on top of it.
+ * Tapping it opens the messages, in the window the member already has open
+ * where there is one. See `notify.ts` for why the app is asked rather than
+ * navigated — and for the version of this that did not work.
  */
 worker.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  event.waitUntil(
-    worker.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ('focus' in client) {
-          void client.navigate('/messages')
-
-          return client.focus()
-        }
-      }
-
-      return worker.clients.openWindow('/messages')
-    }),
-  )
+  event.waitUntil(openMessages(worker.clients, worker.registration.scope))
 })
 
 worker.addEventListener('fetch', (event) => {

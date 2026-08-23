@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -126,12 +126,22 @@ function renderInvite() {
 }
 
 describe('inviting close family', () => {
-  it('names the relationship next to each person', async () => {
+  /**
+   * One line per person rather than a card each: the list used to push the
+   * button, and with it the link the button produces, off the bottom of a
+   * phone. What the line has to keep is the relationship — "Ihr Bruder" is
+   * what makes it obvious that the right person is about to be picked.
+   */
+  it('names the relationship and the years on one line', async () => {
     stub()
     renderInvite()
 
-    expect(await screen.findByText('Ihr Bruder')).toBeDefined()
-    expect(screen.getByText('Dieter Beispiel')).toBeDefined()
+    const chooser = await screen.findByLabelText('Person auswählen')
+
+    expect(within(chooser).getByRole('option', { name: 'Ihr Bruder — Dieter Beispiel (1990–)' })).toBeDefined()
+
+    // Nobody is chosen until somebody chooses.
+    expect((chooser as HTMLSelectElement).value).toBe('')
   })
 
   it('creates the invitation and shows the link', async () => {
@@ -139,7 +149,7 @@ describe('inviting close family', () => {
     renderInvite()
 
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('radio', { name: /Dieter Beispiel/ }))
+    await user.selectOptions(await screen.findByLabelText('Person auswählen'), 'X4')
     await user.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
 
     expect(await screen.findByDisplayValue('https://portal.example.test/invitation?token=geheim')).toBeDefined()
@@ -155,7 +165,7 @@ describe('inviting close family', () => {
     renderInvite()
 
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('radio', { name: /Dieter Beispiel/ }))
+    await user.selectOptions(await screen.findByLabelText('Person auswählen'), 'X4')
     await user.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
 
     expect((await screen.findByRole('status')).textContent).toMatch(/nur dieses eine Mal/)
@@ -165,7 +175,7 @@ describe('inviting close family', () => {
     const fetchMock = stub()
     renderInvite()
 
-    await screen.findByText('Dieter Beispiel')
+    await screen.findByLabelText('Person auswählen')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Einladung erstellen' }))
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/Person aus/)
@@ -181,7 +191,7 @@ describe('inviting close family', () => {
     renderInvite()
 
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('radio', { name: /Dieter Beispiel/ }))
+    await user.selectOptions(await screen.findByLabelText('Person auswählen'), 'X4')
     await user.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/können Sie nicht einladen/)
@@ -255,7 +265,7 @@ describe('handing the invitation link over', () => {
    * meaningless. The direct calls leave the browser's globals alone.
    */
   async function issue() {
-    await userEvent.click(await screen.findByRole('radio', { name: /Dieter Beispiel/ }))
+    await userEvent.selectOptions(await screen.findByLabelText('Person auswählen'), 'X4')
     await userEvent.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
   }
 
@@ -401,9 +411,9 @@ describe('inviting from the person’s own page', () => {
     stub()
     renderAt('/invite?xref=X4')
 
-    const chosen = await screen.findByRole('radio', { name: /Dieter Beispiel/ })
+    const chooser = await screen.findByLabelText('Person auswählen')
 
-    expect((chosen as HTMLInputElement).checked).toBe(true)
+    expect((chooser as HTMLSelectElement).value).toBe('X4')
   })
 
   /** A URL is not an authority on who may be invited; the server re-checks anyway. */
@@ -411,8 +421,8 @@ describe('inviting from the person’s own page', () => {
     stub()
     renderAt('/invite?xref=X999')
 
-    const offered = await screen.findByRole('radio', { name: /Dieter Beispiel/ })
+    const chooser = await screen.findByLabelText('Person auswählen')
 
-    expect((offered as HTMLInputElement).checked).toBe(false)
+    expect((chooser as HTMLSelectElement).value).toBe('')
   })
 })

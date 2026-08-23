@@ -95,6 +95,7 @@ export const de = {
       'Sie können Ihrer engen Familie einen Zugang zum Portal einrichten. Sie wählen die Person aus, bekommen einen Link und schicken ihn selbst — so, wie Sie diese Person sonst auch erreichen.',
     chooseTitle: 'Wen möchten Sie einladen?',
     whoLegend: 'Person auswählen',
+    whoPlaceholder: 'Bitte auswählen …',
     email: 'E-Mail-Adresse (freiwillig)',
     emailHint:
       'Wird nur für sie ins Formular vorausgefüllt. Der Link geht nicht automatisch raus — den verschicken Sie selbst.',
@@ -425,11 +426,16 @@ export const de = {
       'Sie können die Sack Familienapp auf den Startbildschirm legen. Sie öffnet sich dann mit einem Tippen, ohne Adresszeile und ohne Suchen im Browser.',
     action: 'Auf den Startbildschirm legen',
     apple: 'Tippen Sie unten auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“.',
+    appleOther:
+      'Tippen Sie oben auf das Teilen-Symbol und dann auf „Zum Home-Bildschirm“. In Safari sitzt dieses Symbol unten.',
     android:
       'Tippen Sie oben rechts auf die drei Punkte und dann auf „App installieren“ — je nach Version heißt es auch „Zum Startbildschirm hinzufügen“.',
     webview:
       'Diese Seite wurde gerade in einer anderen App geöffnet, die das nicht kann. Tippen Sie auf die drei Punkte und dann auf „Im Browser öffnen“ — dort geht es.',
     done: 'Die App liegt bereits auf dem Startbildschirm dieses Geräts.',
+    later: 'Später',
+    understood: 'Alles klar',
+    staysInSettings: 'Sie finden das jederzeit wieder unter „Einstellungen“.',
   },
   notifications: {
     title: 'Benachrichtigungen',
@@ -503,6 +509,18 @@ export const de = {
     copy: 'Kopieren',
     share: 'Teilen',
     copied: 'Der Link ist kopiert. Fügen Sie ihn in Ihre Nachricht ein.',
+  },
+  myPhotos: {
+    title: 'Meine Fotos',
+    body: 'Sie können ein Foto von sich hinzufügen. Es erscheint auf Ihrem Datensatz und wird allen Mitgliedern gezeigt, die Sie sehen dürfen.',
+    rule:
+      'Fotos lebender Personen werden im Portal nur gezeigt, wenn die Person sie selbst hochgeladen hat — auch dann, wenn im Stammbaum weitere liegen. Fotos Verstorbener bleiben unverändert.',
+    choose: 'Foto auswählen',
+    hint: 'JPEG, PNG oder WebP, höchstens 4 MB. Aufnahmeort und andere versteckte Angaben werden beim Hochladen entfernt.',
+    remove: 'Entfernen',
+    untitled: 'Foto',
+    waiting:
+      'Das Foto ist gespeichert. Weil an Ihrem Datensatz noch eine Änderung auf Freigabe wartet, erscheint es erst, wenn diese freigegeben ist.',
   },
   person: {
     title: 'Person',

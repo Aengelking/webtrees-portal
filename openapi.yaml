@@ -1156,6 +1156,139 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /photos:
+    post:
+      tags: [members]
+      summary: Add a photograph of myself
+      description: |
+        **The member's own record and no other.** There is no id in this
+        request and there is not going to be one: a photograph is permission,
+        and nobody can give permission on somebody else's behalf.
+
+        The reason this endpoint exists is the rule it serves. A photograph of
+        a *living* person is shown in the portal only where that person
+        uploaded it themselves — what the family tree happens to hold about
+        somebody is not something they consented to publish, and a face is the
+        least deniable thing on a record. Photographs of the dead are
+        untouched: the family archive is what a portal like this is for.
+
+        **The file is re-encoded rather than stored.** What comes off a phone
+        carries EXIF, and EXIF carries where the picture was taken. Decoding
+        the pixels and writing a fresh JPEG drops every tag there is, which is
+        more complete than deleting the ones anybody has heard of — and it
+        settles the "is this really an image" question at the same time. JPEG,
+        PNG and WebP go in; a JPEG of at most 1600px on its long edge comes
+        out.
+
+        The photograph is live at once, which is deliberate and unlike every
+        other change a member may make to their record: a name is a claim about
+        a person and waits for the family's approval, a photograph is
+        permission *from* one. The single exception is a record that already
+        has an unapproved edit waiting — a pending change in webtrees is a
+        snapshot of the whole record, so accepting the photograph would accept
+        that edit too. There the photograph waits with it and `pending` says so.
+      operationId: createPhoto
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPEG, PNG or WebP, at most 4 MB.
+      responses:
+        '201':
+          description: The photograph is on the record.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [photos, pending]
+                properties:
+                  photos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Photo'
+                  pending:
+                    type: boolean
+                    description: |
+                      True where an unapproved edit was already waiting on this
+                      record, so the photograph waits with it.
+        '400':
+          description: |
+            Not an image, larger than 4 MB, or no file in the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: '`no_linked_record` — the account is not linked to anybody in the tree.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /photos/{xref}:
+    delete:
+      tags: [members]
+      summary: Take my photograph down again
+      description: |
+        The half that makes the rest of it honest: a permission that cannot be
+        withdrawn is not a permission.
+
+        Only the member who uploaded it. Somebody else's photograph is reported
+        as not found rather than refused, as everywhere else in this API, so an
+        xref is never a way to discover what exists.
+
+        The media record and its link go with it. This is the one place the
+        portal deletes from the family's tree, and it is right that it does:
+        the record exists only because a member gave permission.
+      operationId: deletePhoto
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/CsrfHeader'
+        - name: xref
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: What is left on the record.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [photos]
+                properties:
+                  photos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Photo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Not this member's photograph, or no such photograph.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /push:
     get:
       tags: [members]

@@ -72,7 +72,14 @@ const MEMBERS = [
   {
     id: 2,
     display_name: 'Dieter Beispiel',
-    individual: { xref: 'X4', name: 'Dieter Beispiel', sex: 'M', is_deceased: false, lifespan: '1990–' },
+    individual: {
+      xref: 'X4',
+      name: 'Dieter Beispiel',
+      sex: 'M',
+      is_deceased: false,
+      lifespan: '1990–',
+      references: [{ number: '4714', type: 'SB' }],
+    },
   },
   { id: 3, display_name: 'Nora Ohnesatz', individual: null },
 ]
@@ -93,6 +100,29 @@ function json(route: Route, body: unknown, status = 200): Promise<void> {
     contentType: 'application/json',
     headers: { 'Cache-Control': 'private, no-store' },
     body: JSON.stringify(body),
+  })
+}
+
+/**
+ * Answer the install offer before it is asked.
+ *
+ * The portal asks once, after signing in, and blocks the screen until it is
+ * answered — which is the point of it and would stop every walk below on the
+ * first tap. The offer has its own test; everything else says "already asked"
+ * and gets on with what it came to check.
+ */
+export async function installOfferAnswered(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.setItem('portal.install.offered', '1')
+      // The notification offer only appears inside the installed app, so no
+      // walk here should meet it — answered anyway, because a dialogue that
+      // turns up unexpectedly would stop every one of them and the failure
+      // would look like anything but this.
+      window.localStorage.setItem('portal.notifications.offered', '1')
+    } catch {
+      // A browser with no storage will show the offer. Nothing to do here.
+    }
   })
 }
 
