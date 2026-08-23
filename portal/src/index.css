@@ -25,6 +25,21 @@ body {
  */
 @custom-variant wide (@media (min-width: 40rem) and (min-height: 40rem));
 
+/*
+ * In the installed app, the page does not rubber-band at the top.
+ *
+ * Pull-to-refresh is ours there (see `usePullToRefresh`), and the pull reads
+ * as a gesture only if the page stays still behind it. Guarded by
+ * `display-mode`, because a browser tab keeps its own pull-to-refresh and this
+ * would switch it off.
+ */
+@media (display-mode: standalone), (display-mode: minimal-ui) {
+  html,
+  body {
+    overscroll-behavior-y: contain;
+  }
+}
+
 /* Never remove focus rings — they are how a keyboard user knows where they are. */
 :focus-visible {
   outline-offset: 2px;

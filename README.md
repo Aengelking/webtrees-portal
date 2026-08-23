@@ -915,6 +915,21 @@ property of the archive's numbering, not of this software, and it is the reason
 the calculation is allowed to cross ground the tree walk deliberately will not.
 A reference number the tree marks confidential is not used.
 
+### Refreshing a screen in the installed app
+
+Pull down at the top of any screen and let go: the portal fetches what is on
+that screen again — the person, the list, the conversation. A disc comes down
+with the finger and spins until the answer is in.
+
+**Only in the installed app.** A browser tab already reloads when you drag past
+the top, and has a button for it; a portal opened from the home screen has
+neither, because there is no address bar and the browser switches its own
+gesture off. Two of them on one screen would fight, so the portal's only
+appears where the browser's is gone.
+
+It refetches the data rather than reloading the page, so the session, the
+scroll position and the cached shell all survive.
+
 ### When something goes wrong
 
 *Control panel → Modules → Member portal API → Diagnosis.*

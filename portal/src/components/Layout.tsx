@@ -6,6 +6,7 @@ import { useAppBadge } from '../pwa/badge'
 import { useNotificationRoute } from '../pwa/notificationRoute'
 import { InstallPrompt } from './InstallPrompt'
 import { NotificationPrompt } from './NotificationPrompt'
+import { PullToRefresh } from './PullToRefresh'
 
 /**
  * Four destinations.
@@ -83,6 +84,12 @@ export function Layout() {
         only when this window *is* the app.
       */}
       <NotificationPrompt />
+
+      {/*
+        Pull down at the top to load the screen again. Only in the installed
+        app, where the browser's own gesture is gone — see `usePullToRefresh`.
+      */}
+      <PullToRefresh />
 
       {/*
         The gap under the content is the height of the bar plus whatever the
