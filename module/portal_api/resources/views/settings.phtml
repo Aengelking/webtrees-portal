@@ -476,7 +476,7 @@ foreach ($trees as $a_tree) {
                 <?= I18N::translate('One line per entry, “lines = name”. The lines are a range — “8-14” — or a single number, and “GS” and “HS” are heads of their own. This is what the portal shows under a member’s number on their record: a member says which branch they come from, not which line number they were filed under.') ?>
             </div>
             <div class="form-text">
-                <?= I18N::translate('The names are shown exactly as they are written here, in every language the portal is read in — they are places and people, not something to translate. Only the word in front of them is the portal’s own.') ?>
+                <?= I18N::translate('A name may be followed by “|” and the same name in another language, each one tagged with it: “Zweig Cleve | en: Cleve Branch”. The portal shows a member the name in the language they are reading it in. A language with no name of its own gets the first one, so a branch written in one language is shown to everybody rather than to nobody.') ?>
             </div>
             <div class="form-text">
                 <?= I18N::translate('A number written without an oblique gets no branch, on purpose: a bare two-digit number is also what the older numbering looks like, and naming the wrong branch is worse than naming none.') ?>

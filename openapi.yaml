@@ -3535,9 +3535,15 @@ components:
 
             Lines are grouped into branches: 8 to 14 are together the Cleve
             branch, 21 to 31 the Rothenhof one. The grouping and the names live
-            in the module's preferences alongside the table of line prefixes,
-            and the names are published exactly as the family writes them —
-            they are places and people, not something to translate.
+            in the module's preferences alongside the table of line prefixes.
+
+            **In the language the response is being answered in**, like the
+            fact labels and the dates — a branch name is a phrase and not only
+            a place ("Ernestinische Linie – Zweig Cleve" against "Ernestine
+            Line – Cleve Branch"). The family writes each name in as many
+            languages as it cares to; where the reader's language has none, the
+            name the row was written with is sent, because a branch missing
+            entirely reads as "we do not know where you are from".
 
             `null` where the number is not one of these, **including every
             number written without an oblique**: a bare two-digit number is
