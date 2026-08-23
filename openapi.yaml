@@ -2823,7 +2823,16 @@ components:
             be empty.
         subscribed:
           type: boolean
-          description: The member's answer, which is not the same as Exchange's.
+          description: |
+            Whether this member gets the post. Read from Exchange, not from
+            what they last asked for — the family's lists are older than this
+            portal, and somebody who has never touched a switch may well be on
+            two of them.
+
+            The exception is a decision that has not landed yet: while `state`
+            is `pending` or `failed` this is the member's own answer, because
+            showing them the old truth under a switch they just moved would
+            read as the switch not having worked.
         state:
           type: string
           enum: [applied, pending, failed]
@@ -2850,8 +2859,10 @@ components:
           description: |
             The account address a subscription is made under — the one the
             invitation and password resets go to, not the one the member may
-            have published under contact details. Empty when the account has
-            none, in which case nothing can be subscribed.
+            have published under contact details. It is also the address looked
+            for on the list, so a member whose Exchange membership is under some
+            other address of theirs reads as not subscribed. Empty when the
+            account has none, in which case nothing can be subscribed.
         lists:
           type: array
           items:

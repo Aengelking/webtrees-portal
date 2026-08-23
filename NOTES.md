@@ -3653,6 +3653,80 @@ member of the group"* — matching Exchange's wording in Exchange's language,
 subject to Exchange's changes of mind, is the kind of dependency that breaks
 quietly in a year.
 
+**What the first live tenant taught, an hour after this was merged.** Both
+guesses survived. The recovery built on the second did not, and it failed in
+the worst available way: silently, and in the direction of looking fine.
+
+The application had been given *Exchange Recipient Administrator*, on the
+strength of a sentence in this repository's own README saying that was enough.
+It could read everything and write nothing. Every `Add-DistributionGroupMember`
+came back `403` with an empty body — and the read-back that followed said "yes,
+this address is on the list", because the administrator testing it was already
+a member of the list he was subscribing to. Three subscriptions reported as
+applied; none had been. The first *unsubscribe* was what broke the spell, and
+only because it is the one case where the wish and the world are obliged to
+disagree.
+
+Two things were wrong and each is worth stating on its own.
+
+The narrow one: **a refusal to act is not evidence about the world.** Reading
+the state back is a sound way to recover from "you asked for something that was
+already true" and a worthless one for "you may not ask" — in the second case
+the state says what it says for reasons that have nothing to do with the call.
+`ExchangeFailure` now carries `denied`, and a denied write is rethrown without
+the read-back. The regression test is the exact live configuration:
+`ExchangeConnectorTest`.
+
+The wide one: **the README was wrong about the role, and the code was what made
+it wrong.** Every write carries `-BypassSecurityGroupManagerCheck`, because a
+service principal can never be in a list's `ManagedBy` — it is not a recipient.
+That switch requires Organization Management or *Security Group Creation and
+Membership*, and Recipient Administrator is neither. So the least-privilege
+recommendation was never achievable *for this design*; it was achievable for a
+design that did not need the switch, and no such design exists here. Exchange
+Administrator is what it takes, unless a tenant can define its own Exchange role
+groups — which this one cannot.
+
+Worth keeping as a rule: **a fallback that turns failures into successes needs
+to know which failures it is entitled to forgive.** This one forgave all of
+them, and the cost was a feature that reported itself working for as long as
+nobody tried to undo anything.
+
+**The switch was answering the wrong question**, which the same afternoon made
+plain. Every member with no row was shown "not subscribed", and the family's
+lists are older than this portal — so that was wrong about nearly everybody,
+and it invited people to subscribe to post they already got. The fix is to read
+the membership and show that: a member asking "do I get this?" is asking about
+Exchange, and this portal is only the record of having asked for something.
+
+Three things that decides.
+
+**A pending decision still wins.** For the ten seconds between a member moving
+a switch and Exchange agreeing, the screen shows what they did — anything else
+is a switch springing back under their hand. Only a settled row defers to the
+world.
+
+**The answer is cached, and the cache is per list rather than per member.**
+There is no cmdlet for "which lists is this address on", so it has to be asked
+list by list; one answer then serves everybody who looks in the next ten
+minutes. One list is refreshed per request, for the same reason `outstanding()`
+applies one row per request — three lists times a ten-second timeout is not a
+delay to put in front of a screen on the day Exchange is what is broken. A cold
+cache warms over three visits.
+
+**Only hashes are kept.** `portal_list_snapshot` holds SHA-256 of each member
+address, which answers "is this address on that list" exactly as well as the
+address would and does not leave a second copy of the family's mailing list in
+a second database. Same reasoning as the list addresses themselves (§2.66,
+above) and the same non-claim: a hash of a known address is guessable by
+anybody who knows it. This is not secrecy, it is not keeping what there is no
+reason to keep.
+
+The one thing that had to be added rather than discovered: after a change is
+applied, the module writes the result into the snapshot itself instead of
+waiting for the next read. It knows what it just did, and without that a member
+who unsubscribed would be told for ten minutes that they had not.
+
 ---
 
 ### 2.66 A card said "no record" and meant "not yours to see"
@@ -4092,13 +4166,14 @@ Flagging these so they get a second look rather than being inherited as fact.
     relative of the same name. A different failure therefore costs one wasted
     call before it is reported — which is cheaper than matching Exchange's
     wording, and does not rot when that wording changes.
-14. **A failed add or remove is checked by reading the membership back.** This
-    is how "already a member" and "not a member" are treated as successes
-    without recognising either sentence. It assumes
-    `Get-DistributionGroupMember` returns the address somewhere in each member
-    object — as `PrimarySmtpAddress`, or as an `SMTP:`-prefixed
-    `ExternalEmailAddress` — so every string in the answer is searched rather
-    than a chosen few.
+14. **A failed add or remove is checked by reading the membership back**, and
+    a refusal about *permission* deliberately is not. This is how "already a
+    member" and "not a member" are treated as successes without recognising
+    either sentence. It assumes `Get-DistributionGroupMember` returns the
+    address somewhere in each member object — as `PrimarySmtpAddress`, or as an
+    `SMTP:`-prefixed `ExternalEmailAddress` — so every string in the answer is
+    searched rather than a chosen few. The exclusion for `401` and `403` is not
+    a guess: it is what the first live tenant cost. See §2.66.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than

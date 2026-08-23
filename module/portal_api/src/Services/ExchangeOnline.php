@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Services;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 
 use function array_filter;
+use function array_keys;
 use function array_walk_recursive;
 use function curl_close;
 use function curl_error;
@@ -16,16 +17,17 @@ use function curl_init;
 use function curl_setopt_array;
 use function http_build_query;
 use function is_array;
+use function in_array;
 use function is_string;
 use function json_decode;
 use function json_encode;
 use function mb_strtolower;
 use function mb_substr;
+use function preg_match_all;
 use function preg_replace;
 use function rawurlencode;
 use function sha1;
 use function sprintf;
-use function str_contains;
 use function trim;
 
 use const CURLINFO_HTTP_CODE;
@@ -103,10 +105,14 @@ class ExchangeOnline
      * Put an address on a list.
      *
      * Idempotent, and not by trusting Exchange to say so in a particular form
-     * of words. If the add fails for any reason, the membership is read back;
-     * where it already agrees with what was wanted, the call succeeded and the
-     * error was Exchange telling us so in a sentence this module would
-     * otherwise have to recognise by its wording. See `reconciles()`.
+     * of words. If the add fails, the membership is read back; where it already
+     * agrees with what was wanted, the call succeeded and the error was
+     * Exchange telling us so in a sentence this module would otherwise have to
+     * recognise by its wording. See `reconciles()`.
+     *
+     * Not for a refusal about permission, though — see `ExchangeFailure`. Those
+     * are rethrown without asking, because a list that already says the right
+     * thing proves nothing about a call that was never allowed to run.
      */
     public function subscribe(string $list, string $address, string $name): void
     {
@@ -123,7 +129,7 @@ class ExchangeOnline
                 'BypassSecurityGroupManagerCheck' => true,
             ]);
         } catch (ExchangeFailure $failure) {
-            if (!$this->reconciles($token, $list, $address, true)) {
+            if ($failure->denied || !$this->reconciles($token, $list, $address, true)) {
                 throw $failure;
             }
         }
@@ -145,7 +151,7 @@ class ExchangeOnline
                 'Confirm'  => false,
             ]);
         } catch (ExchangeFailure $failure) {
-            if (!$this->reconciles($token, $list, $address, false)) {
+            if ($failure->denied || !$this->reconciles($token, $list, $address, false)) {
                 throw $failure;
             }
         }
@@ -254,10 +260,19 @@ class ExchangeOnline
     /**
      * Does the list already say what the member wanted it to say?
      *
-     * Asked only after a failure, and it is what saves this module from having
-     * to recognise "is already a member of the group" — a sentence in
-     * Exchange's language, subject to Exchange's changes of mind, and
-     * different again for a removal. Reading the membership is unambiguous.
+     * Asked only after a failure that was not about permission, and it is what
+     * saves this module from having to recognise "is already a member of the
+     * group" — a sentence in Exchange's language, subject to Exchange's changes
+     * of mind, and different again for a removal. Reading the membership is
+     * unambiguous.
+     *
+     * The exclusion is not a detail. On the first tenant this ran against, the
+     * application could read everything and write nothing, and the
+     * administrator testing it was already on the list he was subscribing to.
+     * Every add was refused, every read-back agreed, and the portal reported
+     * three working subscriptions. Only the first *unsubscribe* — where reality
+     * and the wish finally disagreed — admitted that nothing had ever been
+     * applied.
      *
      * A member's address can sit in any of several fields of the object
      * Exchange returns — `PrimarySmtpAddress` for a mailbox, an
@@ -267,24 +282,64 @@ class ExchangeOnline
     private function reconciles(string $token, string $list, string $address, bool $wanted): bool
     {
         try {
-            $members = $this->invoke($token, 'Get-DistributionGroupMember', [
-                'Identity'   => $list,
-                'ResultSize' => 'Unlimited',
-            ]);
+            $members = $this->members($list, $token);
         } catch (ExchangeFailure) {
             return false;
         }
 
-        $needle = mb_strtolower($address);
-        $found  = false;
+        return in_array(mb_strtolower($address), $members, true) === $wanted;
+    }
 
-        array_walk_recursive($members, static function ($value) use ($needle, &$found): void {
-            if (is_string($value) && str_contains(mb_strtolower($value), $needle)) {
-                $found = true;
+    /**
+     * Every address on a list, lower-cased.
+     *
+     * The one question Exchange can answer that this portal cannot: who is
+     * *actually* getting the post. A member who has never touched the switch
+     * has no row here, and before this the screen said "not subscribed" — which
+     * was not a cautious answer, it was a wrong one, and the family's mailing
+     * lists are old enough that it was wrong about nearly everybody.
+     *
+     * There is no cmdlet for "which lists is this address on", so the question
+     * is asked per list. Three lists is three questions, which is why the
+     * answer is kept for a while rather than asked afresh every time somebody
+     * opens their settings — see `DistributionLists::snapshot()`.
+     *
+     * A member's address can sit in any of several fields of the object
+     * Exchange returns — `PrimarySmtpAddress` for a mailbox, an
+     * `SMTP:`-prefixed `ExternalEmailAddress` for a contact, `WindowsLiveID`
+     * for others — so rather than trusting a chosen few, every string in the
+     * answer is searched for something shaped like an address. A member object
+     * that names the same person twice contributes them once.
+     *
+     * @return array<int,string>
+     */
+    public function members(string $list, string|null $token = null): array
+    {
+        $rows = $this->invoke($token ?? $this->token(), 'Get-DistributionGroupMember', [
+            'Identity'   => $list,
+            'ResultSize' => 'Unlimited',
+        ]);
+
+        $addresses = [];
+
+        array_walk_recursive($rows, static function ($value) use (&$addresses): void {
+            if (!is_string($value)) {
+                return;
+            }
+
+            // Deliberately a search rather than a match: the field may be
+            // "SMTP:anna@example.test" or a display name with an address in
+            // brackets after it.
+            if (preg_match_all('/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/u', $value, $found) === 0) {
+                return;
+            }
+
+            foreach ($found[0] as $address) {
+                $addresses[mb_strtolower($address)] = true;
             }
         });
 
-        return $found === $wanted;
+        return array_keys($addresses);
     }
 
     // -----------------------------------------------------------------
@@ -325,7 +380,10 @@ class ExchangeOnline
             // A rejected credential is not a passing condition, and neither is
             // a tenant that cannot be found. Anything that is not an answer at
             // all might be.
-            $status >= 400 && $status < 500
+            $status >= 400 && $status < 500,
+            // Nothing that needs a token can have happened, so nothing that
+            // follows may be read as evidence that it did.
+            true
         );
     }
 
@@ -360,13 +418,21 @@ class ExchangeOnline
             return is_array($value) ? array_filter($value, static fn ($row): bool => $row !== null) : [];
         }
 
+        $denied = $status === 401 || $status === 403;
+
         throw new ExchangeFailure(
-            $cmdlet . ' failed (HTTP ' . $status . '): ' . $this->complaint($payload),
+            $cmdlet . ' failed (HTTP ' . $status . '): ' . $this->complaint($payload)
+                // Exchange answers a refused cmdlet with a bare 403 and often
+                // an empty body, which on its own tells an administrator
+                // nothing at all. What it always means is this, so it is said
+                // here rather than left to be looked up.
+                . ($denied ? ' — the application may not run this cmdlet. Check the Entra role on its service principal.' : ''),
             // 429 is Exchange throttling and 5xx is Exchange having a bad day;
             // both mean the same thing to a member, which is "later". A 0 is
             // this end — a timeout or a name that did not resolve — and is
             // also worth another attempt.
-            $status >= 400 && $status < 500 && $status !== 429
+            $status >= 400 && $status < 500 && $status !== 429,
+            $denied
         );
     }
 
@@ -375,7 +441,7 @@ class ExchangeOnline
      *
      * @return array{0:int,1:string}
      */
-    private function send(string $url, string $body, array $headers): array
+    protected function send(string $url, string $body, array $headers): array
     {
         $handle = curl_init($url);
 
@@ -422,7 +488,13 @@ class ExchangeOnline
             }
         }
 
-        return mb_substr(trim($payload), 0, 300);
+        $raw = mb_substr(trim($payload), 0, 300);
+
+        // A refusal with nothing in it is the case this exists for. Reporting
+        // it as an empty string produced "failed (HTTP 403):" and a full stop,
+        // which reads like the message went missing rather than like Exchange
+        // never sent one.
+        return $raw === '' ? 'no message was returned' : $raw;
     }
 
     // -----------------------------------------------------------------
