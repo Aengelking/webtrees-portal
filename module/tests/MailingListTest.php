@@ -448,6 +448,56 @@ class MailingListTest extends PortalTestCase
     }
 
     /**
+     * Every list gets read, not the first one over and over.
+     *
+     * One list is read per request, and the choice used to be "the first stale
+     * one in the administrator's order". Whenever every list was stale at once
+     * — which is every visit more than ten minutes after the last, so nearly
+     * every visit in a family portal — that picked the same list every time
+     * and the others were never read at all. Two thirds of the memberships
+     * simply never arrived.
+     */
+    public function testEveryListIsReadEventuallyAndNotTheFirstOneRepeatedly(): void
+    {
+        $this->exchange->onList = [
+            self::FAMILY  => ['anna@example.test'],
+            self::INVITES => ['anna@example.test'],
+        ];
+
+        // Two visits, and between them enough time that both lists are stale
+        // again — the condition under which this used to stick on the first.
+        $this->read();
+        DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
+        $this->read();
+
+        $body = $this->json($this->read());
+
+        self::assertTrue($body['lists'][0]['subscribed'], 'the first list');
+        self::assertTrue($body['lists'][1]['subscribed'], 'and the second, which used to be starved');
+    }
+
+    /**
+     * A list nobody has ever asked about is more urgent than one with a stale
+     * answer, however old that answer is.
+     */
+    public function testAListThatWasNeverReadGoesFirst(): void
+    {
+        $this->exchange->onList = [self::INVITES => ['anna@example.test']];
+
+        // The first list has an answer, old but present. The second has none.
+        $this->read();
+        DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
+        $this->exchange->calls = [];
+
+        $this->read();
+
+        self::assertSame(['read ' . self::INVITES], array_values(array_filter(
+            $this->exchange->calls,
+            static fn (string $call): bool => str_starts_with($call, 'read ')
+        )));
+    }
+
+    /**
      * The list is read once and the answer kept, or every member opening their
      * settings would put a round trip to Exchange in front of the screen.
      */
@@ -556,7 +606,13 @@ class MailingListTest extends PortalTestCase
         // What the passage of time would do.
         DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
 
-        self::assertTrue($this->json($this->read())['lists'][0]['subscribed']);
+        // One list is read per visit and the never-read one goes first, so the
+        // second list is served before this one comes round again. Both, then,
+        // rather than assuming an order this test is not about.
+        $body = $this->json($this->read());
+        $body = $this->json($this->read());
+
+        self::assertTrue($body['lists'][0]['subscribed']);
     }
 
     /**

@@ -587,18 +587,39 @@ class DistributionLists
      */
     private function refresh(): void
     {
-        $stale = null;
         $known = [];
 
         foreach (DB::table('portal_list_snapshot')->get() as $row) {
             $known[(string) $row->list_hash] = (int) $row->fetched_at;
         }
 
-        foreach ($this->configured() as $hash => $list) {
-            if (!array_key_exists($hash, $known) || $known[$hash] < time() - self::SNAPSHOT_TTL) {
-                $stale = [$hash, $list['address'], array_key_exists($hash, $known)];
+        // The *least recently* asked, never-asked first — not the first in the
+        // administrator's list, which is the bug this replaced. Only one list
+        // is read per request, so taking them in configuration order meant
+        // that whenever every list was stale at once — which is every visit
+        // more than `SNAPSHOT_TTL` after the last one, so nearly every visit
+        // in a family portal — the first list was read again and the second
+        // and third never were at all.
+        $stale = null;
+        $oldest = null;
 
-                break;
+        foreach ($this->configured() as $hash => $list) {
+            $tried = $known[$hash] ?? null;
+
+            if ($tried !== null && $tried >= time() - self::SNAPSHOT_TTL) {
+                continue;
+            }
+
+            // Nothing held yet, or what is held has been asked about and this
+            // one either never has been or was asked about longer ago. A
+            // never-asked list, once held, is never displaced: it sorts before
+            // every timestamp.
+            $better = $stale === null
+                || ($oldest !== null && ($tried === null || $tried < $oldest));
+
+            if ($better) {
+                $stale  = [$hash, $list['address'], $tried !== null];
+                $oldest = $tried;
             }
         }
 

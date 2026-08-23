@@ -4159,9 +4159,31 @@ is exactly the assumption NOTES §3 flagged as a guess about somebody else's
 product, and it now announces itself instead of quietly emptying a list.
 
 **And the diagnosis screen says what was read.** Per list: how many members, or
-*never read*. The whole difficulty of finding this was that "read, and nobody
-is on it" and "never read" looked identical from outside, including to the
-person who wrote it.
+*never read*, with Exchange's own complaint beside it where there is one. The
+whole difficulty of finding this was that "read, and nobody is on it" and
+"never read" looked identical from outside, including to the person who wrote
+it.
+
+**Two more, found by working the live installation instead of reasoning about
+it.** Both were invisible in the same way — a member simply reads as not
+subscribed, and nothing anywhere is wrong.
+
+*One list is read per request, and it was always the first one.* Whenever every
+list was stale at once — which is every visit more than ten minutes after the
+last, so nearly every visit in a family portal — the loop picked the first
+configured list again and the second and third were never read at all. Two
+thirds of the memberships never arrived. It now takes the least recently asked,
+never-asked first.
+
+*The answer is paged, and only the first page was read.* OData hands back a long
+answer a page at a time. Not asking would have been a failure; asking and
+believing the first page is a truncation, which for a mailing list means
+members quietly missing from the middle of the answer. The family this was
+built for is already at three hundred on one list. `@odata.nextLink` is
+followed now, `Prefer: odata.maxpagesize=1000` keeps it to one round trip in
+practice, and running past a hundred pages throws rather than returning half a
+list — because half a list is indistinguishable from members who are not on
+it, which is the mistake this whole section is about.
 
 ---
 

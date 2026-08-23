@@ -303,6 +303,36 @@ class ExchangeConnectorTest extends PortalTestCase
         self::assertSame(['antje@gmx.example'], $this->exchange->members(self::LIST));
     }
 
+    /**
+     * A long list arrives a page at a time, and every page counts.
+     *
+     * Reading only the first page does not fail — it truncates. For a mailing
+     * list that means members quietly missing from the middle of the answer
+     * and a portal telling each of them they are not subscribed, with nothing
+     * anywhere saying why. The family this was built for is already at three
+     * hundred on one list.
+     */
+    public function testALongAnswerIsFollowedToTheEnd(): void
+    {
+        $this->exchange->answers = [
+            [200, (string) json_encode([
+                'value'           => [['PrimarySmtpAddress' => 'erste@example.test']],
+                '@odata.nextLink' => 'https://outlook.office365.com/adminapi/beta/t/InvokeCommand?$skiptoken=2',
+            ])],
+            [200, (string) json_encode([
+                'value'           => [['PrimarySmtpAddress' => 'zweite@example.test']],
+                '@odata.nextLink' => 'https://outlook.office365.com/adminapi/beta/t/InvokeCommand?$skiptoken=3',
+            ])],
+            [200, (string) json_encode(['value' => [['PrimarySmtpAddress' => 'dritte@example.test']]])],
+        ];
+
+        $members = $this->exchange->members(self::LIST);
+
+        sort($members);
+
+        self::assertSame(['dritte@example.test', 'erste@example.test', 'zweite@example.test'], $members);
+    }
+
     public function testAnEmptyListIsAnEmptyAnswerAndNotAFailure(): void
     {
         $this->exchange->answers = [[200, (string) json_encode(['value' => []])]];
