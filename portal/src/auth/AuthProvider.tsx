@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, forgetCsrfToken, setUnauthenticatedHandler } from '../api/client'
 import type { Credentials, InvitationAcceptance, Me } from '../api/types'
+import { disable } from '../pwa/notifications'
 
 type Status = 'checking' | 'signed-in' | 'signed-out'
 
@@ -109,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    await forgetThisDevice()
     await api.logout()
     reset()
   }, [reset])
@@ -119,6 +121,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+/**
+ * Stop this device being knocked on, before the session that authorises it
+ * goes away.
+ *
+ * A push subscription is not session state — it is a row against a user id and
+ * an address held by the browser's push service, and neither notices a logout
+ * (`PushSubscriptions::knock` never asks who is signed in). Left alone, the
+ * phone keeps buzzing for an account somebody has just deliberately signed out
+ * of. That leaks nothing — the notification carries nothing to leak — but on a
+ * shared tablet it still announces to the next person that something arrived
+ * for the last one, and the member can no longer switch it off, because the
+ * switch is behind the sign-in they just left.
+ *
+ * Deliberately not the same as `switchOff` in Settings, which reports a
+ * failure to a member standing in front of it. Here nobody asked about
+ * notifications; they asked to be signed out, and that must happen whatever
+ * the push service is doing. A row that outlives its browser subscription is
+ * deleted by the first knock that gets a 410 anyway.
+ *
+ * Order matters: `DELETE /push` needs the session, so it goes before
+ * `api.logout()` rather than after it.
+ */
+async function forgetThisDevice(): Promise<void> {
+  try {
+    const endpoint = await Promise.race([disable(), givingUp()])
+
+    if (endpoint !== null) {
+      await api.unsubscribeFromPush(endpoint)
+    }
+  } catch {
+    // Signing out is the thing that was asked for. It happens regardless.
+  }
+}
+
+/**
+ * How long to wait for the browser before signing out anyway.
+ *
+ * `navigator.serviceWorker.ready` is a promise that **never settles** in a
+ * browser that supports service workers and has none registered — which is any
+ * tab where registration failed, and every tab in the moment before it
+ * finishes. Awaiting it unbounded would leave a member who pressed *Abmelden*
+ * looking at a disabled button for as long as they cared to wait.
+ *
+ * Nothing is lost by giving up. A push subscription cannot exist without a
+ * registration, so a `ready` that does not arrive means there was no device to
+ * forget in the first place.
+ */
+const GIVE_UP_AFTER = 3000
+
+function givingUp(): Promise<null> {
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      resolve(null)
+    }, GIVE_UP_AFTER)
+  })
 }
 
 export function useAuth(): AuthContextValue {

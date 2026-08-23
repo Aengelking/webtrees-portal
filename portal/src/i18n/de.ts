@@ -23,6 +23,11 @@ export const de = {
     password: 'Passwort',
     submit: 'Anmelden',
     submitting: 'Einen Moment …',
+    remember: 'Angemeldet bleiben',
+    rememberHint_one:
+      'Sie bleiben auf diesem Gerät einen Tag angemeldet und müssen Ihr Passwort so lange nicht wieder eingeben. Wer das Gerät entsperrt in die Hand bekommt, ist dann Sie — schalten Sie das also nur auf Ihrem eigenen Telefon ein. „Abmelden“ in den Einstellungen beendet es sofort.',
+    rememberHint_other:
+      'Sie bleiben auf diesem Gerät {{count}} Tage angemeldet und müssen Ihr Passwort so lange nicht wieder eingeben. Wer das Gerät entsperrt in die Hand bekommt, ist dann Sie — schalten Sie das also nur auf Ihrem eigenen Telefon ein. „Abmelden“ in den Einstellungen beendet es sofort.',
     forgotten: 'Passwort vergessen?',
     failed: 'Benutzername oder Passwort ist falsch. Bitte versuchen Sie es noch einmal.',
     missing: 'Bitte füllen Sie beide Felder aus.',
@@ -442,6 +447,9 @@ export const de = {
     switchOff: 'Auf diesem Gerät ausschalten',
     working: 'Einen Moment …',
     on: 'Dieses Gerät wird benachrichtigt.',
+    untilSignOut: 'Wenn Sie sich abmelden, wird das auf diesem Gerät wieder ausgeschaltet.',
+    needsInstall:
+      'Auf dem iPhone und iPad gibt es Benachrichtigungen nur, wenn die App auf dem Home-Bildschirm liegt. Wie Sie sie dorthin legen, steht oben auf dieser Seite unter „Auf den Startbildschirm“. Danach können Sie die Benachrichtigungen hier einschalten.',
     blocked:
       'Ihr Browser blockiert Benachrichtigungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
   },

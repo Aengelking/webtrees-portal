@@ -141,6 +141,13 @@ paths:
           headers:
             Cache-Control:
               $ref: '#/components/headers/CacheControl'
+            Set-Cookie:
+              schema:
+                type: string
+              description: |
+                `PORTAL_REMEMBER`, when `remember` was `true` and the
+                administrator allows it. Cleared with an expiry in the past
+                otherwise.
           content:
             application/json:
               schema:
@@ -2608,11 +2615,23 @@ components:
     CsrfToken:
       type: object
       additionalProperties: false
-      required: [csrf_token]
+      required: [csrf_token, remember_days]
       properties:
         csrf_token:
           type: string
           minLength: 1
+        remember_days:
+          type: integer
+          minimum: 0
+          description: |
+            How many days a member may stay signed in for on one device, or
+            `0` where the administrator has not switched that on — in which
+            case the login screen offers nothing and a `remember` in the login
+            body is ignored.
+
+            Carried here because the login screen is the one screen with no
+            session, and so no `GET /me` to ask. It discloses nothing: one
+            setting about this portal's own login, the same for everybody.
 
     Credentials:
       type: object
@@ -2628,6 +2647,19 @@ components:
           type: string
           minLength: 1
           format: password
+        remember:
+          type: boolean
+          default: false
+          description: |
+            Stay signed in on this device. When `true` and the administrator
+            allows it (see `remember_days` on `GET /csrf`), the response sets a
+            `PORTAL_REMEMBER` cookie — HttpOnly, Secure, SameSite=Lax — that
+            lets this device resume a session without a password until it
+            expires.
+
+            When `false` or absent, any such cookie the browser is holding is
+            revoked and cleared: not ticking the box is an instruction, not a
+            silence.
 
     Tree:
       type: object

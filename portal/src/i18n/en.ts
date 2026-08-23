@@ -25,6 +25,11 @@ export const en: Translations = {
     password: 'Password',
     submit: 'Sign in',
     submitting: 'One moment …',
+    remember: 'Stay signed in',
+    rememberHint_one:
+      'This device stays signed in for a day, so you will not have to type your password again in that time. Whoever picks the device up unlocked is then you — so switch this on only on your own phone. "Sign out" in Settings ends it at once.',
+    rememberHint_other:
+      'This device stays signed in for {{count}} days, so you will not have to type your password again in that time. Whoever picks the device up unlocked is then you — so switch this on only on your own phone. "Sign out" in Settings ends it at once.',
     forgotten: 'Forgotten your password?',
     failed: 'That username or password is not right. Please try again.',
     missing: 'Please fill in both fields.',
@@ -441,6 +446,9 @@ export const en: Translations = {
     switchOff: 'Turn off on this device',
     working: 'One moment …',
     on: 'This device is being notified.',
+    untilSignOut: 'Signing out turns this off again on this device.',
+    needsInstall:
+      'On an iPhone or iPad, notifications work only once the app is on the home screen. How to put it there is at the top of this page, under "On the home screen". You can turn notifications on here afterwards.',
     blocked:
       'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
   },

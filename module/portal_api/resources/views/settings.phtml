@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
 use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
 use Fisharebest\Webtrees\I18N;
@@ -32,6 +33,7 @@ use Illuminate\Support\Collection;
  * @var string               $push
  * @var string               $member_connections
  * @var string               $connection_code_minutes
+ * @var string               $remember_days
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -301,6 +303,24 @@ foreach ($trees as $a_tree) {
             </div>
             <div class="form-text">
                 <?= I18N::translate('Connection codes need the portal address above, because the code is a link to the portal. Without it a member is told to contact an administrator instead of being handed a code nobody can scan.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_REMEMBER_DAYS ?>">
+            <?= I18N::translate('Let members stay signed in (days)') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="0" max="<?= RememberedDevices::MAX_DAYS ?>" id="<?= PortalApiModule::SETTING_REMEMBER_DAYS ?>" name="<?= PortalApiModule::SETTING_REMEMBER_DAYS ?>" value="<?= e($remember_days) ?>">
+            <div class="form-text">
+                <?= I18N::translate('The session ends when the browser closes, so a member who opens the portal once a month types their password every time. With this set, the login screen offers “stay signed in” and that device is let back in without one until the days run out.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('%s switches it off: no offer is made, and any device already remembered stops being let in. 30 is a reasonable figure for a family whose members read the portal on their own telephones.', '0') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('It is a real key kept on a real device. Whoever picks up an unlocked telephone is that member, without a password — so this is a decision about your family’s telephones, not about the portal. Signing out ends it on that device, and resetting a password ends it everywhere.') ?>
             </div>
         </div>
     </div>

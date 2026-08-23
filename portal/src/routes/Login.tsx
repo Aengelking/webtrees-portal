@@ -2,9 +2,11 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthProvider'
-import { ApiError } from '../api/client'
-import { Button, Field, Loading, PageHeading } from '../components/ui'
+import { api, ApiError } from '../api/client'
+import type { CsrfToken } from '../api/types'
+import { Button, Field, Loading, PageHeading, Toggle } from '../components/ui'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 
 export function Login() {
@@ -14,8 +16,28 @@ export function Login() {
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  /**
+   * Asked for here rather than when the form is submitted, because the answer
+   * decides whether there is a switch to draw. It warms the CSRF token on the
+   * way past, which the submit needed anyway.
+   *
+   * A failure is not reported: the member came here to sign in, and "we could
+   * not find out whether you may stay signed in" is not a sentence worth
+   * putting in front of them. No answer means no offer, and signing in still
+   * works.
+   */
+  const { data: portal } = useQuery<CsrfToken>({
+    queryKey: ['csrf'],
+    queryFn: () => api.csrf(),
+    retry: false,
+    staleTime: Infinity,
+  })
+
+  const rememberDays = portal?.remember_days ?? 0
 
   if (status === 'checking') {
     return <Loading />
@@ -38,7 +60,7 @@ export function Login() {
     setError(null)
 
     try {
-      await signIn({ username: username.trim(), password })
+      await signIn({ username: username.trim(), password, remember })
     } catch (cause) {
       // The API returns one message for every kind of failure, on purpose.
       // The portal says the same thing back, so it cannot become a way to
@@ -95,6 +117,23 @@ export function Login() {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
+
+        {/*
+          Only where the family has switched it on, and it says how long for.
+          A switch that promises "stay signed in" without saying until when is
+          a promise the member cannot check.
+        */}
+        {rememberDays > 0 && (
+          <div className="mb-6">
+            <Toggle
+              label={t('login.remember')}
+              hint={t('login.rememberHint', { count: rememberDays })}
+              checked={remember}
+              disabled={busy}
+              onChange={setRemember}
+            />
+          </div>
+        )}
 
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? t('login.submitting') : t('login.submit')}

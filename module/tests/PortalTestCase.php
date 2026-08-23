@@ -189,6 +189,8 @@ abstract class PortalTestCase extends TestCase
      * @param array<string,mixed> $attributes  Route tokens, e.g. ['xref' => 'X1'].
      * @param array<string,mixed> $body        JSON request body.
      * @param array<string,string> $headers
+     * @param array<string,mixed>  $files       Uploads, as PSR-7 sees them.
+     * @param array<string,string> $cookies     What the browser is offering.
      */
     protected function api(
         string $route_name,
@@ -197,7 +199,8 @@ abstract class PortalTestCase extends TestCase
         array $attributes = [],
         array|null $body = null,
         array $headers = [],
-        array $files = []
+        array $files = [],
+        array $cookies = []
     ): ResponseInterface {
         $route = Registry::routeFactory()->routeMap()->getRoute($route_name);
 
@@ -211,6 +214,12 @@ abstract class PortalTestCase extends TestCase
 
         foreach ($headers as $name => $value) {
             $request = $request->withHeader($name, $value);
+        }
+
+        if ($cookies !== []) {
+            // A real server request has these parsed for it. Set rather than
+            // merged: a test says what the browser is offering, in full.
+            $request = $request->withCookieParams($cookies);
         }
 
         if ($body !== null) {

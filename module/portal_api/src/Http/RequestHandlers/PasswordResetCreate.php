@@ -6,7 +6,9 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Http\Middleware\CookieJar;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
+use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
@@ -32,6 +34,13 @@ use function time;
  * too long over their coffee needs to be told that rather than left guessing.
  * It reveals nothing about who has an account: the token was already in their
  * hands.
+ *
+ * **A completed reset forgets every remembered device.** Somebody resetting a
+ * password is quite often somebody who thinks another person has got into
+ * their account, and a new password that leaves a month-old cookie working on
+ * a device they no longer hold would answer that with nothing. This is the
+ * one place `forgetAll` is right: everywhere else, one device signing out is
+ * not a statement about the others.
  */
 class PasswordResetCreate implements RequestHandlerInterface
 {
@@ -41,6 +50,7 @@ class PasswordResetCreate implements RequestHandlerInterface
     public function __construct(
         private readonly UserService $user_service,
         private readonly MeAssembler $me,
+        private readonly RememberedDevices $devices,
     ) {
     }
 
@@ -73,11 +83,21 @@ class PasswordResetCreate implements RequestHandlerInterface
         $user->setPreference('password-token-expire', '');
         $user->setPassword($password);
 
+        // Before the new session exists, so that nothing signed in here is
+        // caught by it.
+        $this->devices->forgetAll($user->id());
+
         Auth::login($user);
         Log::addAuthenticationLog('Portal password reset completed: ' . $user->userName());
 
         $user->setPreference(UserInterface::PREF_TIMESTAMP_ACTIVE, (string) time());
 
-        return Json::response($this->me->assemble($user));
+        // Including this browser's, which may well be holding one for the
+        // account it has just changed the password of.
+        return CookieJar::clear(
+            Json::response($this->me->assemble($user)),
+            $request,
+            RememberedDevices::COOKIE,
+        );
     }
 }

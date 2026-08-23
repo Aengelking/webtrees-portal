@@ -470,6 +470,7 @@ class InvitationTest extends PortalTestCase
             'push'                => '1',
             'member_connections'  => '1',
             'connection_code_minutes' => '15',
+            'remember_days'       => '30',
         ]);
 
         self::assertStringContainsString('invitation_days', $html);
@@ -483,5 +484,6 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('member_path_length', $html);
         self::assertStringContainsString('message_limit', $html);
         self::assertStringContainsString('push_notifications', $html);
+        self::assertStringContainsString('remember_days', $html);
     }
 }
