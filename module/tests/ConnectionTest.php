@@ -762,7 +762,10 @@ class ConnectionTest extends PortalTestCase
         }
 
         // Listed, with a record, with a number: findable.
-        self::assertSame(['SB 4714', 'SB 10/1335.21', 'SB 7/22.9'], $rows['Dieter Beispiel']['numbers']);
+        self::assertSame(
+            ['SB 9', 'SB 4714', 'SB 10/1335.21', 'SB 7/22.9'],
+            $rows['Dieter Beispiel']['numbers']
+        );
 
         // Listed, but the account is linked to nobody: no number to find.
         self::assertSame([], $rows['Nora Ohnesatz']['numbers']);

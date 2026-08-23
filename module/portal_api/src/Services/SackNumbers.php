@@ -218,7 +218,11 @@ TEXT;
         // Deliberately no `0`: the archive counts children from 1 and then
         // runs on into the alphabet, so a zero means the string is not one of
         // these numbers at all.
-        if (preg_match('/^(' . self::WHOLE_TREE . '|[0-9]{1,2})\/([1-9a-z]*)$/', $cleaned, $matches) !== 1) {
+        // The oblique is optional only when nothing follows it. "24" and
+        // "24/" are the head of line 24 and the archive writes both; "24b6"
+        // is not offered, because a two-digit line makes it ambiguous — line
+        // 24 descent "b6", or line 2 descent "4b6"?
+        if (preg_match('/^(' . self::WHOLE_TREE . '|[0-9]{1,2})(?:\/([1-9a-z]*))?$/', $cleaned, $matches) !== 1) {
             return null;
         }
 
@@ -228,7 +232,7 @@ TEXT;
             return null;
         }
 
-        $path .= $matches[2];
+        $path .= $matches[2] ?? '';
 
         // The root of the whole tree is not a person anybody is numbered as,
         // so `GS/` on its own names nobody. A bare line number does name

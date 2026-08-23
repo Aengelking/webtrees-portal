@@ -321,6 +321,9 @@ foreach ($trees as $a_tree) {
         <?= I18N::translate('A record that belongs to no line — an ancestor above them all, or a branch that was numbered and then died out — is written “GS/” followed by the path itself. The portal reads those too, and they are what lets it reach the deepest ancestors.') ?>
     </p>
     <p class="form-text">
+        <?= I18N::translate('The oblique is optional when nothing follows it, so “24” and “24/” both mean the head of line 24. Where a record carries both a bare number and one with an oblique, the second is used — a bare two-digit number is also what an older numbering looks like once it reaches two digits.') ?>
+    </p>
+    <p class="form-text">
         <?= I18N::translate('Two things are not in the number itself and have to be kept here. Both are shipped with the values the family’s own calculator used, and both are family news rather than software: leave a box empty to keep using what the module was built with.') ?>
     </p>
 

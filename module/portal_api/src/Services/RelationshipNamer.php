@@ -14,7 +14,9 @@ use function array_filter;
 use function array_key_exists;
 use function array_values;
 use function count;
+use function str_contains;
 use function trim;
+use function usort;
 
 /**
  * "Ihre Cousine", "Ihr Urgroßvater" — how a member is related to someone.
@@ -173,6 +175,18 @@ class RelationshipNamer
                 $numbers[] = $value;
             }
         }
+
+        // A number carrying an oblique first.
+        //
+        // A bare "24" is the head of line 24, and the archive does write it
+        // that way — but so does an older, unrelated numbering that happens to
+        // have reached two digits. Where a record has both, the one that says
+        // out loud what it is should win, and a record with only the bare form
+        // is still read.
+        usort(
+            $numbers,
+            static fn (string $a, string $b): int => (str_contains($b, '/') ? 1 : 0) <=> (str_contains($a, '/') ? 1 : 0)
+        );
 
         return $numbers;
     }

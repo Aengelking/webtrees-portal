@@ -3189,6 +3189,48 @@ Two small things came with it, both of which were already slightly wrong:
 
 ---
 
+### 2.57 Three things the number was already good for
+
+**A number with no oblique.** "24" and "24/" are both written in the archive
+and both mean the head of line 24. The oblique is now optional — but only when
+nothing follows it, because a two-digit line makes "24b6" ambiguous: line 24
+descent "b6", or line 2 descent "4b6"? Not offered rather than guessed at.
+
+That opens one hazard worth naming. A bare two-digit number is also what an
+older, unrelated numbering looks like once it reaches two digits, and a record
+carrying one would be read as a line head. So where a record has both, the
+number carrying an oblique wins; where it has only the bare form, that is still
+used. The fixture now has a bare "9" sitting *above* Dieter's "10/1335.21" in
+document order, so reading them in the order they appear makes the test fail.
+
+**A face and a kinship in the address book.** Every list in the portal has
+carried a portrait since the galleries went in, except the one list a member
+actually comes back to. And a contact's chosen display name, the name on their
+record, and how the two of you are related are three different things — the
+third was the one missing, and it is the one that makes an address book a
+*family's* address book. `ContactLines` renders all four, and the incoming
+request card uses it too: "Ihr Cousin 2. Grades möchte sich verbinden" is the
+whole of that decision, and it was not being said.
+
+The branch wheel stopped at 34 while doing it. There are 36 lines, so a member
+of the last two had to know that typing the whole number into the second field
+is the way round. `GS` is on the end of it now as well.
+
+**The relationship before the request.** Connecting by number was "verbinden
+mit 24/b6"; it is now "verbinden mit Ihrem Cousin 2. Grades". The calculation
+was already there — this is one call to `/relationship` with the member's own
+number and the one in the form.
+
+The sentence under it is not a hedge. *"Es sagt nichts darüber, ob diese Nummer
+vergeben ist."* Without it a member reads "Ihr Cousin" as confirmation that
+somebody is there, which is precisely what `requestByReference()` refuses to
+disclose and why a request sent this way comes back with no name. The
+arithmetic touches no record and answers an unissued number exactly like an
+issued one — that is what makes it safe to show, and the sentence is what keeps
+it from being read as something else.
+
+---
+
 ---
 
 ## 3. Things that were guessed
