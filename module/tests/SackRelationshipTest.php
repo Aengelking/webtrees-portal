@@ -242,13 +242,24 @@ class SackRelationshipTest extends PortalTestCase
         self::assertSame('invalid_a', $this->ask('24b6', '24/1')['problem']);
     }
 
-    /** `GS/` alone is the root of everything, which is nobody. */
-    public function testAWholeTreeNumberWithNoPathNamesNobody(): void
+    /**
+     * `GS` with nothing after it is the progenitor.
+     *
+     * The empty path is the one person every number in the archive descends
+     * from, and he is as much a person as anybody else in it — the arithmetic
+     * works on him unchanged, and this is the only way to name him at all.
+     */
+    public function testTheProgenitorIsANumberLikeAnyOther(): void
     {
         $this->signIn();
 
-        self::assertSame('invalid_b', $this->ask('24/11', 'GS/')['problem']);
-        self::assertSame('invalid_b', $this->ask('24/11', 'GS')['problem']);
+        // Line 24 is "7d3", so its head is three generations below the root.
+        self::assertSame('great-grandfather/great-grandmother', $this->named('24', 'GS'));
+        self::assertSame($this->named('24', 'GS'), $this->named('24', 'GS/'));
+
+        // And the other way round, which is the shape the deep ancestors of
+        // this archive are usually asked about.
+        self::assertSame('great-grandson/great-granddaughter', $this->named('GS', '24'));
     }
 
     // -----------------------------------------------------------------

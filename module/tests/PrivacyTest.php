@@ -97,7 +97,7 @@ class PrivacyTest extends PortalTestCase
         $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X3']);
 
         self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
-        self::assertSame('Clara Beispiel', $this->json($response)['name']);
+        self::assertSame('Clara "Clärchen" Beispiel', $this->json($response)['name']);
     }
 
     public function testAMissingRecordAndAHiddenRecordAreIndistinguishable(): void

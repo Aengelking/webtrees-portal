@@ -61,6 +61,10 @@ class SackNumbers
      * Which makes `GS` the escape hatch the system needs to be complete: with
      * it, every position in the tree can be written down, and the calculator
      * reaches the deep ancestors it was previously blind to.
+     *
+     * **`GS` with nothing after it is the progenitor.** The empty path is the
+     * one person every number descends from — the root the whole archive is
+     * measured against — and he is as much a person as anybody else in it.
      */
     private const string WHOLE_TREE = 'gs';
 
@@ -232,12 +236,11 @@ TEXT;
             return null;
         }
 
-        $path .= $matches[2] ?? '';
-
-        // The root of the whole tree is not a person anybody is numbered as,
-        // so `GS/` on its own names nobody. A bare line number does name
-        // somebody — the head of that line — and keeps its prefix.
-        return $path === '' ? null : $path;
+        // `GS` on its own is the empty path, and the empty path is the
+        // progenitor — the one person every number in the archive descends
+        // from. Not a missing answer: the arithmetic works on him like anybody
+        // else, and it is the only way to name him at all.
+        return $path . ($matches[2] ?? '');
     }
 
     /**
@@ -354,10 +357,13 @@ TEXT;
             $left       = $this->path(str_replace('!', '', $key));
             $right      = $this->path($value);
 
-            if ($left === null || $right === null) {
-                // A number naming a line that no longer exists, or a typo.
-                // Skipped rather than fatal: one bad row in a table the family
-                // edits by hand must not take the whole calculator down.
+            if ($left === null || $right === null || $left === '' || $right === '') {
+                // A number naming a line that no longer exists, or a typo —
+                // or the progenitor, who married nobody inside his own family
+                // and whose empty path would otherwise prefix-match every
+                // number there is. Skipped rather than fatal: one bad row in a
+                // table the family edits by hand must not take the whole
+                // calculator down.
                 continue;
             }
 

@@ -814,6 +814,12 @@ be looking at, so it applies a second rule on top of webtrees' access level:
   listed in the member directory** — the switch each member sets for
   themselves under *Einstellungen → Im Verzeichnis anzeigen*. Nobody else's
   living record appears in a search result, an index or a count.
+* **Editors, moderators, managers and administrators are exempt**, and see
+  whatever their access level allows. They already have the whole tree in
+  webtrees — they change it, and they can export it — so hiding a living
+  cousin from their search protects nobody while breaking the screen they need
+  to find the record that wants fixing. It is the same line the *What members
+  can see* limit above draws.
 
 A member who stays out of the directory is not hidden — a relative can still
 reach them by tapping through the family, exactly as before. What they are not
@@ -827,8 +833,14 @@ Two consequences worth expecting:
 * **The surname and place counts are counts of people the reader may find**,
   not totals for the tree. Two members can honestly see different numbers.
 * **Reference numbers match exactly, as they are written** — "4712" and
-  "10/1335.21" both work. A number the tree marks confidential finds nobody,
-  the same answer the record itself gives.
+  "10/1335.21" both work, in either case. A number the tree marks confidential
+  finds nobody, the same answer the record itself gives.
+* **Nicknames are searched and shown.** GEDCOM allows a nickname either inside
+  the name (`Bertha "Betty" /Beispiel/`) or as a `2 NICK` subtag of it.
+  webtrees only ever indexes and displays the first kind; the portal reads
+  both, puts the nickname where the inline spelling would have put it, and
+  finds people by it. A record whose name is hidden keeps its nickname hidden
+  with it.
 
 On a very large tree the two indexes stop after 5,000 records and the screen
 says so, because they are built by reading the records rather than by a query
@@ -875,8 +887,9 @@ out — `7d8` sits between lines 28 and 29 and is nobody's line. Those records a
 written **`GS/` followed by the path itself**, already expanded, and the portal
 reads them exactly like any other number: `GS/7d3` names the same person as
 `24/`. It is what lets the calculation reach the deep ancestors at all, and it
-needs no entry in either table below. `GS/` on its own is the root of
-everything and names nobody.
+needs no entry in either table below. **`GS` with nothing after it is the
+progenitor** — the one person every number in the archive descends from, and
+the only way to write him.
 
 **Two tables are not in the number and are kept here.** Both are shipped with
 the values the original calculator used, and both are family news rather than
