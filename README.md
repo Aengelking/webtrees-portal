@@ -124,7 +124,7 @@ itself and nothing about anybody — see *Installing it on a phone* below.
 
 ### Requirements
 
-* webtrees 2.2.x — developed and tested against **2.2.1**
+* webtrees 2.2.x — developed against 2.2.1, and tested against **2.2.6**, which is what the host runs
 * PHP 8.3–8.4 (webtrees 2.2's own requirement; the handoff said 8.2+, which is
   no longer enough for webtrees itself — see `NOTES.md`)
 * MySQL / MariaDB, or any database webtrees supports

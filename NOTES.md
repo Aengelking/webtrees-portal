@@ -12,15 +12,21 @@ These are §12 of the handoff, plus what turned up while building.
 
 ### 1.1 The exact webtrees and PHP version on the target host
 
-**Still open, and it matters.**
+**Answered, and it mattered.** The host runs **2.2.6**; the suite now runs
+against 2.2.6 too, and `setup-test-env.sh` defaults to it.
 
-Built and tested against **webtrees 2.2.1**. Everything the module uses is
-webtrees' documented custom-module surface (`AbstractModule`,
-`ModuleCustomInterface`, `Registry::routeFactory()`, `GedcomRecord::canShow()`,
+Built originally against 2.2.1. Everything the module uses is webtrees'
+documented custom-module surface (`AbstractModule`, `ModuleCustomInterface`,
+`Registry::routeFactory()`, `GedcomRecord::canShow()`,
 `MigrationService::updateSchema()`), which is stable across 2.2.x — but
-internals do shift between minors, so **check the host's version before
-installing** and re-run `module/tools/setup-test-env.sh <version>` against it.
-The tests will tell you quickly if something moved.
+internals do shift between minors, and in 2.2.6 they did: `Tree` went from a
+three-argument constructor to nine, its title and members-only flag moved out
+of `gedcom_setting` into columns of `gedcom`, and `TimeoutService` grew an
+argument. That reached production as a fatal on one endpoint; see §2.70.
+
+So: **check the host's version before installing**, run
+`module/tools/setup-test-env.sh <version>` against it, and treat a suite that
+only passes on one release as untested rather than green.
 
 **One correction to the handoff:** it says PHP 8.2+. webtrees 2.2's own
 `composer.json` requires `"php": "8.3 - 8.4"`. If the host is on 8.2, webtrees
@@ -3899,6 +3905,54 @@ had to be found again by typing their name. It now fetches that one record when
 the choice came from the address bar rather than from a result, and says
 *Ausgewählt: …* before anything is typed. One record, and only when somebody is
 already chosen.
+
+---
+
+### 2.70 A constructor is not an interface
+
+The fix in §2.68 shipped, and the host answered every invitation with a fatal:
+
+```
+Too few arguments to function Fisharebest\Webtrees\Tree::__construct(),
+3 passed ... and exactly 9 expected
+```
+
+`configuredTree()` had to build a `Tree` webtrees would not hand over, and it
+did the obvious thing — `new Tree($id, $name, $title)`, which is what the
+three-argument constructor in 2.2.1 takes. **The host runs 2.2.6.** There,
+`Tree` takes nine constructor arguments, and its title, media folder,
+GEDCOM filename, contact users and members-only flag have moved out of
+`gedcom_setting` into columns of `gedcom`. The change is clean and deliberate
+on webtrees' part; what was wrong was reaching for the constructor at all.
+
+**Each version's own factory is asked for by name instead.** 2.2.6 and later
+have `Tree::fromDB($row)`, which takes the whole `gedcom` row; 2.2.5 and
+earlier have `Tree::rowMapper()`, which takes three fields and finds the title
+in `gedcom_setting`. `configuredTree()` picks by `method_exists()` and shapes
+the row the way that version's own `TreeService::all()` shapes it — because
+those two factories exist to serve exactly that query. There is no window
+between them: 2.2.6 is the release that swapped one for the other.
+
+It also asks webtrees first now. Where the caller *can* see the tree — a
+public tree, an editor, an administrator — `TreeService::all()` answers and
+nothing is constructed at all. Only a visitor to a members-only tree, which is
+the case §2.68 exists for, reaches the factory.
+
+**The suite ran on the wrong webtrees, which is why nothing caught it.** It is
+now pinned to 2.2.6 — `setup-test-env.sh` and both workflow cache keys — and
+three things in the harness had to move with it: `TimeoutService` grew a
+`PhpService` argument, so services come from the container rather than from
+`new`; the "has the import finished" flag became a column whose value a `Tree`
+object caches at construction, so it is read from the database instead of from
+the object; and `setPreference('REQUIRE_AUTHENTICATION', …)` is now a
+compatibility shim that raises a notice *and* writes to every tree in the
+table, so `PortalTestCase::requireAuthentication()` writes the column where
+there is one. A test that turned that notice into a failure is how the last of
+those was found.
+
+The lesson worth keeping: **webtrees' constructors are not its API.** Factories,
+services and the container are. Anything this module `new`s from webtrees'
+namespace is a version pin that will not announce itself until a host upgrades.
 
 ---
 
