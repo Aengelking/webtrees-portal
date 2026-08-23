@@ -231,7 +231,11 @@ export async function stubApi(page: Page): Promise<void> {
     const method = route.request().method()
 
     if (path === '/csrf') {
-      return json(route, { csrf_token: 'token-1' })
+      // `remember_days` is what decides whether the login screen draws the
+      // "Angemeldet bleiben" switch at all. A stub that omitted it made the
+      // switch invisible to every browser test, which is how it went
+      // uncovered.
+      return json(route, { csrf_token: 'token-1', remember_days: 30 })
     }
 
     if (path === '/session' && method === 'POST') {
