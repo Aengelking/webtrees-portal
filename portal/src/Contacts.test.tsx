@@ -609,6 +609,25 @@ describe('my contacts', () => {
   })
 
   /**
+   * The card used to answer a question nobody asked, and answer it wrongly.
+   *
+   * Karla has no `individual` — and the card cannot tell why. The commoner
+   * reason by far is that she is alive and this reader may not see her record
+   * (`PrivacyTest::testARequestFromAHiddenMemberCarriesTheNameAndNoRecord`);
+   * the rarer one is an account nobody linked to a record. "Kein verknüpfter
+   * Eintrag im Stammbaum" states the rare one as fact — a claim about the
+   * archive, made from an answer that was about the reader.
+   */
+  it('does not claim a contact has no record in the tree', async () => {
+    stub()
+    renderAt()
+
+    expect(await screen.findByText('Karla Beispiel')).toBeDefined()
+    expect(screen.getByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeDefined()
+    expect(screen.queryByText(/Kein verknüpfter Eintrag/)).toBeNull()
+  })
+
+  /**
    * A member with an empty address book is put on the tab that fills it. The
    * empty half is not what they came for.
    */
@@ -838,6 +857,15 @@ describe('the directory list', () => {
 
     return fetchMock
   }
+
+  /** The same false claim, on the row it was copied to. */
+  it('does not claim a listed member has no record in the tree', async () => {
+    stubDirectory({ status: 'none', id: null })
+    renderAt('/members')
+
+    expect(await screen.findByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeDefined()
+    expect(screen.queryByText(/Kein verknüpfter Eintrag/)).toBeNull()
+  })
 
   it('sends a request from the row, without opening the person', async () => {
     const fetchMock = stubDirectory({ status: 'none', id: null })

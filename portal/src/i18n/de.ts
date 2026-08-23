@@ -379,7 +379,6 @@ export const de = {
     sureYes: 'Ja, beenden',
     sureNo: 'Abbrechen',
     list: 'Verbunden',
-    noRecord: 'Kein verknüpfter Eintrag im Stammbaum',
     withMember: 'Verbindung',
     state: {
       none: 'Sie sind mit dieser Person noch nicht verbunden.',
@@ -493,7 +492,6 @@ export const de = {
       requested: 'Angefragt',
       connected: 'Verbunden',
     },
-    noRecord: 'Kein verknüpfter Eintrag im Stammbaum',
   },
   member: {
     back: 'Zurück zur Übersicht',
@@ -582,6 +580,7 @@ export const de = {
     photoUntitled: 'Foto ohne Titel',
     photoClose: 'Schließen',
     noEvents: 'Zu dieser Person sind keine weiteren Daten hinterlegt.',
+    notVisible: 'Keine Angaben aus dem Stammbaum sichtbar',
     sex: {
       M: 'männlich',
       F: 'weiblich',

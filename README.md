@@ -1749,7 +1749,18 @@ access levels plus an unauthenticated caller:
 * a fact carrying `RESN confidential` does not appear for a member and does
   for a manager;
 * unauthenticated requests get a 401 whose body contains no record data;
+* a connection request from somebody whose record is confidential carries
+  their portal name and no record — the name is consent, the record is
+  genealogy, and the two are answered by different rules;
 * every response, including errors, carries `Cache-Control: private, no-store`.
+
+A note on the harness behind those: `PortalTestCase::login()` resets webtrees'
+in-memory cache, because `canShow()` is cached per record and access level and
+*not* per user. That is sound in production, where the cache lives inside one
+request, and would otherwise let one member's privacy answer be handed to the
+next member the test signs in — including the "you may always see your own
+record" exception, which is how the first version of the test above proved the
+opposite of the truth.
 
 **Session** (`module/tests/SessionTest.php`) — wrong password, unknown user,
 unverified email, unapproved account and rate limiting all produce the same

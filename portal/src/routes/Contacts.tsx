@@ -841,9 +841,11 @@ function ContactLines({ connection }: { connection: Connection }) {
 
   const individual = connection.individual ?? null
 
+  // No record *of a kind this reader may see* — which is not the same as no
+  // record, and the row used to say the second. See `individual.notVisible`.
   const detail =
     individual === null
-      ? t('contacts.noRecord')
+      ? t('individual.notVisible')
       : [individual.name, individual.lifespan, referenceLabel(individual.references)]
           .filter((part) => part !== null && part !== '')
           .join(' · ')
