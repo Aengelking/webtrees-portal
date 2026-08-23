@@ -6,6 +6,7 @@ import { useMe, useUpdateProfile } from '../api/queries'
 import { ContactSettings as ContactSettingsForm } from '../components/ContactSettings'
 import { InstallPortal } from '../components/InstallPortal'
 import { InviteCard } from '../components/InviteCard'
+import { MailingLists } from '../components/MailingLists'
 import { Notifications } from '../components/Notifications'
 import { LanguageSwitcher } from '../components/LanguageSwitcher'
 import {
@@ -59,6 +60,14 @@ export function Settings() {
 
       {/* Renders nothing where notifications cannot happen at all. */}
       <Notifications />
+
+      {/*
+        Beside the notifications rather than beside the contact details,
+        because both answer the same question — how the family reaches me —
+        and the contact form below answers a different one, which is what the
+        family may see. Renders nothing where no lists are configured.
+      */}
+      <MailingLists />
 
       <Section title={t('settings.language')}>
         <LanguageSwitcher />

@@ -533,6 +533,16 @@ export const de = {
     blocked:
       'Ihr Browser blockiert Benachrichtigungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
   },
+  lists: {
+    title: 'Rundmails der Familie',
+    intro:
+      'Sie bekommen diese Rundmails an {{address}} — die Adresse Ihres Zugangs. Sie können jederzeit eine abbestellen und ebenso jederzeit wieder dazukommen.',
+    pending: 'Ihre Antwort ist notiert und wird gerade übernommen.',
+    failed:
+      'Ihre Antwort ist notiert, ließ sich aber noch nicht übernehmen. Wir kümmern uns darum — Sie müssen nichts weiter tun.',
+    noAddress:
+      'Zu Ihrem Zugang ist keine E-Mail-Adresse hinterlegt, deshalb gibt es keine Adresse, an die die Post der Familie gehen könnte. Wenden Sie sich an die Person, die den Familienstammbaum betreut.',
+  },
   settings: {
     contacts: 'Meine Kontakte',
     contactsBody:

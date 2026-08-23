@@ -3400,8 +3400,6 @@ else, and the answer comes when the invitation is issued — in the same words a
 every other refusal. Filtering it would need the whole eligible set on the
 screen, which is the thing this exists to avoid.
 
----
-
 ### 2.61 An entry that comes and goes is one nobody learns the place of
 
 *Einstellungen → Jemanden einladen* was the only way in. Settings is where a
@@ -3571,6 +3569,130 @@ themselves and can delete at any time, in one step, from the screen it was
 entered on. What changed is that "show this to nobody" and "erase this" are
 now two answers instead of one, which is what a member who wants the magazine
 but not the directory actually needs.
+
+### 2.66 Phase 14: three lists in somebody else's cloud
+
+The request was *"wir haben drei Verteilerlisten in Exchange — können wir im
+Portal eine Möglichkeit schaffen, sich davon an- und abzumelden?"*, and the
+interesting part of the answer was not the switch.
+
+**Microsoft Graph cannot do this, and that decided the shape of it.** Graph is
+the documented, supported way to manage groups, and classic distribution lists
+are the one kind of group it refuses: they belong to Exchange rather than to
+the directory, so `/groups` lists them and will not change their membership.
+Three ways round that, and two of them lose something:
+
+* **Convert the lists to Microsoft 365 groups**, which Graph does manage. A 365
+  group can only hold directory objects, and most of this family is on
+  gmail.com and web.de. Ruled out by the answer to "which addresses are on
+  them", which was *überwiegend externe*.
+* **A sync job outside the portal** — Azure Automation running the supported
+  PowerShell module against a list this portal publishes. Robust, and it keeps
+  a tenant credential off the webhost entirely. It was recommended and not
+  chosen; it is two systems to operate instead of one, and a change would take
+  minutes to land rather than seconds.
+* **The REST endpoint the PowerShell module itself calls**, which is what was
+  built. `adminapi/beta/{tenant}/InvokeCommand`, an app-only token, a cmdlet
+  name in a header. It is **beta and undocumented**, and that is written at the
+  top of `Services/ExchangeOnline.php` rather than buried: if a future Exchange
+  release moves it, every change goes outstanding and the diagnosis screen says
+  so. What is not lost is the members' answers, because of the next paragraph.
+
+**The portal holds the wish; Exchange holds the list.** The decision is written
+down before anything is attempted, and the two are allowed to disagree. This is
+the whole design and it is what makes the risk above survivable: if the
+connector stops working entirely, the portal is still a correct record of who
+asked for what, and any replacement can read it. It also means a member
+pressing a switch gets an answer that is true — *your answer is taken down* —
+rather than an optimistic one that claims a delivery nobody has confirmed.
+
+**A "no" is a row, not a deleted row.** Two reasons, and the second is the
+real one. The practical one: an unsubscribe is itself an instruction that has
+to reach Exchange, and an instruction with nowhere to live cannot be retried.
+The other: "has never been asked" and "was asked and declined" are different
+states, and a portal that forgets the second cannot prove a withdrawal it acted
+on. Withdrawal is recorded as carefully as consent, which is the point of
+recording either.
+
+**A list is identified by the hash of its address.** Not for secrecy — a hash
+of a known address is guessable by anybody who knows the address — but because
+it lets the portal offer a member *the family news* without putting the
+family's distribution addresses into every browser that opens the settings
+screen. `MailingListTest` asserts it against the whole response body rather
+than against a field, because the way that promise breaks is an address turning
+up somewhere nobody was looking.
+
+**Retrying without a cron.** webtrees has no scheduler, and §2.22 already found
+that the honest place to hang periodic work is a screen somebody is looking at
+anyway. Here it is the member's own settings screen: reading `/me/mailing-lists`
+retries what is outstanding, which is convenient because the person opening it
+is exactly the one who wants it to have gone through. Two bounds keep that from
+turning an Exchange outage into a portal that will not open — at most one row
+per request, and not again for ten minutes — and after three attempts a row
+waits for an administrator instead. The button that wakes those rows is on the
+diagnosis screen, beside the one that tests the connection.
+
+**What a member is never shown** is Exchange's own complaint. It names a
+tenant, an application registration and a cmdlet; there is nothing in it a
+family member can act on, and quite a lot in it about infrastructure they have
+no business seeing. They get *"wir kümmern uns darum"*, which is both kinder and
+more accurate, and the administrator gets the sentence.
+
+**Two things in the connector are guesses about somebody else's product**, and
+they are called out in §3 rather than left to be discovered: that
+`New-MailContact` fails on a duplicate `Name` rather than on something else,
+and that a failed add can be checked by reading the membership back. The second
+exists so that this module never has to recognise the sentence *"is already a
+member of the group"* — matching Exchange's wording in Exchange's language,
+subject to Exchange's changes of mind, is the kind of dependency that breaks
+quietly in a year.
+
+---
+
+### 2.66 A card said "no record" and meant "not yours to see"
+
+A member opened a connection request and read *Kein verknüpfter Eintrag im
+Stammbaum* under a name. The archive had a record for that person. The line
+was simply false.
+
+The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
+returns null when the caller may not see the record, and
+`Connections::present()` also has nothing to hand over when nobody linked that
+account to a record at all. One field, two meanings — and the card picked the
+rarer one and stated it as a fact about the archive, out of an answer that was
+about the *reader*.
+
+**Which of the two it is cannot be disclosed**, and that is not an oversight:
+saying "there is a record here that is not yours to see" is exactly the
+sentence webtrees' privacy exists to withhold. So the server keeps both cases
+as one null, and the client says the only thing that is true of both —
+"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
+that way since Phase 2 (`member.private`); the two list rows had invented
+their own wording and got it wrong. They now share one string,
+`individual.notVisible`, so they cannot drift apart again.
+
+Worth knowing how ordinary the hidden case is: with a path-length limit set,
+every living person outside a member's own few steps is hidden from them
+(§2.34), so on such an installation *most* incoming requests arrive as a name
+with no record. The line was wrong far more often than it was right.
+
+#### The harness was answering privacy questions from the wrong member
+
+Pinning this found a fault in the tests rather than in the module. webtrees
+caches `canShow()` in `Registry::cache()->array()` under record, tree and
+access level — **not** under user, which is right in production, where that
+cache lives and dies inside one request. `PortalTestCase::login()` does not
+end a request, so a `true` computed for the member looking at *their own*
+record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
+handed to the next member who asked the same question at the same access
+level.
+
+The first version of this test said a confidential record travelled with a
+connection request. It does not; the harness had cached the subject's own view
+of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
+request gets, and the test says what it means to say. Any test in this suite
+that signs two people in and asks about privacy was until now capable of
+proving the opposite of the truth.
 
 ---
 
@@ -3747,6 +3869,32 @@ Flagging these so they get a second look rather than being inherited as fact.
    a good deal else, but not everything — an address it cannot place lands
    whole in the street rather than being torn up. It only ever applies to
    addresses typed before there were fields, and only until the member saves.
+12. **The Exchange admin API is beta and undocumented.**
+    `adminapi/beta/{tenant}/InvokeCommand` is the endpoint the supported
+    PowerShell module calls, and it is the only way to change a distribution
+    list from PHP — Graph will not (§2.66). Everything the connector believes
+    about its request shape is inferred from that module's behaviour rather
+    than from a specification: the `X-CmdletName` header, the `CmdletInput`
+    envelope, the `value` array in the answer, the `error.message` in a
+    refusal. If Microsoft moves it, subscriptions stop being applied and the
+    diagnosis screen says so; nothing is lost but the syncing.
+13. **`New-MailContact` is assumed to fail on a duplicate `Name`.** The
+    connector retries once with the address appended rather than reading the
+    error, on the theory that the only thing likely to collide is a second
+    relative of the same name. A different failure therefore costs one wasted
+    call before it is reported — which is cheaper than matching Exchange's
+    wording, and does not rot when that wording changes.
+14. **A failed add or remove is checked by reading the membership back.** This
+    is how "already a member" and "not a member" are treated as successes
+    without recognising either sentence. It assumes
+    `Get-DistributionGroupMember` returns the address somewhere in each member
+    object — as `PrimarySmtpAddress`, or as an `SMTP:`-prefixed
+    `ExternalEmailAddress` — so every string in the answer is searched rather
+    than a chosen few.
+15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
+    all in `Services/DistributionLists.php`. They exist to keep an Exchange
+    outage from being felt as a slow portal, and the numbers matter less than
+    that there are some.
 
 ---
 

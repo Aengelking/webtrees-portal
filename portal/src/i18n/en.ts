@@ -531,6 +531,16 @@ export const en: Translations = {
     blocked:
       'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
   },
+  lists: {
+    title: 'The family’s round-robin letters',
+    intro:
+      'These go to {{address}}, the address your account uses. You can leave any of them at any time, and join again just as easily.',
+    pending: 'Your answer has been taken down and is being passed on.',
+    failed:
+      'Your answer has been taken down, but could not be passed on yet. Somebody is looking at it — there is nothing else for you to do.',
+    noAddress:
+      'Your account has no email address, so there is nowhere for the family’s post to go. Please ask whoever looks after the family tree.',
+  },
   settings: {
     contacts: 'My contacts',
     contactsBody:

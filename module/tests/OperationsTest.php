@@ -463,7 +463,7 @@ class OperationsTest extends PortalTestCase
 
         $checks = $this->diagnose();
 
-        self::assertCount(9, $checks);
+        self::assertCount(10, $checks);
         self::assertSame(Diagnosis::PROBLEM, Registry::container()->get(Diagnosis::class)->worst($checks));
     }
 
@@ -483,6 +483,8 @@ class OperationsTest extends PortalTestCase
             'error_count'  => $this->errors->count(),
             'path_length'  => 2,
             'numbers'      => $diagnosis->directoryNumbers(),
+            'lists_enabled' => false,
+            'lists_waiting' => 0,
             'settings_url' => '/settings',
         ]);
 
