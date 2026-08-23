@@ -201,7 +201,7 @@ class InvitationTest extends PortalTestCase
      */
     public function testAnInvitationOpensOnATreeThatRequiresAuthentication(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         $token   = $this->invite();
         $preview = $this->preview($token);
@@ -217,7 +217,7 @@ class InvitationTest extends PortalTestCase
      */
     public function testAnInvitationIsAcceptedOnATreeThatRequiresAuthentication(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         $response = $this->accept($this->invite());
         $body     = $this->json($response);
@@ -236,7 +236,7 @@ class InvitationTest extends PortalTestCase
      */
     public function testATreeThatRequiresAuthenticationStillRefusesAnUnknownToken(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         $response = $this->preview(str_repeat('a', 64));
 

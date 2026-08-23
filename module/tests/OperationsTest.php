@@ -286,7 +286,7 @@ class OperationsTest extends PortalTestCase
      */
     public function testHealthDoesNotNeedTheVisitorToBeAbleToSeeTheTree(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         self::assertFalse(Auth::check(), 'This test is about the unauthenticated case.');
         self::assertTrue(
@@ -309,7 +309,7 @@ class OperationsTest extends PortalTestCase
      */
     public function testTheLogSaysWhichKindOfMissingItIs(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         $member = $this->createUser('bea', 'Bea Beispiel', 'pw-that-is-long-enough', UserInterface::ROLE_VISITOR);
         Auth::login($member);
@@ -343,7 +343,7 @@ class OperationsTest extends PortalTestCase
     /** And a genuinely missing tree is still a failure, filter or no filter. */
     public function testHealthStillFailsOnAMissingTreeBehindAuthentication(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         self::assertSame(

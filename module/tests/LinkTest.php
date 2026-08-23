@@ -92,7 +92,7 @@ class LinkTest extends PortalTestCase
      */
     public function testAVisitorReachesSignInOnATreeThatRequiresAuthentication(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         Auth::logout();
 
@@ -251,7 +251,7 @@ class LinkTest extends PortalTestCase
         // The setting a family portal actually runs with, and the one that
         // hid the bug above: with it off, a visitor can still see the tree in
         // `TreeService::all()` and the broken path never runs.
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         Auth::logout();
 
