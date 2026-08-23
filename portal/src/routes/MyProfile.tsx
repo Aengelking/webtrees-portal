@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMe } from '../api/queries'
 import { IndividualView } from '../components/IndividualView'
+import { InviteCard } from '../components/InviteCard'
 import { MyPhotos } from '../components/MyPhotos'
 import { ErrorNotice, Loading, Notice, PageHeading, SuccessNote } from '../components/ui'
 
@@ -65,6 +66,15 @@ export function MyProfile() {
           )}
         </div>
       )}
+
+      {/*
+        Always, and outside everything above it: not part of the record, not
+        conditional on there being one, and not conditional on the record
+        having loaded. A member who has no linked record yet is exactly the
+        member most likely to want somebody else brought in, and an entry that
+        appears only sometimes is one nobody learns the place of.
+      */}
+      <InviteCard />
     </>
   )
 }

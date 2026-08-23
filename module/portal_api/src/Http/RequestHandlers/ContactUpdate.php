@@ -39,6 +39,16 @@ class ContactUpdate implements RequestHandlerInterface
             throw ApiException::badRequest();
         }
 
+        // Each kind is an object — a value, an audience, and for an address
+        // its parts. A bare string here used to reach the service and die on
+        // an offset of a string, which is a 500 for what is plainly a bad
+        // request.
+        foreach ($changes as $change) {
+            if (!is_array($change)) {
+                throw ApiException::badRequest();
+            }
+        }
+
         return Json::response([
             'enabled' => $this->contacts->enabled(),
             // Whether "only my contacts" is an audience that means anything

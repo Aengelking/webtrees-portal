@@ -308,6 +308,11 @@ export type EditableField = keyof IndividualUpdate
 export interface MemberProfileUpdate {
   visible_in_directory?: boolean
   display_name_override?: string | null
+  /**
+   * The member's own language, kept on their account rather than on this
+   * telephone. `de` or `en`; the server resolves it to a tag it has enabled.
+   */
+  language?: string
 }
 
 export interface PendingIndividual {
@@ -434,8 +439,30 @@ export type ContactKind = 'email' | 'phone' | 'address'
 /** Per entry, never per member: two details can have two different answers. */
 export type ContactAudience = 'nobody' | 'close_family' | 'connections' | 'members'
 
+/**
+ * An address as fields rather than as one line.
+ *
+ * Optional throughout, and for two different reasons: an e-mail address and a
+ * telephone number genuinely have none, and a server that predates this sends
+ * none for the address either. Both resolve the same way — fall back to the
+ * text, which every version of the module has always sent.
+ */
+export interface AddressParts {
+  street: string
+  postcode: string
+  city: string
+  country: string
+}
+
 export interface ContactEntry {
+  /**
+   * The entry as one readable piece of text — for an address, its lines. This
+   * is what every reader gets; the fields below exist for the member who is
+   * typing it.
+   */
   value: string
+  /** The address only, and only from a server that knows about fields. */
+  parts?: AddressParts
   audience: ContactAudience
 }
 

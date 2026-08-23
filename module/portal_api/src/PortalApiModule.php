@@ -141,10 +141,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     use ModuleConfigTrait;
     use ViewResponseTrait;
 
-    public const string CUSTOM_VERSION = '1.1.1';
+    public const string CUSTOM_VERSION = '1.2.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 11;
+    private const int SCHEMA_VERSION = 12;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -410,7 +410,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MemberInvitationCreate::class, new MemberInvitationCreate($member_invites));
         $container->set(MemberInvitationDelete::class, new MemberInvitationDelete($member_invites));
 
-        $container->set(ProfileUpdate::class, new ProfileUpdate($members));
+        $container->set(ProfileUpdate::class, new ProfileUpdate($members, $container->get(UsePortalLanguage::class)));
         $container->set(IndividualUpdate::class, new IndividualUpdate($portal_trees, $presenter, $gedcom_editor, $pending));
         $container->set(PasswordRequestCreate::class, new PasswordRequestCreate(
             $this,

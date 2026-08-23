@@ -2625,6 +2625,32 @@ components:
           nullable: true
           description: The id to ask `?before=` with, or null at the beginning.
 
+    AddressParts:
+      type: object
+      additionalProperties: false
+      description: |
+        An address as fields rather than as one line. Sent by a client that
+        has fields; returned always — from the row where it has them, and
+        otherwise from the best reading of the text, so that a row written
+        before addresses had fields still fills the form in.
+
+        Where parts are sent they also decide `value`: the two are one address
+        written twice, and only one of them can be the member's own words.
+      properties:
+        street:
+          type: string
+          maxLength: 120
+          description: Street and house number.
+        postcode:
+          type: string
+          maxLength: 20
+        city:
+          type: string
+          maxLength: 120
+        country:
+          type: string
+          maxLength: 80
+
     ContactEntry:
       type: object
       additionalProperties: false
@@ -2633,6 +2659,16 @@ components:
         value:
           type: string
           maxLength: 255
+          description: |
+            The entry as one readable piece of text, and the only shape any
+            reader ever gets — an address arrives here as its lines, street
+            first, postcode and town together, country last.
+        parts:
+          allOf:
+            - $ref: '#/components/schemas/AddressParts'
+          description: |
+            The address only. Absent for an e-mail address and a telephone
+            number, which are genuinely one value each.
         audience:
           type: string
           description: |
@@ -2953,6 +2989,18 @@ components:
         display_name_override:
           type: [string, 'null']
           maxLength: 128
+        language:
+          type: string
+          description: |
+            The member's own language, as the account's webtrees preference —
+            not a device setting. `de` or `en` from the portal; the site
+            resolves it to a tag it actually has enabled (`de`, `en-US`), and
+            refuses with 400 when it has none.
+
+            This is what makes the choice follow the member to their next
+            telephone, and what decides the language a notification e-mail
+            from webtrees reaches them in.
+          example: de
 
     IndividualUpdate:
       description: |

@@ -366,4 +366,169 @@ class ContactTest extends PortalTestCase
         self::assertSame(StatusCodeInterface::STATUS_CONFLICT, $response->getStatusCode());
         self::assertSame('quota_reached', $this->json($response)['error']);
     }
+
+    // -----------------------------------------------------------------
+    // An address is four answers
+    // -----------------------------------------------------------------
+
+    /**
+     * The whole point of fields: what the member typed comes back in the
+     * boxes they typed it into, and the text is assembled from them rather
+     * than being a second version of the address that could disagree.
+     */
+    public function testAnAddressIsKeptAsFieldsAndAsText(): void
+    {
+        $this->patchContact([
+            'address' => [
+                'parts'    => ['street' => 'Musterstraße 12', 'postcode' => '29223', 'city' => 'Celle', 'country' => 'Deutschland'],
+                'audience' => ContactDetails::AUDIENCE_MEMBERS,
+            ],
+        ]);
+
+        $address = $this->json($this->api(ContactRead::class))['contact']['address'];
+
+        self::assertSame(
+            ['street' => 'Musterstraße 12', 'postcode' => '29223', 'city' => 'Celle', 'country' => 'Deutschland'],
+            $address['parts']
+        );
+        self::assertSame("Musterstraße 12\n29223 Celle\nDeutschland", $address['value']);
+    }
+
+    /** A reader gets an address to read, not four fields to reassemble. */
+    public function testAReaderGetsTheAddressAsOnePieceOfText(): void
+    {
+        $this->login($this->dieter);
+        $this->patchContact([
+            'address' => [
+                'parts'    => ['street' => 'Musterstraße 12', 'postcode' => '29223', 'city' => 'Celle', 'country' => ''],
+                'audience' => ContactDetails::AUDIENCE_MEMBERS,
+            ],
+        ]);
+
+        $this->login($this->anna);
+
+        self::assertSame("Musterstraße 12\n29223 Celle", $this->contactOf($this->dieter_id)['address']);
+    }
+
+    /**
+     * An empty field takes its line with it. A member who does not write down
+     * their own country should not have an address with a blank last line.
+     */
+    public function testAFieldLeftEmptyLeavesNoGap(): void
+    {
+        $this->patchContact([
+            'address' => [
+                'parts'    => ['street' => '', 'postcode' => '29223', 'city' => 'Celle', 'country' => ''],
+                'audience' => ContactDetails::AUDIENCE_MEMBERS,
+            ],
+        ]);
+
+        self::assertSame('29223 Celle', $this->json($this->api(ContactRead::class))['contact']['address']['value']);
+    }
+
+    /**
+     * Clearing every field is the same act as clearing the box was: the
+     * address is being withdrawn, so the row goes.
+     */
+    public function testAnAddressEmptiedFieldByFieldIsWithdrawn(): void
+    {
+        $this->share($this->anna, 'address', 'Musterweg 1', ContactDetails::AUDIENCE_MEMBERS);
+
+        $this->patchContact([
+            'address' => [
+                'parts'    => ['street' => '', 'postcode' => '', 'city' => '', 'country' => ''],
+                'audience' => ContactDetails::AUDIENCE_MEMBERS,
+            ],
+        ]);
+
+        self::assertSame(0, DB::table(ContactDetails::TABLE)->where('wt_user_id', '=', $this->anna->id())->count());
+    }
+
+    /**
+     * The rows that were there before addresses had fields — and the ones a
+     * client that only knows the box will keep writing. The text is left
+     * exactly as it was; the fields are the best reading of it, which the
+     * member's next save replaces with the truth.
+     */
+    public function testAnAddressThatWasTypedAsOneLineStillFillsInTheFields(): void
+    {
+        $this->share($this->anna, 'address', 'Musterweg 1, 29223 Celle, Deutschland', ContactDetails::AUDIENCE_MEMBERS);
+
+        $address = $this->json($this->api(ContactRead::class))['contact']['address'];
+
+        self::assertSame('Musterweg 1, 29223 Celle, Deutschland', $address['value']);
+        self::assertSame(
+            ['street' => 'Musterweg 1', 'postcode' => '29223', 'city' => 'Celle', 'country' => 'Deutschland'],
+            $address['parts']
+        );
+    }
+
+    /**
+     * Nothing may be dropped on the way into the fields, because the member's
+     * next save would then delete it. A line that fits nowhere stays with the
+     * street, which is where a "c/o" belongs anyway.
+     */
+    public function testReadingAnAddressIntoFieldsLosesNothing(): void
+    {
+        $this->share($this->anna, 'address', "c/o Meier\nMusterweg 1\n29223 Celle\nDeutschland", ContactDetails::AUDIENCE_MEMBERS);
+
+        $parts = $this->json($this->api(ContactRead::class))['contact']['address']['parts'];
+
+        self::assertSame('c/o Meier, Musterweg 1', $parts['street']);
+        self::assertSame('29223', $parts['postcode']);
+        self::assertSame('Celle', $parts['city']);
+        self::assertSame('Deutschland', $parts['country']);
+    }
+
+    /**
+     * A save from a plain box is still a save: the fields it implies are the
+     * ones read back out of it, not the ones somebody typed last week.
+     */
+    public function testSavingFromABoxDoesNotLeaveTheOldFieldsBehind(): void
+    {
+        $this->patchContact([
+            'address' => [
+                'parts'    => ['street' => 'Musterstraße 12', 'postcode' => '29223', 'city' => 'Celle', 'country' => 'Deutschland'],
+                'audience' => ContactDetails::AUDIENCE_MEMBERS,
+            ],
+        ]);
+
+        $this->patchContact([
+            'address' => ['value' => 'Am Markt 3, 21335 Lüneburg', 'audience' => ContactDetails::AUDIENCE_MEMBERS],
+        ]);
+
+        $address = $this->json($this->api(ContactRead::class))['contact']['address'];
+
+        self::assertSame('Am Markt 3, 21335 Lüneburg', $address['value']);
+        self::assertSame('Am Markt 3', $address['parts']['street']);
+        self::assertSame('Lüneburg', $address['parts']['city']);
+    }
+
+    /**
+     * An e-mail address and a telephone number are one value each. Inventing
+     * structure for them would be structure nobody asked for.
+     */
+    public function testOnlyTheAddressHasFields(): void
+    {
+        $this->share($this->anna, 'email', 'anna@example.test', ContactDetails::AUDIENCE_MEMBERS);
+        $this->share($this->anna, 'phone', '0511 12345', ContactDetails::AUDIENCE_MEMBERS);
+
+        $contact = $this->json($this->api(ContactRead::class))['contact'];
+
+        self::assertArrayNotHasKey('parts', $contact['email']);
+        self::assertArrayNotHasKey('parts', $contact['phone']);
+    }
+
+    /** A kind that is not an object at all is a bad request, not a 500. */
+    public function testAKindThatIsNotAnObjectIsRefused(): void
+    {
+        $response = $this->api(
+            ContactUpdate::class,
+            RequestMethodInterface::METHOD_PATCH,
+            body: ['contact' => ['email' => 'anna@example.test']],
+            headers: $this->csrfHeader(),
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $response->getStatusCode());
+    }
 }
