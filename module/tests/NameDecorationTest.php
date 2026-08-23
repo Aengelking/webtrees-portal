@@ -62,7 +62,9 @@ class NameDecorationTest extends PortalTestCase
 
         // Not in a relative's name either, and not anywhere in the payload —
         // including the XREF the decoration appends.
-        self::assertSame('Bertha Beispiel', $me['individual']['parents'][1]['name']);
+        // Her nickname is a `2 NICK` subtag and belongs in the name; the
+        // module's own decoration does not.
+        self::assertSame('Bertha "Betty" Beispiel', $me['individual']['parents'][1]['name']);
         self::assertStringNotContainsString('SB 4711', $this->raw($response));
         self::assertStringNotContainsString('(X1)', $this->raw($response));
     }

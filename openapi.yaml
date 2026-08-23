@@ -2149,6 +2149,12 @@ paths:
         The three are alternatives, not filters that combine: `surname` wins
         over `place`, which wins over `q`.
 
+        `q` also matches nicknames written as a `2 NICK` subtag of the name.
+        webtrees indexes only the inline spelling — `Bertha "Betty"
+        /Beispiel/` — so in an archive that uses the subtag those names are in
+        no index at all. Both are matched here, and the nickname is put back
+        into the name that every shape returns.
+
         **A search discloses differently from tapping through a family, so it
         obeys a second rule.** On top of webtrees' own access level, which
         applies here exactly as it does everywhere else, a *living* person
@@ -2157,6 +2163,11 @@ paths:
         A member who stayed out of the directory is still reachable by walking
         the tree from a relative — the search simply does not become a second,
         quieter way of enumerating the living.
+
+        **Editors and above are exempt from that second rule** and see whatever
+        their access level allows: they already have the whole tree in
+        webtrees, so it would protect nobody. What it never does is widen — a
+        record webtrees hides stays hidden for them too.
       operationId: searchTree
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
@@ -2262,6 +2273,9 @@ paths:
             The oblique is optional when nothing follows it: `24` and `24/` are
             both the head of line 24. `24b6` is not read, because a two-digit
             line makes it ambiguous.
+
+            `GS` with nothing after it is the progenitor — the one person every
+            number descends from, and the only way to write him.
           schema:
             type: string
             maxLength: 40

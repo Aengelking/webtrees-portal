@@ -33,6 +33,7 @@
 1 NAME Bertha /Beispiel/
 2 GIVN Bertha
 2 SURN Beispiel
+2 NICK Betty
 1 SEX F
 1 BIRT
 2 DATE 4 JUN 1889
@@ -55,6 +56,7 @@
 1 NAME Clara /Beispiel/
 2 GIVN Clara
 2 SURN Beispiel
+2 NICK Clärchen
 1 SEX F
 1 RESN confidential
 1 BIRT

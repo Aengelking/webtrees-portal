@@ -3231,6 +3231,50 @@ it from being read as something else.
 
 ---
 
+### 2.58 The progenitor, the editor, and the name half the family uses
+
+Three corrections, and each of them is a case the design had quietly decided
+without noticing it was deciding.
+
+**`GS` is the progenitor.** §2.56 made `GS/` resolve to the empty path and then
+refused it — "the root of everything is not a person anybody is numbered as".
+That was wrong about this archive: the root *is* a person, the one every number
+descends from, and `GS` is the only way to write him. The arithmetic needed no
+change — an empty path measures like any other — only the refusal had to go.
+One guard came with it: a marriage row whose path is empty would prefix-match
+every number there is, so those rows are skipped. The progenitor married nobody
+inside his own family.
+
+**An editor is not a member.** `SearchConsent` narrows what a member can
+enumerate, and it was being applied to everybody — including the people who
+maintain the tree, who then found the search hiding living relatives from them.
+That protects nobody. An editor opens the whole tree in webtrees, changes it,
+exports the GEDCOM; the rule cost them the one screen that makes the portal
+usable for the work they actually do, and bought no privacy at all.
+
+It is also the line this codebase already draws twice — §2.25's "what members
+can see" limit never touches these roles, and `IndividualView` offers them the
+editing link — so the exemption is the consistent answer rather than a new one.
+What did *not* change: a record webtrees hides stays hidden, editor or not,
+because this rule only ever narrowed.
+
+**A nickname is part of a name.** GEDCOM lets it be written inside the name —
+`Bertha "Betty" /Beispiel/` — or as a `2 NICK` subtag of it. webtrees builds
+every name it renders, and the `name` table its search queries, from the name
+value alone. So in an archive that uses the subtag, **every nickname the family
+has was invisible and unfindable**: not shown on any card, and searching for it
+found nobody.
+
+Both halves fixed, and both by treating the two spellings as one thing. The
+nickname goes back into the name where the inline spelling would have put it —
+after the given names, before the surname — and skipped where the name already
+carries it, so a record written both ways does not say it twice. The search
+gets a third pass alongside names and reference numbers, confirmed against the
+NAME facts the reader may see, so a hidden name does not leak one through its
+nickname.
+
+---
+
 ---
 
 ## 3. Things that were guessed

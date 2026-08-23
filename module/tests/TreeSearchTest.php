@@ -248,6 +248,92 @@ class TreeSearchTest extends PortalTestCase
     }
 
     // -----------------------------------------------------------------
+    // Nicknames
+    // -----------------------------------------------------------------
+
+    /**
+     * The name the family actually uses.
+     *
+     * GEDCOM lets a nickname be written inside the name — which webtrees
+     * indexes — or as a `2 NICK` subtag of it, which it does not index at all.
+     * Bertha's is a subtag, so before this she was unfindable by the only name
+     * half the family knows her by.
+     */
+    public function testANicknameFindsThePerson(): void
+    {
+        $this->signInAsAnna();
+
+        self::assertSame(['X2'], $this->xrefs(['q' => 'Betty']));
+    }
+
+    public function testANicknameIsMatchedOnPartOfIt(): void
+    {
+        $this->signInAsAnna();
+
+        self::assertContains('X2', $this->xrefs(['q' => 'etty']));
+    }
+
+    /** And it is on the card, where the inline spelling would have put it. */
+    public function testTheNicknameIsInTheNameOnTheCard(): void
+    {
+        $this->signInAsAnna();
+
+        self::assertSame('Bertha "Betty" Beispiel', $this->search(['q' => 'Betty'])[0]['name']);
+    }
+
+    /**
+     * A record whose name is hidden does not leak one through its nickname.
+     */
+    public function testAHiddenNameKeepsItsNicknameHidden(): void
+    {
+        $this->signInAsAnna();
+
+        // Clara is `RESN confidential`, so she is not in any answer at all.
+        self::assertSame([], $this->search(['q' => 'Clärchen']));
+    }
+
+    // -----------------------------------------------------------------
+    // Who may find whom
+    // -----------------------------------------------------------------
+
+    /**
+     * An editor is not a member, and the rule was never about them.
+     *
+     * `SearchConsent` narrows what a *member* can enumerate. Somebody who
+     * maintains the tree already has all of it — they open it in webtrees,
+     * they change it, they can export the GEDCOM — so hiding a living cousin
+     * from their search protects nobody and breaks the one screen that makes
+     * the portal usable for the work they do.
+     */
+    public function testSomebodyWhoKeepsTheTreeSeesEverybodyTheyMaySee(): void
+    {
+        $editor = $this->createUser('edith', 'Edith Beispiel', 'geheim', UserInterface::ROLE_EDITOR, 'X1');
+        $this->login($editor);
+
+        // Dieter is living and in no directory. A member is told nothing about
+        // him; an editor is told what the tree knows.
+        self::assertContains('X4', $this->xrefs(['q' => 'Dieter']));
+    }
+
+    public function testTheIndexesFollowTheSameLineForAnEditor(): void
+    {
+        $editor = $this->createUser('edith', 'Edith Beispiel', 'geheim', UserInterface::ROLE_EDITOR, 'X1');
+        $this->login($editor);
+
+        // Everybody but Clara and Ida, whom webtrees itself hides.
+        self::assertSame(9, $this->counted($this->index()['surnames'])['Beispiel']);
+    }
+
+    /** And the record webtrees hides stays hidden, editor or not. */
+    public function testAnEditorStillDoesNotSeeWhatWebtreesHides(): void
+    {
+        $editor = $this->createUser('edith', 'Edith Beispiel', 'geheim', UserInterface::ROLE_EDITOR, 'X1');
+        $this->login($editor);
+
+        self::assertNotContains('X3', $this->xrefs(['q' => 'Clara']));
+    }
+
+    // -----------------------------------------------------------------
     // What a card says
     // -----------------------------------------------------------------
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Services;
 
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Tree;
@@ -38,6 +39,10 @@ use Fisharebest\Webtrees\Tree;
  * wrong in — and it is why a member who is not in the directory can still be
  * reached by walking the family from a relative, exactly as before. The
  * search does not become a second, quieter way of enumerating the living.
+ *
+ * **And it applies to members, not to the people who keep the tree.** See
+ * `keepsTheTree()`: an editor already has all of it, one click away, in the
+ * software this portal is a front door to.
  */
 class SearchConsent
 {
@@ -51,6 +56,9 @@ class SearchConsent
      */
     private array|null $listed = null;
 
+    /** Whether this reader maintains the tree, asked once. */
+    private bool|null $keeper = null;
+
     public function __construct(
         private readonly MemberService $members,
         private readonly PortalTreeService $trees,
@@ -60,11 +68,37 @@ class SearchConsent
     /** May this person appear in a search result or an index? */
     public function mayFind(Individual $individual): bool
     {
+        if ($this->keepsTheTree()) {
+            return true;
+        }
+
         if ($individual->isDead()) {
             return true;
         }
 
         return isset($this->listedXrefs()[$individual->xref()]);
+    }
+
+    /**
+     * Whether the reader is one of the people who maintain the tree.
+     *
+     * **They are exempt, and the rule is no weaker for it.** This narrows what
+     * a *member* can enumerate. An editor already has the whole tree: they
+     * open it in webtrees, they change it, they can export the GEDCOM. Hiding
+     * a living cousin from their search protects nobody and costs them the
+     * one screen that would have made the portal usable for the work they
+     * actually do — finding the record that needs fixing.
+     *
+     * It is also the line webtrees itself draws, and the one this module
+     * already draws twice: the "what members can see" limit never touches
+     * these roles, and `IndividualView` offers them the editing link.
+     *
+     * Read once. `Auth::isEditor()` is a per-tree preference lookup, and this
+     * is asked once per record in a scan of the whole archive.
+     */
+    private function keepsTheTree(): bool
+    {
+        return $this->keeper ??= Auth::isEditor($this->trees->tree());
     }
 
     /**

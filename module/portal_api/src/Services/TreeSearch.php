@@ -17,6 +17,7 @@ use function array_filter;
 use function array_slice;
 use function array_values;
 use function count;
+use function mb_stripos;
 use function mb_strtolower;
 use function preg_match;
 use function preg_split;
@@ -79,12 +80,13 @@ class TreeSearch
     }
 
     /**
-     * People matching what somebody typed: a name, or a reference number.
+     * People matching what somebody typed: a name, a nickname, or a
+     * reference number.
      *
-     * Both at once, because a member typing "1487" and a member typing
-     * "Bertha" are doing the same thing and should not have to say which. The
-     * two result sets are merged and de-duplicated, so a search that matches
-     * a person both ways lists them once.
+     * All three at once, because a member typing "1487", a member typing
+     * "Bertha" and a member typing "Betty" are doing the same thing and should
+     * not have to say which. The result sets are merged and de-duplicated, so
+     * a person who matches more than one way is listed once.
      *
      * @return array{items: array<int,Individual>, total: int, truncated: bool}
      */
@@ -104,6 +106,10 @@ class TreeSearch
         }
 
         foreach ($this->byReference($tree, $query, $access_level) as $individual) {
+            $found[$individual->xref()] = $individual;
+        }
+
+        foreach ($this->byNickname($tree, $query, $access_level) as $individual) {
             $found[$individual->xref()] = $individual;
         }
 
@@ -412,6 +418,58 @@ class TreeSearch
             // search box should have to remember which.
             $matches = $individual->facts(['REFN'], false, $access_level)
                 ->contains(static fn (Fact $fact): bool => strcasecmp(trim($fact->value()), $needle) === 0);
+
+            if ($matches) {
+                $found[] = $individual;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * People the family calls something the archive did not write in their name.
+     *
+     * A nickname can be written inside the name — `Bertha "Betty" /Beispiel/`,
+     * which the name index already holds and `byName()` already finds — or as
+     * a `2 NICK` subtag of it. webtrees builds its index from the name value
+     * alone, so the second kind is in no index at all: searching for "Betty"
+     * finds nobody, however plainly the record says it.
+     *
+     * The `LIKE` is again a way of not reading the whole tree rather than the
+     * test. It is deliberately loose — `%NICK %term%` matches the term
+     * anywhere after any `NICK` line — and the nickname is then compared
+     * properly, against the NAME facts this member is allowed to see.
+     *
+     * @return array<int,Individual>
+     */
+    private function byNickname(Tree $tree, string $query, int $access_level): array
+    {
+        $needle = trim($query);
+
+        if ($needle === '') {
+            return [];
+        }
+
+        $rows = DB::table('individuals')
+            ->where('i_file', '=', $tree->id())
+            ->where('i_gedcom', 'LIKE', '%NICK %' . $this->loosened($needle) . '%')
+            ->select(['individuals.*'])
+            ->limit(self::MAX_MATCHES)
+            ->get();
+
+        $mapper = Registry::individualFactory()->mapper($tree);
+        $found  = [];
+
+        foreach ($rows as $row) {
+            $individual = $mapper($row);
+
+            if (!$individual->canShow($access_level) || !$individual->canShowName($access_level)) {
+                continue;
+            }
+
+            $matches = $individual->facts(['NAME'], false, $access_level)
+                ->contains(static fn (Fact $fact): bool => mb_stripos($fact->attribute('NICK'), $needle) !== false);
 
             if ($matches) {
                 $found[] = $individual;

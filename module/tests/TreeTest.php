@@ -74,7 +74,7 @@ class TreeTest extends PortalTestCase
 
         self::assertSame('Anna Beispiel', $names[1]);
         self::assertSame('Emil Beispiel', $names[2]);
-        self::assertSame('Bertha Beispiel', $names[3]);
+        self::assertSame('Bertha "Betty" Beispiel', $names[3]);
         self::assertSame('Gustav Beispiel', $names[4]);
         self::assertSame('Helene Beispiel', $names[5]);
         self::assertSame('Konrad Beispiel', $names[6]);

@@ -17,6 +17,9 @@ use function route;
 use function html_entity_decode;
 use function in_array;
 use function preg_replace;
+use function mb_strrpos;
+use function mb_substr;
+use function rtrim;
 use function str_contains;
 use function str_replace;
 use function strip_tags;
@@ -428,7 +431,9 @@ class RecordPresenter
      */
     public function plainName(Individual $individual): string
     {
-        return $this->nameAt($individual, $individual->getPrimaryName());
+        $index = $individual->getPrimaryName();
+
+        return $this->withNickname($individual, $this->nameAt($individual, $index), $index, null);
     }
 
     /**
@@ -442,7 +447,68 @@ class RecordPresenter
             return I18N::translate('Private');
         }
 
-        return $this->nameAt($individual, $individual->getPrimaryName());
+        $index = $individual->getPrimaryName();
+
+        return $this->withNickname($individual, $this->nameAt($individual, $index), $index, $access_level);
+    }
+
+    /**
+     * The nickname, put back into the name it belongs to.
+     *
+     * **Two ways of writing one thing.** GEDCOM lets a nickname be written
+     * inside the name — `Bertha "Betty" /Beispiel/` — or as a subtag of it,
+     * `2 NICK Betty`. webtrees shows the first and drops the second from every
+     * name it renders: `getAllNames()` reads only the NAME value, so a subtag
+     * reaches neither the displayed name nor the `name` table the search
+     * queries. In an archive that uses the subtag, that is every nickname the
+     * family has, invisible and unfindable.
+     *
+     * So it is put back where the other spelling already is, in the quotes
+     * webtrees itself uses. Nothing is invented: this is the name the same
+     * record would have had if it were written the other way.
+     *
+     * Taken from the first visible NAME fact — which is the primary name on
+     * every record that has one nickname, and this is not the place to guess
+     * which of several belongs to which. Skipped where the name itself already
+     * carries it, so a record written both ways does not say it twice.
+     *
+     * Put where the inline spelling puts it: after the given names and before
+     * the surname. Appended instead where the name does not end with its own
+     * surname — a name with a suffix on it, or one whose surname is unknown —
+     * because a nickname in the wrong place reads as part of the surname.
+     */
+    private function withNickname(
+        Individual $individual,
+        string $name,
+        int $index,
+        int|null $access_level
+    ): string {
+        if ($name === '' || $name === I18N::translate('Private')) {
+            return $name;
+        }
+
+        $fact = $individual->facts(['NAME'], false, $access_level)->first();
+
+        if (!$fact instanceof Fact) {
+            return $name;
+        }
+
+        $nickname = trim($fact->attribute('NICK'));
+
+        if ($nickname === '' || str_contains($name, $nickname)) {
+            return $name;
+        }
+
+        // Straight quotes, as GEDCOM and webtrees both write them inline.
+        $quoted  = '"' . $nickname . '"';
+        $surname = trim($individual->getAllNames()[$index]['surname'] ?? '');
+        $at      = $surname === '' ? false : mb_strrpos($name, $surname);
+
+        if ($at === false || $at === 0) {
+            return $name . ' ' . $quoted;
+        }
+
+        return rtrim(mb_substr($name, 0, $at)) . ' ' . $quoted . ' ' . mb_substr($name, $at);
     }
 
     private function alternateName(Individual $individual, int $access_level): string|null
