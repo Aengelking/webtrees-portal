@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { Notifications } from './components/Notifications'
 import { applicationServerKey } from './pwa/notifications'
 import './i18n'
@@ -31,20 +32,32 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 const posted: { endpoint?: string; method?: string }[] = []
 
+/** Every request, in order, so that "before the session goes" can be asserted. */
+const calls: string[] = []
+
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'
+const DESKTOP = 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0.0.0 Safari/537.36'
+
 function stub(
   push: { available: boolean; public_key: string; subscribed: boolean },
   browser: {
     permission?: NotificationPermission
     request?: NotificationPermission
     existing?: { endpoint: string } | null
+    /** False for a browser with no push API at all — every iOS tab. */
+    capable?: boolean
+    userAgent?: string
   } = {},
 ) {
   posted.length = 0
+  calls.length = 0
 
   vi.stubGlobal(
     'fetch',
     vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
       const url = String(input)
+
+      calls.push(`${init?.method ?? 'GET'} ${url}`)
 
       if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
 
@@ -67,23 +80,33 @@ function stub(
       ? null
       : { ...browser.existing, unsubscribe }
 
-  vi.stubGlobal('Notification', {
-    permission: browser.permission ?? 'default',
-    requestPermission: vi.fn().mockResolvedValue(browser.request ?? 'granted'),
-  })
+  const capable = browser.capable !== false
 
-  vi.stubGlobal('PushManager', function PushManager() {})
+  if (capable) {
+    vi.stubGlobal('Notification', {
+      permission: browser.permission ?? 'default',
+      requestPermission: vi.fn().mockResolvedValue(browser.request ?? 'granted'),
+    })
+
+    vi.stubGlobal('PushManager', function PushManager() {})
+  }
 
   vi.stubGlobal('navigator', {
     ...navigator,
-    serviceWorker: {
-      ready: Promise.resolve({
-        pushManager: {
-          subscribe,
-          getSubscription: vi.fn().mockResolvedValue(existing),
-        },
-      }),
-    },
+    userAgent: browser.userAgent ?? DESKTOP,
+    maxTouchPoints: 0,
+    ...(capable
+      ? {
+          serviceWorker: {
+            ready: Promise.resolve({
+              pushManager: {
+                subscribe,
+                getSubscription: vi.fn().mockResolvedValue(existing),
+              },
+            }),
+          },
+        }
+      : {}),
   })
 
   return { subscribe, unsubscribe }
@@ -103,6 +126,7 @@ function renderIt() {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 describe('offering notifications', () => {
@@ -189,6 +213,170 @@ describe('offering notifications', () => {
     await waitFor(() => {
       expect(container.innerHTML).toBe('')
     })
+  })
+
+  /**
+   * The case this section used to disappear for, and the one that matters
+   * most: iOS has no push API in a tab at all, so `permission()` says
+   * `unsupported` for an audience largely on iPhones. Installing is the whole
+   * difference, which makes this §2.33's "merely harder" rather than
+   * "impossible" — and merely harder gets a sentence.
+   */
+  it('tells an iPhone in a tab that the home screen is what is missing', async () => {
+    stub(
+      { available: true, public_key: 'BKxQ', subscribed: false },
+      { capable: false, userAgent: IPHONE },
+    )
+    renderIt()
+
+    expect(await screen.findByText(/nur, wenn die App auf dem Home-Bildschirm liegt/)).toBeDefined()
+    expect(screen.getByText(/Auf den Startbildschirm/)).toBeDefined()
+
+    // Still no button: the browser would ignore it, which is the whole rule.
+    expect(screen.queryByRole('button', { name: 'Benachrichtigungen einschalten' })).toBeNull()
+  })
+
+  /** Where installing would change nothing, the silence is still right. */
+  it('says nothing in a browser that simply has no push', async () => {
+    stub(
+      { available: true, public_key: 'BKxQ', subscribed: false },
+      { capable: false, userAgent: DESKTOP },
+    )
+    const { container } = renderIt()
+
+    await waitFor(() => {
+      expect(container.innerHTML).toBe('')
+    })
+  })
+
+  it('says that signing out will switch this device off again', async () => {
+    stub(
+      { available: true, public_key: 'BKxQ', subscribed: true },
+      { permission: 'granted', existing: { endpoint: 'https://push.example.test/old' } },
+    )
+    renderIt()
+
+    expect(await screen.findByText(/Wenn Sie sich abmelden/)).toBeDefined()
+  })
+})
+
+/**
+ * A subscription is not session state — a row against a user id, and an
+ * address the browser's push service holds. Nothing about signing out reaches
+ * either of them, so without this the phone goes on buzzing for an account
+ * somebody has just signed out of, and the switch that would stop it is behind
+ * the sign-in they just left.
+ */
+describe('signing out', () => {
+  function Harness() {
+    const { signOut } = useAuth()
+
+    return <button onClick={() => void signOut()}>Abmelden</button>
+  }
+
+  function renderHarness() {
+    return render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <AuthProvider>
+          <Harness />
+        </AuthProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('forgets this device, and does it while there is still a session to do it with', async () => {
+    const { unsubscribe } = stub(
+      { available: true, public_key: 'BKxQ', subscribed: true },
+      { permission: 'granted', existing: { endpoint: 'https://push.example.test/old' } },
+    )
+    renderHarness()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Abmelden' }))
+
+    await waitFor(() => {
+      expect(posted).toEqual([{ endpoint: 'https://push.example.test/old', method: 'DELETE' }])
+    })
+
+    expect(unsubscribe).toHaveBeenCalled()
+
+    // `DELETE /push` is authenticated by the session it is deleting itself
+    // out of, so the order is the assertion: after `DELETE /session` it would
+    // be a 401 and the row would survive.
+    const relevant = calls.filter((call) => call.includes('/push') || call.includes('/session'))
+    expect(relevant).toEqual(['DELETE /api/v1/push', 'DELETE /api/v1/session'])
+  })
+
+  /**
+   * `navigator.serviceWorker.ready` never settles in a browser that supports
+   * service workers and has none registered — a tab where registration failed,
+   * and every tab in the moment before it finishes. Awaited unbounded, that is
+   * a member stuck on a disabled *Abmelden* button.
+   */
+  it('signs out anyway when the browser never answers', async () => {
+    stub(
+      { available: true, public_key: 'BKxQ', subscribed: true },
+      { permission: 'granted', existing: { endpoint: 'https://push.example.test/old' } },
+    )
+
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent: DESKTOP,
+      // The promise this is really about: supported, registered by nobody.
+      serviceWorker: { ready: new Promise(() => {}) },
+    })
+
+    vi.useFakeTimers()
+    renderHarness()
+
+    // `fireEvent` rather than `userEvent`, and no `waitFor`: both drive
+    // themselves with timers this test has just replaced, and Testing Library
+    // does not recognise Vitest's fakes as fakes — it would wait on a clock
+    // that only moves when asked.
+    fireEvent.click(screen.getByRole('button', { name: 'Abmelden' }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000)
+    })
+
+    expect(calls).toContain('DELETE /api/v1/session')
+    expect(posted).toEqual([])
+  })
+
+  /** Nobody asked about notifications. They asked to be signed out. */
+  it('signs out anyway when the push service cannot be told', async () => {
+    stub(
+      { available: true, public_key: 'BKxQ', subscribed: true },
+      { permission: 'granted', existing: { endpoint: 'https://push.example.test/old' } },
+    )
+
+    // A browser that will not give up its subscription — a revoked
+    // permission, a service worker that never became ready.
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent: DESKTOP,
+      // A getter, so the rejection is created at the moment it is awaited.
+      // Built eagerly it is an unhandled rejection before the click, which
+      // Vitest reports as an error against a test that passed.
+      serviceWorker: {
+        get ready() {
+          return Promise.reject(new Error('no service worker'))
+        },
+      },
+    })
+
+    renderHarness()
+
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Abmelden' }))
+
+    await waitFor(() => {
+      expect(calls).toContain('DELETE /api/v1/session')
+    })
+
+    expect(posted).toEqual([])
   })
 })
 

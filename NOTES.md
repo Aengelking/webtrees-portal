@@ -2444,6 +2444,90 @@ assertion written the modern way passes whatever the code does. The direct
 `userEvent.click()` calls leave the globals alone, which is why the connection
 link's test already used them.
 
+
+### 2.43 A subscription is not session state, in both directions
+
+The question was whether notifications survive being signed out. They do —
+`knock()` reads a row against a user id and never asks who is signed in, and
+the browser's own subscription lives in the service worker, which has no
+session to lose. Which is right for the case the feature exists for, and wrong
+for the other one, and those two had been treated as one thing.
+
+**An expired session is the case, and it already worked.** A phone that has
+been in a pocket for a fortnight has no cookie left; a knock arrives anyway,
+the tap opens */messages*, `RequireSession` puts the member on the login screen
+carrying that path in `state.from`, and the message is there a moment later.
+Nothing to change: this is the whole point of a subscription that outlives a
+session.
+
+**Signing out is not that case.** Nobody's cookie expired; somebody pressed
+*Abmelden*, which on this portal's audience most often means a shared tablet or
+a phone being handed over. The subscription stayed, so the device went on
+announcing that something had arrived for the person who had just left — and
+the switch that would stop it is in *Einstellungen*, behind the sign-in they
+just left. It discloses nothing (the notification carries nothing to disclose,
+§2.36), but *„eine neue Nachricht"* on a tablet in the kitchen is still a fact
+about somebody who is no longer using it.
+
+So `signOut` forgets the device first, and the order is the whole of it:
+`DELETE /push` is authenticated by the session it is deleting itself out of, so
+after `Auth::logout()` it would be a 401 and the row would survive. That
+ordering is what the test asserts, because it is the part that will look
+arbitrary to whoever moves these two lines.
+
+**It is not the same function as the switch in Settings, on purpose.**
+`switchOff` reports a failure to a member standing in front of it, having just
+tapped it. `forgetThisDevice` swallows everything: nobody asked about
+notifications, they asked to be signed out, and that has to happen whatever the
+push service is doing. A row that outlives its browser subscription is deleted
+by the first knock that gets a 410 (§2.36) — the failure repairs itself, so
+there is nothing to report and nothing to hold up a logout for.
+
+**The wait is bounded, which the first version was not.**
+`navigator.serviceWorker.ready` is a promise that never settles in a browser
+that supports service workers and has none registered — a tab where
+registration failed, and every tab in the moment before it finishes. Awaiting
+it unbounded put the whole of *Abmelden* behind it: press the button, watch it
+go grey, stay signed in. Three seconds and then sign out regardless. Nothing is
+lost by giving up, because a push subscription cannot exist without a
+registration — a `ready` that does not arrive means there was no device to
+forget.
+
+Its test cost more thought than the code. Vitest's fake timers are not
+recognised as fake by Testing Library, so `waitFor` and `userEvent` both sit
+waiting on a clock that now only moves when asked, and the test hangs rather
+than failing. `fireEvent` plus an explicit `advanceTimersByTimeAsync` inside
+`act` drives it with no hidden timer of its own. `vi.useRealTimers()` belongs in
+`afterEach` and not at the end of the test that turned them on: a test that
+times out never reaches its own cleanup, and the fakes then leak into the next
+test, which fails somewhere unrelated.
+
+**And the card says so before anybody agrees to it**, in the same spirit as the
+lock-screen sentence: *„Wenn Sie sich abmelden, wird das auf diesem Gerät wieder
+ausgeschaltet."* A member who finds notifications silently off after signing
+back in has been surprised by their own portal.
+
+**The iPhone was reading a blank space.** §2.33's rule is that silence is right
+for something impossible and wrong for something merely harder, and this had
+been filed under the wrong one. iOS has no push API in a Safari tab *at all* —
+not a refused permission, the objects do not exist — so `permission()` answered
+`unsupported` and the whole section returned `null` for the largest single part
+of this audience. Nothing on screen said the feature existed, let alone that
+one action away it would.
+
+The fix is one sentence, shown for `install === 'apple'` and nothing else. The
+distinction is worth the condition: an old iOS that is already `standalone`, a
+desktop browser with no push, Android's WebView — installing changes nothing
+for any of those, so they keep the silence they had. Only the case where the
+way in is real, and one section up the same screen, gets told about it.
+
+Deliberately *not* repeating `install.apple`'s Share-sheet instructions in the
+second card. §2.38 prefers the way in to a sentence about where the way in is,
+but the way in is already rendered directly above by `InstallPortal` — two
+identical instructions on one screen is not §2.38, it is noise. The sentence
+names that section instead, and says what installing buys, which is the part
+that section does not know.
+
 ---
 
 ## 3. Things that were guessed

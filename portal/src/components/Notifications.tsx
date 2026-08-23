@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { PushState } from '../api/types'
+import { useInstallState } from '../pwa/install'
 import { disable, enable, permission, subscribedHere } from '../pwa/notifications'
 import { Button, Card, ErrorNotice, Section } from './ui'
 
@@ -20,9 +21,19 @@ import { Button, Card, ErrorNotice, Section } from './ui'
  * dead button: a browser that cannot do this at all, a family that has
  * switched it off, and a member who once said no — which only they can undo,
  * in the browser's own settings.
+ *
+ * The fourth case is not a refusal and took the longest to see. On an iPhone
+ * or iPad there is no push API in a Safari tab at all — it exists only for a
+ * web app that has been put on the home screen — so `permission()` answers
+ * `unsupported` for the members most likely to be reading this, and the
+ * section used to disappear. §2.33's rule says silence is right for something
+ * impossible and wrong for something merely harder, and this is merely
+ * harder: the way to notifications is one section up the same screen. So it
+ * is said, rather than left to be guessed at.
  */
 export function Notifications() {
   const { t } = useTranslation()
+  const install = useInstallState()
 
   const { data, isError, error, refetch } = useQuery<PushState>({
     queryKey: ['push'],
@@ -54,9 +65,28 @@ export function Notifications() {
   }
 
   // Nothing on offer and nothing the member could do about it: the family has
-  // switched notifications off, or this browser has no push at all.
-  if (data?.available !== true || state === 'unsupported') {
+  // switched notifications off, or the portal has no keys to send with.
+  if (data?.available !== true) {
     return null
+  }
+
+  if (state === 'unsupported') {
+    // `apple` means an iPhone or iPad in a tab, where installing is the whole
+    // difference between no push and push. Every other browser that lands
+    // here — an old iOS that is already `standalone`, a desktop without the
+    // API — genuinely cannot, and silence is right for that.
+    if (install !== 'apple') {
+      return null
+    }
+
+    return (
+      <Section title={t('notifications.title')}>
+        <Card>
+          <p className="text-base text-slate-700">{t('notifications.body')}</p>
+          <p className="mt-3 text-base text-slate-900">{t('notifications.needsInstall')}</p>
+        </Card>
+      </Section>
+    )
   }
 
   async function switchOn() {
@@ -118,7 +148,10 @@ export function Notifications() {
           <div className="mt-4">
             {here ? (
               <>
-                <p className="mb-3 text-base font-medium text-slate-900">{t('notifications.on')}</p>
+                <p className="mb-1 text-base font-medium text-slate-900">{t('notifications.on')}</p>
+                {/* Signing out switches this off — see `forgetThisDevice`. A
+                    member is told that here rather than discovering it. */}
+                <p className="mb-3 text-base text-slate-700">{t('notifications.untilSignOut')}</p>
                 <Button variant="secondary" disabled={busy} onClick={() => void switchOff()}>
                   {t('notifications.switchOff')}
                 </Button>

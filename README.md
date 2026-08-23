@@ -378,6 +378,21 @@ once. A member who says no is not asked again by the portal: the page then says
 where the browser's own switch is, rather than offering a button that would do
 nothing.
 
+On an iPhone or iPad that is still in a tab, the Benachrichtigungen section
+says that the home screen is what is missing and points at *Auf den
+Startbildschirm* one section above it. It used to render nothing there, which
+left the largest part of the audience looking at a settings screen with no
+explanation of why the feature everyone else had was absent.
+
+**Signing out switches it off on that device.** A push subscription is not part
+of the session — it is a row against a member's account plus an address held by
+the browser's push service — so nothing about signing out would otherwise reach
+it, and the phone would go on announcing arrivals for an account nobody is
+signed into. The card says so before a member switches it on. An expired
+session is *not* the same thing and is left alone: that is the case the feature
+exists for, and the member is taken to the login screen and on to the message
+from the notification itself.
+
 **Every message knocks**, unlike the e-mail notification above, which stays
 quiet while something is already unread. A notification that arrives while the
 member is reading costs nothing and replaces nothing; the browser collapses

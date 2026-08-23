@@ -435,6 +435,9 @@ export const en: Translations = {
     switchOff: 'Turn off on this device',
     working: 'One moment …',
     on: 'This device is being notified.',
+    untilSignOut: 'Signing out turns this off again on this device.',
+    needsInstall:
+      'On an iPhone or iPad, notifications work only once the app is on the home screen. How to put it there is at the top of this page, under "On the home screen". You can turn notifications on here afterwards.',
     blocked:
       'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
   },
