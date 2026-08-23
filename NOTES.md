@@ -3319,6 +3319,25 @@ One collision worth remembering: `Loading` is a `role="status"` as well, so on
 a screen still fetching there are two. The tests ask for the gesture's own
 words rather than for its role.
 
+#### And a flake the extra component tipped over
+
+CI went red on `Contacts.test.tsx`, on the same commit that had been green in
+the push run minutes before and green five times locally. The failure dump had
+"Wird geladen" in it: the screen was still fetching when the one-second
+`findByRole` gave up.
+
+Nothing here made it slower in any way worth measuring — `useInstallState()` is
+a string comparison. What it did was add one more component to a render that
+was already finishing at about the deadline on a two-core runner, and
+`getByRole` with a name is the most expensive query Testing Library has, re-run
+on every mutation while a screen settles.
+
+So the fix is the harness rather than the test: `asyncUtilTimeout` is five
+seconds now, in `src/test/setup.ts`. It costs nothing when a test passes, and a
+genuinely broken one still fails — four seconds later. Raising it for the one
+test that happened to be closest to the line would have left the rest of the
+suite exactly as marginal.
+
 ---
 
 ---
