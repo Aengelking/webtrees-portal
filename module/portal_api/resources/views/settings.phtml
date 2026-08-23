@@ -318,6 +318,9 @@ foreach ($trees as $a_tree) {
         <?= I18N::translate('An SB number is a position in one descent: the line prefix, then one character per generation saying which child. That makes it a complete ancestral path, so the portal can work out how any two people are related from their two numbers alone — with no records in between, and however distant they are.') ?>
     </p>
     <p class="form-text">
+        <?= I18N::translate('A record that belongs to no line — an ancestor above them all, or a branch that was numbered and then died out — is written “GS/” followed by the path itself. The portal reads those too, and they are what lets it reach the deepest ancestors.') ?>
+    </p>
+    <p class="form-text">
         <?= I18N::translate('Two things are not in the number itself and have to be kept here. Both are shipped with the values the family’s own calculator used, and both are family news rather than software: leave a box empty to keep using what the module was built with.') ?>
     </p>
 
@@ -328,7 +331,7 @@ foreach ($trees as $a_tree) {
         <div class="col-sm-9">
             <textarea class="form-control font-monospace" rows="8" id="<?= SackNumbers::SETTING_LINES ?>" name="<?= SackNumbers::SETTING_LINES ?>" spellcheck="false"><?= e($sack_lines === '' ? $sack_lines_default : $sack_lines) ?></textarea>
             <div class="form-text">
-                <?= I18N::translate('One line per entry, “number = prefix”. The prefix is what the line’s number stands for at the start of every path in it, which is why two people in different lines still have a common ancestor.') ?>
+                <?= I18N::translate('One line per entry, “number = prefix”. The prefix is what the line’s number stands for at the start of every path in it, which is why two people in different lines still have a common ancestor. “GS” needs no entry — it stands for nothing, because a GS number is already the whole path.') ?>
             </div>
         </div>
     </div>

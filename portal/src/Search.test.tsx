@@ -278,6 +278,34 @@ describe('the archive-number calculator', () => {
     expect(first.value).toBe('10/1335.11')
   })
 
+  /**
+   * A record that belongs to no line carries "GS/" and then the path itself.
+   * Those are numbers too, and the calculator has to start from one.
+   */
+  it('accepts a number that belongs to no line', async () => {
+    stub()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+        if (url.includes('/relationship')) return jsonResponse(CALCULATION)
+
+        return jsonResponse({
+          ...ME,
+          individual: { ...ANNA, references: [{ number: 'GS/755133', type: 'SB' }] },
+        })
+      }),
+    )
+
+    renderAt('/tree?tab=calculator')
+
+    const first = (await screen.findByLabelText('SB-Nr. 1')) as HTMLInputElement
+
+    expect(first.value).toBe('GS/755133')
+  })
+
   it('asks nothing until both numbers are there', async () => {
     stub()
     renderAt('/tree?tab=calculator')

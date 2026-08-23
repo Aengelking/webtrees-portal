@@ -168,6 +168,65 @@ class SackRelationshipTest extends PortalTestCase
     }
 
     // -----------------------------------------------------------------
+    // Numbers that belong to no line
+    // -----------------------------------------------------------------
+
+    /**
+     * `GS/` says "no line — what follows is already the path".
+     *
+     * The lines are branches, and not everybody sits inside one: the ancestors
+     * *above* them have no line to belong to, and neither does a branch that
+     * was numbered and then died out. Line 24 is `7d3`, so `GS/7d3` is the same
+     * person written the other way — and that is the cheapest way to say so.
+     */
+    public function testAWholeTreeNumberIsThePathItself(): void
+    {
+        $this->signIn();
+
+        self::assertSame($this->named('24/11', '24/1'), $this->named('GS/7d311', 'GS/7d31'));
+        self::assertSame('father/mother', $this->named('GS/7d311', 'GS/7d31'));
+    }
+
+    public function testTheTwoWaysOfWritingOneNumberAreOneNumber(): void
+    {
+        $this->signIn();
+
+        self::assertSame('identical', $this->ask('24/1', 'GS/7d31')['problem']);
+    }
+
+    /**
+     * The reason it was asked for: the deep ancestors.
+     *
+     * `7d` is above every line in the Ernestinian branch, so nothing else in
+     * the archive can name it — and every one of those lines descends from it.
+     */
+    public function testAnAncestorAboveTheLinesIsReachable(): void
+    {
+        $this->signIn();
+
+        self::assertSame('grandfather/grandmother', $this->named('24/1', 'GS/7d'));
+
+        // And further up still — `7` is above the whole archive.
+        self::assertSame('great-grandfather/great-grandmother', $this->named('24/1', 'GS/7'));
+    }
+
+    /** Case is how it happens to be written, not part of the number. */
+    public function testAWholeTreeNumberIsReadInEitherCase(): void
+    {
+        $this->signIn();
+
+        self::assertSame($this->named('24/11', 'GS/7D3'), $this->named('24/11', 'gs/7d3'));
+    }
+
+    /** `GS/` alone is the root of everything, which is nobody. */
+    public function testAWholeTreeNumberWithNoPathNamesNobody(): void
+    {
+        $this->signIn();
+
+        self::assertSame('invalid_b', $this->ask('24/11', 'GS/')['problem']);
+    }
+
+    // -----------------------------------------------------------------
     // What is not a number
     // -----------------------------------------------------------------
 
@@ -270,6 +329,9 @@ class SackRelationshipTest extends PortalTestCase
      * refuses to name a relationship through somebody the reader may not see
      * (§2.25). Both men carry an archive number, and the number *is* the path,
      * so the answer comes from two strings that were already on both cards.
+     *
+     * Otto's is a `GS/` number, because he belongs to no line — which is also
+     * how a record carrying one is proved to be read at all.
      */
     public function testACardNamesWhatTheTreeWalkCannotReach(): void
     {

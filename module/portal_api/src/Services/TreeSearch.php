@@ -21,6 +21,7 @@ use function mb_strtolower;
 use function preg_match;
 use function preg_split;
 use function str_replace;
+use function strcasecmp;
 use function trim;
 use function usort;
 
@@ -406,8 +407,11 @@ class TreeSearch
                 continue;
             }
 
+            // Case-insensitively: the archive writes "24/b521.12" in lower
+            // case and "GS/7D8" in upper, and nobody typing one of them into a
+            // search box should have to remember which.
             $matches = $individual->facts(['REFN'], false, $access_level)
-                ->contains(static fn (Fact $fact): bool => trim($fact->value()) === $needle);
+                ->contains(static fn (Fact $fact): bool => strcasecmp(trim($fact->value()), $needle) === 0);
 
             if ($matches) {
                 $found[] = $individual;
