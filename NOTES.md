@@ -3534,6 +3534,53 @@ what the server says as well.
 
 ---
 
+### 2.65 An invitation is for somebody who cannot see the tree yet
+
+**The bug: every invitation link was dead on arrival**, on any tree with
+`REQUIRE_AUTHENTICATION` switched on — which is every tree this portal is
+built for. The invitee opened the link and read *„Diese Einladung gilt nicht
+mehr“*. Withdrawing it and issuing another produced another dead link, because
+nothing was wrong with either of them.
+
+Both endpoints on that path began with `PortalTreeService::tree()`, and that
+method resolves the portal's tree through webtrees' `TreeService::all()` —
+which is filtered by whoever is asking. webtrees' rule for a non-administrator
+is that a tree requiring authentication is visible only to somebody who holds a
+role on it. A person holding an invitation holds nothing: that is the entire
+premise. So the list came back empty, the configured tree looked deleted, and
+`POST /invitation/preview` and `POST /invitation/accept` both answered 503
+*before either of them looked at the token*.
+
+This class had already been bitten twice by the same filtering — `GET /health`
+answered `not_configured` for a healthy installation, and the link out to
+webtrees dead-ended for signed-out readers — and both were fixed in place, each
+with a paragraph explaining it. The third time it is a method:
+`PortalTreeService::configuredTree()` reads the module's configured tree from
+the `gedcom` table and hands back the `Tree`, asking nobody's permission. Only
+the two invitation endpoints use it. Nothing is granted by it — a `Tree` is an
+id, a name and a title, the two callers read no records through it, and what
+actually opens an invitation is the token, checked on the very next line.
+
+**Two things came out of the same hole.**
+
+*The test harness was hiding it.* `TreeService::all()` caches its answer for
+the request, and `PortalTestCase` kept one cache across every request a test
+made — so a visitor's request was answered out of the list built by the
+administrator who imports the fixture. `api()` now clears that cache before
+each dispatch, which is what a request boundary does in production. The
+fixture also leaves `REQUIRE_AUTHENTICATION` off, so the three new tests in
+`InvitationTest` turn it on: that is how the portal is actually run.
+
+*The screen was blaming the invitation.* `Invitation.tsx` treated **any**
+failed preview as a spent link. A 503 is not an answer about the token, and
+saying it is sends the invitee to ask for a replacement that fails identically
+— which is exactly the loop this bug produced. Only `invalid_token` now reads
+as "no longer valid"; everything else gets the ordinary error notice, with its
+retry and its reference number, and the accept form names `not_configured` and
+`server_error` rather than shrugging.
+
+---
+
 ---
 
 ## 3. Things that were guessed

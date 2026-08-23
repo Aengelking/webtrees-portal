@@ -86,7 +86,10 @@ class InvitationAccept implements RequestHandlerInterface
         $body  = Json::body($request);
         $token = Json::requiredString($body, 'token');
         $ip    = Validator::attributes($request)->string('client-ip', '');
-        $tree  = $this->trees->tree();
+        // Resolved without an access check, for the reason spelled out in
+        // `PortalTreeService::configuredTree()`: the invitee is a visitor
+        // until `Auth::login()` further down, and `tree()` cannot serve one.
+        $tree  = $this->trees->configuredTree();
 
         if (!$this->rate_limiter->allows($ip, InvitationService::limiterKey($token))) {
             Log::addAuthenticationLog('Portal invitation acceptance rate-limited from ' . $ip);
@@ -129,6 +132,15 @@ class InvitationAccept implements RequestHandlerInterface
 
         Auth::login($user);
         Log::addAuthenticationLog('Portal invitation accepted: ' . $user->userName() . '/' . $user->realName());
+
+        // This request has just given somebody a role on the tree, and
+        // `TreeService::all()` caches its answer for the request under
+        // `all-trees` — filtered by whoever was asking when it was first
+        // asked, which here was a visitor with no account. Everything after
+        // this line reads the tree as the new member, so the cached answer is
+        // wrong by construction: without this, assembling their own page
+        // below would report the tree as missing.
+        Registry::cache()->array()->forget('all-trees');
 
         $user->setPreference(UserInterface::PREF_TIMESTAMP_ACTIVE, (string) time());
 

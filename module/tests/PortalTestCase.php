@@ -236,6 +236,16 @@ abstract class PortalTestCase extends TestCase
     ): ResponseInterface {
         $route = Registry::routeFactory()->routeMap()->getRoute($route_name);
 
+        // A request in production gets a fresh array cache, and
+        // `TreeService::all()` caches the tree list in it **filtered by
+        // whoever is asking**. Keeping one cache across the several requests
+        // a test makes would answer a visitor out of an administrator's list
+        // — and the fixture is imported by an administrator, so that is
+        // precisely what it would do. The invitation endpoints run for a
+        // visitor, so this is the difference between testing them and testing
+        // something else.
+        Registry::cache()->array()->forget('all-trees');
+
         $request = self::createRequest($method, $query)
             ->withAttribute('route', $route)
             ->withAttribute('client-ip', '203.0.113.7');
