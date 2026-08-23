@@ -546,8 +546,10 @@ export async function stubApi(page: Page): Promise<void> {
       })
     }
 
-    // Dieter: alive, no account, and on the invitation list — the one person
-    // whose page can offer an invitation.
+    // Dieter: alive, no account, and the one person whose page can offer an
+    // invitation. `invitable` is the server's answer — the screen no longer
+    // works it out from a list of candidates, because an editor's list is the
+    // whole archive.
     if (path === '/individuals/X4') {
       return json(route, {
         ...ANNA,
@@ -560,6 +562,7 @@ export async function stubApi(page: Page): Promise<void> {
         references: [],
         parents: [],
         siblings: [],
+        invitable: !invitedDieter,
       })
     }
 

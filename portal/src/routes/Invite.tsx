@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useInvitations, useInvite, useWithdrawInvitation } from '../api/queries'
+import { useInvitations, useInvite, useSearch, useWithdrawInvitation } from '../api/queries'
 import { ApiError } from '../api/client'
-import type { InvitationCandidate, MemberInvitation } from '../api/types'
+import type { IndividualRef, InvitationCandidate, MemberInvitation } from '../api/types'
+import { referenceLabel } from '../components/reference'
 import { ShareLink } from '../components/ShareLink'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading, Section } from '../components/ui'
 
@@ -92,7 +93,7 @@ export function Invite() {
             <Section title={t('invite.chooseTitle')}>
               {data.remaining === 0 ? (
                 <Notice title={t('invite.quota.title')} body={t('invite.quota.body')} />
-              ) : data.candidates.length === 0 ? (
+              ) : data.candidates.length === 0 && data.scope !== 'anyone' ? (
                 <Notice title={t('invite.none.title')} body={t('invite.none.body')} />
               ) : (
                 <form onSubmit={onSubmit} noValidate>
@@ -106,26 +107,32 @@ export function Invite() {
                   )}
 
                   <div className="mb-5">
-                    <label
-                      htmlFor="invite-candidate"
-                      className="mb-2 block text-base font-medium text-slate-900"
-                    >
-                      {t('invite.whoLegend')}
-                    </label>
-                    <select
-                      id="invite-candidate"
-                      value={selected}
-                      onChange={(event) => setSelected(event.target.value)}
-                      className="min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900"
-                    >
-                      <option value="">{t('invite.whoPlaceholder')}</option>
+                    {data.scope === 'anyone' ? (
+                      <FindAnybody selected={selected} onSelect={setSelected} />
+                    ) : (
+                      <>
+                        <label
+                          htmlFor="invite-candidate"
+                          className="mb-2 block text-base font-medium text-slate-900"
+                        >
+                          {t('invite.whoLegend')}
+                        </label>
+                        <select
+                          id="invite-candidate"
+                          value={selected}
+                          onChange={(event) => setSelected(event.target.value)}
+                          className="min-h-[48px] w-full rounded-lg border border-slate-400 bg-white px-4 py-3 text-base text-slate-900"
+                        >
+                          <option value="">{t('invite.whoPlaceholder')}</option>
 
-                      {data.candidates.map((candidate) => (
-                        <option key={candidate.xref} value={candidate.xref}>
-                          {nameFor(candidate)}
-                        </option>
-                      ))}
-                    </select>
+                          {data.candidates.map((candidate) => (
+                            <option key={candidate.xref} value={candidate.xref}>
+                              {nameFor(candidate)}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                   </div>
 
                   <Field
@@ -222,6 +229,105 @@ function IssuedLink({ link, onDismiss }: { link: string; onDismiss: () => void }
  * the right person is about to be picked — a family tree has more than one
  * Dieter Beispiel, and the years are what tell them apart.
  */
+/**
+ * Whom to invite, when the answer is "anybody in the archive".
+ *
+ * A member picks from a wheel of their close family — a handful of names, and
+ * the shape that screen has always had. An editor may invite anybody they can
+ * see, which in this archive is thousands of people, and a wheel with
+ * thousands of names in it is not a way of choosing one.
+ *
+ * So they get the same search the Stammbaum screen has, over the same
+ * endpoint. It already shows an editor the living (see `SearchConsent`), which
+ * is exactly who an invitation is for, and it already matches names, archive
+ * numbers and nicknames — so an editor holding a number can type it.
+ *
+ * **The list makes no promises about who may be invited.** It is the archive's
+ * search, not a list of candidates: a person who already has an account is in
+ * it like anybody else. The server answers that when the invitation is issued,
+ * and it says the same "you cannot invite this person" for every reason there
+ * could be. Filtering here instead would need the whole eligible set on the
+ * screen, which is the thing this exists to avoid.
+ */
+function FindAnybody({
+  selected,
+  onSelect,
+}: {
+  selected: string
+  onSelect: (xref: string) => void
+}) {
+  const { t } = useTranslation()
+  const [typed, setTyped] = useState('')
+  const [asked, setAsked] = useState('')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAsked(typed.trim()), 300)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [typed])
+
+  const { data, isFetching } = useSearch({ q: asked, page: 1 })
+
+  const found = data?.items ?? []
+  const chosen = found.find((person) => person.xref === selected) ?? null
+
+  return (
+    <>
+      <Field
+        label={t('invite.findLegend')}
+        hint={t('invite.findHint')}
+        type="search"
+        inputMode="search"
+        autoComplete="off"
+        value={typed}
+        onChange={(event) => setTyped(event.target.value)}
+      />
+
+      {chosen !== null && (
+        <p className="mt-3 rounded-lg border border-sky-800 bg-sky-50 p-3 text-base text-slate-900">
+          {t('invite.chosen', { name: nameOf(chosen) })}
+        </p>
+      )}
+
+      {asked !== '' && found.length === 0 && !isFetching && (
+        <p className="mt-3 text-base text-slate-700">{t('invite.findNone', { query: asked })}</p>
+      )}
+
+      {found.length > 0 && (
+        <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto" aria-label={t('invite.findResults')}>
+          {found.map((person) => (
+            <li key={person.xref}>
+              <button
+                type="button"
+                aria-pressed={person.xref === selected}
+                onClick={() => onSelect(person.xref)}
+                className={[
+                  'block min-h-[44px] w-full rounded-xl border p-3 text-left text-base',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700',
+                  person.xref === selected
+                    ? 'border-sky-800 bg-sky-50 font-semibold text-slate-900'
+                    : 'border-slate-300 bg-white text-slate-900 hover:bg-slate-50',
+                ].join(' ')}
+              >
+                {nameOf(person)}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )
+}
+
+/** A found person on one line: who they are, when, and their number. */
+function nameOf(person: IndividualRef): string {
+  return [person.name, person.lifespan, referenceLabel(person.references)]
+    .filter((part): part is string => part !== null && part !== undefined && part !== '')
+    .join(' · ')
+}
+
 function nameFor(candidate: InvitationCandidate): string {
   const named =
     candidate.relationship === null ? candidate.name : `${candidate.relationship} — ${candidate.name}`

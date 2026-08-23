@@ -184,6 +184,12 @@ class CloseFamily
         return isset($this->invitable($viewer, $tree, $access_level, $steps, $invitations)[$xref]);
     }
 
+    /** Whether somebody in this tree already has an account of their own. */
+    public function hasAccount(Tree $tree, string $xref): bool
+    {
+        return isset($this->linkedXrefs($tree)[$xref]);
+    }
+
     /**
      * Every XREF that already belongs to an account, in this tree.
      *

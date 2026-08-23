@@ -52,7 +52,21 @@ const OVERVIEW: InvitationOverview = {
   invitations: [],
 }
 
-function stub(overrides: Partial<InvitationOverview> = {}, post?: () => Response) {
+/**
+ * `invitable` is the record's own, and it is the server's answer rather than
+ * anything this screen works out.
+ *
+ * It moved there when an editor's candidate list became the whole archive:
+ * the person's page cannot hold thousands of records to answer one question
+ * about one of them. Which of the reasons made it `false` — dead, already an
+ * account holder, already invited, too distant, no quota left — is
+ * deliberately not distinguishable, here or anywhere.
+ */
+function stub(
+  overrides: Partial<InvitationOverview> = {},
+  post?: () => Response,
+  invitable = true,
+) {
   const overview = { ...OVERVIEW, ...overrides }
 
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
@@ -95,6 +109,7 @@ function stub(overrides: Partial<InvitationOverview> = {}, post?: () => Response
         spouses: [],
         children: [],
         pending_change: false,
+        invitable,
         webtrees_url: 'https://tree.example.test/X4',
       })
     }
@@ -377,34 +392,77 @@ describe('inviting from the person’s own page', () => {
 
   /**
    * The absence of the button is deliberately uninformative. Dead, already an
-   * account holder, already invited and too distant are one answer — that is
-   * what `GET /invitations` was built to do, and a button here must not undo
-   * it by being present for exactly one of the four.
+   * account holder, already invited, too distant and no quota left are one
+   * answer — the server gives it, and a button here must not undo it by being
+   * present for exactly one of the five.
    */
-  it('says nothing at all about somebody who is not a candidate', async () => {
-    stub({ candidates: [] })
+  it('says nothing at all where the server makes no offer', async () => {
+    stub({}, undefined, false)
     renderAt('/individuals/X4')
 
     // The person is on screen; the offer is not.
     expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
     expect(screen.queryByText('Noch nicht im Portal')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
   })
 
-  it('makes no offer where the family has switched invitations off', async () => {
-    stub({ enabled: false })
+  /**
+   * The module and the portal deploy separately, so a server that predates the
+   * field simply makes no offer — rather than making one it would refuse.
+   */
+  it('makes no offer where the server does not answer the question', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+        if (url.includes('/individuals/X4')) {
+          return jsonResponse({
+            xref: 'X4',
+            name: 'Dieter Beispiel',
+            sex: 'M',
+            is_deceased: false,
+            lifespan: '1990–',
+            portrait: null,
+            name_alternative: null,
+            relationship: 'Ihr Bruder',
+            birth: null,
+            death: null,
+            events: [],
+            parents: [],
+            siblings: [],
+            spouses: [],
+            children: [],
+            pending_change: false,
+            webtrees_url: 'https://tree.example.test/X4',
+          })
+        }
+
+        return jsonResponse(ME)
+      }),
+    )
+
     renderAt('/individuals/X4')
 
     expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
     expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
   })
 
-  /** The quota is the server's answer, and a button that will be refused is worse than none. */
-  it('makes no offer once the quota is spent', async () => {
-    stub({ remaining: 0 })
+  /**
+   * And the person's page asks nobody but the record. It used to fetch the
+   * whole candidate list to find out; with an editor that list is the archive.
+   */
+  it('asks for the record and nothing else', async () => {
+    const fetchMock = stub()
     renderAt('/individuals/X4')
 
-    expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
-    expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
+    await screen.findByText('Noch nicht im Portal')
+
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/invitations')),
+    ).toBe(false)
   })
 
   it('arrives on the invite screen with that person already chosen', async () => {
@@ -424,5 +482,122 @@ describe('inviting from the person’s own page', () => {
     const chooser = await screen.findByLabelText('Person auswählen')
 
     expect((chooser as HTMLSelectElement).value).toBe('')
+  })
+})
+
+/**
+ * Whom an editor may invite is everybody they can see, which is thousands of
+ * people. A wheel with thousands of names in it is not a way of choosing one,
+ * so the screen changes shape: the archive's own search, over the endpoint
+ * that already shows an editor the living.
+ */
+describe('inviting anybody, as somebody who keeps the tree', () => {
+  const FRITZ = {
+    xref: 'X6',
+    name: 'Fritz Beispiel',
+    sex: 'M',
+    is_deceased: false,
+    lifespan: '1992–',
+    portrait: null,
+    references: [{ number: '4716', type: 'SB' }],
+    relationship: null,
+  }
+
+  function stubEditor() {
+    return vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+
+      if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+      if (url.includes('/search')) {
+        return jsonResponse({
+          items: url.includes('q=Fritz') ? [FRITZ] : [],
+          total: url.includes('q=Fritz') ? 1 : 0,
+          page: 1,
+          per_page: 25,
+          truncated: false,
+        })
+      }
+
+      if (url.includes('/invitations')) {
+        if (method === 'POST') {
+          return jsonResponse(
+            {
+              link: 'https://portal.example.test/invitation?token=geheim',
+              invitation: {
+                id: 9,
+                name: 'Fritz Beispiel',
+                email: null,
+                expires_at: '2026-09-01T12:00:00+00:00',
+              },
+            },
+            201,
+          )
+        }
+
+        return jsonResponse({ ...OVERVIEW, scope: 'anyone', candidates: [], remaining: 200 })
+      }
+
+      return jsonResponse(ME)
+    })
+  }
+
+  /**
+   * An empty candidate list used to mean "nobody to invite". For an editor it
+   * means "type a name" — the screen must not put a full stop where a search
+   * belongs.
+   */
+  it('offers a search rather than saying there is nobody', async () => {
+    vi.stubGlobal('fetch', stubEditor())
+    renderInvite()
+
+    expect(await screen.findByLabelText('Person suchen')).toBeDefined()
+    expect(screen.queryByText(/Im Moment gibt es niemanden/)).toBeNull()
+    expect(screen.queryByLabelText('Person auswählen')).toBeNull()
+  })
+
+  it('finds somebody a member could never reach, and invites them', async () => {
+    const fetchMock = stubEditor()
+    vi.stubGlobal('fetch', fetchMock)
+    renderInvite()
+
+    await userEvent.type(await screen.findByLabelText('Person suchen'), 'Fritz')
+
+    const found = await screen.findByRole('button', { name: /Fritz Beispiel/ })
+
+    expect(found.textContent).toContain('SB 4716')
+
+    await userEvent.click(found)
+
+    expect(screen.getByText(/Ausgewählt: Fritz Beispiel/)).toBeDefined()
+
+    await userEvent.type(screen.getByLabelText(/E-Mail/), 'fritz@example.test')
+    await userEvent.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
+
+    await waitFor(() => {
+      const posted = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')
+
+      expect(posted).toBeDefined()
+      expect(String(posted?.[1]?.body)).toContain('X6')
+    })
+  })
+
+  it('says so when the search finds nobody', async () => {
+    vi.stubGlobal('fetch', stubEditor())
+    renderInvite()
+
+    await userEvent.type(await screen.findByLabelText('Person suchen'), 'Zzz')
+
+    expect(await screen.findByText(/Für „Zzz" wurde niemand gefunden/)).toBeDefined()
+  })
+
+  /** A member keeps the wheel: a handful of names is what it is good at. */
+  it('leaves the member’s screen exactly as it was', async () => {
+    stub()
+    renderInvite()
+
+    expect(await screen.findByLabelText('Person auswählen')).toBeDefined()
+    expect(screen.queryByLabelText('Person suchen')).toBeNull()
   })
 })

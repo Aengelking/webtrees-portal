@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Tests;
 
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationList;
@@ -117,6 +118,146 @@ class MemberInvitationTest extends PortalTestCase
         foreach (['X2', 'X5', 'X7', 'X8', 'X9', 'X10'] as $xref) {
             self::assertNotContains($xref, $candidates);
         }
+    }
+
+    // -----------------------------------------------------------------
+    // Somebody who keeps the tree
+    // -----------------------------------------------------------------
+
+    /**
+     * Signed in as somebody who keeps the tree, linked to Anna's own record.
+     *
+     * Linked on purpose: it proves the distance rule is what lifts, rather
+     * than the measurement quietly failing for want of a starting point.
+     */
+    private function signInAsEditor(): void
+    {
+        Auth::logout();
+
+        $this->login($this->createUser('edith', 'Edith Beispiel', 'geheim', UserInterface::ROLE_EDITOR, 'X1'));
+    }
+
+    /**
+     * An editor may invite anybody they can see.
+     *
+     * The three hedges on a member's invitation — a distance, a quota, and the
+     * switch — are about somebody being *trusted* to decide who is family. An
+     * editor already decides: they open the control panel and invite anybody
+     * in the tree. Applying the distance here would not stop them, only stop
+     * them doing it from the screen they were already looking at.
+     */
+    public function testAnEditorIsOfferedEverybodyTheyCanSee(): void
+    {
+        $this->signInAsEditor();
+
+        $offered = $this->candidateXrefs();
+
+        // Fritz is nowhere near Anna's close family, and living.
+        self::assertContains('X6', $offered);
+        self::assertContains('X4', $offered);
+    }
+
+    public function testAnEditorIsToldTheScreenIsASearch(): void
+    {
+        $this->signInAsEditor();
+
+        self::assertSame('anyone', $this->json($this->list())['scope']);
+    }
+
+    public function testAMemberIsToldTheScreenIsAWheel(): void
+    {
+        self::assertSame('close_family', $this->json($this->list())['scope']);
+    }
+
+    /** The dead, the already-invited and the already-accounted-for are out for everybody. */
+    public function testAnEditorIsNotOfferedSomebodyAnInvitationWouldNotHelp(): void
+    {
+        $this->signInAsEditor();
+
+        $offered = $this->candidateXrefs();
+
+        // Dead.
+        self::assertNotContains('X2', $offered);
+        // Confidential, so not visible even to this account's access level.
+        self::assertNotContains('X3', $offered);
+        // Edith's own linked record already has an account: hers.
+        self::assertNotContains('X1', $offered);
+    }
+
+    public function testAnEditorCanIssueAnInvitationToSomebodyDistant(): void
+    {
+        $this->signInAsEditor();
+
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->invite('X6', 'fritz@example.test')->getStatusCode());
+    }
+
+    /**
+     * The quota is a member's, and an editor has none.
+     *
+     * Set to nothing at all: a member would be refused before naming anybody.
+     */
+    public function testAnEditorHasNoQuota(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_INVITE_QUOTA, '0');
+        $this->signInAsEditor();
+
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $this->invite('X6', 'fritz@example.test')->getStatusCode());
+    }
+
+    /** And the switch is still a switch: off is off for everybody. */
+    public function testTheSwitchStillStopsAnEditor(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_INVITES, '0');
+        $this->signInAsEditor();
+
+        self::assertSame(StatusCodeInterface::STATUS_FORBIDDEN, $this->invite('X6', 'fritz@example.test')->getStatusCode());
+    }
+
+    // -----------------------------------------------------------------
+    // The offer on a person's own page
+    // -----------------------------------------------------------------
+
+    /**
+     * The record answers the question, so the screen does not have to hold a
+     * list to work it out.
+     */
+    public function testARecordSaysWhetherThisReaderCouldInviteThem(): void
+    {
+        self::assertTrue($this->invitable('X4'));
+
+        // Dead, and Anna's mother: near enough, and no use to invite.
+        self::assertFalse($this->invitable('X2'));
+    }
+
+    public function testARecordMakesNoOfferOnceTheQuotaIsSpent(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_INVITE_QUOTA, '0');
+
+        // A button the endpoint would refuse is worse than no button.
+        self::assertFalse($this->invitable('X4'));
+    }
+
+    public function testARecordMakesNoOfferWhereTheFamilySwitchedItOff(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_INVITES, '0');
+
+        self::assertFalse($this->invitable('X4'));
+    }
+
+    public function testARecordOffersAnEditorSomebodyTooDistantForAMember(): void
+    {
+        $this->signInAsEditor();
+
+        self::assertTrue($this->invitable('X6'));
+    }
+
+    private function invitable(string $xref): bool
+    {
+        $response = $this->api(IndividualRead::class, attributes: ['xref' => $xref]);
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+
+        return $this->json($response)['invitable'];
     }
 
     public function testTheRelationshipIsNamedSoTheMemberKnowsWhoTheyArePicking(): void

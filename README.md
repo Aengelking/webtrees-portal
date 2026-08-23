@@ -915,6 +915,28 @@ property of the archive's numbering, not of this software, and it is the reason
 the calculation is allowed to cross ground the tree walk deliberately will not.
 A reference number the tree marks confidential is not used.
 
+### Who may invite whom
+
+A member may invite their own close family — within the number of steps set
+under *Letting members invite their own family*, a handful at a time, and only
+while the whole facility is switched on.
+
+**Somebody who can edit the tree may invite anybody they can see**, with no
+distance and no quota. That is not a loosening: an editor already issues
+invitations to anybody in the tree from the control panel, so a limit here
+would not have stopped them — it would only have stopped them doing it from
+the screen they were already looking at, having just found the person on it.
+The switch still applies to everybody: off is off.
+
+Because "anybody they can see" is thousands of people, the invite screen
+changes shape for an editor: a search over the archive instead of a list to
+scroll. It is the same search as *Stammbaum durchsuchen*, so a name, a
+nickname or an archive number all find the person.
+
+The offer on a person's own page follows the same rule, and its absence stays
+uninformative — dead, already an account holder, already invited, too distant
+and no quota left all look identical, so nobody can learn which by looking.
+
 ### Refreshing a screen in the installed app
 
 Pull down at the top of any screen and let go: the portal fetches what is on

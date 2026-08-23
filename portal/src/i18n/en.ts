@@ -95,6 +95,11 @@ export const en: Translations = {
     intro:
       'You can set up portal access for your close family. Choose the person, get a link, and send it yourself — the way you would normally reach them.',
     chooseTitle: 'Who would you like to invite?',
+    findLegend: 'Find a person',
+    findHint: 'Name, nickname or archive number. You may invite anybody you can see.',
+    findResults: 'People found',
+    findNone: 'Nobody was found for "{{query}}".',
+    chosen: 'Chosen: {{name}}',
     whoLegend: 'Choose a person',
     whoPlaceholder: 'Please choose …',
     email: 'Email address (optional)',

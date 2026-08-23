@@ -94,6 +94,12 @@ export const de = {
     intro:
       'Sie können Ihrer engen Familie einen Zugang zum Portal einrichten. Sie wählen die Person aus, bekommen einen Link und schicken ihn selbst — so, wie Sie diese Person sonst auch erreichen.',
     chooseTitle: 'Wen möchten Sie einladen?',
+    findLegend: 'Person suchen',
+    findHint:
+      'Name, Spitzname oder SB-Nr. Sie können jede Person einladen, die Sie sehen können.',
+    findResults: 'Gefundene Personen',
+    findNone: 'Für „{{query}}" wurde niemand gefunden.',
+    chosen: 'Ausgewählt: {{name}}',
     whoLegend: 'Person auswählen',
     whoPlaceholder: 'Bitte auswählen …',
     email: 'E-Mail-Adresse (freiwillig)',

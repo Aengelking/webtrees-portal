@@ -2722,6 +2722,25 @@ components:
       additionalProperties: false
       required: [enabled, linked, quota, remaining, candidates, invitations]
       properties:
+        scope:
+          type: string
+          enum: [close_family, anyone]
+          description: |
+            Whom this reader may invite, and therefore which screen to draw.
+
+            `close_family` is a member's: a handful of relatives within the
+            configured number of steps, all of them in `candidates`, and a
+            wheel is the right control for it.
+
+            `anyone` is what somebody who can edit the tree gets — everybody
+            they can see, which in a real archive is thousands of people.
+            `candidates` is then only the first couple of hundred, and the
+            screen should search rather than list. **A person absent from
+            `candidates` may still be invited**: the endpoint applies the rule,
+            not the list.
+
+            It cannot be inferred from `candidates`, because a short list is
+            also what a small family looks like.
         enabled:
           type: boolean
           description: False when the family has switched member invitations off.
@@ -3432,6 +3451,22 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/IndividualRef'
+            invitable:
+              type: boolean
+              description: |
+                Whether the authenticated reader could invite this person into
+                the portal — the same rule `POST /invitations` applies, asked
+                here so that an offer and its answer cannot disagree.
+
+                `false` for every reason there could be: dead, already an
+                account holder, already invited, too distant, the reader's
+                quota spent, or the family has switched member invitations
+                off. Deliberately not distinguishable — a member must not be
+                able to learn which by looking.
+
+                A member may invite their close family; somebody who can edit
+                the tree may invite anybody they can see, because they already
+                can from the control panel.
             pending_change:
               type: boolean
               description: |
