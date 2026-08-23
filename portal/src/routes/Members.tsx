@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAcceptConnection, useConnect, useMembers } from '../api/queries'
 import type { MemberSummary } from '../api/types'
+import { Portrait } from '../components/Photos'
 import { referenceLabel } from '../components/reference'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading } from '../components/ui'
 
@@ -161,24 +162,44 @@ function MemberRow({ member, offerConnection }: { member: MemberSummary; offerCo
       <div className="flex items-start justify-between gap-3">
         <Link
           to={`/members/${member.id}`}
-          className="min-w-0 flex-1 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
         >
-          <span className="block text-lg font-semibold text-sky-800 underline underline-offset-4">
-            {member.display_name}
-          </span>
-          <span className="mt-1 block text-base text-slate-700">
-            {member.individual === null
-              ? t('members.noRecord')
-              : [
-                  member.individual.name,
-                  member.individual.lifespan,
-                  // The archive's number, on the row rather than one tap
-                  // further in: it is how this family tells two people of the
-                  // same name apart.
-                  referenceLabel(member.individual.references),
-                ]
-                  .filter((part): part is string => part !== null && part !== '')
-                  .join(' · ')}
+          {/*
+            The face, on the same rule as everywhere else: a living person's
+            photograph is shown only where they uploaded it, so a row without
+            one gets an initial rather than a stranger.
+          */}
+          {member.individual !== null && <Portrait person={member.individual} />}
+
+          <span className="min-w-0">
+            <span className="block text-lg font-semibold text-sky-800 underline underline-offset-4">
+              {member.display_name}
+            </span>
+            <span className="mt-1 block text-base text-slate-700">
+              {member.individual === null
+                ? t('members.noRecord')
+                : [
+                    member.individual.name,
+                    member.individual.lifespan,
+                    // The archive's number, on the row rather than one tap
+                    // further in: it is how this family tells two people of
+                    // the same name apart.
+                    referenceLabel(member.individual.references),
+                  ]
+                    .filter((part): part is string => part !== null && part !== '')
+                    .join(' · ')}
+            </span>
+            {/*
+              And how the reader stands to them, which is the difference
+              between a directory of accounts and a directory of relatives.
+            */}
+            {member.individual?.relationship !== null &&
+              member.individual?.relationship !== undefined &&
+              member.individual.relationship !== '' && (
+                <span className="mt-1 block text-base font-medium text-sky-900">
+                  {t('individual.relationship', { relationship: member.individual.relationship })}
+                </span>
+              )}
           </span>
         </Link>
 

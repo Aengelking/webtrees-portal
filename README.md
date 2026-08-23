@@ -857,6 +857,17 @@ The portal uses this in two places:
   records at all, so it answers about people who are not in the tree — the
   number written on the back of a photograph, or read off a cousin's card. The
   member's own number is filled in already.
+* **While connecting by number** (*Kontakte → Neu verbinden*), so that a member
+  sees who they are about to ask before they ask. It says on screen that this
+  is worked out from the two numbers and says nothing about whether that number
+  belongs to anybody — which is the same thing the request itself refuses to
+  disclose, and the reason a request sent this way comes back with no name.
+
+**The oblique is optional when nothing follows it.** "24" and "24/" both mean
+the head of line 24, and the archive writes both. "24b6" is not read, because a
+two-digit line makes it ambiguous. Where a record carries both a bare number
+and one with an oblique, the second is used — a bare two-digit number is also
+what an older numbering looks like once it reaches two digits.
 
 **Not everybody sits inside a line.** The ancestors *above* the lines have
 none to belong to, and neither does a branch that was numbered and then died

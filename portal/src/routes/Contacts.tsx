@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -10,11 +10,14 @@ import {
   useConnectionLink,
   useRemoveConnection,
   useRevokeConnectionCode,
+  useRelationship,
   useRevokeConnectionLink,
 } from '../api/queries'
 import type { Connection, SentLink } from '../api/types'
+import { useAuth } from '../auth/AuthProvider'
 import { QrCode } from '../components/QrCode'
-import { referenceLabel } from '../components/reference'
+import { Portrait } from '../components/Photos'
+import { ownReference, referenceLabel } from '../components/reference'
 import { ShareLink } from '../components/ShareLink'
 import {
   Button,
@@ -407,10 +410,15 @@ function MyCode({ minutes }: { minutes: number }) {
  * is two taps into a second layout — for a punctuation mark whose only job is
  * to separate two numbers the form already keeps apart.
  *
- * There is no "no branch" among them. Every number in this family has one;
- * the dash at the top of the wheel means "not chosen yet" and cannot be sent.
+ * The dash at the top of the wheel means "not chosen yet" and cannot be sent.
+ *
+ * **36 lines, and `GS`.** The wheel stopped at 34 and left the last two lines
+ * with no entry to pick — a member of line 35 or 36 had to know that typing
+ * the whole number into the second field is the way round it. `GS` is on the
+ * end because not everybody is on a line at all: the ancestors above them, and
+ * a branch that was numbered and then died out, are written that way.
  */
-const BRANCHES = Array.from({ length: 34 }, (_, index) => String(index + 1))
+const BRANCHES = [...Array.from({ length: 36 }, (_, index) => String(index + 1)), 'GS']
 
 /**
  * Compose what the member picked and typed into the number as it is written.
@@ -606,6 +614,54 @@ function SendLink({ days, links }: { days: number; links: SentLink[] }) {
 }
 
 /**
+ * What the number in the form would be to the member, before they send it.
+ *
+ * An SB number is an ancestral path, so this is arithmetic on two strings —
+ * the member's own number and the one they just typed. It turns "verbinden mit
+ * 24/b6" into "verbinden mit meinem Cousin 2. Grades", which is the difference
+ * between sending a request and knowing who you are sending it to.
+ *
+ * **It says nothing about whether that number belongs to anybody**, and the
+ * sentence under it says so. That is not a hedge, it is the property that
+ * makes this safe: the calculation never touches a record, and an unissued
+ * number is answered exactly like an issued one. Without the sentence a member
+ * would read "Ihr Cousin" as confirmation that somebody is there — which is
+ * precisely what `Connections::requestByReference()` refuses to disclose, and
+ * why a request sent this way comes back without a name.
+ *
+ * Silent while it is being typed, and silent where there is no answer: a
+ * number half entered is not a question, and "keine Verwandtschaft" under a
+ * field somebody is still filling in is noise.
+ */
+function Kinship({ mine, theirs }: { mine: string; theirs: string }) {
+  const { t } = useTranslation()
+  const [asked, setAsked] = useState('')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAsked(theirs), 300)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [theirs])
+
+  const { data } = useRelationship(mine, asked === theirs ? asked : '')
+
+  if (data === undefined || data.relationship === null) {
+    return null
+  }
+
+  return (
+    <div className="mb-5">
+      <Notice
+        title={t('contacts.kinship', { relationship: data.relationship })}
+        body={t('contacts.kinshipHint')}
+      />
+    </div>
+  )
+}
+
+/**
  * The server sends an ISO timestamp; one date is not worth a round trip, and
  * the browser's own locale formatting is right for it. Same as on the invite
  * screen.
@@ -620,10 +676,16 @@ function formatDate(iso: string): string {
 function ByReference() {
   const { t } = useTranslation()
   const connect = useConnect()
+  const { me } = useAuth()
   const [branch, setBranch] = useState('')
   const [number, setNumber] = useState('')
 
   const reference = composeReference(branch, number)
+
+  // What that number would be to the member, worked out from the two numbers
+  // and nothing else — see `Kinship` below for why this is safe to show.
+  const mine = ownReference(me?.individual?.references)
+  const complete = isCompleteReference(branch, number)
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -674,7 +736,9 @@ function ByReference() {
           onNumber={setNumber}
         />
 
-        <Button type="submit" disabled={connect.isPending || !isCompleteReference(branch, number)}>
+        {mine !== null && complete && <Kinship mine={mine} theirs={reference} />}
+
+        <Button type="submit" disabled={connect.isPending || !complete}>
           {connect.isPending ? t('contacts.asking') : t('contacts.ask')}
         </Button>
       </form>
@@ -688,8 +752,14 @@ function IncomingCard({ connection }: { connection: Connection }) {
 
   return (
     <Card>
-      <p className="text-lg font-semibold text-slate-900">{connection.name}</p>
-      <p className="mt-1 text-base text-slate-700">
+      {/*
+        The same lines as a contact's row, and here they matter more: this is
+        the card a member decides on. "Ihr Cousin 2. Grades möchte sich
+        verbinden" is the whole of the decision, and it was not being said.
+      */}
+      <ContactLines connection={connection} />
+
+      <p className="mt-3 text-base text-slate-700">
         {connection.individual === null
           ? t('contacts.asksYou')
           : t('contacts.asksYouAs', { name: connection.individual.name })}
@@ -731,26 +801,12 @@ function IncomingCard({ connection }: { connection: Connection }) {
  * so there is nothing a link may not contain.
  */
 function ContactCard({ connection }: { connection: Connection }) {
-  const { t } = useTranslation()
-
-  const lifespan = connection.individual?.lifespan ?? null
-
-  const detail =
-    connection.individual === null
-      ? t('contacts.noRecord')
-      : [connection.individual.name, lifespan, referenceLabel(connection.individual.references)]
-          .filter((part) => part !== null && part !== '')
-          .join(' · ')
+  const body = <ContactLines connection={connection} />
 
   // Nobody to open: a contact whose request has not been answered has no
   // profile row yet. A card that is not a link must not look like one.
   if (connection.member_id === null) {
-    return (
-      <Card>
-        <p className="text-lg font-semibold text-slate-900">{connection.name}</p>
-        <p className="mt-1 text-base text-slate-700">{detail}</p>
-      </Card>
-    )
+    return <Card>{body}</Card>
   }
 
   return (
@@ -758,9 +814,55 @@ function ContactCard({ connection }: { connection: Connection }) {
       to={`/members/${connection.member_id}`}
       className="block rounded-xl border border-slate-300 bg-white p-4 shadow-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
     >
-      <span className="block text-lg font-semibold text-slate-900">{connection.name}</span>
-      <span className="mt-1 block text-base text-slate-700">{detail}</span>
+      {body}
     </Link>
+  )
+}
+
+/**
+ * What a contact's row says: a face, a name, the record, and the kinship.
+ *
+ * **The face.** Every other list in the portal has carried one since the
+ * galleries went in, and the address book — the one list of people a member
+ * comes back to — did not. It is the same `Portrait` and the same rule behind
+ * it: a photograph of a living person appears only where that person uploaded
+ * it, so a contact with no picture gets their initial, not a stranger's face.
+ *
+ * **The kinship.** The name a contact chose to be known by and the name on the
+ * record are often different, and neither says how the two of you are related.
+ * That is the line that makes an address book a family's address book — and it
+ * costs nothing here, because the server puts it on every reference shape.
+ *
+ * Rendered as `span`s throughout: this sits inside a `Link` on most cards, and
+ * a paragraph inside an anchor is invalid.
+ */
+function ContactLines({ connection }: { connection: Connection }) {
+  const { t } = useTranslation()
+
+  const individual = connection.individual ?? null
+
+  const detail =
+    individual === null
+      ? t('contacts.noRecord')
+      : [individual.name, individual.lifespan, referenceLabel(individual.references)]
+          .filter((part) => part !== null && part !== '')
+          .join(' · ')
+
+  const relationship = individual?.relationship ?? null
+
+  return (
+    <span className="flex items-center gap-3">
+      {individual !== null && <Portrait person={individual} />}
+      <span className="min-w-0">
+        <span className="block text-lg font-semibold text-slate-900">{connection.name}</span>
+        <span className="mt-1 block text-base text-slate-700">{detail}</span>
+        {relationship !== null && relationship !== '' && (
+          <span className="mt-1 block text-base font-medium text-sky-900">
+            {t('individual.relationship', { relationship })}
+          </span>
+        )}
+      </span>
+    </span>
   )
 }
 

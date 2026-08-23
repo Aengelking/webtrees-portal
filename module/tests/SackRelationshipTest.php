@@ -218,12 +218,37 @@ class SackRelationshipTest extends PortalTestCase
         self::assertSame($this->named('24/11', 'GS/7D3'), $this->named('24/11', 'gs/7d3'));
     }
 
+    /**
+     * A bare line number is the head of that line.
+     *
+     * The archive writes both "24" and "24/" for the person every number in
+     * line 24 descends from, and neither is a typo. The oblique is optional
+     * only when nothing follows it — "24b6" is not offered, because a
+     * two-digit line makes it ambiguous.
+     */
+    public function testABareLineNumberIsTheHeadOfThatLine(): void
+    {
+        $this->signIn();
+
+        self::assertSame('identical', $this->ask('24', '24/')['problem']);
+        self::assertSame('identical', $this->ask('24', 'GS/7d3')['problem']);
+        self::assertSame('father/mother', $this->named('24/1', '24'));
+    }
+
+    public function testANumberWithNoObliqueAndSomethingAfterItIsNotANumber(): void
+    {
+        $this->signIn();
+
+        self::assertSame('invalid_a', $this->ask('24b6', '24/1')['problem']);
+    }
+
     /** `GS/` alone is the root of everything, which is nobody. */
     public function testAWholeTreeNumberWithNoPathNamesNobody(): void
     {
         $this->signIn();
 
         self::assertSame('invalid_b', $this->ask('24/11', 'GS/')['problem']);
+        self::assertSame('invalid_b', $this->ask('24/11', 'GS')['problem']);
     }
 
     // -----------------------------------------------------------------
@@ -357,6 +382,26 @@ class SackRelationshipTest extends PortalTestCase
         $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X2']);
 
         self::assertSame('mother', $this->json($response)['relationship']);
+    }
+
+    /**
+     * Where a record carries both kinds, the explicit one is used.
+     *
+     * A bare two-digit number is the head of a line — and it is also what an
+     * older, unrelated numbering looks like once it reaches two digits. The
+     * one that says out loud what it is wins; a record with only the bare form
+     * is still read.
+     */
+    public function testAnExplicitNumberOutranksABareOneOnTheSameRecord(): void
+    {
+        $this->signIn('X4');
+
+        $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X12']);
+
+        // Dieter's record carries a bare "9" *before* his "10/1335.21" — the
+        // fixture is written that way on purpose. Reading them in document
+        // order would make Otto a grand-nephew of the head of line 9.
+        self::assertSame('great-grandfather', $this->json($response)['relationship']);
     }
 
     /** A reader with no number of their own gets the silence they had before. */

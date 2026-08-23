@@ -328,6 +328,9 @@ export const de = {
     byReference: 'Mit der SB-Nummer verbinden',
     referenceBody:
       'Die SB-Nummer steht im Portal unter dem Namen der Person, zum Beispiel „10/1335.21“. Die andere Person bekommt eine Anfrage und entscheidet selbst — auch dann, wenn sie im Mitgliederverzeichnis nicht sichtbar ist.',
+    kinship: 'Für Sie: {{relationship}}',
+    kinshipHint:
+      'Aus den beiden SB-Nummern gerechnet. Es sagt nichts darüber, ob diese Nummer vergeben ist.',
     referenceGroup: 'SB-Nummer',
     branchLabel: 'Zweig',
     branchPlaceholder: '—',

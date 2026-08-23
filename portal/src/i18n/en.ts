@@ -327,6 +327,9 @@ export const en: Translations = {
     byReference: 'Connect using an SB number',
     referenceBody:
       'The SB number is shown in the portal under the person’s name, for example “10/1335.21”. They receive a request and decide for themselves — even if they are not visible in the member directory.',
+    kinship: 'To you: {{relationship}}',
+    kinshipHint:
+      'Worked out from the two archive numbers. It says nothing about whether that number belongs to anybody.',
     referenceGroup: 'SB number',
     branchLabel: 'Branch',
     branchPlaceholder: '—',

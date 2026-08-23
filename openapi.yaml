@@ -2258,6 +2258,10 @@ paths:
             branch that was numbered and then died out — is written `GS/`
             followed by the path itself, already expanded. Those are read too,
             and `GS/7d3` names the same person as `24/`.
+
+            The oblique is optional when nothing follows it: `24` and `24/` are
+            both the head of line 24. `24b6` is not read, because a two-digit
+            line makes it ambiguous.
           schema:
             type: string
             maxLength: 40

@@ -31,7 +31,27 @@ function jsonResponse(body: unknown, status = 200): Response {
 const ME = {
   user: { id: 1, username: 'anna', real_name: 'Anna Beispiel', email: 'a@b.test', language: 'de', role: 'member' },
   profile: { id: 1, visible_in_directory: true, display_name_override: null, consent_recorded_at: null },
-  individual: null,
+  individual: {
+    xref: 'X1',
+    name: 'Anna Beispiel',
+    sex: 'F',
+    is_deceased: false,
+    lifespan: '1985–',
+    portrait: null,
+    references: [{ number: '10/1335.11', type: 'SB' }],
+    relationship: null,
+    name_alternative: null,
+    photos: [],
+    birth: null,
+    death: null,
+    events: [],
+    parents: [],
+    siblings: [],
+    spouses: [],
+    children: [],
+    pending_change: false,
+    webtrees_url: 'https://webtrees.example.org/tree/portal/individual/X1',
+  },
   tree: { name: 'portal', title: 'Familie Beispiel' },
   unread_messages: 0,
   connection_requests: 1,
@@ -51,8 +71,14 @@ const DIETER: Connection = {
     sex: 'M',
     is_deceased: false,
     lifespan: '1990–',
-    portrait: null,
+    portrait: {
+      id: 'M9',
+      title: 'Dieter',
+      thumbnail_url: '/api/v1/media/M9/1/thumbnail',
+      image_url: '/api/v1/media/M9/1/large',
+    },
     references: [{ number: '4714', type: 'SB' }],
+    relationship: 'Ihr Bruder',
   },
   since: '2026-08-01T10:00:00+00:00',
 }
@@ -86,6 +112,16 @@ function stub(overrides: Partial<ConnectionOverview> = {}) {
     const method = init?.method ?? 'GET'
 
     if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+    if (url.includes('/relationship')) {
+      return jsonResponse({
+        a: '10/1335.11',
+        b: '24/b6',
+        problem: null,
+        relationship: 'Cousin/Cousine 2. Grades',
+        detail: { kind: 'cousin', generations: 0, distance: 3, degree: 2 },
+      })
+    }
 
     if (url.includes('/me/connection-code')) {
       return method === 'DELETE'
@@ -884,5 +920,102 @@ describe('the directory list', () => {
     await screen.findByRole('link', { name: /Dieter Beispiel/ })
 
     expect(screen.queryByRole('button', { name: /Verbinden mit/ })).toBeNull()
+  })
+})
+
+describe('what a contact’s row says', () => {
+  /**
+   * The address book is the one list of people a member comes back to, and it
+   * was the only list in the portal without a face on it.
+   */
+  it('shows the contact’s photograph', async () => {
+    stub()
+    renderAt('/contacts')
+
+    const row = await screen.findByRole('link', { name: /Dieter Beispiel/ })
+    const portrait = row.querySelector('img')
+
+    expect(portrait?.getAttribute('src')).toBe('/api/v1/media/M9/1/thumbnail')
+  })
+
+  /**
+   * A chosen display name and the name on the record are often different, and
+   * neither says how the two of you are related.
+   */
+  it('says how the reader is related to them', async () => {
+    stub()
+    renderAt('/contacts')
+
+    const row = await screen.findByRole('link', { name: /Dieter Beispiel/ })
+
+    expect(row.textContent).toContain('Für Sie: Ihr Bruder')
+    expect(row.textContent).toContain('SB 4714')
+  })
+
+  /** A contact with no record still has a row; it just has less on it. */
+  it('survives a contact the tree knows nothing about', async () => {
+    stub({ connections: [{ ...KARLA, status: 'accepted', member_id: 5 }], incoming: [] })
+    renderAt('/contacts')
+
+    const row = await screen.findByRole('link', { name: /Karla Beispiel/ })
+
+    expect(row.querySelector('img')).toBeNull()
+    expect(row.textContent).not.toContain('Für Sie:')
+  })
+})
+
+describe('connecting by archive number', () => {
+  /**
+   * The point of showing it: "verbinden mit 24/b6" becomes "verbinden mit
+   * meinem Cousin 2. Grades" before the request is sent.
+   */
+  it('names the relationship once the number is complete', async () => {
+    stub()
+    renderNewTab()
+
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '24')
+    await userEvent.type(screen.getByLabelText('Nummer'), 'b6')
+
+    expect(await screen.findByText('Für Sie: Cousin/Cousine 2. Grades')).toBeDefined()
+  })
+
+  /**
+   * And the sentence that keeps it from being read as confirmation that
+   * somebody is there — which is exactly what the server refuses to disclose.
+   */
+  it('says that this is arithmetic, not a lookup', async () => {
+    stub()
+    renderNewTab()
+
+    await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '24')
+    await userEvent.type(screen.getByLabelText('Nummer'), 'b6')
+
+    await screen.findByText('Für Sie: Cousin/Cousine 2. Grades')
+
+    expect(screen.getByText(/sagt nichts darüber, ob diese Nummer vergeben ist/)).toBeDefined()
+  })
+
+  it('asks nothing while the number is still half typed', async () => {
+    const fetchMock = stub()
+    renderNewTab()
+
+    await userEvent.type(await screen.findByLabelText('Nummer'), 'b6')
+
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes('/relationship')),
+    ).toBe(false)
+  })
+
+  /** The last two lines of the archive had no entry to pick. */
+  it('offers every line, and GS for the records that have none', async () => {
+    stub()
+    renderNewTab()
+
+    const chooser = (await screen.findByLabelText('Zweig')) as HTMLSelectElement
+    const values = Array.from(chooser.options).map((option) => option.value)
+
+    expect(values).toContain('35')
+    expect(values).toContain('36')
+    expect(values).toContain('GS')
   })
 })

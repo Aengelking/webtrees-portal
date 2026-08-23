@@ -33,14 +33,25 @@ export function referenceLabel(references: Reference[] | undefined): string | nu
  * The shape is checked here rather than asked of the server because it is the
  * same check the server makes and it saves a request that could only fail.
  */
-const PATH_NUMBER = /^\s*(gs|\d{1,2})\/[1-9a-z. ]+$/i
+const PATH_NUMBER = /^\s*(gs|\d{1,2})(\/[1-9a-z. ]*)?\s*$/i
 
+/**
+ * Preferred first: a number carrying an oblique says out loud what it is.
+ *
+ * A bare "24" is the head of line 24, and the archive does write it that way —
+ * but so does an older, unrelated numbering that happens to have reached two
+ * digits. Where a record has both, the explicit one wins; where it has only
+ * the bare form, that is still used.
+ */
 export function ownReference(references: Reference[] | undefined): string | null {
   if (references === undefined) {
     return null
   }
 
-  const path = references.find((reference) => PATH_NUMBER.test(reference.number))
+  const paths = references
+    .map((reference) => reference.number.trim())
+    .filter((number) => PATH_NUMBER.test(number))
+    .sort((a, b) => Number(b.includes('/')) - Number(a.includes('/')))
 
-  return path === undefined ? null : path.number.trim()
+  return paths[0] ?? null
 }
