@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
@@ -50,9 +51,23 @@ class PortalTreeService
 
             // Configured but missing: refuse rather than quietly serving a
             // different family's data.
+            //
+            // "Missing" has two very different causes, and saying the wrong
+            // one sends an administrator to the wrong screen. `$trees` is
+            // webtrees' list *as this user sees it*: on a tree with
+            // `REQUIRE_AUTHENTICATION`, somebody whose role on that tree is
+            // still `visitor` — webtrees' default for an account made by hand
+            // in the control panel — gets an empty list and the tree looks
+            // deleted. It is not; they simply cannot see it, and the fix is a
+            // role, not a setting in this module.
             throw $this->notConfigured(
-                'the configured tree "' . $configured . '" does not exist. Available: ' .
-                ($trees->isEmpty() ? '(none)' : $trees->keys()->implode(', '))
+                $this->treeExists($configured)
+                    ? 'the configured tree "' . $configured . '" exists but is not visible to '
+                        . (Auth::check()
+                            ? 'the signed-in user "' . Auth::user()->userName() . '" — check their role on that tree'
+                            : 'a visitor — the tree requires authentication')
+                        . '.'
+                    : 'the configured tree "' . $configured . '" does not exist. Available: ' . $this->treeNames()
             );
         }
 
@@ -68,6 +83,82 @@ class PortalTreeService
                 ? 'this webtrees installation has no family trees.'
                 : 'no tree is configured and the site default "' . $default . '" does not exist.'
         );
+    }
+
+    /**
+     * Is the portal configured at all? Asked without asking who wants to know.
+     *
+     * `tree()` cannot answer this, and the reason is the one written out under
+     * `configuredTreeName()` below: it resolves through `TreeService::all()`,
+     * which is filtered by the signed-in user. That filtering is exactly right
+     * for an API request — every one of those is authenticated, and a caller
+     * with no access to the tree has no business getting data out of it — and
+     * exactly wrong for `GET /health`, which is unauthenticated **on purpose**
+     * (a health check that needs credentials is a health check nobody runs).
+     *
+     * The two collided in the configuration this portal is designed for. On a
+     * tree with `REQUIRE_AUTHENTICATION`, a visitor's tree list is empty, so
+     * health answered `not_configured` for an installation with nothing at all
+     * wrong with it — and since the deployment uses that endpoint, a correct
+     * portal looked broken to the one check meant to prove it was not.
+     *
+     * So this asks the configuration question and only that, against the
+     * `gedcom` table rather than a filtered collection. It still proves the
+     * whole chain a health check exists to prove — Worker, proxy secret, PHP,
+     * webtrees' bootstrap, this module's `boot()`, the database — because a
+     * query is what answers it.
+     *
+     * The rules are `tree()`'s, kept in the same order: the configured name,
+     * then the site default, then whichever tree exists.
+     *
+     * @throws ApiException when nothing is configured and nothing can be guessed.
+     */
+    public function checkConfiguration(): void
+    {
+        $configured = $this->module->getPreference(PortalApiModule::SETTING_TREE, '');
+
+        if ($configured !== '') {
+            if ($this->treeExists($configured)) {
+                return;
+            }
+
+            throw $this->notConfigured(
+                'the configured tree "' . $configured . '" does not exist. Available: ' . $this->treeNames()
+            );
+        }
+
+        $default = Site::getPreference('DEFAULT_GEDCOM');
+
+        if ($default !== '' && $this->treeExists($default)) {
+            return;
+        }
+
+        // `tree()`'s last resort: no setting, no usable default, so whichever
+        // tree comes first. Only "none at all" is a failure here.
+        if (DB::table('gedcom')->where('gedcom_id', '>', 0)->exists()) {
+            return;
+        }
+
+        throw $this->notConfigured('this webtrees installation has no family trees.');
+    }
+
+    private function treeExists(string $name): bool
+    {
+        return DB::table('gedcom')
+            ->where('gedcom_id', '>', 0)
+            ->where('gedcom_name', '=', $name)
+            ->exists();
+    }
+
+    /** For the administrator's log line, never for a response. */
+    private function treeNames(): string
+    {
+        $names = DB::table('gedcom')
+            ->where('gedcom_id', '>', 0)
+            ->pluck('gedcom_name')
+            ->implode(', ');
+
+        return $names === '' ? '(none)' : $names;
     }
 
     /**

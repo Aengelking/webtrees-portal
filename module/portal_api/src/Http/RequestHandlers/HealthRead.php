@@ -46,7 +46,15 @@ class HealthRead implements RequestHandlerInterface
         // does not record it: a monitor polling a half-configured install
         // would otherwise fill the error log with rows saying what the
         // diagnosis screen already says better.
-        $this->trees->tree();
+        //
+        // `checkConfiguration()` rather than `tree()`, and the difference is
+        // the whole reason this endpoint was answering `not_configured` on a
+        // healthy portal: `tree()` resolves through a list filtered by the
+        // signed-in user, and nobody is signed in here — by design. On a tree
+        // with `REQUIRE_AUTHENTICATION`, which is what a portal about living
+        // people is normally set to, that list is empty for a visitor and a
+        // correctly configured installation reported itself broken.
+        $this->trees->checkConfiguration();
 
         return Json::response([
             'status'         => 'ok',
