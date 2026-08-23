@@ -110,8 +110,14 @@ class UsePortalLanguage implements MiddlewareInterface
     /**
      * The best match between what the client asked for and what this webtrees
      * actually has enabled, or null for "leave the language alone".
+     *
+     * Public because it answers the same question for a member who has just
+     * *chosen* a language rather than merely arrived reading one: the portal
+     * offers "de" and "en", the site has whatever its administrator enabled,
+     * and only this knows how to get from one to the other. A bare code is a
+     * valid Accept-Language header, so there is nothing to adapt.
      */
-    private function negotiate(string $header): string|null
+    public function negotiate(string $header): string|null
     {
         if (trim($header) === '') {
             return null;

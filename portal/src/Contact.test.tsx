@@ -109,15 +109,54 @@ function renderAt(path: string) {
   )
 }
 
+/**
+ * The settings screen reads before it writes: what a member shares is on the
+ * screen, and the form that changes it is behind a button. Every test that is
+ * about the form has to open it first.
+ */
+async function openTheForm(): Promise<void> {
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Kontaktdaten ändern' }))
+}
+
 describe('my own contact details', () => {
+  /**
+   * The commoner errand is looking, not changing — so looking is what the
+   * screen answers first, in sentences rather than in form controls.
+   */
+  it('shows what is shared without opening anything', async () => {
+    stub()
+    renderAt('/settings')
+
+    expect(await screen.findByText('0511 12345')).toBeDefined()
+    expect(screen.getByText('Sichtbar für: Alle Mitglieder im Portal')).toBeDefined()
+
+    // The machinery is away until it is asked for.
+    expect(screen.queryByLabelText('Telefonnummer')).toBeNull()
+    expect(screen.queryByRole('radio', { name: 'Nur meine enge Familie' })).toBeNull()
+  })
+
+  /**
+   * An entry nobody has filled in is listed too, and says so. Leaving it out
+   * would make the list look complete when it is not.
+   */
+  it('says which entries are not given', async () => {
+    stub()
+    renderAt('/settings')
+
+    await screen.findByText('0511 12345')
+
+    expect(screen.getAllByText('Nicht angegeben')).toHaveLength(2)
+  })
+
   it('offers an audience for every kind, not one for all of them', async () => {
     stub()
     renderAt('/settings')
+    await openTheForm()
 
     // Three kinds, each with its own set of choices.
     expect(await screen.findByLabelText('Telefonnummer')).toBeDefined()
     expect(screen.getByLabelText('E-Mail-Adresse')).toBeDefined()
-    expect(screen.getByLabelText('Anschrift')).toBeDefined()
+    expect(screen.getByLabelText('Straße und Hausnummer')).toBeDefined()
 
     expect(screen.getAllByRole('radio', { name: 'Nur meine enge Familie' })).toHaveLength(3)
   })
@@ -125,6 +164,27 @@ describe('my own contact details', () => {
   it('shows what the member already shares', async () => {
     stub()
     renderAt('/settings')
+    await openTheForm()
+
+    expect(await screen.findByDisplayValue('0511 12345')).toBeDefined()
+  })
+
+  /** Nothing typed and abandoned may be waiting the next time it is opened. */
+  it('forgets a change that was abandoned', async () => {
+    stub()
+    renderAt('/settings')
+    await openTheForm()
+
+    const user = userEvent.setup()
+
+    await user.clear(await screen.findByLabelText('Telefonnummer'))
+    await user.type(screen.getByLabelText('Telefonnummer'), '0511 99999')
+    await user.click(screen.getByRole('button', { name: 'Abbrechen' }))
+
+    // The summary still says what the server says.
+    expect(await screen.findByText('0511 12345')).toBeDefined()
+
+    await openTheForm()
 
     expect(await screen.findByDisplayValue('0511 12345')).toBeDefined()
   })
@@ -137,6 +197,7 @@ describe('my own contact details', () => {
   it('sends a cleared field so that the row is deleted', async () => {
     const fetchMock = stub()
     renderAt('/settings')
+    await openTheForm()
 
     await userEvent.setup().clear(await screen.findByLabelText('Telefonnummer'))
     await userEvent.setup().click(screen.getByRole('button', { name: 'Kontaktdaten speichern' }))
@@ -159,6 +220,7 @@ describe('my own contact details', () => {
   it('offers the contacts audience only where connections exist', async () => {
     stub({ contact: { ...CONTACT, connections_enabled: true } })
     renderAt('/settings')
+    await openTheForm()
 
     expect(await screen.findAllByRole('radio', { name: 'Nur meine Kontakte' })).toHaveLength(3)
   })
@@ -166,11 +228,92 @@ describe('my own contact details', () => {
   it('drops the contacts audience when the family switched connections off', async () => {
     stub({ contact: { ...CONTACT, connections_enabled: false } })
     renderAt('/settings')
+    await openTheForm()
 
     await screen.findByLabelText('Telefonnummer')
 
     expect(screen.queryByRole('radio', { name: 'Nur meine Kontakte' })).toBeNull()
     expect(screen.getAllByRole('radio', { name: 'Nur meine enge Familie' })).toHaveLength(3)
+  })
+
+  /**
+   * An address is four answers, not one line — and the browser's own autofill
+   * can only help when each field says what it is.
+   */
+  it('puts an address into its fields', async () => {
+    stub({
+      contact: {
+        enabled: true,
+        contact: {
+          address: {
+            value: 'Musterstraße 12\n29223 Celle\nDeutschland',
+            parts: { street: 'Musterstraße 12', postcode: '29223', city: 'Celle', country: 'Deutschland' },
+            audience: 'close_family',
+          },
+        },
+      },
+    })
+    renderAt('/settings')
+    await openTheForm()
+
+    expect((await screen.findByLabelText('Straße und Hausnummer') as HTMLInputElement).value).toBe('Musterstraße 12')
+    expect((screen.getByLabelText('Postleitzahl') as HTMLInputElement).value).toBe('29223')
+    expect((screen.getByLabelText('Ort') as HTMLInputElement).value).toBe('Celle')
+    expect((screen.getByLabelText('Land') as HTMLInputElement).value).toBe('Deutschland')
+  })
+
+  /**
+   * Both shapes go up: the fields for a server that has them, and the address
+   * as text for one that predates them. The module ships over SFTP and the
+   * portal through CI, so a portal one deployment ahead must not silently
+   * empty everybody's address.
+   */
+  it('sends an address as fields and as text', async () => {
+    const fetchMock = stub()
+    renderAt('/settings')
+    await openTheForm()
+
+    const user = userEvent.setup()
+
+    await user.type(await screen.findByLabelText('Straße und Hausnummer'), 'Musterstraße 12')
+    await user.type(screen.getByLabelText('Postleitzahl'), '29223')
+    await user.type(screen.getByLabelText('Ort'), 'Celle')
+    await user.click(screen.getByRole('button', { name: 'Kontaktdaten speichern' }))
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH')
+
+      expect(patch).toBeDefined()
+      expect(JSON.parse(String(patch?.[1]?.body))).toMatchObject({
+        contact: {
+          address: {
+            parts: { street: 'Musterstraße 12', postcode: '29223', city: 'Celle', country: '' },
+            // An empty field takes its line with it rather than leaving a gap.
+            value: 'Musterstraße 12\n29223 Celle',
+          },
+        },
+      })
+    })
+  })
+
+  /**
+   * A server that only sends text. The whole of it goes in the street, which
+   * is the one place it cannot be wrong: nothing is lost, and the member's
+   * first save puts each piece where it belongs.
+   */
+  it('survives a server that has no address fields yet', async () => {
+    stub({
+      contact: {
+        enabled: true,
+        contact: { address: { value: 'Musterweg 1\n29223 Celle', audience: 'members' } },
+      },
+    })
+    renderAt('/settings')
+    await openTheForm()
+
+    expect((await screen.findByLabelText('Straße und Hausnummer') as HTMLInputElement).value).toBe(
+      'Musterweg 1, 29223 Celle',
+    )
   })
 
   it('says so when the family has switched contact details off', async () => {
@@ -179,6 +322,7 @@ describe('my own contact details', () => {
 
     expect(await screen.findByText('Kontaktdaten sind ausgeschaltet')).toBeDefined()
     expect(screen.queryByLabelText('Telefonnummer')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Kontaktdaten ändern' })).toBeNull()
   })
 })
 

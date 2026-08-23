@@ -3429,6 +3429,111 @@ not there.
 
 ---
 
+### 2.62 A language is a fact about a person
+
+The switcher put the choice in `localStorage` and stopped there, which made it
+a fact about a *telephone*. A member who reads English read English on the
+phone, German on the tablet, and German again on the phone they bought this
+year — and nobody could see why, because nothing was broken.
+
+So the account decides. `PATCH /me/profile` now takes a `language`, and what
+it writes is webtrees' own `PREF_LANGUAGE` — the same preference the account's
+settings page in webtrees sets. That is deliberate rather than convenient: a
+second, portal-only language preference would have meant a member reading a
+German portal and getting English mail from the family tree, with two screens
+to fix it on.
+
+**Three details make it work rather than merely exist.**
+
+The portal knows two codes, `de` and `en`; a webtrees site has whatever tags
+its administrator left enabled, which look like `de` and `en-US`. Getting from
+one to the other is exactly what `UsePortalLanguage::negotiate()` already did
+for the `Accept-Language` header, so it does it here too — a bare code is a
+valid header — and a language the site does not have is **refused** rather
+than stored. An unusable preference sits on an account for ever, and every
+later reader of it has to guess around it.
+
+The screen changes first and does not wait for the server. The member asked
+for English; making them look at German for a round trip would be the wrong
+way round. A save that fails is reported, and the portal is already in the
+language they asked for while they read the failure.
+
+`localStorage` stays, and its job is now much smaller: it answers for the
+moment *before* the portal knows who is reading — the login screen, the first
+paint after a reload, an expired session. Signed out there is no account to
+save to, and the switcher does not try.
+
+---
+
+### 2.63 An address is four answers
+
+"Musterstraße 12, 29223 Celle" typed into one box is a string. Street,
+postcode, town and country are fields, and the difference shows up while it is
+being *typed*: a phone offers a numeric keyboard for a postcode field and its
+autofill knows what a street is, and neither is true of a box labelled
+"Adresse".
+
+**The parts live beside the value rather than instead of it.** `value` is
+still the whole address as one readable piece of text, and it is still what
+every reader gets — nothing on the disclosure side changed, and it should not
+have: somebody looking at a relative's page wants an address to read, not four
+fields to reassemble. `parts` is the same address in the shape the member
+typed it, which is what lets the form put each answer back in the box it came
+out of.
+
+Writing it twice is the price of two things worth having: the reading side did
+not have to change at all, and a row written by an older module — one line, no
+parts — is still a perfectly good address.
+
+#### Neither half may be the only shape that works
+
+The module ships over SFTP and the portal through CI, so the two are routinely
+a version apart, in both directions. That decides the protocol:
+
+* The **server** accepts `parts` *or* `value`. Where parts are sent they also
+  decide the text, because two versions of one address with the member's own
+  words in only one of them is a disagreement nobody can settle later.
+* The **client** sends both — the fields, and the text composed from them by
+  `composeAddress()`, which is the same composition the server does. A portal
+  one deployment ahead of its module would otherwise send fields to a server
+  that ignores them and empty everybody's address.
+* Reading back, a missing `parts` is not an error in either direction. The
+  server makes the best sense it can of the text (`partsFrom()`); a client
+  that gets no parts puts the whole text in the street, which is the one place
+  it cannot be wrong.
+
+`partsFrom()` orients itself by the postcode line. "29223 Celle" is
+unmistakable and it is the *middle* of a German address, so everything above
+it is the street and everything below it is the country — which is what makes
+a "c/o" line land with the street instead of shunting every field down by one.
+It is a guess and it is allowed to be one: the member sees it in the fields
+and their next save replaces it with the truth. What it may **not** do is drop
+a line, because that save would then delete it.
+
+---
+
+### 2.64 Read before write
+
+*Meine Kontaktdaten* opened as a live form: three text boxes and twelve radio
+buttons, every one of them ready to change something. The errand that brings a
+member to that screen is almost always the other one — *what am I actually
+sharing?* — and the form answered it in the most awkward possible way, by
+making them read the contents of input fields.
+
+So the screen opens on the answer, in sentences: each entry, who may see it,
+and "Nicht angegeben" for the ones that are not filled in. The form is behind
+*Kontaktdaten ändern*.
+
+Two things this is careful about. **Nothing is hidden**: what is put away is
+the machinery for changing the entries, not the entries, and an entry that
+does not exist is listed as not existing — leaving it out would make the list
+look complete when it is not. And the summary reads from the *server*, not
+from the form's state, so an abandoned half-typed change is not quietly
+displayed as though it were being shared; *Abbrechen* puts the form back to
+what the server says as well.
+
+---
+
 ---
 
 ## 3. Things that were guessed
@@ -3468,6 +3573,18 @@ Flagging these so they get a second look rather than being inherited as fact.
    collide across countries, and grouping by the country alone would be a list
    of two things. If the archive ever wants a hierarchy, webtrees' `places`
    table already has one.
+10. **An address is street, postcode, town, country, written in that order.**
+   Four fields and German line order, for a German family's portal. A member
+   living abroad gets every field they need but not their own country's
+   ordering, which matters a great deal less than being able to type the
+   address into the right boxes at all. Fields are capped at 120/20/120/80
+   characters and the composed text at the column's 255 — arbitrary, and the
+   only case where the last one bites is an address longer than an envelope.
+11. **The postcode line is what `partsFrom()` orients by.** `[A-Z]{0,3}-?\d{3,6}`
+   followed by a town covers German, Austrian, Swiss and Dutch postcodes and
+   a good deal else, but not everything — an address it cannot place lands
+   whole in the street rather than being torn up. It only ever applies to
+   addresses typed before there were fields, and only until the member saves.
 
 ---
 

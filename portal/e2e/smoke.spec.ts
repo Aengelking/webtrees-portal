@@ -479,8 +479,41 @@ test.describe('phase 9', () => {
 
     await page.getByRole('link', { name: 'Einstellungen' }).click()
 
+    // What is shared is on the screen; the form that changes it is behind a
+    // button, because looking is the commoner errand.
+    await expect(page.getByText('Sichtbar für: Alle Mitglieder im Portal')).toBeVisible()
+    await expect(page.getByLabel('Telefonnummer')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Kontaktdaten ändern' }).click()
+
     await expect(page.getByLabel('Telefonnummer')).toHaveValue('0511 12345')
     await expect(page.getByRole('radio', { name: 'Nur meine enge Familie' })).toHaveCount(3)
+  })
+
+  test('an address is typed into fields and saved as one address', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed contact details.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.getByRole('link', { name: 'Einstellungen' }).click()
+    await page.getByRole('button', { name: 'Kontaktdaten ändern' }).click()
+
+    await page.getByLabel('Straße und Hausnummer').fill('Musterstraße 12')
+    await page.getByLabel('Postleitzahl').fill('29223')
+    // Exactly "Ort": Playwright matches a label by substring, and "Alle
+    // Mitglieder im Portal" contains one.
+    await page.getByLabel('Ort', { exact: true }).fill('Celle')
+
+    await page.getByRole('button', { name: 'Kontaktdaten speichern' }).click()
+
+    // Saved, and back to the reading view with the address on one card and
+    // its lines in the order an envelope would have them.
+    await expect(page.getByText('Ihre Kontaktdaten sind gespeichert.')).toBeVisible()
+    await expect(page.getByText('Musterstraße 12', { exact: false })).toBeVisible()
+    await expect(page.getByText('29223 Celle', { exact: false })).toBeVisible()
   })
 })
 

@@ -162,3 +162,89 @@ describe('the language the server answers in', () => {
     expect(screen.queryByText('Geburt')).toBeNull()
   })
 })
+
+/**
+ * A language is a fact about a person, not about a telephone. It lives on the
+ * account — the same webtrees preference the account's own settings page sets
+ * — so it follows the member to the next device, and so the mail webtrees
+ * sends them arrives in the language they read.
+ */
+describe('the language the member chose', () => {
+  it('comes from the account, not from this device', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input, init) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({ ...meFor(languageOf(init)), user: { ...meFor(null).user, language: 'en-US' } }),
+      ),
+    )
+
+    renderAt('/me')
+
+    // The account says English, so English is what the member gets — whatever
+    // this browser last remembered.
+    expect(await screen.findByRole('heading', { name: 'My profile' })).toBeDefined()
+  })
+
+  /** A tag the portal has no translation for leaves the language alone. */
+  it('stays put for a language the portal does not have', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input, init) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({ ...meFor(languageOf(init)), user: { ...meFor(null).user, language: 'fr' } }),
+      ),
+    )
+
+    renderAt('/me')
+
+    expect(await screen.findByRole('heading', { name: 'Mein Profil' })).toBeDefined()
+  })
+
+  it('is saved to the account when the switch is used', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) =>
+      String(input).endsWith('/csrf')
+        ? jsonResponse({ csrf_token: 'token-1' })
+        : jsonResponse(meFor(languageOf(init))),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAt('/settings')
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'English' }))
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        ([url, init]) => init?.method === 'PATCH' && String(url).endsWith('/me/profile'),
+      )
+
+      expect(patch).toBeDefined()
+      expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ language: 'en' })
+    })
+  })
+
+  /**
+   * The login screen has the switcher too, and there is no account to save it
+   * to yet. The device preference is the whole answer there.
+   */
+  it('is not saved when nobody is signed in', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+      String(input).endsWith('/csrf')
+        ? jsonResponse({ csrf_token: 'token-1' })
+        : jsonResponse({ error: 'unauthenticated' }, 401),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAt('/login')
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'English' }))
+
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeDefined()
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
+  })
+})
+
