@@ -30,6 +30,7 @@ import type {
   Inbox,
   InvitationOverview,
   IssuedInvitation,
+  MailingLists,
   OwnContact,
   PendingIndividual,
   RelationshipResult,
@@ -49,6 +50,7 @@ export const queryKeys = {
   relationship: (a: string, b: string) => ['relationship', a, b] as const,
   invitations: ['invitations'] as const,
   contact: ['contact'] as const,
+  mailingLists: ['mailing-lists'] as const,
   messages: ['messages'] as const,
   conversations: ['conversations'] as const,
   conversation: (id: number) => ['conversation', id] as const,
@@ -473,6 +475,32 @@ export function useUpdateContact() {
     mutationFn: (changes) => api.updateContact(changes),
     onSuccess: (result) => {
       queryClient.setQueryData(queryKeys.contact, result)
+    },
+  })
+}
+
+/**
+ * The family's mailing lists.
+ *
+ * Not kept fresh in the background. An outstanding change is retried by the
+ * server when this is read, and a screen that re-read itself every few seconds
+ * would turn "Exchange is unreachable" into a request every few seconds.
+ */
+export function useMailingLists(enabled = true) {
+  return useQuery<MailingLists>({
+    queryKey: queryKeys.mailingLists,
+    queryFn: ({ signal }) => api.mailingLists(signal),
+    enabled,
+  })
+}
+
+export function useUpdateMailingLists() {
+  const queryClient = useQueryClient()
+
+  return useMutation<MailingLists, Error, Record<string, boolean>>({
+    mutationFn: (changes) => api.updateMailingLists(changes),
+    onSuccess: (result) => {
+      queryClient.setQueryData(queryKeys.mailingLists, result)
     },
   })
 }
