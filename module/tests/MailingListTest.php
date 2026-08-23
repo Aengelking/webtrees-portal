@@ -490,6 +490,69 @@ class MailingListTest extends PortalTestCase
     }
 
     /**
+     * The bug a live tenant found, and the reason `read_at` exists.
+     *
+     * A list that could not be read used to be written down as a list holding
+     * nobody, and the two are indistinguishable once stored. Every member of
+     * that list was then told they were not subscribed — not once, but for
+     * good, because each further failed attempt only moved the timestamp along.
+     *
+     * The distinction under test: an attempt is recorded (so a dead Exchange is
+     * not retried on every page load) and an *answer* is not.
+     */
+    public function testAListThatCouldNotBeReadIsNotRecordedAsEmpty(): void
+    {
+        $this->exchange->unreadable = true;
+
+        $body = $this->json($this->read());
+
+        // Falls back to the portal's own record — nothing recorded, so off —
+        // rather than to an emptiness nobody established.
+        self::assertFalse($body['lists'][0]['subscribed']);
+
+        $row = DB::table('portal_list_snapshot')->first();
+
+        self::assertNotNull($row, 'the attempt is recorded, or a dead Exchange is asked on every page load');
+        self::assertNull($row->read_at, 'but not as an answer');
+    }
+
+    /**
+     * And the moment it can be read, the answer arrives — the failed attempt
+     * left nothing behind that has to be cleared out first.
+     */
+    public function testAnAnswerArrivesOnceTheListCanBeReadAgain(): void
+    {
+        $this->exchange->unreadable = true;
+        $this->exchange->onList     = [self::FAMILY => ['anna@example.test']];
+
+        self::assertFalse($this->json($this->read())['lists'][0]['subscribed']);
+
+        $this->exchange->unreadable = false;
+
+        // What the passage of time would do.
+        DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
+
+        self::assertTrue($this->json($this->read())['lists'][0]['subscribed']);
+    }
+
+    /**
+     * An empty answer is still an answer, and must not be confused with the
+     * absence of one. A list nobody is on says so.
+     */
+    public function testAListThatIsGenuinelyEmptyIsRecordedAsSuch(): void
+    {
+        $this->exchange->onList = [self::FAMILY => []];
+
+        $this->read();
+
+        $row = DB::table('portal_list_snapshot')->first();
+
+        self::assertNotNull($row);
+        self::assertNotNull($row->read_at);
+        self::assertSame('', (string) $row->members);
+    }
+
+    /**
      * A list that cannot be read must cost a wrong-looking switch at worst,
      * never a screen that will not open.
      */

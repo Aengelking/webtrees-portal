@@ -9,6 +9,7 @@ use Engelking\Webtrees\PortalApi\PortalApiModule;
 use function array_filter;
 use function array_keys;
 use function array_walk_recursive;
+use function count;
 use function curl_close;
 use function curl_error;
 use function curl_exec;
@@ -338,6 +339,20 @@ class ExchangeOnline
                 $addresses[mb_strtolower($address)] = true;
             }
         });
+
+        // Rows came back and not one of them held anything shaped like an
+        // address. That is not an empty list — an empty list returns no rows —
+        // it is this module failing to read an answer it was given, and the
+        // only honest thing to do with it is say so. Reported as a failure
+        // rather than returned as "nobody is subscribed", because the second
+        // is a sentence about the family and this is a sentence about the code.
+        if ($addresses === [] && $rows !== []) {
+            throw new ExchangeFailure(
+                'Get-DistributionGroupMember returned ' . count($rows) . ' member(s) for ' . $list
+                . ' with no readable address among them. The fields it returns are not the ones this module looks in.',
+                true
+            );
+        }
 
         return array_keys($addresses);
     }

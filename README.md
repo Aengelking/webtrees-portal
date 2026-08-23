@@ -539,6 +539,14 @@ module knows what it just did and writes it into the same answer. A list that
 cannot be read falls back to what the portal recorded, which costs a
 wrong-looking switch and never a screen that will not open.
 
+The distinction that matters there is between an attempt and an answer. A list
+that was asked and did not reply is recorded as *asked* — so a dead Exchange is
+not tried again on every page load — and not as a list holding nobody, which
+would tell every member of it that they are not subscribed. **The diagnosis
+screen shows which:** per list, how many members were last read, or *never
+read*. If a list stays unread, the application can write but not read, and
+*Test the connection to Exchange* will say so.
+
 Only the hashes of the addresses are kept (`portal_list_snapshot`). The useful
 question is "is *this* address on that list", which a SHA-256 answers as well
 as the address does — and a second copy of the family's mailing list is not
@@ -2125,7 +2133,9 @@ change that has not landed says so. A member who never touched a switch is
 shown what Exchange says about them, somebody else being on the list says
 nothing about them, a list is not re-read on every visit, leaving one is not
 undone by an answer read ten minutes ago, and a list that cannot be read at all
-falls back rather than failing. `ExchangeConnectorTest` replaces the wire
+falls back rather than failing — and a list that could not be read is recorded
+as asked rather than as empty, which is the bug that told a whole family they
+were not subscribed. `ExchangeConnectorTest` replaces the wire
 with a script and pins what the connector may conclude from an answer: a write
 refused for want of a role is never excused by the list happening to look
 right — the shape of the one bug a live tenant found — while an ordinary

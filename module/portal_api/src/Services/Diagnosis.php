@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
 use Throwable;
 
 use function count;
+use function implode;
 use function time;
 use function trim;
 
@@ -386,13 +387,45 @@ class Diagnosis
             $subscribers += (int) $count;
         }
 
-        return new DiagnosisCheck(
-            'mailing_lists',
-            self::OK,
-            $label,
-            I18N::plural('%s subscription, all of them applied.', '%s subscriptions, all of them applied.', $subscribers, I18N::number($subscribers)),
-            ''
-        );
+        $applied = I18N::plural('%s subscription, all of them applied.', '%s subscriptions, all of them applied.', $subscribers, I18N::number($subscribers));
+
+        // What Exchange last said about each list, which is what the switches
+        // on a member's screen are built from. A list that has never been read
+        // is why somebody who *is* on it can be shown as not subscribed, and
+        // before this there was nowhere to see that.
+        $unread   = [];
+        $readings = [];
+
+        foreach ($this->lists->readings() as $reading) {
+            if ($reading['members'] === null) {
+                $unread[]   = $reading['name'];
+                $readings[] = I18N::translate('%s: never read', $reading['name']);
+
+                continue;
+            }
+
+            $readings[] = I18N::plural(
+                '%1$s: %2$s member',
+                '%1$s: %2$s members',
+                (int) $reading['members'],
+                $reading['name'],
+                I18N::number((int) $reading['members'])
+            );
+        }
+
+        $detail = $applied . ' ' . implode(' · ', $readings);
+
+        if ($unread !== []) {
+            return new DiagnosisCheck(
+                'mailing_lists',
+                self::WARNING,
+                $label,
+                $detail,
+                I18N::translate('A list that has not been read yet cannot say who is already on it, so members who have never used the switch are shown as not subscribed. One list is read per visit, so a portal that has just started may need a few. If it stays this way, use “Test the connection to Exchange” below — the application can very likely write but not read.')
+            );
+        }
+
+        return new DiagnosisCheck('mailing_lists', self::OK, $label, $detail, '');
     }
 
     private function recentErrors(): DiagnosisCheck

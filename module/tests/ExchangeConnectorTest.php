@@ -268,6 +268,34 @@ class ExchangeConnectorTest extends PortalTestCase
         self::assertSame([], $this->exchange->members(self::LIST));
     }
 
+    /**
+     * Members came back and this module could not find an address in any of
+     * them. That is not an empty list — an empty list returns no rows — it is
+     * the code failing to read an answer it was given, and the difference
+     * matters: returning "no addresses" would tell every member of that list
+     * they are not subscribed, with nothing anywhere saying why.
+     *
+     * The assumption this guards is the one NOTES §3 flags: that
+     * `Get-DistributionGroupMember` puts the address somewhere in each member
+     * object. If a tenant returns objects that carry only a display name, this
+     * is what says so out loud instead of quietly emptying the list.
+     */
+    public function testMembersWithNoReadableAddressAreAFailureAndNotAnEmptyList(): void
+    {
+        $this->exchange->answers = [[200, (string) json_encode(['value' => [
+            ['Name' => 'Anna Beispiel', 'RecipientType' => 'MailContact'],
+            ['Name' => 'Opa', 'RecipientType' => 'MailContact'],
+        ]])]];
+
+        try {
+            $this->exchange->members(self::LIST);
+            self::fail('two unreadable members should be reported, not returned as an empty list');
+        } catch (ExchangeFailure $failure) {
+            self::assertStringContainsString('2 member(s)', $failure->getMessage());
+            self::assertStringContainsString('not the ones this module looks in', $failure->getMessage());
+        }
+    }
+
     public function testALisThatCannotBeReadSaysSoRatherThanLookingEmpty(): void
     {
         $this->exchange->answers = [[403, '']];

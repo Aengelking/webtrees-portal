@@ -4123,6 +4123,49 @@ for somebody holding a number, not a place to learn the family's geography —
 and naming the branches there would need the table in the browser, which is a
 second decision and not this one.
 
+### 2.72 An attempt is not an answer
+
+The switches read Exchange (§2.66) and on the first tenant they read nothing:
+members who had been on the family lists for years were shown as not
+subscribed, and no error appeared anywhere.
+
+The cause is one line and the shape of the mistake is worth more than the fix.
+`refresh()` stored a list it could not read as a list holding nobody:
+
+    'members' => $column ?? '',      // $column is null when the read failed
+
+Once written, the two are indistinguishable. `subscribed()` sees a snapshot
+that exists and is empty, concludes that nobody is on the list, and tells every
+member so — for good, because each further failed attempt only moved
+`fetched_at` along and never produced an answer to replace it.
+
+**A cache has to be able to say "I do not know".** That is the whole lesson.
+The row now records the attempt in `fetched_at` and the answer in `read_at`,
+and only a row with the second is believed; without it the screen falls back to
+what the portal itself recorded. Both jobs are still done — a dead Exchange is
+still not asked on every page load, and it no longer asserts anything about the
+family while it is dead.
+
+This is the same error as §2.66's, one layer along, and it is worth naming as a
+pair. There, a refusal to *write* was read as evidence that the write had
+happened. Here, a failure to *read* was written down as the thing read. Both
+times something that was not an answer got filed as one.
+
+**The connector now refuses to hand back an emptiness it cannot vouch for.**
+`members()` throws when rows come back and not one of them holds anything
+shaped like an address — which is not an empty list, since an empty list
+returns no rows, but this module failing to read an answer it was given. That
+is exactly the assumption NOTES §3 flagged as a guess about somebody else's
+product, and it now announces itself instead of quietly emptying a list.
+
+**And the diagnosis screen says what was read.** Per list: how many members, or
+*never read*. The whole difficulty of finding this was that "read, and nobody
+is on it" and "never read" looked identical from outside, including to the
+person who wrote it.
+
+---
+
+
 ---
 
 ## 3. Things that were guessed
@@ -4196,7 +4239,9 @@ Flagging these so they get a second look rather than being inherited as fact.
     address somewhere in each member object — as `PrimarySmtpAddress`, or as an
     `SMTP:`-prefixed `ExternalEmailAddress` — so every string in the answer is
     searched rather than a chosen few. The exclusion for `401` and `403` is not
-    a guess: it is what the first live tenant cost. See §2.66.
+    a guess: it is what the first live tenant cost. See §2.66. Since §2.72 the
+    assumption announces itself: members coming back with no readable address
+    among them is reported as a failure rather than returned as an empty list.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than
