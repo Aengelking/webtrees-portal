@@ -499,7 +499,7 @@ describe('inviting anybody, as somebody who keeps the tree', () => {
     is_deceased: false,
     lifespan: '1992–',
     portrait: null,
-    references: [{ number: '4716', type: 'SB' }],
+    references: [{ number: '4716', type: 'SB', branch: null }],
     relationship: null,
   }
 

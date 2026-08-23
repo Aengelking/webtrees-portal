@@ -17,8 +17,8 @@ const ANNA = {
   name_alternative: null,
   relationship: null,
   references: [
-    { number: '4711', type: 'SB' },
-    { number: '10/1335.11', type: 'SB' },
+    { number: '4711', type: 'SB', branch: null },
+    { number: '10/1335.11', type: 'SB', branch: 'Ernestinische Linie – Zweig Cleve' },
   ],
   birth: {
     tag: 'INDI:BIRT',
@@ -81,7 +81,7 @@ const MEMBERS = [
       sex: 'M',
       is_deceased: false,
       lifespan: '1990–',
-      references: [{ number: '4714', type: 'SB' }],
+      references: [{ number: '4714', type: 'SB', branch: null }],
     },
   },
   { id: 3, display_name: 'Nora Ohnesatz', individual: null },
@@ -732,7 +732,7 @@ interface ArchiveEntry {
   is_deceased: boolean
   lifespan: string
   portrait: null
-  references: { number: string; type: string }[]
+  references: { number: string; type: string; branch: string | null }[]
   relationship: string | null
   surname: string
   places: string[]
@@ -746,7 +746,7 @@ const ARCHIVE: ArchiveEntry[] = [
     is_deceased: true,
     lifespan: '1889–1976',
     portrait: null,
-    references: [{ number: '4712', type: 'SB' }],
+    references: [{ number: '4712', type: 'SB', branch: null }],
     relationship: 'Ihre Großmutter',
     surname: 'Beispiel',
     places: ['Celle, Niedersachsen, Deutschland'],

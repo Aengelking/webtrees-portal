@@ -34,8 +34,8 @@ const ANNA = {
   name_alternative: null,
   relationship: null,
   references: [
-    { number: '4711', type: 'SB' },
-    { number: '10/1335.11', type: 'SB' },
+    { number: '4711', type: 'SB', branch: null },
+    { number: '10/1335.11', type: 'SB', branch: 'Ernestinische Linie – Zweig Cleve' },
   ],
   photos: [],
   birth: null,
@@ -70,7 +70,7 @@ const BERTHA = {
   sex: 'F',
   is_deceased: true,
   lifespan: '1889–1976',
-  references: [{ number: '4712', type: 'SB' }],
+  references: [{ number: '4712', type: 'SB', branch: null }],
   relationship: 'Ihre Großmutter',
 }
 
@@ -294,7 +294,7 @@ describe('the archive-number calculator', () => {
 
         return jsonResponse({
           ...ME,
-          individual: { ...ANNA, references: [{ number: 'GS/755133', type: 'SB' }] },
+          individual: { ...ANNA, references: [{ number: 'GS/755133', type: 'SB', branch: 'Nachkommen von Georg Sack' }] },
         })
       }),
     )

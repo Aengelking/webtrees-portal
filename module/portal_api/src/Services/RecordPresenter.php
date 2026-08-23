@@ -50,6 +50,7 @@ class RecordPresenter
         private readonly PendingChanges $pending_changes,
         private readonly RelationshipNamer $relationships,
         private readonly PhotoPresenter $photos,
+        private readonly SackNumbers $sack_numbers,
     ) {
     }
 
@@ -347,6 +348,14 @@ class RecordPresenter
      * comparing notes with the family archive, so it is published in the open,
      * labelled, and not glued to a name.
      *
+     * **The branch comes with it**, because it is in the number and nowhere
+     * else: what stands in front of the oblique says which group of lines the
+     * person belongs to, and that name — "Zweig Rothenhof" — is how the family
+     * says where somebody comes from. Derived here rather than stored on the
+     * record, so it stays right when the family edits the table, and null on
+     * every number that is not one of these. No new disclosure: it is a
+     * reading of a number that has already been through `Fact::canShow()`.
+     *
      * Filtered like everything else: `$facts` has already been through
      * `Fact::canShow()`, so a `2 RESN` under a REFN is honoured here for free.
      * GEDCOM allows several, so this is a list.
@@ -359,12 +368,14 @@ class RecordPresenter
     {
         return $facts
             ->filter(static fn (Fact $fact): bool => $fact->tag() === 'INDI:REFN')
-            ->map(static function (Fact $fact): array {
-                $type = trim($fact->attribute('TYPE'));
+            ->map(function (Fact $fact): array {
+                $type   = trim($fact->attribute('TYPE'));
+                $number = trim($fact->value());
 
                 return [
-                    'number' => trim($fact->value()),
+                    'number' => $number,
                     'type'   => $type === '' ? null : $type,
+                    'branch' => $this->sack_numbers->branch($number),
                 ];
             })
             ->filter(static fn (array $reference): bool => $reference['number'] !== '')

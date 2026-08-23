@@ -580,6 +580,7 @@ export const en: Translations = {
     spouses: 'Partners',
     children: 'Children',
     reference: 'SB number in the family archive',
+    branch: 'Branch of the family',
     relationship: 'To you: {{relationship}}',
     showAncestors: 'Show ancestors',
     editInWebtrees: 'Open and edit in webtrees',

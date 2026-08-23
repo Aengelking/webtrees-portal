@@ -202,6 +202,14 @@ export interface Event {
 export interface Reference {
   number: string
   type: string | null
+  /**
+   * The branch of the family the number belongs to, by the name the family
+   * gives it, or null where the number does not say — see openapi.yaml.
+   *
+   * Derived by the server from the part in front of the oblique, because that
+   * is where it is written; the portal does no reading of numbers of its own.
+   */
+  branch: string | null
 }
 
 /**
