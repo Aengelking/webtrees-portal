@@ -644,7 +644,7 @@ describe('my contacts', () => {
             thumbnail_url: '/api/v1/media/M9/1/thumbnail',
             image_url: '/api/v1/media/M9/1/image',
           },
-          references: [{ number: '4713', type: 'SB' }],
+          references: [{ number: '4713', type: 'SB', branch: null }],
         },
       ],
     })

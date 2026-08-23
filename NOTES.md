@@ -3926,6 +3926,12 @@ through `Fact::canShow()`, and a number the reader may not see is not in the
 response to be read. It travels on the `Reference` shape as a third field, so a
 record with two numbers can name two branches, which is a thing that happens.
 
+Two services build that shape — `RecordPresenter::references()` and
+`Recognition::references()`, the one that lets a number through for a record
+the reader may not open — and both carry the branch. A card reading the list
+does not know which of the two filled it, and one of them being a field short
+is how one shape quietly becomes two.
+
 Four decisions inside it, each of which could have gone the other way.
 
 **Read what is written, not the resolved path.** `path()` turns a number into

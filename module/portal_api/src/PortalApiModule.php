@@ -335,7 +335,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
-        $recognition    = new Recognition($this, $portal_trees, $photos);
+        $recognition    = new Recognition($this, $portal_trees, $photos, $sack_numbers);
         $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service, $recognition);
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
