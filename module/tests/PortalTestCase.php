@@ -13,6 +13,7 @@ use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Factories\CacheFactory;
+use Fisharebest\Webtrees\Http\Dispatcher;
 use Fisharebest\Webtrees\Http\Middleware\RequestHandler;
 use Fisharebest\Webtrees\Http\RequestHandlers\GedcomLoad;
 use Fisharebest\Webtrees\Registry;
@@ -25,7 +26,6 @@ use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\TestCase;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
-use Middleland\Dispatcher;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -73,6 +73,25 @@ abstract class PortalTestCase extends TestCase
         $this->tree->setPreference('SHOW_LIVING_NAMES', '1');
         $this->tree->setPreference('KEEP_ALIVE_YEARS_BIRTH', '0');
         $this->tree->setPreference('KEEP_ALIVE_YEARS_DEATH', '0');
+    }
+
+    /**
+     * This test exercises a path where the module writes to `error_log()`.
+     *
+     * A configured tree that does not exist, a request that threw and was
+     * recorded — the module says so, on purpose, and a dozen tests are about
+     * exactly that. PHPUnit 12 (which arrived with webtrees 2.2.6) counts what
+     * `error_log()` produces as output from the test, and `failOnRisky` then
+     * turns those deliberate lines into failures.
+     *
+     * Declaring it is better than relaxing `beStrictAboutOutputDuringTests`,
+     * because the pattern still says what may be printed: a `portal_api:` line
+     * and nothing else. A stray `var_dump` left in the module would still be
+     * caught, here as everywhere else.
+     */
+    protected function expectsLogOutput(): void
+    {
+        $this->expectOutputRegex('/\A(portal_api: .*)?\z/s');
     }
 
     protected function module(): PortalApiModule
@@ -352,7 +371,12 @@ abstract class PortalTestCase extends TestCase
 
         $middleware = [...$route->extras['middleware'], RequestHandler::class];
 
-        return (new Dispatcher($middleware, Registry::container()))->dispatch($request);
+        // webtrees' own dispatcher since 2.2.6, which is when it stopped
+        // depending on `oscarotero/middleland` and grew one of its own. Same
+        // contract either way — a list of middleware class names resolved from
+        // the container, in order, with the route's handler last — so this is
+        // the only line that had to know.
+        return Dispatcher::dispatch($middleware, $request);
     }
 
     /**

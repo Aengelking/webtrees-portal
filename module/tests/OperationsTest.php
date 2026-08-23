@@ -123,6 +123,8 @@ class OperationsTest extends PortalTestCase
 
     public function testAnUnhandledFailureIsRecordedAndGivenAReference(): void
     {
+        $this->expectsLogOutput();
+
         $response = $this->dispatchFailing(new RuntimeException('the database went away'));
         $body     = $this->body($response);
 
@@ -146,6 +148,8 @@ class OperationsTest extends PortalTestCase
      */
     public function testTheMemberIsStillToldNothingAboutTheFailure(): void
     {
+        $this->expectsLogOutput();
+
         $raw = $this->dispatchFailing(new RuntimeException('SQLSTATE[HY000]: /var/www/secret/config.ini.php'));
 
         $raw->getBody()->rewind();
@@ -162,6 +166,8 @@ class OperationsTest extends PortalTestCase
      */
     public function testTheRecordDoesNotNameWhatWasAskedFor(): void
     {
+        $this->expectsLogOutput();
+
         $this->dispatchFailing(new RuntimeException('boom'), IndividualRead::class);
 
         $row = DB::table(ErrorLog::TABLE)->first();
@@ -194,6 +200,8 @@ class OperationsTest extends PortalTestCase
      */
     public function testAMisconfiguredPortalDoesNotFillTheErrorLog(): void
     {
+        $this->expectsLogOutput();
+
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         $this->api(HealthRead::class);
@@ -204,6 +212,8 @@ class OperationsTest extends PortalTestCase
 
     public function testOldEntriesArePruned(): void
     {
+        $this->expectsLogOutput();
+
         $this->dispatchFailing(new RuntimeException('recent'));
         $this->dispatchFailing(new RuntimeException('ancient'));
 
@@ -262,6 +272,8 @@ class OperationsTest extends PortalTestCase
 
     public function testHealthFailsWhenNoTreeCanBeServed(): void
     {
+        $this->expectsLogOutput();
+
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         self::assertSame(
@@ -343,6 +355,8 @@ class OperationsTest extends PortalTestCase
     /** And a genuinely missing tree is still a failure, filter or no filter. */
     public function testHealthStillFailsOnAMissingTreeBehindAuthentication(): void
     {
+        $this->expectsLogOutput();
+
         $this->requireAuthentication();
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
@@ -381,6 +395,8 @@ class OperationsTest extends PortalTestCase
 
     public function testAMissingTreeIsReportedAsAProblem(): void
     {
+        $this->expectsLogOutput();
+
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         self::assertSame(Diagnosis::PROBLEM, $this->check('tree')->status);
@@ -444,6 +460,8 @@ class OperationsTest extends PortalTestCase
 
     public function testARecordedFailureShowsUpInTheDiagnosis(): void
     {
+        $this->expectsLogOutput();
+
         self::assertSame(Diagnosis::OK, $this->check('errors')->status);
 
         $this->dispatchFailing(new RuntimeException('boom'));
@@ -457,6 +475,8 @@ class OperationsTest extends PortalTestCase
      */
     public function testTheDiagnosisSurvivesAnInstallationWithNothingConfigured(): void
     {
+        $this->expectsLogOutput();
+
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
         $this->module()->setPreference(PortalApiModule::SETTING_PORTAL_URL, '');
         $this->module()->setPreference(PortalApiModule::SETTING_PROXY_SECRET, '');
@@ -469,6 +489,8 @@ class OperationsTest extends PortalTestCase
 
     public function testTheDiagnosisScreenRenders(): void
     {
+        $this->expectsLogOutput();
+
         $this->dispatchFailing(new RuntimeException('boom'));
 
         $diagnosis = Registry::container()->get(Diagnosis::class);

@@ -4100,6 +4100,48 @@ for somebody holding a number, not a place to learn the family's geography —
 and naming the branches there would need the table in the browser, which is a
 second decision and not this one.
 
+### 2.71 The suite that was merged red
+
+`main` was broken for an hour and the deploy refused to run for every commit
+after it, which is worth writing down because the mechanism will happen again.
+
+The move to webtrees 2.2.6 (§2.70) was merged **while its own module job was
+failing**. GitHub said so; the merge went ahead. Everything that landed
+afterwards inherited a red suite, so every later deploy stopped before the
+upload step — correctly, since that gate is the whole reason to trust a release
+that carries a family's records.
+
+Two things had broken, both in the harness rather than in the module.
+
+**webtrees stopped depending on `oscarotero/middleland`** and grew its own
+`Http\Dispatcher`. `PortalTestCase::api()` built its middleware pipeline with
+Middleland's, so 469 of 530 tests died on `Class "Middleland\Dispatcher" not
+found` — everything that dispatches a request, which is nearly everything. The
+replacement is a static method with the same contract: a list of middleware
+resolved from the container, in order, handler last. One line.
+
+**PHPUnit went from 11 to 12 with it**, and 12 counts what `error_log()`
+produces as output from the test. Fifteen tests are *about* paths where the
+module logs — a configured tree that does not exist, a request that threw — and
+`failOnRisky` turned those deliberate lines into failures. Three ways out, one
+of them honest. Relaxing `beStrictAboutOutputDuringTests` gives up a real
+guard. Sending the log elsewhere does not work, because PHPUnit captures it
+deliberately and ignores the `error_log` ini for exactly that reason. Saying so
+costs one line per test and still asserts what may be printed — a `portal_api:`
+line and nothing else — so a stray `var_dump` is caught as before.
+
+The rule this leaves: **a red check is a red check.** The suite is what stands
+between this repository and a server holding living people's records, and
+merging past it must never become routine.
+
+**Left alone deliberately:** this file now has three §2.66 and two §2.67, from
+pull requests written in parallel and merged in sequence. Renumbering them
+would be tidier and would break the cross-references that code comments make to
+those numbers, so the collision stays and this entry takes the next free
+number.
+
+---
+
 ---
 
 ## 3. Things that were guessed

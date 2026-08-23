@@ -33,6 +33,8 @@ class ConfigurationTest extends PortalTestCase
 
     public function testAConfiguredTreeThatDoesNotExistIsRefused(): void
     {
+        $this->expectsLogOutput();
+
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         $response = $this->api(MeRead::class);
@@ -43,6 +45,8 @@ class ConfigurationTest extends PortalTestCase
 
     public function testRefusingDoesNotServeADifferentTreeInstead(): void
     {
+        $this->expectsLogOutput();
+
         // The point of refusing rather than falling back: a wrong tree name
         // must not quietly hand out another family's records.
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
@@ -55,6 +59,8 @@ class ConfigurationTest extends PortalTestCase
 
     public function testTheMemberIsToldNothingAboutTheInstallation(): void
     {
+        $this->expectsLogOutput();
+
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         $body = $this->json($this->api(MeRead::class));

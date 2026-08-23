@@ -349,6 +349,8 @@ class InvitationTest extends PortalTestCase
      */
     public function testAnInvitationForAVanishedRecordStillCreatesTheAccount(): void
     {
+        $this->expectsLogOutput();
+
         $token = $this->invitations->create($this->tree, 'X999', 'Wer Auchimmer', '', null);
 
         $response = $this->accept($token, ['username' => 'wer', 'email' => 'wer@example.test']);
