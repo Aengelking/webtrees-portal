@@ -837,9 +837,15 @@ paths:
       summary: Change what I share
       description: |
         A kind absent from the body is left alone. A kind that arrives with an
-        empty value, or with `nobody` as its audience, is **deleted** —
-        clearing the field and withdrawing consent are deliberately the same
-        act, so nothing is left behind to leak later.
+        **empty value is deleted**, and that is the only thing that deletes
+        one: clearing the field is the withdrawal, so nothing is left behind
+        to leak later.
+
+        `nobody` **keeps** the entry and discloses it to no one. An address
+        shared with no relative is still the address the family magazine is
+        posted to — an audience of nobody and no entry at all are the same
+        thing for disclosure and not for the family. Clients are expected to
+        say so where the choice is made.
 
         Unknown kinds and unknown audiences are ignored, and an unrecognised
         audience resolves to `nobody`.

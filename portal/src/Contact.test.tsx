@@ -237,6 +237,35 @@ describe('my own contact details', () => {
   })
 
   /**
+   * "Niemand" keeps the entry and shows it to nobody. It used to delete it,
+   * which turned "do not show this to my relatives" into "the family does not
+   * have my address" — and the family posts a magazine to that address.
+   *
+   * The screen has to say so, both halves: what is kept, and where the delete
+   * is. An entry a member believes they deleted would be the worse bargain.
+   */
+  it('says that an entry shown to nobody is still kept', async () => {
+    stub({
+      contact: {
+        enabled: true,
+        contact: { phone: { value: '0511 12345', audience: 'nobody' } },
+      },
+    })
+    renderAt('/settings')
+
+    expect(await screen.findByText('0511 12345')).toBeDefined()
+    expect(screen.getByText('Gespeichert, aber niemandem gezeigt.')).toBeDefined()
+  })
+
+  it('says how to delete an entry for good', async () => {
+    stub()
+    renderAt('/settings')
+    await openTheForm()
+
+    expect(await screen.findByText(/Zum endgültigen Löschen leeren Sie das Feld/)).toBeDefined()
+  })
+
+  /**
    * An address is four answers, not one line — and the browser's own autofill
    * can only help when each field says what it is.
    */

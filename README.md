@@ -315,6 +315,12 @@ is maintained by whoever keeps the tree, and nobody can meaningfully consent
 to "whatever my record happens to say". What is shared here is what the member
 typed about themselves, and clearing the field deletes it.
 
+**„Niemand" heißt aufheben, nicht löschen.** An entry set to *Niemand* is kept
+and shown to no one in the portal — an address shared with no relative is
+still the address the family magazine is posted to, and one day the
+subscription list it is kept in. The only way to delete an entry is to empty
+the field and save, and the form says so where the choice is made.
+
 *Close family* is the same distance as for invitations — one definition, set
 once.
 

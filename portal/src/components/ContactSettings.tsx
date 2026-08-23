@@ -41,7 +41,14 @@ function audiencesFor(connectionsEnabled: boolean | undefined): ContactAudience[
  * The rule that makes the form readable is that an empty field shares
  * nothing, whatever the selector next to it says. So there is never a state
  * where somebody has to reason about what a blank value with an audience
- * means: the server deletes the row either way.
+ * means: an entry with nothing in it is deleted, whoever it was for.
+ *
+ * **And that is now the only way to delete one.** "Niemand" used to delete
+ * the entry as well; it keeps it and shows it to nobody, because an address
+ * shared with no relative is still the address the family magazine is posted
+ * to. The form says both halves of that out loud — what "Niemand" keeps, and
+ * that emptying the field is the delete — because an entry a member believes
+ * they deleted would be the worse bargain.
  *
  * **It reads before it writes.** Settings used to open with the whole form
  * unrolled — three text fields and twelve radio buttons, every one of them
@@ -180,7 +187,14 @@ export function ContactSettings() {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <p className="mb-5 text-base text-slate-700">{t('contact.intro')}</p>
+      <p className="mb-3 text-base text-slate-700">{t('contact.intro')}</p>
+
+      {/*
+        Said before the first field rather than beside the radio button that
+        needs it: "Niemand" now keeps the entry, and the only delete is an
+        empty field. Both halves have to be read before anybody chooses.
+      */}
+      <p className="mb-5 text-base text-slate-700">{t('contact.keptHint')}</p>
 
       {mutation.isError && (
         <div className="mb-5">
@@ -296,7 +310,9 @@ function Shared({
           <>
             <p className="whitespace-pre-line text-base text-slate-900">{value}</p>
             <p className="mt-1 text-base text-slate-700">
-              {t('contact.sharedWith', { audience: t(`contact.audience.${audience}`) })}
+              {audience === 'nobody'
+                ? t('contact.keptNote')
+                : t('contact.sharedWith', { audience: t(`contact.audience.${audience}`) })}
             </p>
           </>
         )}
