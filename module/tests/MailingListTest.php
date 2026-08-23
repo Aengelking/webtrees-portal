@@ -517,6 +517,30 @@ class MailingListTest extends PortalTestCase
     }
 
     /**
+     * "Never read" on its own is one round trip short of useful.
+     *
+     * The first time a list would not read, the cause was a list address
+     * Exchange had never heard of — sitting in the answer, and nowhere on the
+     * screen. It is kept for the administrator now, and still never shown to a
+     * member.
+     */
+    public function testWhyAListCouldNotBeReadIsKeptForTheAdministrator(): void
+    {
+        $this->exchange->unreadable = true;
+
+        $raw = $this->raw($this->read());
+
+        $row = DB::table('portal_list_snapshot')->first();
+
+        self::assertNotNull($row);
+        self::assertStringContainsString('timeout', (string) $row->read_error);
+
+        // The member is told nothing about somebody else's infrastructure.
+        self::assertStringNotContainsString('timeout', $raw);
+        self::assertStringNotContainsString('Exchange', $raw);
+    }
+
+    /**
      * And the moment it can be read, the answer arrives — the failed attempt
      * left nothing behind that has to be cleared out first.
      */

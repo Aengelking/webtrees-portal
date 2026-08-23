@@ -44,6 +44,13 @@ class Migration14 implements MigrationInterface
 
         DB::schema()->table('portal_list_snapshot', static function (Blueprint $table): void {
             $table->integer('read_at')->nullable();
+
+            // And why, when there is no answer. Without it the diagnosis
+            // screen can say a list has never been read and not a word about
+            // the reason, which is one round trip short of useful — the first
+            // time this happened the cause turned out to be a list address
+            // Exchange had never heard of, and nothing on the screen said so.
+            $table->string('read_error', 500)->nullable();
         });
 
         // Rows that predate the distinction. An empty one is exactly the case

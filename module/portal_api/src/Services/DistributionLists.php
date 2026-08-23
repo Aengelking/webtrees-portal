@@ -309,7 +309,7 @@ class DistributionLists
      * been read is a different problem from one that was read and holds
      * nobody, and until this they looked the same from outside.
      *
-     * @return array<int,array{name:string,members:int|null,read_at:int|null,tried_at:int|null}>
+     * @return array<int,array{name:string,members:int|null,read_at:int|null,tried_at:int|null,error:string}>
      */
     public function readings(): array
     {
@@ -330,6 +330,9 @@ class DistributionLists
                 'members'  => $read ? count(array_filter(explode("\n", (string) $row->members))) : null,
                 'read_at'  => $read ? (int) $row->read_at : null,
                 'tried_at' => $row === null ? null : (int) $row->fetched_at,
+                // Exchange's own words about why there is no answer, for the
+                // administrator and never for a member.
+                'error'    => $row === null || $row->read_error === null ? '' : (string) $row->read_error,
             ];
         }
 
@@ -605,10 +608,14 @@ class DistributionLists
 
         [$hash, $address, $exists] = $stale;
 
+        $why = null;
+
         try {
             $members = $this->exchange->members($address);
             $column  = implode("\n", array_map(self::hash(...), $members));
-        } catch (ExchangeFailure) {
+        } catch (ExchangeFailure $failure) {
+            $why = mb_substr($failure->getMessage(), 0, 500);
+
             // Keep whatever was there. An answer from ten minutes ago beats no
             // answer at all, and the only thing this attempt has established is
             // that it is not worth repeating for a while.
@@ -616,6 +623,7 @@ class DistributionLists
         } catch (Throwable $exception) {
             error_log('portal_api: reading a mailing list failed. ' . $exception::class . ': ' . $exception->getMessage());
 
+            $why    = mb_substr($exception::class . ': ' . $exception->getMessage(), 0, 500);
             $column = null;
         }
 
@@ -635,7 +643,7 @@ class DistributionLists
         if ($exists) {
             DB::table('portal_list_snapshot')
                 ->where('list_hash', '=', $hash)
-                ->update($answer + ['fetched_at' => time()]);
+                ->update($answer + ['fetched_at' => time(), 'read_error' => $why]);
 
             return;
         }
@@ -644,6 +652,7 @@ class DistributionLists
             'list_hash'  => $hash,
             'members'    => '',
             'fetched_at' => time(),
+            'read_error' => $why,
         ]);
     }
 

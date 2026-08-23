@@ -398,8 +398,15 @@ class Diagnosis
 
         foreach ($this->lists->readings() as $reading) {
             if ($reading['members'] === null) {
-                $unread[]   = $reading['name'];
-                $readings[] = I18N::translate('%s: never read', $reading['name']);
+                $unread[] = $reading['name'];
+
+                // With the reason where there is one. "Never read" on its own
+                // is one round trip short of useful, and the first time this
+                // happened the cause — a list address Exchange had never heard
+                // of — was sitting right there and nothing said it.
+                $readings[] = $reading['error'] === ''
+                    ? I18N::translate('%s: never read', $reading['name'])
+                    : I18N::translate('%1$s: never read — %2$s', $reading['name'], $reading['error']);
 
                 continue;
             }
@@ -421,7 +428,7 @@ class Diagnosis
                 self::WARNING,
                 $label,
                 $detail,
-                I18N::translate('A list that has not been read yet cannot say who is already on it, so members who have never used the switch are shown as not subscribed. One list is read per visit, so a portal that has just started may need a few. If it stays this way, use “Test the connection to Exchange” below — the application can very likely write but not read.')
+                I18N::translate('A list that has not been read yet cannot say who is already on it, so members who have never used the switch are shown as not subscribed. One list is read per visit, so a portal that has just started may need a few. If it stays this way, the reason is beside the name above: an address Exchange does not know means the setting is wrong, and a refusal means the application may write but not read.')
             );
         }
 
