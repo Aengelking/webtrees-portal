@@ -324,7 +324,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $relationships  = new RelationshipNamer($container->get(RelationshipService::class), $sack);
         $photo_store    = new Photos($portal_trees, $pending);
         $photos         = new PhotoPresenter($photo_store);
-        $presenter      = new RecordPresenter($pending, $relationships, $photos);
+        $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers);
         $ancestors      = new AncestorTree($presenter);
         $members        = new MemberService($user_service);
         $search_consent = new SearchConsent($members, $portal_trees);
@@ -335,7 +335,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
-        $recognition    = new Recognition($this, $portal_trees, $photos);
+        $recognition    = new Recognition($this, $portal_trees, $photos, $sack_numbers);
         $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service, $recognition);
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
@@ -756,8 +756,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'exchange_hide_contacts' => $this->getPreference(self::SETTING_EXCHANGE_HIDE_CONTACTS, '1'),
             'sack_lines'        => $this->getPreference(SackNumbers::SETTING_LINES, ''),
             'sack_marriages'    => $this->getPreference(SackNumbers::SETTING_MARRIAGES, ''),
+            'sack_branches'     => $this->getPreference(SackNumbers::SETTING_BRANCHES, ''),
             'sack_lines_default'     => SackNumbers::DEFAULT_LINES,
             'sack_marriages_default' => SackNumbers::DEFAULT_MARRIAGES,
+            'sack_branches_default'  => SackNumbers::DEFAULT_BRANCHES,
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -800,6 +802,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         // never edited them.
         $this->setPreference(SackNumbers::SETTING_LINES, $this->sackTable($body->string(SackNumbers::SETTING_LINES, ''), SackNumbers::DEFAULT_LINES));
         $this->setPreference(SackNumbers::SETTING_MARRIAGES, $this->sackTable($body->string(SackNumbers::SETTING_MARRIAGES, ''), SackNumbers::DEFAULT_MARRIAGES));
+        $this->setPreference(SackNumbers::SETTING_BRANCHES, $this->sackTable($body->string(SackNumbers::SETTING_BRANCHES, ''), SackNumbers::DEFAULT_BRANCHES));
 
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 

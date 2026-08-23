@@ -36,6 +36,9 @@ test.describe('the smoke path', () => {
     if (!REAL_BACKEND) {
       await expect(name).toHaveText('Anna Beispiel')
       await expect(page.getByText('SB 4711')).toBeVisible()
+
+      // And under the number, the part of it a member would say out loud.
+      await expect(page.getByText('Ernestinische Linie – Zweig Cleve')).toBeVisible()
     }
 
     // The directory, which now lives inside Kontakte — on the half about

@@ -44,8 +44,10 @@ use Illuminate\Support\Collection;
  * @var string               $exchange_hide_contacts
  * @var string               $sack_lines
  * @var string               $sack_marriages
+ * @var string               $sack_branches
  * @var string               $sack_lines_default
  * @var string               $sack_marriages_default
+ * @var string               $sack_branches_default
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -434,7 +436,7 @@ foreach ($trees as $a_tree) {
         <?= I18N::translate('“GS” with nothing after it is the progenitor — the one person every number in the archive descends from, and the only way to write him.') ?>
     </p>
     <p class="form-text">
-        <?= I18N::translate('Two things are not in the number itself and have to be kept here. Both are shipped with the values the family’s own calculator used, and both are family news rather than software: leave a box empty to keep using what the module was built with.') ?>
+        <?= I18N::translate('Three things are not in the number itself and have to be kept here. All three are shipped with the values the family already uses, and all three are family news rather than software: leave a box empty to keep using what the module was built with.') ?>
     </p>
 
     <div class="row mb-3">
@@ -460,6 +462,24 @@ foreach ($trees as $a_tree) {
             </div>
             <div class="form-text">
                 <?= I18N::translate('Getting this wrong makes relationships wrong rather than absent, so it is worth checking a known pair afterwards. A row that names a line which does not exist is ignored.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= SackNumbers::SETTING_BRANCHES ?>">
+            <?= I18N::translate('Branches') ?>
+        </label>
+        <div class="col-sm-9">
+            <textarea class="form-control font-monospace" rows="12" id="<?= SackNumbers::SETTING_BRANCHES ?>" name="<?= SackNumbers::SETTING_BRANCHES ?>" spellcheck="false"><?= e($sack_branches === '' ? $sack_branches_default : $sack_branches) ?></textarea>
+            <div class="form-text">
+                <?= I18N::translate('One line per entry, “lines = name”. The lines are a range — “8-14” — or a single number, and “GS” and “HS” are heads of their own. This is what the portal shows under a member’s number on their record: a member says which branch they come from, not which line number they were filed under.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('The names are shown exactly as they are written here, in every language the portal is read in — they are places and people, not something to translate. Only the word in front of them is the portal’s own.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('A number written without an oblique gets no branch, on purpose: a bare two-digit number is also what the older numbering looks like, and naming the wrong branch is worse than naming none.') ?>
             </div>
         </div>
     </div>

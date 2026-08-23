@@ -546,8 +546,10 @@ class InvitationTest extends PortalTestCase
             'exchange_hide_contacts'  => '1',
             'sack_lines'              => '',
             'sack_marriages'          => '',
+            'sack_branches'           => '',
             'sack_lines_default'      => SackNumbers::DEFAULT_LINES,
             'sack_marriages_default'  => SackNumbers::DEFAULT_MARRIAGES,
+            'sack_branches_default'   => SackNumbers::DEFAULT_BRANCHES,
         ]);
 
         self::assertStringContainsString('invitation_days', $html);
@@ -564,10 +566,12 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('push_notifications', $html);
         self::assertStringContainsString('remember_days', $html);
 
-        // The two tables the family maintains, pre-filled with what is
+        // The three tables the family maintains, pre-filled with what is
         // shipped: an empty box would look like "we have no lines".
         self::assertStringContainsString(SackNumbers::SETTING_LINES, $html);
         self::assertStringContainsString('24 = 7d3', $html);
         self::assertStringContainsString(SackNumbers::SETTING_MARRIAGES, $html);
+        self::assertStringContainsString(SackNumbers::SETTING_BRANCHES, $html);
+        self::assertStringContainsString('Zweig Rothenhof', $html);
     }
 }

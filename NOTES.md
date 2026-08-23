@@ -3904,6 +3904,76 @@ already chosen.
 
 ---
 
+### 2.67 The number says which branch, and nobody was reading it
+
+A member reads *SB 10/1335.21* on their own record and the portal has told them
+nothing they did not already know. The part in front of the oblique is a line,
+and the family does not talk in lines: lines 8 to 14 are together the **Zweig
+Cleve**, 21 to 31 the **Zweig Rothenhof**, 32 to 35 the Wilhelminische Linie.
+Asked where they come from, nobody answers "line 12". The branch was in the
+number the whole time, and the portal was printing the number and dropping the
+one part of it a member would say out loud.
+
+webtrees already shows it, as a badge from the family's own module. So this is
+the portal catching up with the back office rather than a new idea, and the
+grouping is ported from there unchanged.
+
+**The branch is derived from the number, not stored on the record.** It is a
+reading of `REFN`, in `SackNumbers::branch()`, called from
+`RecordPresenter::references()` — which means it stays right when the family
+edits the table, and it discloses nothing: the number it reads has already been
+through `Fact::canShow()`, and a number the reader may not see is not in the
+response to be read. It travels on the `Reference` shape as a third field, so a
+record with two numbers can name two branches, which is a thing that happens.
+
+Two services build that shape — `RecordPresenter::references()` and
+`Recognition::references()`, the one that lets a number through for a record
+the reader may not open — and both carry the branch. A card reading the list
+does not know which of the two filled it, and one of them being a field short
+is how one shape quietly becomes two.
+
+Four decisions inside it, each of which could have gone the other way.
+
+**Read what is written, not the resolved path.** `path()` turns a number into
+an ancestral path and is the basis of the whole calculator — but it only reads
+what the calculator can use. `HS/…`, the descendants of Heinrich Sack, is a
+numbering it does not read at all, and a member carrying one would have got no
+branch from a path-based reading. Taking the head as written gives `GS` and
+`HS` a name for free, and the branch is a property of the line anyway: it is
+settled before a single character of the descent has been looked at.
+
+**A number without an oblique gets no branch.** This is the one place the
+portal is deliberately less helpful than it could be. "24" is how the archive
+writes the head of line 24 — and it is also what the older, unrelated numbering
+looks like once it reaches two digits (§2.57). The fixture's Dieter carries a
+bare "9" and a "10/1335.21", and reading the first as line 9 would print *Zweig
+Cleve* on a record that has nothing to do with it. Naming the wrong branch on
+somebody's own record is a worse failure than naming none, so the oblique is
+required. The 36 line heads written bare are the price, and they are written
+"24/" as often as "24".
+
+**The names are family data and are not translated.** The two tables in
+`SackNumbers` are already the family's to edit rather than the software's — a
+new line in the archive is an evening's news, not a release — and the branch
+table is a third of the same kind, `sack_branches`, with its own box in the
+preferences. What is on screen is a translated label the portal owns ("Zweig
+der Familie", for a screen reader) in front of a quoted name the family owns
+("Ernestinische Linie – Zweig Rothenhof"). Mansfeld, Pasewalk and Georg Sack
+are places and people; translating them would be inventing names the family
+does not use.
+
+**On the record and nowhere else.** The number goes everywhere — every card in
+the portal has carried it since §2.51 — but the branch does not. `PersonCard`
+already carries a name, a lifespan, a number and a kinship in one line; the
+branch is a thing to read about a person you have opened, not a fifth thing to
+skim past on the way somewhere. The branch wheel in the connect form (§2.57)
+still offers bare numbers for the same reason it always did — that is a control
+for somebody holding a number, not a place to learn the family's geography —
+and naming the branches there would need the table in the browser, which is a
+second decision and not this one.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

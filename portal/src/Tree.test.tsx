@@ -42,7 +42,7 @@ const ANNA = {
       sex: 'F',
       is_deceased: true,
       lifespan: '1889–1976',
-      references: [{ number: '4712', type: 'SB' }],
+      references: [{ number: '4712', type: 'SB', branch: null }],
     },
   ],
   siblings: [],

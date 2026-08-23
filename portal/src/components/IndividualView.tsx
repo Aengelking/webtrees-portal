@@ -29,20 +29,54 @@ function EventLine({ event }: { event: Event }) {
  * webtrees shows this as a badge before the name, via the Vesta module. Here
  * it is a line of its own: a reference number is a useful thing to be able to
  * quote back to the family archive, and it is not part of anybody's name.
+ *
+ * **And under the number, the branch it names.** The number in front of the
+ * oblique is a line, the lines are grouped into branches, and the branch is
+ * the answer to "where in the family are you from" — the line number is the
+ * bookkeeping, "Zweig Rothenhof" is what somebody says out loud. The server
+ * reads it off the number; this only prints it.
+ *
+ * A record may carry more than one number, and the archive's oldest ones can
+ * sit in different branches, so this is the set of the branches named, in the
+ * order the numbers are in. Distinct, because two numbers in one branch is one
+ * branch and saying it twice reads as a mistake.
+ *
+ * On the record and nowhere else, deliberately. `PersonCard` already carries a
+ * name, a lifespan, a number and a kinship on one line; the branch is a thing
+ * to read about a person you have opened, not a fifth thing to skim past.
  */
 function References({ references }: { references: Reference[] }) {
   const { t } = useTranslation()
   const label = referenceLabel(references)
+
+  // `typeof`, not a null check: a server that predates the field sends no
+  // `branch` at all, and an `undefined` through this filter would be printed
+  // as the word.
+  const branches = [
+    ...new Set(
+      references
+        .map((reference) => reference.branch)
+        .filter((branch): branch is string => typeof branch === 'string' && branch !== ''),
+    ),
+  ]
 
   if (label === null) {
     return null
   }
 
   return (
-    <p className="mt-1 text-base text-slate-600">
-      <span className="sr-only">{t('individual.reference')}: </span>
-      {label}
-    </p>
+    <>
+      <p className="mt-1 text-base text-slate-600">
+        <span className="sr-only">{t('individual.reference')}: </span>
+        {label}
+      </p>
+      {branches.length > 0 && (
+        <p className="mt-1 text-base text-slate-600">
+          <span className="sr-only">{t('individual.branch')}: </span>
+          {branches.join(' · ')}
+        </p>
+      )}
+    </>
   )
 }
 
