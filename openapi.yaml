@@ -2240,6 +2240,10 @@ paths:
         first: the children of such a couple are filed under one parent's
         number only, and the table of those marriages is maintained in the
         module's preferences alongside the table of line prefixes.
+
+        `GS/` needs no entry in either table — it stands for nothing, because
+        the number after it is already the whole path. `GS/` on its own is the
+        root of everything and names nobody.
       operationId: readRelationship
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
@@ -2247,8 +2251,13 @@ paths:
           in: query
           required: false
           description: |
-            An archive number, written as the family writes it — dots and
-            spaces are ignored, `24/b521.12` and `24/b52112` are the same.
+            An archive number, written as the family writes it — dots, spaces
+            and case are ignored, so `24/b521.12` and `24/B52112` are the same.
+
+            A record that belongs to no line — an ancestor above them all, or a
+            branch that was numbered and then died out — is written `GS/`
+            followed by the path itself, already expanded. Those are read too,
+            and `GS/7d3` names the same person as `24/`.
           schema:
             type: string
             maxLength: 40

@@ -3160,6 +3160,35 @@ one, read off a card or the back of a photograph.
 
 ---
 
+### 2.56 The lines are branches, and not everybody is on one
+
+`GS/7D8`, in the archive, on ancestors. It means what it looks like: no line —
+the rest is already the path.
+
+The line table maps 36 numbers to 36 prefixes, and the first version of the
+parser treated that table as the whole vocabulary: a number was `NN/` and then
+the descent, or it was not a number. Which quietly excluded two kinds of
+record. **The ancestors above the lines** have no line to belong to — the lines
+*descend* from them — and they are exactly the people a relationship
+calculation runs up to. And **a branch that was numbered and then died out**:
+`7d8` sits between lines 28 and 29 and is nobody's line.
+
+So `GS` is not a thirty-seventh line. It is the escape hatch that makes the
+notation complete — with it every position in the tree can be written down —
+and it resolves to the empty prefix, which is why `GS/7d3` and `24/` are the
+same person and the tests say so.
+
+Two small things came with it, both of which were already slightly wrong:
+
+* **`GS/` alone now names nobody.** It would otherwise resolve to the root of
+  everything, which is not somebody anybody is numbered as. A bare line number
+  still names the head of that line, because that *is* a person.
+* **A quoted number is matched case-insensitively.** The archive writes
+  `24/b521.12` in lower case and `GS/7D8` in upper, and a member typing one of
+  them into the search box should not have to remember which.
+
+---
+
 ---
 
 ## 3. Things that were guessed

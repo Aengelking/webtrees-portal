@@ -213,6 +213,31 @@ class TreeSearchTest extends PortalTestCase
     }
 
     /**
+     * A number that belongs to no line is quoted the same way.
+     *
+     * Otto's is a `GS/` number — the archive writes those for the ancestors
+     * above the lines and for branches that have none — and searching for it
+     * has to work like searching for any other.
+     */
+    public function testANumberWithNoLineIsFoundToo(): void
+    {
+        $this->signInAsAnna();
+
+        self::assertSame(['X12'], $this->xrefs(['q' => 'GS/755133']));
+    }
+
+    /**
+     * The archive writes "24/b521.12" in lower case and "GS/7D8" in upper.
+     * Nobody typing one into a search box should have to remember which.
+     */
+    public function testAReferenceNumberIsFoundWhicheverCaseItIsTypedIn(): void
+    {
+        $this->signInAsAnna();
+
+        self::assertSame(['X12'], $this->xrefs(['q' => 'gs/755133']));
+    }
+
+    /**
      * `%` is a character in an archive number, not a wildcard.
      */
     public function testAWildcardInTheQueryMatchesNothingByItself(): void

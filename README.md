@@ -858,12 +858,22 @@ The portal uses this in two places:
   number written on the back of a photograph, or read off a cousin's card. The
   member's own number is filled in already.
 
+**Not everybody sits inside a line.** The ancestors *above* the lines have
+none to belong to, and neither does a branch that was numbered and then died
+out — `7d8` sits between lines 28 and 29 and is nobody's line. Those records are
+written **`GS/` followed by the path itself**, already expanded, and the portal
+reads them exactly like any other number: `GS/7d3` names the same person as
+`24/`. It is what lets the calculation reach the deep ancestors at all, and it
+needs no entry in either table below. `GS/` on its own is the root of
+everything and names nobody.
+
 **Two tables are not in the number and are kept here.** Both are shipped with
 the values the original calculator used, and both are family news rather than
 software — leave a box empty to keep using what the module was built with.
 
 * **Lines** — `number = prefix`, one per line. The prefix is what a line's
-  number stands for at the start of every path in it.
+  number stands for at the start of every path in it. `GS` is not listed: it
+  stands for nothing.
 * **Marriages within the family** — `number = number`. The archive files such
   a couple's children under the right-hand number only, so the left-hand
   parent's descent is invisible in the children's numbers; this is what tells

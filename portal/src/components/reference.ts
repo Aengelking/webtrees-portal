@@ -26,20 +26,21 @@ export function referenceLabel(references: Reference[] | undefined): string | nu
  * The reader's own archive number, where they have one the calculator can use.
  *
  * The archive has numbered people two ways over the years, and only one of
- * them is a path: a line, an oblique, then the descent. Anything else on a
- * record — an older plain number, an internal one — is a label, and handing it
- * to the calculator would answer "not a valid number" about somebody's own
- * card.
+ * them is a path: a line — or `GS` where there is no line — then an oblique,
+ * then the descent. Anything else on a record is a label, and handing it to
+ * the calculator would answer "not a valid number" about somebody's own card.
  *
  * The shape is checked here rather than asked of the server because it is the
  * same check the server makes and it saves a request that could only fail.
  */
+const PATH_NUMBER = /^\s*(gs|\d{1,2})\/[1-9a-z. ]+$/i
+
 export function ownReference(references: Reference[] | undefined): string | null {
   if (references === undefined) {
     return null
   }
 
-  const path = references.find((reference) => /^\s*\d{1,2}\/[1-9a-z. ]+$/i.test(reference.number))
+  const path = references.find((reference) => PATH_NUMBER.test(reference.number))
 
   return path === undefined ? null : path.number.trim()
 }

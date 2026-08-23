@@ -6,7 +6,6 @@ namespace Engelking\Webtrees\PortalApi\Services;
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 
-use function array_key_exists;
 use function explode;
 use function preg_match;
 use function str_contains;
@@ -50,6 +49,21 @@ use function usort;
  */
 class SackNumbers
 {
+    /**
+     * The number that says "no line — this is already the whole path".
+     *
+     * The lines are branches, and not everybody in the archive sits inside
+     * one. The ancestors *above* the lines have no line to belong to, and
+     * neither do the branches that were numbered and then died out — `7d8` sits
+     * between lines 28 and 29 and is nobody's line. Those records carry
+     * `GS/` and then the path itself, already expanded.
+     *
+     * Which makes `GS` the escape hatch the system needs to be complete: with
+     * it, every position in the tree can be written down, and the calculator
+     * reaches the deep ancestors it was previously blind to.
+     */
+    private const string WHOLE_TREE = 'gs';
+
     /** The setting holding the line table. */
     public const string SETTING_LINES = 'sack_lines';
 
@@ -204,17 +218,37 @@ TEXT;
         // Deliberately no `0`: the archive counts children from 1 and then
         // runs on into the alphabet, so a zero means the string is not one of
         // these numbers at all.
-        if (preg_match('/^([0-9]{1,2})\/([1-9a-z]*)$/', $cleaned, $matches) !== 1) {
+        if (preg_match('/^(' . self::WHOLE_TREE . '|[0-9]{1,2})\/([1-9a-z]*)$/', $cleaned, $matches) !== 1) {
             return null;
         }
 
-        $line = (int) $matches[1];
+        $path = $this->prefixFor($matches[1]);
 
-        if (!array_key_exists($line, $this->lines())) {
+        if ($path === null) {
             return null;
         }
 
-        return $this->lines()[$line] . $matches[2];
+        $path .= $matches[2];
+
+        // The root of the whole tree is not a person anybody is numbered as,
+        // so `GS/` on its own names nobody. A bare line number does name
+        // somebody — the head of that line — and keeps its prefix.
+        return $path === '' ? null : $path;
+    }
+
+    /**
+     * What the part in front of the oblique stands for.
+     *
+     * A line number stands for that line's prefix. `GS/` stands for nothing,
+     * because a `GS` number is already the whole path — see `WHOLE_TREE`.
+     */
+    private function prefixFor(string $head): string|null
+    {
+        if ($head === self::WHOLE_TREE) {
+            return '';
+        }
+
+        return $this->lines()[(int) $head] ?? null;
     }
 
     /**
