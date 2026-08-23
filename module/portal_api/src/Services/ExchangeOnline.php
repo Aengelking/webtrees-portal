@@ -103,10 +103,14 @@ class ExchangeOnline
      * Put an address on a list.
      *
      * Idempotent, and not by trusting Exchange to say so in a particular form
-     * of words. If the add fails for any reason, the membership is read back;
-     * where it already agrees with what was wanted, the call succeeded and the
-     * error was Exchange telling us so in a sentence this module would
-     * otherwise have to recognise by its wording. See `reconciles()`.
+     * of words. If the add fails, the membership is read back; where it already
+     * agrees with what was wanted, the call succeeded and the error was
+     * Exchange telling us so in a sentence this module would otherwise have to
+     * recognise by its wording. See `reconciles()`.
+     *
+     * Not for a refusal about permission, though — see `ExchangeFailure`. Those
+     * are rethrown without asking, because a list that already says the right
+     * thing proves nothing about a call that was never allowed to run.
      */
     public function subscribe(string $list, string $address, string $name): void
     {
@@ -123,7 +127,7 @@ class ExchangeOnline
                 'BypassSecurityGroupManagerCheck' => true,
             ]);
         } catch (ExchangeFailure $failure) {
-            if (!$this->reconciles($token, $list, $address, true)) {
+            if ($failure->denied || !$this->reconciles($token, $list, $address, true)) {
                 throw $failure;
             }
         }
@@ -145,7 +149,7 @@ class ExchangeOnline
                 'Confirm'  => false,
             ]);
         } catch (ExchangeFailure $failure) {
-            if (!$this->reconciles($token, $list, $address, false)) {
+            if ($failure->denied || !$this->reconciles($token, $list, $address, false)) {
                 throw $failure;
             }
         }
@@ -254,10 +258,19 @@ class ExchangeOnline
     /**
      * Does the list already say what the member wanted it to say?
      *
-     * Asked only after a failure, and it is what saves this module from having
-     * to recognise "is already a member of the group" — a sentence in
-     * Exchange's language, subject to Exchange's changes of mind, and
-     * different again for a removal. Reading the membership is unambiguous.
+     * Asked only after a failure that was not about permission, and it is what
+     * saves this module from having to recognise "is already a member of the
+     * group" — a sentence in Exchange's language, subject to Exchange's changes
+     * of mind, and different again for a removal. Reading the membership is
+     * unambiguous.
+     *
+     * The exclusion is not a detail. On the first tenant this ran against, the
+     * application could read everything and write nothing, and the
+     * administrator testing it was already on the list he was subscribing to.
+     * Every add was refused, every read-back agreed, and the portal reported
+     * three working subscriptions. Only the first *unsubscribe* — where reality
+     * and the wish finally disagreed — admitted that nothing had ever been
+     * applied.
      *
      * A member's address can sit in any of several fields of the object
      * Exchange returns — `PrimarySmtpAddress` for a mailbox, an
@@ -325,7 +338,10 @@ class ExchangeOnline
             // A rejected credential is not a passing condition, and neither is
             // a tenant that cannot be found. Anything that is not an answer at
             // all might be.
-            $status >= 400 && $status < 500
+            $status >= 400 && $status < 500,
+            // Nothing that needs a token can have happened, so nothing that
+            // follows may be read as evidence that it did.
+            true
         );
     }
 
@@ -360,13 +376,21 @@ class ExchangeOnline
             return is_array($value) ? array_filter($value, static fn ($row): bool => $row !== null) : [];
         }
 
+        $denied = $status === 401 || $status === 403;
+
         throw new ExchangeFailure(
-            $cmdlet . ' failed (HTTP ' . $status . '): ' . $this->complaint($payload),
+            $cmdlet . ' failed (HTTP ' . $status . '): ' . $this->complaint($payload)
+                // Exchange answers a refused cmdlet with a bare 403 and often
+                // an empty body, which on its own tells an administrator
+                // nothing at all. What it always means is this, so it is said
+                // here rather than left to be looked up.
+                . ($denied ? ' — the application may not run this cmdlet. Check the Entra role on its service principal.' : ''),
             // 429 is Exchange throttling and 5xx is Exchange having a bad day;
             // both mean the same thing to a member, which is "later". A 0 is
             // this end — a timeout or a name that did not resolve — and is
             // also worth another attempt.
-            $status >= 400 && $status < 500 && $status !== 429
+            $status >= 400 && $status < 500 && $status !== 429,
+            $denied
         );
     }
 
@@ -375,7 +399,7 @@ class ExchangeOnline
      *
      * @return array{0:int,1:string}
      */
-    private function send(string $url, string $body, array $headers): array
+    protected function send(string $url, string $body, array $headers): array
     {
         $handle = curl_init($url);
 
@@ -422,7 +446,13 @@ class ExchangeOnline
             }
         }
 
-        return mb_substr(trim($payload), 0, 300);
+        $raw = mb_substr(trim($payload), 0, 300);
+
+        // A refusal with nothing in it is the case this exists for. Reporting
+        // it as an empty string produced "failed (HTTP 403):" and a full stop,
+        // which reads like the message went missing rather than like Exchange
+        // never sent one.
+        return $raw === '' ? 'no message was returned' : $raw;
     }
 
     // -----------------------------------------------------------------

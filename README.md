@@ -526,9 +526,11 @@ the syncing — the members' answers are in this portal's own database.
    (client) ID* and create a *client secret*.
 2. Under *API permissions*, add **Office 365 Exchange Online →
    Application permissions → `Exchange.ManageAsApp`**, and grant admin consent.
-3. Give its service principal an Entra role that may edit recipients.
-   **Exchange Recipient Administrator** is enough, and is a great deal less
-   than Exchange Administrator.
+3. Assign the Entra role **Exchange Administrator** to its **service
+   principal** — see *Which role, and where* below. This step is not the one
+   the previous step looks like: `Exchange.ManageAsApp` says the application
+   may speak to Exchange at all, and the role says what it may do. Without the
+   second, every call comes back `403`.
 4. In the module's preferences, fill in the tenant (its ID or its
    `.onmicrosoft.com` domain), the client ID and the secret.
 5. Name the lists, one per line:
@@ -541,6 +543,37 @@ the syncing — the members' answers are in this portal's own database.
    and lines beginning with `#` are ignored.
 6. Switch **Members may manage their own mailing-list subscriptions** on, and
    use *Test the connection to Exchange* on the diagnosis screen.
+
+##### Which role, and where
+
+**Where.** Not on the application. The *Roles and administrators* blade of an
+enterprise application lists who may administer *that app* — Cloud Application
+Administrator and the like — and is a different question entirely. The role
+goes on the service principal from the tenant-wide list: **Identity → Roles &
+admins → Roles & admins**, find the role, open it, *Add assignments*, and type
+the application's **exact** display name. The picker looks as though it only
+knows users and groups; service principals appear on an exact match and there
+is no filter that reveals them.
+
+A role that has never been used in the tenant exists only as a template and is
+invisible in that list. `New-MgDirectoryRole -RoleTemplateId …` materialises it;
+`New-MgDirectoryRoleMemberByRef` then assigns it. Under PIM the assignment must
+be **active**, not eligible — a daemon cannot activate a role. Allow a quarter
+of an hour before Exchange sees it.
+
+**Which.** Exchange Administrator, and it is worth knowing why the smaller role
+is not enough. Every write here carries `-BypassSecurityGroupManagerCheck`,
+because the check it bypasses asks whether the caller is in the list's
+`ManagedBy` — and a service principal can never be, not being a recipient. That
+switch needs Organization Management or the *Security Group Creation and
+Membership* role, and **Exchange Recipient Administrator has neither**. It is
+enough to create the mail contacts and not to change a single membership, which
+fails in the least helpful way possible: subscribing appears to work.
+
+A tenant that can define custom Exchange role groups has a smaller answer
+available — Exchange Recipient Administrator plus a role group granting
+*Security Group Creation and Membership* to the same service principal.
+Microsoft supports that combination. Not every plan allows it.
 
 **Addresses outside the tenant get a mail contact automatically**, because a
 distribution list holds recipients and not addresses. They are created hidden
@@ -2023,8 +2056,8 @@ nothing to a window belonging to somebody else — and the app acts on that
 message, while ignoring one that names a path leading off this site.
 
 **Mailing lists** (`module/tests/MailingListTest.php`,
-`portal/src/MailingLists.test.tsx`) — a list's address appears nowhere in the
-response at all, which is asserted against the whole body rather than a field,
+`module/tests/ExchangeConnectorTest.php`, `portal/src/MailingLists.test.tsx`) —
+a list's address appears nowhere in the response at all, which is asserted against the whole body rather than a field,
 while the hash that stands in for it does; a member's answer is written down
 before Exchange is told and survives a refusal, so the row still says what they
 wanted when nobody could be told about it; a refusal that will not change stops
@@ -2035,7 +2068,12 @@ account address takes the old one off the list before it puts the new one on; a
 key that names no configured list is a 400, the family's off switch is a 403
 that keeps what was already decided, and a signed-out caller gets 401 from
 both methods. On the client: the switch that moved is the only one sent, and a
-change that has not landed says so.
+change that has not landed says so. `ExchangeConnectorTest` replaces the wire
+with a script and pins what the connector may conclude from an answer: a write
+refused for want of a role is never excused by the list happening to look
+right — the shape of the one bug a live tenant found — while an ordinary
+refusal is still checked against the membership, so "already a member" stays a
+success without this module recognising the sentence.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id
