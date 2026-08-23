@@ -28,6 +28,7 @@ use Illuminate\Support\Collection;
  * @var string               $member_invite_steps
  * @var string               $member_invite_quota
  * @var string               $member_path_length
+ * @var string               $member_show_number
  * @var string               $member_contact
  * @var string               $member_messages
  * @var string               $message_limit
@@ -35,6 +36,12 @@ use Illuminate\Support\Collection;
  * @var string               $member_connections
  * @var string               $connection_code_minutes
  * @var string               $remember_days
+ * @var string               $mailing_lists
+ * @var string               $mailing_list_addresses
+ * @var string               $exchange_tenant
+ * @var string               $exchange_client_id
+ * @var string               $exchange_client_secret
+ * @var string               $exchange_hide_contacts
  * @var string               $sack_lines
  * @var string               $sack_marriages
  * @var string               $sack_lines_default
@@ -228,6 +235,21 @@ foreach ($trees as $a_tree) {
         </div>
     </div>
 
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Show the archive number even where the record is closed'), 'name' => PortalApiModule::SETTING_MEMBER_SHOW_NUMBER, 'checked' => $member_show_number === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('A member whose record is hidden from the reader appears in the directory and on a connection request as a name and nothing else. With this on, their archive number appears with the name — and so does a photograph they uploaded to the portal themselves, which needs no setting because that permission is their own.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('The number is the family’s own naming scheme rather than personal data: it is on the letterhead, and any member can already type it here to reach the person it belongs to. A number the record marks confidential stays hidden, and nothing else from the record is disclosed — no name, no dates, no relationship.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Off by default. It only makes a difference where a limit above hides living people in the first place.') ?>
+            </div>
+        </div>
+    </div>
+
     <h2 class="h5 mt-4"><?= I18N::translate('Contact between members') ?></h2>
 
     <div class="row mb-3">
@@ -308,6 +330,91 @@ foreach ($trees as $a_tree) {
             </div>
             <div class="form-text">
                 <?= I18N::translate('Connection codes need the portal address above, because the code is a link to the portal. Without it a member is told to contact an administrator instead of being handed a code nobody can scan.') ?>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('The family’s mailing lists') ?></h2>
+
+    <p class="form-text">
+        <?= I18N::translate('The lists themselves stay where they are, in Exchange. What the portal adds is a switch per list under “Einstellungen”, so that a member can join one or leave one without writing to anybody — which is the difference between a list people unsubscribe from and a list people mark as spam.') ?>
+    </p>
+
+    <p class="form-text">
+        <?= I18N::translate('A member is subscribed under their account’s email address, the one their invitation and their password resets go to. Addresses outside the tenant — which is most of a family — are given a mail contact automatically, because a distribution list can hold recipients and not addresses.') ?>
+    </p>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Members may manage their own mailing-list subscriptions'), 'name' => PortalApiModule::SETTING_MAILING_LISTS, 'checked' => $mailing_lists === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('Switching this off hides the whole section from members. What they have already decided is kept, and no longer applied — so switching it back on does not lose anybody’s answer.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_MAILING_LIST_ADDRESSES ?>">
+            <?= I18N::translate('The lists') ?>
+        </label>
+        <div class="col-sm-9">
+            <textarea class="form-control font-monospace" rows="5" id="<?= PortalApiModule::SETTING_MAILING_LIST_ADDRESSES ?>" name="<?= PortalApiModule::SETTING_MAILING_LIST_ADDRESSES ?>" spellcheck="false" placeholder="familie@example.de | Familiennachrichten | Ein- bis zweimal im Jahr, was in der Familie passiert ist."><?= e($mailing_list_addresses) ?></textarea>
+            <div class="form-text">
+                <?= I18N::translate('One list per line: the address, then the name members see, then a sentence saying what arrives and how often. The last two are separated from the address by a vertical bar and may be left out. Blank lines and lines beginning with # are ignored.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Members are shown the name and the sentence, never the address. Write the sentence for somebody deciding whether they want the post — “how often” is the thing they are actually asking.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Changing a list’s address here makes it a new list: the subscriptions recorded against the old address stay behind rather than following it, because nobody agreed to be on an address they were never shown. Move the members in Exchange, or let them subscribe again.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_EXCHANGE_TENANT ?>">
+            <?= I18N::translate('Microsoft 365 tenant') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="text" id="<?= PortalApiModule::SETTING_EXCHANGE_TENANT ?>" name="<?= PortalApiModule::SETTING_EXCHANGE_TENANT ?>" value="<?= e($exchange_tenant) ?>" autocomplete="off" placeholder="example.onmicrosoft.com">
+            <div class="form-text">
+                <?= I18N::translate('The tenant ID or its initial domain. Both work.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_EXCHANGE_CLIENT_ID ?>">
+            <?= I18N::translate('Application (client) ID') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="text" id="<?= PortalApiModule::SETTING_EXCHANGE_CLIENT_ID ?>" name="<?= PortalApiModule::SETTING_EXCHANGE_CLIENT_ID ?>" value="<?= e($exchange_client_id) ?>" autocomplete="off">
+            <div class="form-text">
+                <?= I18N::translate('From an app registration in Entra ID. It needs the application permission “Exchange.ManageAsApp” with admin consent, and an Entra role that may edit recipients — “Exchange Recipient Administrator” is enough and is a great deal less than “Exchange Administrator”.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= PortalApiModule::SETTING_EXCHANGE_SECRET ?>">
+            <?= I18N::translate('Client secret') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="text" id="<?= PortalApiModule::SETTING_EXCHANGE_SECRET ?>" name="<?= PortalApiModule::SETTING_EXCHANGE_SECRET ?>" value="<?= e($exchange_client_secret) ?>" autocomplete="off">
+            <div class="form-text">
+                <?= I18N::translate('Stored in this webtrees database in the clear, as every module setting is. Whoever can read the database can act as this application, which is the reason to give it the one Exchange role it needs and nothing more.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('An Entra client secret expires. When it does, every change a member makes is recorded and none of it is applied — the diagnosis screen is where that shows up, so it is worth looking at after the expiry date passes.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Hide the mail contacts it creates from the address book'), 'name' => PortalApiModule::SETTING_EXCHANGE_HIDE_CONTACTS, 'checked' => $exchange_hide_contacts === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('A relative’s private address is not an entry in the organisation’s address book. With this on, contacts created here are hidden from it and can still receive the list. Leave it on unless something else in the tenant needs to find them.') ?>
             </div>
         </div>
     </div>

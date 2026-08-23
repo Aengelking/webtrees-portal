@@ -530,6 +530,7 @@ class InvitationTest extends PortalTestCase
             'member_invite_steps' => '2',
             'member_invite_quota' => '3',
             'member_path_length'  => '2',
+            'member_show_number'  => '0',
             'member_contact'      => '1',
             'member_messages'     => '1',
             'message_limit'       => '20',
@@ -537,6 +538,12 @@ class InvitationTest extends PortalTestCase
             'member_connections'  => '1',
             'connection_code_minutes' => '15',
             'remember_days'       => '30',
+            'mailing_lists'           => '1',
+            'mailing_list_addresses'  => 'familie@example.de | Familiennachrichten',
+            'exchange_tenant'         => 'example.onmicrosoft.com',
+            'exchange_client_id'      => '00000000-0000-0000-0000-000000000000',
+            'exchange_client_secret'  => '',
+            'exchange_hide_contacts'  => '1',
             'sack_lines'              => '',
             'sack_marriages'          => '',
             'sack_lines_default'      => SackNumbers::DEFAULT_LINES,
@@ -552,6 +559,7 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('/diagnosis', $html);
         self::assertStringContainsString('member_invite_steps', $html);
         self::assertStringContainsString('member_path_length', $html);
+        self::assertStringContainsString('member_show_number', $html);
         self::assertStringContainsString('message_limit', $html);
         self::assertStringContainsString('push_notifications', $html);
         self::assertStringContainsString('remember_days', $html);

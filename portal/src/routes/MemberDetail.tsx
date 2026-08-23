@@ -9,6 +9,8 @@ import {
 } from '../api/queries'
 import type { ContactKind, MemberDetail as Member } from '../api/types'
 import { IndividualView } from '../components/IndividualView'
+import { Portrait } from '../components/Photos'
+import { referenceLabel } from '../components/reference'
 import {
   Button,
   Card,
@@ -50,7 +52,17 @@ export function MemberDetail() {
 
           <div className="mt-6">
             {data.individual_detail === null ? (
-              <Notice title={t('member.private.title')} body={t('member.private.body')} />
+              <>
+                {/*
+                  The little that may still be shown of somebody whose record
+                  is closed here: a photograph they uploaded themselves, and
+                  the archive number where the family publishes it. Above the
+                  notice rather than instead of it — the notice is still true,
+                  and this is not the record. See `Recognition`.
+                */}
+                <Withheld member={data} />
+                <Notice title={t('member.private.title')} body={t('member.private.body')} />
+              </>
             ) : (
               <IndividualView individual={data.individual_detail} />
             )}
@@ -171,6 +183,34 @@ function ConnectionPanel({ member, id }: { member: Member; id: number }) {
         )}
       </Card>
     </Section>
+  )
+}
+
+/**
+ * A face and a number, where the record itself is closed.
+ *
+ * Nothing here comes from the archive's account of the person: the photograph
+ * is one they put into the portal themselves and the number is the family's
+ * own naming scheme, published or not by one switch in the control panel.
+ * Renders nothing at all when there is neither, which is the ordinary case.
+ */
+function Withheld({ member }: { member: Member }) {
+  const number = referenceLabel(member.references)
+  const portrait = member.portrait ?? null
+
+  if (number === null && portrait === null) {
+    return null
+  }
+
+  return (
+    <div className="mb-4">
+      <Card>
+        <div className="flex items-center gap-4">
+          <Portrait person={{ name: member.display_name, portrait }} size={64} />
+          {number !== null && <p className="text-base text-slate-700">{number}</p>}
+        </div>
+      </Card>
+    </div>
   )
 }
 

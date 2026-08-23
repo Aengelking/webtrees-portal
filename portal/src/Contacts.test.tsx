@@ -609,6 +609,57 @@ describe('my contacts', () => {
   })
 
   /**
+   * The card used to answer a question nobody asked, and answer it wrongly.
+   *
+   * Karla has no `individual` — and the card cannot tell why. The commoner
+   * reason by far is that she is alive and this reader may not see her record
+   * (`PrivacyTest::testARequestFromAHiddenMemberCarriesTheNameAndNoRecord`);
+   * the rarer one is an account nobody linked to a record. "Kein verknüpfter
+   * Eintrag im Stammbaum" states the rare one as fact — a claim about the
+   * archive, made from an answer that was about the reader.
+   */
+  it('does not claim a contact has no record in the tree', async () => {
+    stub()
+    renderAt()
+
+    expect(await screen.findByText('Karla Beispiel')).toBeDefined()
+    expect(screen.getByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeDefined()
+    expect(screen.queryByText(/Kein verknüpfter Eintrag/)).toBeNull()
+  })
+
+  /**
+   * Two things may still stand in for a record this reader may not read: a
+   * photograph its subject uploaded here, and — where the family publishes
+   * them — the archive number. `module/tests/RecognitionTest.php` decides
+   * both; the card only has to use them.
+   */
+  it('shows the face and the number of somebody whose record is closed', async () => {
+    stub({
+      incoming: [
+        {
+          ...KARLA,
+          portrait: {
+            id: '1',
+            title: null,
+            thumbnail_url: '/api/v1/media/M9/1/thumbnail',
+            image_url: '/api/v1/media/M9/1/image',
+          },
+          references: [{ number: '4713', type: 'SB' }],
+        },
+      ],
+    })
+    renderAt()
+
+    expect(await screen.findByText('Karla Beispiel')).toBeDefined()
+    expect(screen.getByText('SB 4713')).toBeDefined()
+    expect(screen.queryByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeNull()
+
+    const face = document.querySelector('img[src="/api/v1/media/M9/1/thumbnail"]')
+
+    expect(face).not.toBeNull()
+  })
+
+  /**
    * A member with an empty address book is put on the tab that fills it. The
    * empty half is not what they came for.
    */
@@ -838,6 +889,52 @@ describe('the directory list', () => {
 
     return fetchMock
   }
+
+  /** The same false claim, on the row it was copied to. */
+  it('does not claim a listed member has no record in the tree', async () => {
+    stubDirectory({ status: 'none', id: null })
+    renderAt('/members')
+
+    expect(await screen.findByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeDefined()
+    expect(screen.queryByText(/Kein verknüpfter Eintrag/)).toBeNull()
+  })
+
+  /** The same two fields on the directory row. */
+  it('shows the number of a listed member whose record is closed', async () => {
+    const page = {
+      items: [
+        {
+          id: 3,
+          display_name: 'Dieter Beispiel',
+          individual: null,
+          references: [{ number: '4713', type: 'SB' }],
+          connection: { status: 'none', id: null },
+        },
+      ],
+      total: 1,
+      page: 1,
+      per_page: 25,
+      connections_enabled: true,
+    }
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+        if (url.includes('/connections')) return jsonResponse(OVERVIEW)
+        if (url.includes('/members')) return jsonResponse(page)
+
+        return jsonResponse(ME)
+      }),
+    )
+
+    renderAt('/members')
+
+    expect(await screen.findByText('SB 4713')).toBeDefined()
+    expect(screen.queryByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeNull()
+  })
 
   it('sends a request from the row, without opening the person', async () => {
     const fetchMock = stubDirectory({ status: 'none', id: null })

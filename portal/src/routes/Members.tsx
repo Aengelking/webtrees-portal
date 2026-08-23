@@ -169,7 +169,16 @@ function MemberRow({ member, offerConnection }: { member: MemberSummary; offerCo
             photograph is shown only where they uploaded it, so a row without
             one gets an initial rather than a stranger.
           */}
-          {member.individual !== null && <Portrait person={member.individual} />}
+          {/*
+            A face even where the record is closed, if the member uploaded one
+            here themselves — that permission is their own. See `Recognition`.
+          */}
+          <Portrait
+            person={{
+              name: member.individual?.name ?? member.display_name,
+              portrait: member.individual?.portrait ?? member.portrait ?? null,
+            }}
+          />
 
           <span className="min-w-0">
             <span className="block text-lg font-semibold text-sky-800 underline underline-offset-4">
@@ -177,7 +186,12 @@ function MemberRow({ member, offerConnection }: { member: MemberSummary; offerCo
             </span>
             <span className="mt-1 block text-base text-slate-700">
               {member.individual === null
-                ? t('members.noRecord')
+                ? // Not "this account has no record": the commoner reason by
+                  // far is a living person this reader may not see, and the
+                  // row cannot tell the two apart. See `individual.notVisible`.
+                  // The archive number stands in for the record where the
+                  // family publishes it.
+                  referenceLabel(member.references) ?? t('individual.notVisible')
                 : [
                     member.individual.name,
                     member.individual.lifespan,

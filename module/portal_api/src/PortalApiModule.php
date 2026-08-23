@@ -37,6 +37,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MailingListRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MailingListUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberInvitationList;
@@ -67,6 +69,8 @@ use Engelking\Webtrees\PortalApi\Services\PushSubscriptions;
 use Engelking\Webtrees\PortalApi\Services\WebPush;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
+use Engelking\Webtrees\PortalApi\Services\DistributionLists;
+use Engelking\Webtrees\PortalApi\Services\ExchangeOnline;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
 use Engelking\Webtrees\PortalApi\Services\Inbox;
@@ -80,6 +84,7 @@ use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
+use Engelking\Webtrees\PortalApi\Services\Recognition;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Engelking\Webtrees\PortalApi\Services\SackNumbers;
@@ -141,10 +146,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     use ModuleConfigTrait;
     use ViewResponseTrait;
 
-    public const string CUSTOM_VERSION = '1.2.0';
+    public const string CUSTOM_VERSION = '1.3.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 12;
+    private const int SCHEMA_VERSION = 13;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -179,6 +184,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_INVITE_STEPS = 'member_invite_steps';
     public const string SETTING_MEMBER_INVITE_QUOTA = 'member_invite_quota';
     public const string SETTING_MEMBER_PATH_LENGTH  = 'member_path_length';
+    public const string SETTING_MEMBER_SHOW_NUMBER  = 'member_show_number';
     public const string SETTING_MEMBER_CONTACT      = 'member_contact';
     public const string SETTING_MEMBER_MESSAGES     = 'member_messages';
     public const string SETTING_MESSAGE_LIMIT       = 'message_limit';
@@ -198,6 +204,20 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_MEMBER_CONNECTIONS  = 'member_connections';
     public const string SETTING_CONNECTION_CODE_MINUTES = 'connection_code_minutes';
     public const string SETTING_REMEMBER_DAYS       = 'remember_days';
+
+    // Phase 14 — the family's mailing lists, which live in Exchange Online.
+    // The secret is stored the way webtrees stores every other module secret,
+    // which is in the clear in `module_setting`. That is worth knowing rather
+    // than glossing: whoever can read the database can send mail as this
+    // application. It buys the ability to manage a distribution list at all —
+    // Microsoft Graph will not — and it is why the application registration
+    // behind it should hold the one Exchange role it needs and nothing else.
+    public const string SETTING_MAILING_LISTS           = 'mailing_lists';
+    public const string SETTING_MAILING_LIST_ADDRESSES  = 'mailing_list_addresses';
+    public const string SETTING_EXCHANGE_TENANT         = 'exchange_tenant';
+    public const string SETTING_EXCHANGE_CLIENT_ID      = 'exchange_client_id';
+    public const string SETTING_EXCHANGE_SECRET         = 'exchange_client_secret';
+    public const string SETTING_EXCHANGE_HIDE_CONTACTS  = 'exchange_hide_contacts';
 
     /**
      * How far a member may *see*, as opposed to how far they may invite.
@@ -315,7 +335,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
-        $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service);
+        $recognition    = new Recognition($this, $portal_trees, $photos);
+        $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service, $recognition);
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
         $member_msgs    = new MemberMessages($this, $container->get(MessageService::class), $container->get(RateLimitService::class), $members, $inbox, $connections, $container->get(EmailService::class));
@@ -331,6 +352,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $push           = new PushSubscriptions($this, $web_push);
         $conversations  = new Conversations($members, $connections, $member_msgs, $user_service, $push);
         $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections, $conversations);
+        $exchange       = new ExchangeOnline($this);
+        $mailing_lists  = new DistributionLists($this, $exchange);
         $devices        = new RememberedDevices($this, $user_service);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -348,17 +371,22 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(CloseFamily::class, $close_family);
         $container->set(MemberInvitations::class, $member_invites);
         $container->set(Connections::class, $connections);
+        $container->set(Recognition::class, $recognition);
         $container->set(ContactDetails::class, $contacts);
         $container->set(Inbox::class, $inbox);
         $container->set(Conversations::class, $conversations);
         $container->set(PushSubscriptions::class, $push);
+        $container->set(ExchangeOnline::class, $exchange);
+        $container->set(DistributionLists::class, $mailing_lists);
+        $container->set(MailingListRead::class, new MailingListRead($mailing_lists));
+        $container->set(MailingListUpdate::class, new MailingListUpdate($mailing_lists));
         $container->set(PushRead::class, new PushRead($push));
         $container->set(PhotoCreate::class, new PhotoCreate($photo_store, $photos, $portal_trees));
         $container->set(PhotoDelete::class, new PhotoDelete($photo_store, $photos, $portal_trees));
         $container->set(PushCreate::class, new PushCreate($push));
         $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
-        $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors));
+        $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors, $mailing_lists));
         $container->set(RememberedDevices::class, $devices);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
@@ -375,12 +403,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MeRead::class, new MeRead($me));
         $container->set(IndividualRead::class, new IndividualRead($portal_trees, $presenter, $member_invites));
         $container->set(AncestorsRead::class, new AncestorsRead($portal_trees, $ancestors));
-        $container->set(MediaRead::class, new MediaRead($portal_trees, $photos));
-        $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections));
+        $container->set(MediaRead::class, new MediaRead($portal_trees, $photos, $photo_store));
+        $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections, $recognition));
         $container->set(SearchList::class, new SearchList($portal_trees, $presenter, $tree_search));
         $container->set(IndexRead::class, new IndexRead($portal_trees, $tree_search));
         $container->set(RelationshipRead::class, new RelationshipRead($sack));
-        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections));
+        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections, $recognition));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
@@ -541,6 +569,14 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $private]);
 
         $map->patch(ContactUpdate::class, self::ROUTE_PREFIX . '/me/contact', ContactUpdate::class)
+            ->extras(['middleware' => $unsafe_private]);
+
+        // Phase 14 — the family's mailing lists. Read and written only about
+        // the signed-in member; there is no route here that names anybody else.
+        $map->get(MailingListRead::class, self::ROUTE_PREFIX . '/me/mailing-lists', MailingListRead::class)
+            ->extras(['middleware' => $private]);
+
+        $map->patch(MailingListUpdate::class, self::ROUTE_PREFIX . '/me/mailing-lists', MailingListUpdate::class)
             ->extras(['middleware' => $unsafe_private]);
 
         $map->post(MessageCreate::class, self::ROUTE_PREFIX . '/members/{id}/message', MessageCreate::class)
@@ -704,6 +740,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_invite_steps' => $this->getPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) CloseFamily::DEFAULT_STEPS),
             'member_invite_quota' => $this->getPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) MemberInvitations::DEFAULT_QUOTA),
             'member_path_length'  => $this->getPreference(self::SETTING_MEMBER_PATH_LENGTH, '0'),
+            'member_show_number'  => $this->getPreference(self::SETTING_MEMBER_SHOW_NUMBER, '0'),
             'member_contact'      => $this->getPreference(self::SETTING_MEMBER_CONTACT, '1'),
             'member_messages'     => $this->getPreference(self::SETTING_MEMBER_MESSAGES, '1'),
             'message_limit'       => $this->getPreference(self::SETTING_MESSAGE_LIMIT, (string) MemberMessages::DEFAULT_DAILY_LIMIT),
@@ -711,6 +748,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_connections'  => $this->getPreference(self::SETTING_MEMBER_CONNECTIONS, '1'),
             'connection_code_minutes' => $this->getPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) Connections::DEFAULT_CODE_MINUTES),
             'remember_days'       => $this->getPreference(self::SETTING_REMEMBER_DAYS, (string) RememberedDevices::DEFAULT_DAYS),
+            'mailing_lists'          => $this->getPreference(self::SETTING_MAILING_LISTS, '0'),
+            'mailing_list_addresses' => $this->getPreference(self::SETTING_MAILING_LIST_ADDRESSES, ''),
+            'exchange_tenant'        => $this->getPreference(self::SETTING_EXCHANGE_TENANT, ''),
+            'exchange_client_id'     => $this->getPreference(self::SETTING_EXCHANGE_CLIENT_ID, ''),
+            'exchange_client_secret' => $this->getPreference(self::SETTING_EXCHANGE_SECRET, ''),
+            'exchange_hide_contacts' => $this->getPreference(self::SETTING_EXCHANGE_HIDE_CONTACTS, '1'),
             'sack_lines'        => $this->getPreference(SackNumbers::SETTING_LINES, ''),
             'sack_marriages'    => $this->getPreference(SackNumbers::SETTING_MARRIAGES, ''),
             'sack_lines_default'     => SackNumbers::DEFAULT_LINES,
@@ -735,6 +778,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_INVITE_STEPS, (string) max(1, min(CloseFamily::MAX_STEPS, $body->integer(self::SETTING_MEMBER_INVITE_STEPS, CloseFamily::DEFAULT_STEPS))));
         $this->setPreference(self::SETTING_MEMBER_INVITE_QUOTA, (string) max(0, min(MemberInvitations::MAX_QUOTA, $body->integer(self::SETTING_MEMBER_INVITE_QUOTA, MemberInvitations::DEFAULT_QUOTA))));
         $this->setPreference(self::SETTING_MEMBER_PATH_LENGTH, (string) $this->pathLength($body->integer(self::SETTING_MEMBER_PATH_LENGTH, 0)));
+        $this->setPreference(self::SETTING_MEMBER_SHOW_NUMBER, $body->boolean(self::SETTING_MEMBER_SHOW_NUMBER, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_CONTACT, $body->boolean(self::SETTING_MEMBER_CONTACT, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MEMBER_MESSAGES, $body->boolean(self::SETTING_MEMBER_MESSAGES, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MESSAGE_LIMIT, (string) max(0, min(MemberMessages::MAX_DAILY_LIMIT, $body->integer(self::SETTING_MESSAGE_LIMIT, MemberMessages::DEFAULT_DAILY_LIMIT))));
@@ -742,6 +786,13 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_CONNECTIONS, $body->boolean(self::SETTING_MEMBER_CONNECTIONS, false) ? '1' : '0');
         $this->setPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) max(1, min(Connections::MAX_CODE_MINUTES, $body->integer(self::SETTING_CONNECTION_CODE_MINUTES, Connections::DEFAULT_CODE_MINUTES))));
         $this->setPreference(self::SETTING_REMEMBER_DAYS, (string) max(0, min(RememberedDevices::MAX_DAYS, $body->integer(self::SETTING_REMEMBER_DAYS, RememberedDevices::DEFAULT_DAYS))));
+
+        $this->setPreference(self::SETTING_MAILING_LISTS, $body->boolean(self::SETTING_MAILING_LISTS, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_MAILING_LIST_ADDRESSES, trim(str_replace("\r\n", "\n", $body->string(self::SETTING_MAILING_LIST_ADDRESSES, ''))));
+        $this->setPreference(self::SETTING_EXCHANGE_TENANT, trim($body->string(self::SETTING_EXCHANGE_TENANT, '')));
+        $this->setPreference(self::SETTING_EXCHANGE_CLIENT_ID, trim($body->string(self::SETTING_EXCHANGE_CLIENT_ID, '')));
+        $this->setPreference(self::SETTING_EXCHANGE_SECRET, trim($body->string(self::SETTING_EXCHANGE_SECRET, '')));
+        $this->setPreference(self::SETTING_EXCHANGE_HIDE_CONTACTS, $body->boolean(self::SETTING_EXCHANGE_HIDE_CONTACTS, false) ? '1' : '0');
 
         // Left empty on purpose when it matches what is shipped: an empty
         // setting means "whatever the module was built with", so a later
@@ -923,6 +974,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'errors'       => $errors->recent(),
             'error_count'  => $errors->count(),
             'path_length'  => $this->memberPathLength(),
+            'lists_enabled' => $container->get(DistributionLists::class)->enabled(),
+            'lists_waiting' => (int) $container->get(DistributionLists::class)->overview()['outstanding'],
             'numbers'      => $diagnosis->directoryNumbers(),
             'settings_url' => $this->getConfigLink(),
         ]);
@@ -935,6 +988,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         if ($action === 'apply_path_length') {
             $this->applyPathLength();
+        } elseif ($action === 'retry_lists') {
+            $this->retryMailingLists();
+        } elseif ($action === 'check_exchange') {
+            $this->checkMailingLists();
         } else {
             Registry::container()->get(ErrorLog::class)->clear();
 
@@ -970,6 +1027,59 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             I18N::plural('%s member account was updated.', '%s member accounts were updated.', $changed, I18N::number($changed)),
             'success'
         );
+    }
+
+    /**
+     * Let every outstanding subscription try again, now.
+     *
+     * The counterpart to giving up after three attempts. Something was wrong,
+     * an administrator has just put it right, and this is how they say so —
+     * without which the only way back would be asking every member to press
+     * their switch a second time.
+     */
+    private function retryMailingLists(): void
+    {
+        $woken = Registry::container()->get(DistributionLists::class)->retryAll();
+
+        FlashMessages::addMessage(
+            $woken === 0
+                ? I18N::translate('There was nothing outstanding.')
+                : I18N::plural('%s change will be applied the next time the member opens the portal.', '%s changes will be applied the next time those members open the portal.', $woken, I18N::number($woken)),
+            'success'
+        );
+    }
+
+    /**
+     * Ask Exchange, once per list, whether this configuration can see it.
+     *
+     * The one place in the module that contacts Exchange on an administrator's
+     * behalf rather than a member's, and it exists because the alternative way
+     * to find out that a tenant, an application secret and a list address all
+     * agree is to ask a member to press a switch and then read a log.
+     */
+    private function checkMailingLists(): void
+    {
+        $container = Registry::container();
+        $lists     = $container->get(DistributionLists::class);
+        $exchange  = $container->get(ExchangeOnline::class);
+        $configured = $lists->configured();
+
+        if ($configured === []) {
+            FlashMessages::addMessage(I18N::translate('No lists are configured.'), 'danger');
+
+            return;
+        }
+
+        foreach ($configured as $list) {
+            $error = $exchange->check($list['address']);
+
+            FlashMessages::addMessage(
+                $error === ''
+                    ? I18N::translate('“%s” was found in Exchange.', $list['name'])
+                    : I18N::translate('“%1$s” could not be read: %2$s', $list['name'], $error),
+                $error === '' ? 'success' : 'danger'
+            );
+        }
     }
 
     private function diagnosisUrl(): string

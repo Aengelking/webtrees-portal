@@ -27,6 +27,7 @@ import type {
   IssuedInvitation,
   InvitationAcceptance,
   InvitationPreview,
+  MailingLists,
   Me,
   MemberDetail,
   MemberPage,
@@ -514,6 +515,21 @@ export const api = {
 
   updateContact(changes: OwnContact): Promise<ContactSettings> {
     return request<ContactSettings>('/me/contact', { method: 'PATCH', body: { contact: changes } })
+  },
+
+  /**
+   * The family's mailing lists, and my answer to each.
+   *
+   * Reading is also when an outstanding change is retried on the server, so
+   * this is worth asking for again after one comes back `pending`.
+   */
+  mailingLists(signal?: AbortSignal): Promise<MailingLists> {
+    return request<MailingLists>('/me/mailing-lists', signal === undefined ? {} : { signal })
+  },
+
+  /** One switch at a time: a list left out of the body is left alone. */
+  updateMailingLists(changes: Record<string, boolean>): Promise<MailingLists> {
+    return request<MailingLists>('/me/mailing-lists', { method: 'PATCH', body: { lists: changes } })
   },
 
   /** The id is a portal member id — only a directory member can be written to. */

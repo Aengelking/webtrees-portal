@@ -15,6 +15,7 @@ use Fisharebest\Webtrees\Tree;
 use Illuminate\Support\Collection;
 use Throwable;
 
+use function count;
 use function time;
 use function trim;
 
@@ -45,6 +46,7 @@ class Diagnosis
         private readonly PortalTreeService $trees,
         private readonly MemberService $members,
         private readonly ErrorLog $errors,
+        private readonly DistributionLists $lists,
     ) {
     }
 
@@ -62,6 +64,7 @@ class Diagnosis
             $this->ownRegistration(),
             $this->unlinkedAccounts(),
             $this->visibility(),
+            $this->mailingLists(),
             $this->recentErrors(),
         ]);
     }
@@ -320,6 +323,75 @@ class Diagnosis
             I18N::translate('What a member can see'),
             I18N::plural('%s member account still sees every living person.', '%s member accounts still see every living person.', $unlimited, I18N::number($unlimited)),
             I18N::translate('The limit applies to accounts created by invitation from now on. Existing accounts keep what they had until it is applied to them — there is a button below. An account with no linked record cannot be limited at all, because the limit is measured from that record.')
+        );
+    }
+
+    /**
+     * Are the family's mailing lists being kept in step with Exchange?
+     *
+     * Deliberately answered from this database and not from Exchange. A
+     * diagnosis screen that opens three connections to somebody else's cloud
+     * takes half a minute to load on the day Exchange is the thing that is
+     * broken — and it would be answering the wrong question anyway. What an
+     * administrator needs to know is whether members' decisions are arriving,
+     * and an outstanding row already carries Exchange's own complaint about
+     * why the last one did not.
+     */
+    private function mailingLists(): DiagnosisCheck
+    {
+        $label = I18N::translate('Mailing lists');
+
+        if ($this->module->getPreference(PortalApiModule::SETTING_MAILING_LISTS, '0') !== '1') {
+            return new DiagnosisCheck('mailing_lists', self::OK, $label, I18N::translate('Not offered to members.'), '');
+        }
+
+        if (!$this->lists->enabled()) {
+            return new DiagnosisCheck(
+                'mailing_lists',
+                self::PROBLEM,
+                $label,
+                I18N::translate('Switched on, but not usable.'),
+                I18N::translate('The tenant, the application and at least one list all have to be filled in before a member can be offered anything. See the module preferences.')
+            );
+        }
+
+        $overview = $this->lists->overview();
+        $failed   = $overview['failed'];
+        $waiting  = (int) $overview['outstanding'];
+
+        if ($failed !== []) {
+            return new DiagnosisCheck(
+                'mailing_lists',
+                self::PROBLEM,
+                $label,
+                I18N::plural('%s change could not be applied.', '%s changes could not be applied.', count($failed), I18N::number(count($failed)))
+                    . ' ' . (string) $failed[0]['error'],
+                I18N::translate('Members’ decisions are recorded and are not reaching Exchange. The usual cause is an expired client secret or a role the application no longer has. Fix that, then use the button below to try again.')
+            );
+        }
+
+        if ($waiting > 0) {
+            return new DiagnosisCheck(
+                'mailing_lists',
+                self::WARNING,
+                $label,
+                I18N::plural('%s change is on its way to Exchange.', '%s changes are on their way to Exchange.', $waiting, I18N::number($waiting)),
+                I18N::translate('Nothing to do. An outstanding change is applied the next time the member opens the portal, or when the button below is used.')
+            );
+        }
+
+        $subscribers = 0;
+
+        foreach ($overview['members'] as $count) {
+            $subscribers += (int) $count;
+        }
+
+        return new DiagnosisCheck(
+            'mailing_lists',
+            self::OK,
+            $label,
+            I18N::plural('%s subscription, all of them applied.', '%s subscriptions, all of them applied.', $subscribers, I18N::number($subscribers)),
+            ''
         );
     }
 

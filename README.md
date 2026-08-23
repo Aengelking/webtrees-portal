@@ -38,13 +38,14 @@ users; there is no second identity system.
 
 ## Scope
 
-**Phases 1 to 11 are built.** Members can be invited, read the tree within
+**Phases 1 to 14 are built.** Members can be invited, read the tree within
 their privacy level, change their own portal settings, propose changes to
 their own record, reset their own password, share contact details with an
 audience they choose per entry, write to each other, read and answer their
 messages in the portal, connect with each other into a contact list of their
-own, and — where an administrator has allowed it — stay signed in on their own
-telephone instead of typing a password every visit.
+own, be told on their telephone that something arrived, join and leave the
+family's mailing lists, and — where an administrator has allowed it — stay
+signed in on their own telephone instead of typing a password every visit.
 
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
@@ -61,8 +62,8 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `PATCH|DELETE /messages/{id}`, `POST /messages/{id}/reply`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
-`DELETE /me/connection-links/{id}`, `GET /search`, `GET /index`,
-`GET /relationship`, `GET /health`.
+`DELETE /me/connection-links/{id}`, `GET|PATCH /me/mailing-lists`,
+`GET /search`, `GET /index`, `GET /relationship`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Stammbaum (search the archive,
@@ -315,8 +316,41 @@ is maintained by whoever keeps the tree, and nobody can meaningfully consent
 to "whatever my record happens to say". What is shared here is what the member
 typed about themselves, and clearing the field deletes it.
 
+**„Niemand" heißt aufheben, nicht löschen.** An entry set to *Niemand* is kept
+and shown to no one in the portal — an address shared with no relative is
+still the address the family magazine is posted to, and one day the
+subscription list it is kept in. The only way to delete an entry is to empty
+the field and save, and the form says so where the choice is made.
+
 *Close family* is the same distance as for invitations — one definition, set
 once.
+
+### What a member sees of somebody whose record is closed to them
+
+*Control panel → Modules → Member portal API → preferences → What members can
+see.*
+
+Where a limit above hides living people, a member appears to their relatives
+in the directory and on a connection request as a **name from the portal
+profile and nothing else** — the family tree has said no, and the portal does
+not argue with it.
+
+Two things may still cross that line, and the switch controls only the second:
+
+* **A photograph they uploaded to the portal themselves.** No setting: the
+  permission is theirs, it was given for this portal, and the rule that a
+  living person's picture is shown only where they put it is what makes it
+  theirs to give. The family's photographs of them stay hidden with the
+  record.
+* **The archive number**, with *Show the archive number even where the record
+  is closed*. Off by default. The number is on the letterhead, and any member
+  can already type one to reach the person it belongs to — this makes legible
+  what was already searchable. A number the record marks confidential stays
+  hidden even then.
+
+Nothing else: no name from the record, no dates, no relationship. If you want
+members to see more than that, the answer is the setting above it — *How much
+of the tree a member sees* — not this one.
 
 **Messages.** A member can write to another member from their directory page.
 Delivery is webtrees' own message system, so each person is reached the way
@@ -463,6 +497,98 @@ subscribed under the old one, and each member would have to switch it on again.
 **Switching it off** in the module's settings stops all of it and stops
 members being offered it. Existing subscriptions stay in the table and start
 working again if it is switched back on.
+
+### The family's mailing lists
+
+*Settings: **Members may manage their own mailing-list subscriptions**, off by
+default, plus a tenant, an application registration and one line per list.*
+
+The family's round-robin letters go out over three Exchange Online distribution
+lists. Before this, joining one meant asking whoever administers Exchange, and
+leaving one meant asking the same person and hoping — which is not really an
+unsubscribe, and a list people cannot leave is a list they eventually mark as
+spam instead. The portal adds a switch per list under **Einstellungen →
+Rundmails der Familie**, and it is as easy to switch off as on.
+
+**The portal holds the wish; Exchange holds the list.** A member's answer is
+written down first and applied second, and the two are allowed to disagree for
+a while. Exchange is somebody else's service reached over somebody else's
+network, and a member pressing a switch is entitled to have their answer kept
+whether or not it is available this second. The screen says which of the two
+has happened: nothing at all when the change has landed, *„wird gerade
+übernommen"* while it has not, and *„wir kümmern uns darum"* when it could not
+be delivered at all. Exchange's own complaint is never shown to a member — it
+names a tenant and a cmdlet, neither of which they can do anything about — and
+goes to the diagnosis screen instead.
+
+**A member is subscribed under their account's address**, the one the
+invitation and password resets go to, not the one they may have published under
+contact details. If they later change it, the portal takes the old address off
+the list and puts the new one on, in that order.
+
+**Members never see a list's address.** A list is identified to the portal by
+the SHA-256 of its address, so that offering a subscription does not hand the
+family's distribution addresses to every browser. What a member sees is the
+name and the sentence you wrote.
+
+#### Why this is not Microsoft Graph
+
+It would be, if it could be. Graph is the documented and supported way to
+manage groups — and classic distribution lists are the one kind it will not
+manage. They belong to Exchange rather than to the directory, so Graph shows
+them and refuses to change them. Converting them to Microsoft 365 groups would
+put them within Graph's reach, but a 365 group can only hold directory objects,
+and most of a family is on gmail.com.
+
+So the module calls the REST endpoint that the supported Exchange Online
+PowerShell module itself calls: `adminapi/beta/{tenant}/InvokeCommand`, with a
+cmdlet name in a header. It is **beta and undocumented**, which is the price of
+the decision and is worth knowing. If a future Exchange release moves it, every
+change goes outstanding, the diagnosis screen says so, and nothing is lost but
+the syncing — the members' answers are in this portal's own database.
+
+#### Setting it up
+
+1. **Register an application** in Entra ID (Azure AD). Note its *application
+   (client) ID* and create a *client secret*.
+2. Under *API permissions*, add **Office 365 Exchange Online →
+   Application permissions → `Exchange.ManageAsApp`**, and grant admin consent.
+3. Give its service principal an Entra role that may edit recipients.
+   **Exchange Recipient Administrator** is enough, and is a great deal less
+   than Exchange Administrator.
+4. In the module's preferences, fill in the tenant (its ID or its
+   `.onmicrosoft.com` domain), the client ID and the secret.
+5. Name the lists, one per line:
+
+   ```
+   familie@example.de | Familiennachrichten | Ein- bis zweimal im Jahr, was in der Familie passiert ist.
+   ```
+
+   The name and the sentence are optional and are what members see. Blank lines
+   and lines beginning with `#` are ignored.
+6. Switch **Members may manage their own mailing-list subscriptions** on, and
+   use *Test the connection to Exchange* on the diagnosis screen.
+
+**Addresses outside the tenant get a mail contact automatically**, because a
+distribution list holds recipients and not addresses. They are created hidden
+from the address book — a relative's private address is not an entry in the
+organisation's address book — which the last setting can turn off. Unsubscribing
+leaves the contact behind: it may be on another list, and deleting a recipient
+because one list lost interest in it is not the module's decision to make.
+
+**The client secret expires.** When it does, every change a member makes is
+recorded and none of it is applied. That is what the diagnosis screen's
+*Mailing lists* row is for; after fixing it, *Try the waiting changes again*
+picks up everything that had given up.
+
+**Changing a list's address** here makes it a new list: the subscriptions
+recorded against the old address stay behind rather than following it, because
+nobody agreed to be on an address they were never shown. Move the members in
+Exchange, or let them subscribe again.
+
+**Switching it off** hides the section from members and stops anything being
+applied. What they have already decided is kept, so switching it back on loses
+nobody's answer.
 
 ### Reading messages in the portal
 
@@ -1743,7 +1869,26 @@ access levels plus an unauthenticated caller:
 * a fact carrying `RESN confidential` does not appear for a member and does
   for a manager;
 * unauthenticated requests get a 401 whose body contains no record data;
+* a connection request from somebody whose record is confidential carries
+  their portal name and no record — the name is consent, the record is
+  genealogy, and the two are answered by different rules;
 * every response, including errors, carries `Cache-Control: private, no-store`.
+
+**Recognition** (`module/tests/RecognitionTest.php`) — what may still be shown
+of somebody whose record is closed to the reader: a photograph they uploaded
+themselves crosses (and its URL actually serves, which is the half that would
+otherwise ship a broken image), the same picture stops the moment the consent
+row goes, the archive number is withheld until the family publishes it and a
+confidential one even then, nothing else from the record travels, and where
+the record *is* readable there is no second copy of either field.
+
+A note on the harness behind those: `PortalTestCase::login()` resets webtrees'
+in-memory cache, because `canShow()` is cached per record and access level and
+*not* per user. That is sound in production, where the cache lives inside one
+request, and would otherwise let one member's privacy answer be handed to the
+next member the test signs in — including the "you may always see your own
+record" exception, which is how the first version of the test above proved the
+opposite of the truth.
 
 **Session** (`module/tests/SessionTest.php`) — wrong password, unknown user,
 unverified email, unapproved account and rate limiting all produce the same
@@ -1911,6 +2056,21 @@ instead of a dead button. Tapping the notification is pinned from both sides
 asks when focusing it fails, opens a window when nothing is running, and says
 nothing to a window belonging to somebody else — and the app acts on that
 message, while ignoring one that names a path leading off this site.
+
+**Mailing lists** (`module/tests/MailingListTest.php`,
+`portal/src/MailingLists.test.tsx`) — a list's address appears nowhere in the
+response at all, which is asserted against the whole body rather than a field,
+while the hash that stands in for it does; a member's answer is written down
+before Exchange is told and survives a refusal, so the row still says what they
+wanted when nobody could be told about it; a refusal that will not change stops
+trying at once and one that might is held off for ten minutes rather than
+retried on every visit; Exchange's own words are stored for the administrator
+and never reach the member; a "no" is a row and not a deletion; changing the
+account address takes the old one off the list before it puts the new one on; a
+key that names no configured list is a 400, the family's off switch is a 403
+that keeps what was already decided, and a signed-out caller gets 401 from
+both methods. On the client: the switch that moved is the only one sent, and a
+change that has not landed says so.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id

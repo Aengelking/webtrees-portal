@@ -1171,13 +1171,15 @@ different answers and one switch forces the narrower onto both. `nobody`,
 `close_family` or `members`, where close family is the same distance as for
 invitations — one definition of "close family" in the module, not three.
 
-**Clearing a field and withdrawing consent are the same act.** An empty value,
-or an audience of `nobody`, deletes the row rather than hiding it. A member
-who deletes their telephone number has plainly finished sharing it, and
-keeping a copy behind a narrower flag would be a way of not listening. The
-client therefore submits every kind on every save, including the empty ones —
-sending only the filled ones would leave the old row standing and the member
-would believe they had deleted it.
+**Clearing a field and withdrawing consent are the same act.** An empty value
+deletes the row rather than hiding it. A member who deletes their telephone
+number has plainly finished sharing it, and keeping a copy behind a narrower
+flag would be a way of not listening. The client therefore submits every kind
+on every save, including the empty ones — sending only the filled ones would
+leave the old row standing and the member would believe they had deleted it.
+
+(An audience of `nobody` deleted the row too, until §2.65. It now keeps the
+entry and discloses it to nobody.)
 
 **The narrowest answer is the default, everywhere.** An unknown audience, a
 missing row, a viewer with no linked record, a subject with no linked record,
@@ -3360,7 +3362,7 @@ This is the part worth remembering. `create()` used to check the posted xref
 against the candidate list, which is exactly right while that list is a
 member's close family — a dozen people, built in full. For an editor the
 eligible set is the whole archive, and the screen was handed the first two
-hundred of it (since §2.66, none at all). Checking against *that* would have
+hundred of it (since §2.69, none at all). Checking against *that* would have
 refused number two hundred and one for no reason anybody could explain.
 
 So there is now one method, `invitable()`, that answers about one person
@@ -3397,8 +3399,6 @@ archive's search, so somebody who already has an account is in it like anybody
 else, and the answer comes when the invitation is issued — in the same words as
 every other refusal. Filtering it would need the whole eligible set on the
 screen, which is the thing this exists to avoid.
-
----
 
 ### 2.61 An entry that comes and goes is one nobody learns the place of
 
@@ -3534,7 +3534,291 @@ what the server says as well.
 
 ---
 
-### 2.65 An invitation is for somebody who cannot see the tree yet
+### 2.65 Nobody is an audience, not a delete
+
+`nobody` used to delete the row, and the reasoning was sound as far as it
+went: an audience of nobody and no entry at all disclose exactly the same
+amount, so keeping one looked like keeping a copy behind a narrower flag —
+§2.26's "a way of not listening".
+
+What that missed is that the portal is not the only thing the family does with
+an address. The magazine is posted to it, and there is a subscription list
+coming. A member who chose *Niemand* meaning "do not show this to my
+relatives" was made to say "the family does not have my address" instead —
+which is a different sentence, was not what they meant, and could not be taken
+back.
+
+So the two are separated. **`nobody` keeps the entry and discloses it to no
+one** (`visibleTo()` was already right: it never matched `nobody`, so nothing
+about disclosure changed). **An empty value deletes it**, and is now the only
+thing that does.
+
+#### The trade only holds if the screen says so
+
+This is the part that would make it a bad change if it were skipped. A stored
+entry that a member believes they deleted is worse than either behaviour it
+replaces, so the form says both halves out loud before the first field —
+what *Niemand* keeps, and that emptying the field is the delete — and the
+summary marks such an entry "Gespeichert, aber niemandem gezeigt" rather than
+listing it as though it were shared. `openapi.yaml` says the same to any other
+client: this is a rule about consent, and a client that hides it is lying on
+the server's behalf.
+
+The GDPR reading is the same one: this is data the member entered about
+themselves and can delete at any time, in one step, from the screen it was
+entered on. What changed is that "show this to nobody" and "erase this" are
+now two answers instead of one, which is what a member who wants the magazine
+but not the directory actually needs.
+
+### 2.66 Phase 14: three lists in somebody else's cloud
+
+The request was *"wir haben drei Verteilerlisten in Exchange — können wir im
+Portal eine Möglichkeit schaffen, sich davon an- und abzumelden?"*, and the
+interesting part of the answer was not the switch.
+
+**Microsoft Graph cannot do this, and that decided the shape of it.** Graph is
+the documented, supported way to manage groups, and classic distribution lists
+are the one kind of group it refuses: they belong to Exchange rather than to
+the directory, so `/groups` lists them and will not change their membership.
+Three ways round that, and two of them lose something:
+
+* **Convert the lists to Microsoft 365 groups**, which Graph does manage. A 365
+  group can only hold directory objects, and most of this family is on
+  gmail.com and web.de. Ruled out by the answer to "which addresses are on
+  them", which was *überwiegend externe*.
+* **A sync job outside the portal** — Azure Automation running the supported
+  PowerShell module against a list this portal publishes. Robust, and it keeps
+  a tenant credential off the webhost entirely. It was recommended and not
+  chosen; it is two systems to operate instead of one, and a change would take
+  minutes to land rather than seconds.
+* **The REST endpoint the PowerShell module itself calls**, which is what was
+  built. `adminapi/beta/{tenant}/InvokeCommand`, an app-only token, a cmdlet
+  name in a header. It is **beta and undocumented**, and that is written at the
+  top of `Services/ExchangeOnline.php` rather than buried: if a future Exchange
+  release moves it, every change goes outstanding and the diagnosis screen says
+  so. What is not lost is the members' answers, because of the next paragraph.
+
+**The portal holds the wish; Exchange holds the list.** The decision is written
+down before anything is attempted, and the two are allowed to disagree. This is
+the whole design and it is what makes the risk above survivable: if the
+connector stops working entirely, the portal is still a correct record of who
+asked for what, and any replacement can read it. It also means a member
+pressing a switch gets an answer that is true — *your answer is taken down* —
+rather than an optimistic one that claims a delivery nobody has confirmed.
+
+**A "no" is a row, not a deleted row.** Two reasons, and the second is the
+real one. The practical one: an unsubscribe is itself an instruction that has
+to reach Exchange, and an instruction with nowhere to live cannot be retried.
+The other: "has never been asked" and "was asked and declined" are different
+states, and a portal that forgets the second cannot prove a withdrawal it acted
+on. Withdrawal is recorded as carefully as consent, which is the point of
+recording either.
+
+**A list is identified by the hash of its address.** Not for secrecy — a hash
+of a known address is guessable by anybody who knows the address — but because
+it lets the portal offer a member *the family news* without putting the
+family's distribution addresses into every browser that opens the settings
+screen. `MailingListTest` asserts it against the whole response body rather
+than against a field, because the way that promise breaks is an address turning
+up somewhere nobody was looking.
+
+**Retrying without a cron.** webtrees has no scheduler, and §2.22 already found
+that the honest place to hang periodic work is a screen somebody is looking at
+anyway. Here it is the member's own settings screen: reading `/me/mailing-lists`
+retries what is outstanding, which is convenient because the person opening it
+is exactly the one who wants it to have gone through. Two bounds keep that from
+turning an Exchange outage into a portal that will not open — at most one row
+per request, and not again for ten minutes — and after three attempts a row
+waits for an administrator instead. The button that wakes those rows is on the
+diagnosis screen, beside the one that tests the connection.
+
+**What a member is never shown** is Exchange's own complaint. It names a
+tenant, an application registration and a cmdlet; there is nothing in it a
+family member can act on, and quite a lot in it about infrastructure they have
+no business seeing. They get *"wir kümmern uns darum"*, which is both kinder and
+more accurate, and the administrator gets the sentence.
+
+**Two things in the connector are guesses about somebody else's product**, and
+they are called out in §3 rather than left to be discovered: that
+`New-MailContact` fails on a duplicate `Name` rather than on something else,
+and that a failed add can be checked by reading the membership back. The second
+exists so that this module never has to recognise the sentence *"is already a
+member of the group"* — matching Exchange's wording in Exchange's language,
+subject to Exchange's changes of mind, is the kind of dependency that breaks
+quietly in a year.
+
+---
+
+### 2.66 A card said "no record" and meant "not yours to see"
+
+A member opened a connection request and read *Kein verknüpfter Eintrag im
+Stammbaum* under a name. The archive had a record for that person. The line
+was simply false.
+
+The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
+returns null when the caller may not see the record, and
+`Connections::present()` also has nothing to hand over when nobody linked that
+account to a record at all. One field, two meanings — and the card picked the
+rarer one and stated it as a fact about the archive, out of an answer that was
+about the *reader*.
+
+**Which of the two it is cannot be disclosed**, and that is not an oversight:
+saying "there is a record here that is not yours to see" is exactly the
+sentence webtrees' privacy exists to withhold. So the server keeps both cases
+as one null, and the client says the only thing that is true of both —
+"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
+that way since Phase 2 (`member.private`); the two list rows had invented
+their own wording and got it wrong. They now share one string,
+`individual.notVisible`, so they cannot drift apart again.
+
+Worth knowing how ordinary the hidden case is: with a path-length limit set,
+every living person outside a member's own few steps is hidden from them
+(§2.34), so on such an installation *most* incoming requests arrive as a name
+with no record. The line was wrong far more often than it was right.
+
+#### The harness was answering privacy questions from the wrong member
+
+Pinning this found a fault in the tests rather than in the module. webtrees
+caches `canShow()` in `Registry::cache()->array()` under record, tree and
+access level — **not** under user, which is right in production, where that
+cache lives and dies inside one request. `PortalTestCase::login()` does not
+end a request, so a `true` computed for the member looking at *their own*
+record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
+handed to the next member who asked the same question at the same access
+level.
+
+The first version of this test said a confidential record travelled with a
+connection request. It does not; the harness had cached the subject's own view
+of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
+request gets, and the test says what it means to say. Any test in this suite
+that signs two people in and asks about privacy was until now capable of
+proving the opposite of the truth.
+
+---
+
+### 2.66 A card said "no record" and meant "not yours to see"
+
+A member opened a connection request and read *Kein verknüpfter Eintrag im
+Stammbaum* under a name. The archive had a record for that person. The line
+was simply false.
+
+The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
+returns null when the caller may not see the record, and
+`Connections::present()` also has nothing to hand over when nobody linked that
+account to a record at all. One field, two meanings — and the card picked the
+rarer one and stated it as a fact about the archive, out of an answer that was
+about the *reader*.
+
+**Which of the two it is cannot be disclosed**, and that is not an oversight:
+saying "there is a record here that is not yours to see" is exactly the
+sentence webtrees' privacy exists to withhold. So the server keeps both cases
+as one null, and the client says the only thing that is true of both —
+"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
+that way since Phase 2 (`member.private`); the two list rows had invented
+their own wording and got it wrong. They now share one string,
+`individual.notVisible`, so they cannot drift apart again.
+
+Worth knowing how ordinary the hidden case is: with a path-length limit set,
+every living person outside a member's own few steps is hidden from them
+(§2.34), so on such an installation *most* incoming requests arrive as a name
+with no record. The line was wrong far more often than it was right.
+
+#### The harness was answering privacy questions from the wrong member
+
+Pinning this found a fault in the tests rather than in the module. webtrees
+caches `canShow()` in `Registry::cache()->array()` under record, tree and
+access level — **not** under user, which is right in production, where that
+cache lives and dies inside one request. `PortalTestCase::login()` does not
+end a request, so a `true` computed for the member looking at *their own*
+record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
+handed to the next member who asked the same question at the same access
+level.
+
+The first version of this test said a confidential record travelled with a
+connection request. It does not; the harness had cached the subject's own view
+of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
+request gets, and the test says what it means to say. Any test in this suite
+that signs two people in and asks about privacy was until now capable of
+proving the opposite of the truth.
+
+---
+
+### 2.67 A name and white space is not an address book
+
+§2.66 fixed what the card *said*. What it showed was still a name and nothing
+else, and for a member whose record is closed to the reader that is the
+ordinary case rather than the exception: a connection request arrives, and the
+person it is from cannot be recognised at all.
+
+The record is closed for a good reason and stays closed. But two things on
+that card do not come from the archive's account of the person, and each has
+its own permission behind it.
+
+**A photograph they uploaded here themselves.** §2.50 already says a living
+person's picture is shown only where they put it — `portal_photo` is that
+consent, given to this portal, for exactly this. Withholding it because
+webtrees hides the record it hangs on would be honouring a rule about the
+*family's* data against the person the data is about. So it crosses, and
+nothing else in the gallery does: the family's photographs of them stay behind
+the record's privacy where they belong.
+
+**The archive number, if the family says so.** Off by default, and a switch in
+the control panel rather than a per-member choice, because the number is the
+family's naming scheme rather than anybody's personal data — it comes off a
+letterhead. And §2.57 already lets any member *type* a number and reach the
+person it belongs to whether or not they may read the record: showing it makes
+legible what was already searchable.
+
+A number the record marks confidential is still withheld. `Fact::canShow()`
+asks about the `RESN` on the fact rather than the privacy of the record around
+it, which is exactly the half that belongs here — the same split the number
+search relies on.
+
+**And nothing else.** Not the name on the record, not the years, not the
+nickname, not the relationship. `Recognition` is the whole rule and it is two
+fields wide.
+
+#### Two traps, and they are the same trap
+
+`GedcomRecord::facts()` hands back **nothing at all** for a record the reader
+may not see. So both halves of this walk into it:
+
+* `Media::firstImageFile()` reads `facts(['FILE'])`, and a media object counts
+  as private whenever any record it is linked to is
+  (`Media::canShowByType()`). The ordinary call therefore answers "this
+  photograph has no files in it" for precisely the pictures this exists to
+  show.
+* The archive number is a `REFN` fact, with the same answer — which is why
+  `Connections::memberByReference()` already reads at `PRIV_HIDE` and filters
+  fact by fact, and why this does too.
+
+The permission is decided first and the reading is done afterwards, at
+`PRIV_HIDE`, in both places.
+
+The third instance of the same trap is the one that would have shipped a
+broken image: `MediaRead` gates on `Media::canShow()`, so the URL in the
+payload would have answered 404 for every portrait this feature adds. A
+consent that is honoured in the JSON and refused at the image is not a feature,
+it is a grey box — so the handler knows the rule too, and knows only this one:
+a `portal_photo` row, and nothing else, opens that door.
+
+#### Where it appears, and where it does not
+
+Three payloads carry the two fields — the directory row, the member's own
+page, and a connection card — **and only where `individual` is null**. Where
+the record is readable both live inside it and follow its rules; a second copy
+beside it would be two answers to one question, and they would not always
+agree (a dead person's family photograph is a portrait, and never a
+`portal_photo` row).
+
+Deliberately *not* on the tree screens. `individualRef()` returning null is
+what keeps a hidden relative out of a relative list altogether, and that
+must not change: this is an address book of people who already have accounts,
+not a way around the archive's own privacy.
+
+---
+
+### 2.68 An invitation is for somebody who cannot see the tree yet
 
 **The bug: every invitation link was dead on arrival**, on any tree with
 `REQUIRE_AUTHENTICATION` switched on — which is every tree this portal is
@@ -3581,7 +3865,7 @@ retry and its reference number, and the accept form names `not_configured` and
 
 ---
 
-### 2.66 The list an editor never saw
+### 2.69 The list an editor never saw
 
 Two complaints about one screen, and the same sentence answers both: **an
 editor's invite screen is a search box, and it was being handed a list.**
@@ -3669,6 +3953,32 @@ Flagging these so they get a second look rather than being inherited as fact.
    a good deal else, but not everything — an address it cannot place lands
    whole in the street rather than being torn up. It only ever applies to
    addresses typed before there were fields, and only until the member saves.
+12. **The Exchange admin API is beta and undocumented.**
+    `adminapi/beta/{tenant}/InvokeCommand` is the endpoint the supported
+    PowerShell module calls, and it is the only way to change a distribution
+    list from PHP — Graph will not (§2.66). Everything the connector believes
+    about its request shape is inferred from that module's behaviour rather
+    than from a specification: the `X-CmdletName` header, the `CmdletInput`
+    envelope, the `value` array in the answer, the `error.message` in a
+    refusal. If Microsoft moves it, subscriptions stop being applied and the
+    diagnosis screen says so; nothing is lost but the syncing.
+13. **`New-MailContact` is assumed to fail on a duplicate `Name`.** The
+    connector retries once with the address appended rather than reading the
+    error, on the theory that the only thing likely to collide is a second
+    relative of the same name. A different failure therefore costs one wasted
+    call before it is reported — which is cheaper than matching Exchange's
+    wording, and does not rot when that wording changes.
+14. **A failed add or remove is checked by reading the membership back.** This
+    is how "already a member" and "not a member" are treated as successes
+    without recognising either sentence. It assumes
+    `Get-DistributionGroupMember` returns the address somewhere in each member
+    object — as `PrimarySmtpAddress`, or as an `SMTP:`-prefixed
+    `ExternalEmailAddress` — so every string in the answer is searched rather
+    than a chosen few.
+15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
+    all in `Services/DistributionLists.php`. They exist to keep an Exchange
+    outage from being felt as a slow portal, and the numbers matter less than
+    that there are some.
 
 ---
 

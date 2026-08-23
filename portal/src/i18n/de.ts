@@ -147,6 +147,9 @@ export const de = {
   contact: {
     intro:
       'Tragen Sie ein, was Sie erreichbar macht — und entscheiden Sie für jeden Eintrag einzeln, wer ihn sehen darf. Was Sie leer lassen, wird nicht geteilt.',
+    keptHint:
+      '„Niemand“ heißt: Der Eintrag bleibt gespeichert — etwa für den Versand der Familienzeitschrift — wird aber niemandem im Portal gezeigt. Zum endgültigen Löschen leeren Sie das Feld und speichern.',
+    keptNote: 'Gespeichert, aber niemandem gezeigt.',
     kind: {
       email: 'E-Mail-Adresse',
       phone: 'Telefonnummer',
@@ -376,7 +379,6 @@ export const de = {
     sureYes: 'Ja, beenden',
     sureNo: 'Abbrechen',
     list: 'Verbunden',
-    noRecord: 'Kein verknüpfter Eintrag im Stammbaum',
     withMember: 'Verbindung',
     state: {
       none: 'Sie sind mit dieser Person noch nicht verbunden.',
@@ -490,7 +492,6 @@ export const de = {
       requested: 'Angefragt',
       connected: 'Verbunden',
     },
-    noRecord: 'Kein verknüpfter Eintrag im Stammbaum',
   },
   member: {
     back: 'Zurück zur Übersicht',
@@ -531,6 +532,16 @@ export const de = {
       'Auf dem iPhone und iPad gibt es Benachrichtigungen nur, wenn die App auf dem Home-Bildschirm liegt. Wie Sie sie dorthin legen, steht oben auf dieser Seite unter „Auf den Startbildschirm“. Danach können Sie die Benachrichtigungen hier einschalten.',
     blocked:
       'Ihr Browser blockiert Benachrichtigungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
+  },
+  lists: {
+    title: 'Rundmails der Familie',
+    intro:
+      'Sie bekommen diese Rundmails an {{address}} — die Adresse Ihres Zugangs. Sie können jederzeit eine abbestellen und ebenso jederzeit wieder dazukommen.',
+    pending: 'Ihre Antwort ist notiert und wird gerade übernommen.',
+    failed:
+      'Ihre Antwort ist notiert, ließ sich aber noch nicht übernehmen. Wir kümmern uns darum — Sie müssen nichts weiter tun.',
+    noAddress:
+      'Zu Ihrem Zugang ist keine E-Mail-Adresse hinterlegt, deshalb gibt es keine Adresse, an die die Post der Familie gehen könnte. Wenden Sie sich an die Person, die den Familienstammbaum betreut.',
   },
   settings: {
     contacts: 'Meine Kontakte',
@@ -579,6 +590,7 @@ export const de = {
     photoUntitled: 'Foto ohne Titel',
     photoClose: 'Schließen',
     noEvents: 'Zu dieser Person sind keine weiteren Daten hinterlegt.',
+    notVisible: 'Keine Angaben aus dem Stammbaum sichtbar',
     sex: {
       M: 'männlich',
       F: 'weiblich',

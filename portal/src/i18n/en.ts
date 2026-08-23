@@ -146,6 +146,9 @@ export const en: Translations = {
   contact: {
     intro:
       'Enter what makes you reachable — and decide for each entry separately who may see it. Anything you leave empty is not shared.',
+    keptHint:
+      '"Nobody" means the entry is kept — for posting the family magazine, for instance — but shown to nobody in the portal. To delete it for good, empty the field and save.',
+    keptNote: 'Kept, but shown to nobody.',
     kind: {
       email: 'Email address',
       phone: 'Telephone number',
@@ -374,7 +377,6 @@ export const en: Translations = {
     sureYes: 'Yes, end it',
     sureNo: 'Cancel',
     list: 'Connected',
-    noRecord: 'No linked record in the family tree',
     withMember: 'Connection',
     state: {
       none: 'You are not connected with this person yet.',
@@ -488,7 +490,6 @@ export const en: Translations = {
       requested: 'Requested',
       connected: 'Connected',
     },
-    noRecord: 'No linked entry in the family tree',
   },
   member: {
     back: 'Back to the list',
@@ -529,6 +530,16 @@ export const en: Translations = {
       'On an iPhone or iPad, notifications work only once the app is on the home screen. How to put it there is at the top of this page, under "On the home screen". You can turn notifications on here afterwards.',
     blocked:
       'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
+  },
+  lists: {
+    title: 'The family’s round-robin letters',
+    intro:
+      'These go to {{address}}, the address your account uses. You can leave any of them at any time, and join again just as easily.',
+    pending: 'Your answer has been taken down and is being passed on.',
+    failed:
+      'Your answer has been taken down, but could not be passed on yet. Somebody is looking at it — there is nothing else for you to do.',
+    noAddress:
+      'Your account has no email address, so there is nowhere for the family’s post to go. Please ask whoever looks after the family tree.',
   },
   settings: {
     contacts: 'My contacts',
@@ -577,6 +588,7 @@ export const en: Translations = {
     photoUntitled: 'Untitled photograph',
     photoClose: 'Close',
     noEvents: 'No further details are recorded for this person.',
+    notVisible: 'No family-tree details visible',
     sex: {
       M: 'male',
       F: 'female',

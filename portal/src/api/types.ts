@@ -422,6 +422,21 @@ export interface MemberSummary {
   display_name: string
   individual: IndividualRef | null
   /**
+   * What may be shown of somebody whose record this reader may not read —
+   * **only ever present when `individual` is null**.
+   *
+   * `portrait` is a photograph that person uploaded to the portal themselves;
+   * their own consent covers it whatever the record's privacy says.
+   * `references` is their archive number, and is empty unless the family
+   * switched that on in the control panel.
+   *
+   * Where `individual` *is* present, both live inside it and follow the
+   * record's own rules — so read `individual?.portrait ?? portrait` and never
+   * both.
+   */
+  portrait?: Photo | null
+  references?: Reference[]
+  /**
    * Where the reader and this member stand. Carried on every row of the
    * directory, so a request can be sent from the list without opening the
    * person first — it is one row of one table, unlike contact details, which
@@ -480,6 +495,35 @@ export interface ContactSettings {
   contact: OwnContact
 }
 
+/**
+ * Whether Exchange agrees with the member's answer yet.
+ *
+ * `applied` is the ordinary state and the screen says nothing about it. The
+ * other two are both "we have your answer": one is on its way, the other could
+ * not be delivered and somebody has been told. Neither is the member's problem
+ * to solve, and neither is ever accompanied by Exchange's own words.
+ */
+export type MailingListState = 'applied' | 'pending' | 'failed'
+
+/** One of the family's round-robin letters, as offered to a member. */
+export interface MailingList {
+  /** Opaque and stable. The list's address is never sent to the portal. */
+  key: string
+  name: string
+  /** What arrives and how often, in the administrator's words. May be empty. */
+  description: string
+  subscribed: boolean
+  state: MailingListState
+}
+
+export interface MailingLists {
+  /** False when the family has not set this up. The portal then shows nothing. */
+  enabled: boolean
+  /** The account address a subscription is made under. Empty if there is none. */
+  address: string
+  lists: MailingList[]
+}
+
 /** Where the reader and another member stand with each other. */
 export type ConnectionStatus = 'none' | 'requested' | 'incoming' | 'connected' | 'self'
 
@@ -507,6 +551,21 @@ export interface Connection {
   member_id: number | null
   name: string
   individual: IndividualRef | null
+  /**
+   * What may be shown of somebody whose record this reader may not read —
+   * **only ever present when `individual` is null**.
+   *
+   * `portrait` is a photograph that person uploaded to the portal themselves;
+   * their own consent covers it whatever the record's privacy says.
+   * `references` is their archive number, and is empty unless the family
+   * switched that on in the control panel.
+   *
+   * Where `individual` *is* present, both live inside it and follow the
+   * record's own rules — so read `individual?.portrait ?? portrait` and never
+   * both.
+   */
+  portrait?: Photo | null
+  references?: Reference[]
   since: string
 }
 

@@ -17,6 +17,8 @@ use Illuminate\Support\Collection;
  * @var PortalApiModule                $module
  * @var int                            $error_count
  * @var int                            $path_length
+ * @var bool                           $lists_enabled
+ * @var int                            $lists_waiting
  * @var array<int,array{name:string,xref:string|null,numbers:array<int,string>}> $numbers
  * @var string                         $settings_url
  * @var string                         $title
@@ -92,6 +94,36 @@ $summary = [
         <input type="hidden" name="diagnosis_action" value="apply_path_length">
         <button type="submit" class="btn btn-outline-primary">
             <?= I18N::plural('Limit every member account to %s step', 'Limit every member account to %s steps', $path_length, I18N::number($path_length)) ?>
+        </button>
+        <?= csrf_field() ?>
+    </form>
+<?php endif ?>
+
+<?php if ($lists_enabled) : ?>
+    <h2 class="h5 mt-5"><?= I18N::translate('The family’s mailing lists') ?></h2>
+
+    <p>
+        <?= I18N::translate('A member’s decision is recorded here the moment they make it, and passed to Exchange straight afterwards. When Exchange cannot be reached the decision stands and the change waits — it is tried again the next time that member opens the portal, a few times, and then it waits for you.') ?>
+    </p>
+
+    <?php if ($lists_waiting > 0) : ?>
+        <p class="text-muted">
+            <?= I18N::plural('%s change is waiting.', '%s changes are waiting.', $lists_waiting, I18N::number($lists_waiting)) ?>
+        </p>
+    <?php endif ?>
+
+    <form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminDiagnosis'])) ?>" class="d-inline">
+        <input type="hidden" name="diagnosis_action" value="check_exchange">
+        <button type="submit" class="btn btn-outline-primary">
+            <?= I18N::translate('Test the connection to Exchange') ?>
+        </button>
+        <?= csrf_field() ?>
+    </form>
+
+    <form method="post" action="<?= e(route('module', ['module' => $module->name(), 'action' => 'AdminDiagnosis'])) ?>" class="d-inline ms-2">
+        <input type="hidden" name="diagnosis_action" value="retry_lists">
+        <button type="submit" class="btn btn-outline-secondary" <?= $lists_waiting === 0 ? 'disabled' : '' ?>>
+            <?= I18N::translate('Try the waiting changes again') ?>
         </button>
         <?= csrf_field() ?>
     </form>
