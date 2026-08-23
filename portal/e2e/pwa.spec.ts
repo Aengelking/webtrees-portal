@@ -214,8 +214,21 @@ test.describe('the installed app', () => {
             page.evaluate(() => ({
               controlled: navigator.serviceWorker.controller !== null,
               online: navigator.onLine,
-              // Long enough to reach the sign-in button past whatever the
-              // offline bar has put in front of it.
+              // Asked of the document, not of the text below.
+              //
+              // This used to search a 400-character slice for "Anmelden",
+              // which made the assertion depend on how much prose happened to
+              // sit above the button. When the login screen grew the
+              // "Angemeldet bleiben" switch and its explanation, the button
+              // moved past the cut and a portal that had opened perfectly
+              // well offline reported itself broken. Length is not the thing
+              // being tested.
+              signIn: Array.from(document.querySelectorAll('button')).some(
+                (button) => button.textContent?.trim() === 'Anmelden',
+              ),
+              // Kept, and still truncated, for the failure message: a locator
+              // that simply goes unfound says nothing about why, and on CI
+              // there is no browser to open and look at.
               text: document.body.innerText.replace(/\s+/g, ' ').trim().slice(0, 400),
             })),
           { message: 'the portal, reloaded with the network off' },
@@ -223,7 +236,7 @@ test.describe('the installed app', () => {
         // The whole app is running: the document, the script and the
         // stylesheet all came from somewhere, and offline there is nowhere
         // else they could have come from.
-        .toMatchObject({ controlled: true, text: expect.stringContaining('Anmelden') })
+        .toMatchObject({ controlled: true, signIn: true })
     } finally {
       await context.setOffline(false)
     }

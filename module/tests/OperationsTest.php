@@ -13,10 +13,13 @@ use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\DiagnosisCheck;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
+use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Fig\Http\Message\StatusCodeInterface;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Services\TreeService;
 use Fisharebest\Webtrees\Site;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -259,6 +262,88 @@ class OperationsTest extends PortalTestCase
 
     public function testHealthFailsWhenNoTreeCanBeServed(): void
     {
+        $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
+
+        self::assertSame(
+            StatusCodeInterface::STATUS_SERVICE_UNAVAILABLE,
+            $this->api(HealthRead::class)->getStatusCode()
+        );
+    }
+
+    /**
+     * The failure this endpoint had in the field, and the reason it is worth
+     * a test of its own.
+     *
+     * `/health` needs no credentials on purpose — a health check that needs
+     * them is a health check nobody runs — but the tree used to be resolved
+     * through `TreeService::all()`, which webtrees filters by the signed-in
+     * user. On a tree with `REQUIRE_AUTHENTICATION` the visitor's list is
+     * empty, so a portal with nothing whatsoever wrong with it answered
+     * `not_configured`, and the deployment's own check called it broken.
+     *
+     * `REQUIRE_AUTHENTICATION` is not an exotic setting here. It is what a
+     * portal about living relatives is normally set to.
+     */
+    public function testHealthDoesNotNeedTheVisitorToBeAbleToSeeTheTree(): void
+    {
+        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+
+        self::assertFalse(Auth::check(), 'This test is about the unauthenticated case.');
+        self::assertTrue(
+            Registry::container()->get(TreeService::class)->all()->isEmpty(),
+            'webtrees is expected to hide the tree from a visitor here; without that this proves nothing.'
+        );
+
+        $response = $this->api(HealthRead::class);
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame('ok', $this->json($response)['status']);
+    }
+
+    /**
+     * The 503 a member sees is deliberately generic, so the log line is the
+     * only thing an administrator has to work from — and it used to say the
+     * tree did not exist when the tree was sitting right there and the
+     * account simply had no role on it. That sends somebody to check a module
+     * setting that was never wrong.
+     */
+    public function testTheLogSaysWhichKindOfMissingItIs(): void
+    {
+        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+
+        $member = $this->createUser('bea', 'Bea Beispiel', 'pw-that-is-long-enough', UserInterface::ROLE_VISITOR);
+        Auth::login($member);
+
+        $trees = Registry::container()->get(PortalTreeService::class);
+
+        // `notConfigured()` writes the real reason with `error_log()`, so the
+        // only way to read it is to point that somewhere this can open.
+        $log      = tempnam(sys_get_temp_dir(), 'portal-log-');
+        $previous = ini_get('error_log');
+        ini_set('error_log', $log);
+
+        try {
+            $trees->tree();
+            self::fail('A visitor-role member should not resolve a tree behind authentication.');
+        } catch (ApiException $exception) {
+            self::assertSame('not_configured', $exception->error);
+        } finally {
+            ini_set('error_log', $previous === false ? '' : $previous);
+        }
+
+        $written = (string) file_get_contents($log);
+        unlink($log);
+
+        // What the member is told stays generic; what the log says does not.
+        self::assertStringContainsString('exists but is not visible', $written);
+        self::assertStringContainsString('bea', $written);
+        self::assertStringNotContainsString('does not exist', $written);
+    }
+
+    /** And a genuinely missing tree is still a failure, filter or no filter. */
+    public function testHealthStillFailsOnAMissingTreeBehindAuthentication(): void
+    {
+        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
         $this->module()->setPreference(PortalApiModule::SETTING_TREE, 'no-such-tree');
 
         self::assertSame(
