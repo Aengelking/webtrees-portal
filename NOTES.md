@@ -3359,9 +3359,9 @@ not exist.
 This is the part worth remembering. `create()` used to check the posted xref
 against the candidate list, which is exactly right while that list is a
 member's close family — a dozen people, built in full. For an editor the
-eligible set is the whole archive, and the screen is handed the first two
-hundred of it. Checking against *that* would have refused number two hundred
-and one for no reason anybody could explain.
+eligible set is the whole archive, and the screen was handed the first two
+hundred of it (since §2.66, none at all). Checking against *that* would have
+refused number two hundred and one for no reason anybody could explain.
 
 So there is now one method, `invitable()`, that answers about one person
 without building any list, and both the screen and the endpoint ask it. The
@@ -3578,6 +3578,43 @@ saying it is sends the invitee to ask for a replacement that fails identically
 as "no longer valid"; everything else gets the ordinary error notice, with its
 retry and its reference number, and the accept form names `not_configured` and
 `server_error` rather than shrugging.
+
+---
+
+### 2.66 The list an editor never saw
+
+Two complaints about one screen, and the same sentence answers both: **an
+editor's invite screen is a search box, and it was being handed a list.**
+
+*It took a long time to open.* `overview()` built the editor's candidate list
+by reading every record in the archive and asking three questions of each — is
+this person visible to me, are they living, do they already have an account.
+The third went back to the database once per record (`outstanding()`), and the
+one behind it walked every user account in the installation (`hasAccount()`).
+Then the first two hundred survivors were presented in full — name,
+relationship, portrait — and the screen **threw all of it away**, because for
+`scope: anyone` it draws a search box and never looks at `candidates`. §2.60
+already knew the list was not the rule; what it kept was the list.
+
+So the editor gets no list: `candidates` is empty, and the search is the list.
+Nothing is lost by it. The rule lives in `invitable()` and is asked when the
+invitation is issued, which is where every refusal has always come from — and
+the two tests that used to read the list now ask the endpoint instead, which is
+the thing they were really about. `LISTED` is gone; the number an editor is
+told is left of their quota is now called `NO_QUOTA` and says why it is 200
+rather than a sentinel: a client one deploy behind would print "noch -1
+Einladungen". The screen no longer prints it at all where there is no quota —
+"Sie können noch 200 Einladungen offen haben" was a number invented to fill a
+line.
+
+*And the person was not shown.* Arriving from somebody's own page is the
+ordinary way onto this screen and it carries them in `?xref=`. The search
+component only recognised a choice that appeared in its own results, and it had
+searched for nothing — so the person the editor had just pressed the button for
+had to be found again by typing their name. It now fetches that one record when
+the choice came from the address bar rather than from a result, and says
+*Ausgewählt: …* before anything is typed. One record, and only when somebody is
+already chosen.
 
 ---
 

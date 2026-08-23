@@ -2770,13 +2770,14 @@ components:
 
             `anyone` is what somebody who can edit the tree gets — everybody
             they can see, which in a real archive is thousands of people.
-            `candidates` is then only the first couple of hundred, and the
-            screen should search rather than list. **A person absent from
-            `candidates` may still be invited**: the endpoint applies the rule,
-            not the list.
+            `candidates` is then **empty** and the screen searches: a wheel
+            with four thousand names in it is not a way of choosing anybody,
+            and building the list meant reading the whole archive for a screen
+            that ignored it. **A person absent from `candidates` may still be
+            invited**: the endpoint applies the rule, not the list.
 
-            It cannot be inferred from `candidates`, because a short list is
-            also what a small family looks like.
+            It cannot be inferred from `candidates`, because an empty list is
+            also what a member with nobody left to invite looks like.
         enabled:
           type: boolean
           description: False when the family has switched member invitations off.
