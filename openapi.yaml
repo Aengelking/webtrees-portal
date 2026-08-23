@@ -874,6 +874,93 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /me/mailing-lists:
+    get:
+      tags: [members]
+      summary: Which of the family's letters do I get?
+      description: |
+        The lists an administrator has named, and this member's answer to each
+        one. Only ever their own.
+
+        **The addresses are not in the payload.** A list is identified by an
+        opaque key — the SHA-256 of its address — so that offering a member a
+        subscription does not put the family's distribution addresses into
+        every browser. What a member is shown is the name and the sentence the
+        administrator wrote.
+
+        The lists live in Exchange Online and this portal holds only the wish,
+        so `state` says whether the two agree yet. Reading this endpoint is
+        also when an outstanding change is tried again — there is no scheduled
+        job in a webtrees installation to hang one on, and a member opening
+        this screen is the person who most wants it to have gone through. It is
+        bounded, so an Exchange outage is never felt as a portal that will not
+        open.
+      operationId: readMailingLists
+      responses:
+        '200':
+          description: The lists and this member's answers.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailingLists'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [members]
+      summary: Join a list, or leave one
+      description: |
+        A list absent from the body is left alone, which is what makes this a
+        PATCH: the screen sends the one switch that moved.
+
+        The decision is recorded before Exchange is told about it, and the
+        answer comes back either way — a `pending` state is not a failure, it
+        is the portal saying it has the answer and is passing it on. A key that
+        names no configured list is a `400`.
+
+        Only about the signed-in member. There is no way in this API to
+        subscribe anybody else: putting an address on a family mailing list is
+        a decision that belongs to whoever reads that address.
+      operationId: updateMailingLists
+      parameters:
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [lists]
+              properties:
+                lists:
+                  type: object
+                  minProperties: 1
+                  additionalProperties:
+                    type: boolean
+                  description: |
+                    Keyed by the `key` of a list, `true` to join and `false` to
+                    leave.
+      responses:
+        '200':
+          description: The lists as they now stand.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailingLists'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /members/{id}/message:
     post:
       tags: [members]
@@ -2673,6 +2760,60 @@ components:
             the module and the portal deploy separately.
         contact:
           $ref: '#/components/schemas/OwnContact'
+
+    MailingList:
+      type: object
+      additionalProperties: false
+      required: [key, name, description, subscribed, state]
+      properties:
+        key:
+          type: string
+          description: |
+            Opaque and stable: the SHA-256 of the list's address. The address
+            itself is never sent to the portal.
+        name:
+          type: string
+          description: What the administrator called it.
+        description:
+          type: string
+          description: |
+            What arrives and how often, in the administrator's own words. May
+            be empty.
+        subscribed:
+          type: boolean
+          description: The member's answer, which is not the same as Exchange's.
+        state:
+          type: string
+          enum: [applied, pending, failed]
+          description: |
+            Whether Exchange agrees yet. `applied` is the ordinary state and
+            the screen says nothing about it. `pending` means the decision is
+            recorded and on its way. `failed` means it is recorded and could
+            not be delivered — the member is told that somebody is looking at
+            it, and never why, because the reason is about a tenant they know
+            nothing about.
+
+    MailingLists:
+      type: object
+      additionalProperties: false
+      required: [enabled, address, lists]
+      properties:
+        enabled:
+          type: boolean
+          description: |
+            False when the family has not switched this on, has not configured
+            a tenant, or has named no lists. The portal then shows nothing.
+        address:
+          type: string
+          description: |
+            The account address a subscription is made under — the one the
+            invitation and password resets go to, not the one the member may
+            have published under contact details. Empty when the account has
+            none, in which case nothing can be subscribed.
+        lists:
+          type: array
+          items:
+            $ref: '#/components/schemas/MailingList'
 
     Health:
       type: object

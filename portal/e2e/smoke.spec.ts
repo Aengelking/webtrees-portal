@@ -182,6 +182,36 @@ test.describe('the smoke path', () => {
     expect(Object.keys(stored.session)).toEqual([])
   })
 
+  /**
+   * The lists live in Exchange and the portal holds only the wish, so what is
+   * worth proving in a browser is that the wish makes the round trip: the
+   * switch moves, the answer comes back, and it is still there on the way
+   * back to the screen.
+   */
+  test('a member can leave one of the family’s mailing lists and rejoin it', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.getByRole('link', { name: 'Einstellungen' }).click()
+
+    const invitations = page.getByRole('switch', { name: /Einladungen/ })
+
+    await expect(invitations).toHaveAttribute('aria-checked', 'true')
+    await invitations.click()
+    await expect(invitations).toHaveAttribute('aria-checked', 'false')
+
+    // As easy to undo as to do. A list a member cannot rejoin is one they will
+    // ask somebody to put them back on, which is the arrangement this replaced.
+    await invitations.click()
+    await expect(invitations).toHaveAttribute('aria-checked', 'true')
+
+    // The address the post goes to is on the screen; the list's own address is
+    // not, and never leaves the server.
+    await expect(page.getByText(/Sie bekommen diese Rundmails an anna@example\.test/)).toBeVisible()
+  })
+
   test('signing out closes the door', async ({ page }) => {
     await page.goto('/login')
     await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)

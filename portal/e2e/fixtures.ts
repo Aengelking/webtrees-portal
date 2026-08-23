@@ -217,6 +217,33 @@ export async function stubApi(page: Page): Promise<void> {
     },
   ]
 
+  /**
+   * The family's mailing lists. Stateful, so that a browser test can flip a
+   * switch and see the answer come back rather than only that a request left.
+   */
+  let lists: {
+    key: string
+    name: string
+    description: string
+    subscribed: boolean
+    state: 'applied' | 'pending' | 'failed'
+  }[] = [
+    {
+      key: 'a1b2c3',
+      name: 'Familiennachrichten',
+      description: 'Ein- bis zweimal im Jahr.',
+      subscribed: false,
+      state: 'applied',
+    },
+    {
+      key: 'd4e5f6',
+      name: 'Einladungen',
+      description: '',
+      subscribed: true,
+      state: 'applied',
+    },
+  ]
+
   const conversationSummary = () => ({
     id: 3,
     member_id: 2,
@@ -406,6 +433,20 @@ export async function stubApi(page: Page): Promise<void> {
     if (path.startsWith('/messages/') && method === 'DELETE') {
       inbox = []
       return json(route, { messages: inbox, unread: 0 })
+    }
+
+    if (path === '/me/mailing-lists') {
+      if (method === 'PATCH') {
+        const sent = route.request().postDataJSON() as { lists: Record<string, boolean> }
+
+        lists = lists.map((list) =>
+          list.key in sent.lists
+            ? { ...list, subscribed: sent.lists[list.key] as boolean, state: 'applied' }
+            : list,
+        )
+      }
+
+      return json(route, { enabled: true, address: 'anna@example.test', lists })
     }
 
     if (path === '/me/contact') {

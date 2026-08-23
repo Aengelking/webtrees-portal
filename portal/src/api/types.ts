@@ -453,6 +453,35 @@ export interface ContactSettings {
   contact: OwnContact
 }
 
+/**
+ * Whether Exchange agrees with the member's answer yet.
+ *
+ * `applied` is the ordinary state and the screen says nothing about it. The
+ * other two are both "we have your answer": one is on its way, the other could
+ * not be delivered and somebody has been told. Neither is the member's problem
+ * to solve, and neither is ever accompanied by Exchange's own words.
+ */
+export type MailingListState = 'applied' | 'pending' | 'failed'
+
+/** One of the family's round-robin letters, as offered to a member. */
+export interface MailingList {
+  /** Opaque and stable. The list's address is never sent to the portal. */
+  key: string
+  name: string
+  /** What arrives and how often, in the administrator's words. May be empty. */
+  description: string
+  subscribed: boolean
+  state: MailingListState
+}
+
+export interface MailingLists {
+  /** False when the family has not set this up. The portal then shows nothing. */
+  enabled: boolean
+  /** The account address a subscription is made under. Empty if there is none. */
+  address: string
+  lists: MailingList[]
+}
+
 /** Where the reader and another member stand with each other. */
 export type ConnectionStatus = 'none' | 'requested' | 'incoming' | 'connected' | 'self'
 
