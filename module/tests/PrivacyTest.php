@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Tests;
 
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
@@ -38,6 +42,7 @@ class PrivacyTest extends PortalTestCase
     private User $member;
     private User $manager;
     private User $hidden_member;
+    private int $member_profile_id;
     private int $hidden_member_profile_id;
 
     protected function setUp(): void
@@ -50,7 +55,7 @@ class PrivacyTest extends PortalTestCase
         // A member whose linked record is the confidential one.
         $this->hidden_member = $this->createUser('clara', 'Clara Beispiel', 'correct-horse', UserInterface::ROLE_MEMBER, 'X3');
 
-        $this->createProfile($this->member, true);
+        $this->member_profile_id = $this->createProfile($this->member, true);
         $this->createProfile($this->manager, true);
         $this->hidden_member_profile_id = $this->createProfile($this->hidden_member, true);
     }
@@ -355,6 +360,54 @@ class PrivacyTest extends PortalTestCase
 
         // Including error responses, which are just as account-specific.
         self::assertSame('private, no-store', $this->api(IndividualRead::class, attributes: ['xref' => 'X3'])->getHeaderLine('Cache-Control'));
+    }
+
+
+    // -----------------------------------------------------------------
+    // A name from the portal, no record from the tree
+    // -----------------------------------------------------------------
+
+    /**
+     * The commonest shape of a contact card, and the one that used to lie.
+     *
+     * Clara's record is confidential, so Anna may not see it. Anna still
+     * knows her name — that comes from the portal's own profile, which is
+     * consent rather than genealogy (§2.7) — and the card carries it.
+     *
+     * `individual` is null for two quite different reasons: nobody linked
+     * this account to a record, or there is one and it is not this reader's
+     * to see. The server tells them apart and deliberately does not say
+     * which, because saying would disclose the thing privacy is withholding.
+     * So the card may not guess either — it used to announce "Kein
+     * verknüpfter Eintrag im Stammbaum", which is a statement about the
+     * archive, made from an answer that was about the reader.
+     */
+    public function testARequestFromAHiddenMemberCarriesTheNameAndNoRecord(): void
+    {
+        // The two settings this exchange needs, which the other tests in this
+        // file have no use for.
+        $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_CONNECTIONS, '1');
+        $this->module()->setPreference(PortalApiModule::SETTING_PORTAL_URL, 'https://portal.example.test');
+
+        // Clara asks Anna, from Anna's page in the directory.
+        $this->login($this->hidden_member);
+
+        self::assertSame(
+            StatusCodeInterface::STATUS_CREATED,
+            $this->api(
+                ConnectionCreate::class,
+                RequestMethodInterface::METHOD_POST,
+                body: ['member_id' => $this->member_profile_id],
+                headers: $this->csrfHeader(),
+            )->getStatusCode()
+        );
+
+        $this->login($this->member);
+
+        $incoming = $this->json($this->api(ConnectionList::class))['incoming'][0];
+
+        self::assertSame('Clara Beispiel', $incoming['name']);
+        self::assertNull($incoming['individual'], 'A confidential record must not travel with a connection request.');
     }
 
     /**

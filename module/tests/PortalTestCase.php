@@ -12,6 +12,7 @@ use Fig\Http\Message\RequestMethodInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
+use Fisharebest\Webtrees\Factories\CacheFactory;
 use Fisharebest\Webtrees\Http\Middleware\RequestHandler;
 use Fisharebest\Webtrees\Http\RequestHandlers\GedcomLoad;
 use Fisharebest\Webtrees\Registry;
@@ -174,8 +175,26 @@ abstract class PortalTestCase extends TestCase
         return (int) DB::lastInsertId();
     }
 
+    /**
+     * Sign somebody in — which in these tests also means "and this is a new
+     * request".
+     *
+     * The second half is the reason for the cache reset. webtrees caches
+     * privacy answers in `Registry::cache()->array()` under a key of record,
+     * tree and access level — **and not of user** (`GedcomRecord::canShow()`),
+     * which is sound in production, where that cache lives and dies with one
+     * request. Here the process outlives the sign-in, so a `true` computed for
+     * the member looking at their own record is handed to the next member who
+     * asks about it, at the same access level, and a test about privacy is
+     * answered from somebody else's answer.
+     *
+     * Found while pinning that a confidential record does not travel with a
+     * connection request: it did not, and the test said it did.
+     */
     protected function login(User $user): void
     {
+        Registry::cache(new CacheFactory());
+
         Auth::login($user);
         $user->setPreference(UserInterface::PREF_TIMESTAMP_ACTIVE, (string) time());
     }

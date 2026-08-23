@@ -177,7 +177,10 @@ function MemberRow({ member, offerConnection }: { member: MemberSummary; offerCo
             </span>
             <span className="mt-1 block text-base text-slate-700">
               {member.individual === null
-                ? t('members.noRecord')
+                ? // Not "this account has no record": the commoner reason by
+                  // far is a living person this reader may not see, and the
+                  // row cannot tell the two apart. See `individual.notVisible`.
+                  t('individual.notVisible')
                 : [
                     member.individual.name,
                     member.individual.lifespan,

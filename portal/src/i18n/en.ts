@@ -377,7 +377,6 @@ export const en: Translations = {
     sureYes: 'Yes, end it',
     sureNo: 'Cancel',
     list: 'Connected',
-    noRecord: 'No linked record in the family tree',
     withMember: 'Connection',
     state: {
       none: 'You are not connected with this person yet.',
@@ -491,7 +490,6 @@ export const en: Translations = {
       requested: 'Requested',
       connected: 'Connected',
     },
-    noRecord: 'No linked entry in the family tree',
   },
   member: {
     back: 'Back to the list',
@@ -590,6 +588,7 @@ export const en: Translations = {
     photoUntitled: 'Untitled photograph',
     photoClose: 'Close',
     noEvents: 'No further details are recorded for this person.',
+    notVisible: 'No family-tree details visible',
     sex: {
       M: 'male',
       F: 'female',

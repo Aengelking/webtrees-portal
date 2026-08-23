@@ -3649,6 +3649,53 @@ quietly in a year.
 
 ---
 
+### 2.66 A card said "no record" and meant "not yours to see"
+
+A member opened a connection request and read *Kein verknüpfter Eintrag im
+Stammbaum* under a name. The archive had a record for that person. The line
+was simply false.
+
+The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
+returns null when the caller may not see the record, and
+`Connections::present()` also has nothing to hand over when nobody linked that
+account to a record at all. One field, two meanings — and the card picked the
+rarer one and stated it as a fact about the archive, out of an answer that was
+about the *reader*.
+
+**Which of the two it is cannot be disclosed**, and that is not an oversight:
+saying "there is a record here that is not yours to see" is exactly the
+sentence webtrees' privacy exists to withhold. So the server keeps both cases
+as one null, and the client says the only thing that is true of both —
+"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
+that way since Phase 2 (`member.private`); the two list rows had invented
+their own wording and got it wrong. They now share one string,
+`individual.notVisible`, so they cannot drift apart again.
+
+Worth knowing how ordinary the hidden case is: with a path-length limit set,
+every living person outside a member's own few steps is hidden from them
+(§2.34), so on such an installation *most* incoming requests arrive as a name
+with no record. The line was wrong far more often than it was right.
+
+#### The harness was answering privacy questions from the wrong member
+
+Pinning this found a fault in the tests rather than in the module. webtrees
+caches `canShow()` in `Registry::cache()->array()` under record, tree and
+access level — **not** under user, which is right in production, where that
+cache lives and dies inside one request. `PortalTestCase::login()` does not
+end a request, so a `true` computed for the member looking at *their own*
+record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
+handed to the next member who asked the same question at the same access
+level.
+
+The first version of this test said a confidential record travelled with a
+connection request. It does not; the harness had cached the subject's own view
+of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
+request gets, and the test says what it means to say. Any test in this suite
+that signs two people in and asks about privacy was until now capable of
+proving the opposite of the truth.
+
+---
+
 ---
 
 ## 3. Things that were guessed
