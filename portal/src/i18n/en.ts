@@ -390,6 +390,22 @@ export const en: Translations = {
     intro:
       'Search the family archive by name or archive number — or read down the surnames and the places.',
     tabSearch: 'Search',
+    tabCalculator: 'Calculator',
+    calc: {
+      intro:
+        'An archive number is not a label but a path: the line, then one character per generation. So the relationship between two people can be worked out from their two numbers alone — no records, no limit, and even for people who are not in the tree at all.',
+      first: 'Archive number 1',
+      firstHint: 'Your own number is filled in. You can overwrite it.',
+      second: 'Archive number 2',
+      result: '{{second}} to {{first}}',
+      note: 'Nothing is looked up and nobody is named — only the two numbers are used.',
+      problem: {
+        invalid_a: 'Archive number 1 is not a valid number.',
+        invalid_b: 'Archive number 2 is not a valid number.',
+        identical: 'Both numbers name the same person.',
+        incomplete: '',
+      },
+    },
     tabSurnames: 'Names',
     tabPlaces: 'Places',
     search: 'Name or archive number',

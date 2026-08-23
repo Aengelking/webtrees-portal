@@ -233,6 +233,24 @@ export interface IndividualRef {
   relationship?: string | null
 }
 
+/** The working behind a calculated relationship, for anybody who checks it. */
+export interface RelationshipDetail {
+  kind: 'self' | 'sibling' | 'ancestor' | 'descendant' | 'nephew' | 'uncle' | 'cousin'
+  generations: number
+  distance: number
+  degree: number | null
+}
+
+/** What the archive-number calculator answers. */
+export interface RelationshipResult {
+  a: string
+  b: string
+  /** Null when there is an answer — see openapi.yaml for the four reasons. */
+  problem: 'incomplete' | 'invalid_a' | 'invalid_b' | 'identical' | null
+  relationship: string | null
+  detail: RelationshipDetail | null
+}
+
 /** A page of people found by looking through the tree. */
 export interface SearchPage {
   items: IndividualRef[]

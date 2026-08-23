@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
+use Engelking\Webtrees\PortalApi\Services\SackNumbers;
 use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
 use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
 use Fisharebest\Webtrees\I18N;
@@ -34,6 +35,10 @@ use Illuminate\Support\Collection;
  * @var string               $member_connections
  * @var string               $connection_code_minutes
  * @var string               $remember_days
+ * @var string               $sack_lines
+ * @var string               $sack_marriages
+ * @var string               $sack_lines_default
+ * @var string               $sack_marriages_default
  */
 
 $tree_options = ['' => I18N::translate('Use the site’s default family tree')];
@@ -303,6 +308,42 @@ foreach ($trees as $a_tree) {
             </div>
             <div class="form-text">
                 <?= I18N::translate('Connection codes need the portal address above, because the code is a link to the portal. Without it a member is told to contact an administrator instead of being handed a code nobody can scan.') ?>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('The archive’s numbering') ?></h2>
+
+    <p class="form-text">
+        <?= I18N::translate('An SB number is a position in one descent: the line prefix, then one character per generation saying which child. That makes it a complete ancestral path, so the portal can work out how any two people are related from their two numbers alone — with no records in between, and however distant they are.') ?>
+    </p>
+    <p class="form-text">
+        <?= I18N::translate('Two things are not in the number itself and have to be kept here. Both are shipped with the values the family’s own calculator used, and both are family news rather than software: leave a box empty to keep using what the module was built with.') ?>
+    </p>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= SackNumbers::SETTING_LINES ?>">
+            <?= I18N::translate('Lines') ?>
+        </label>
+        <div class="col-sm-9">
+            <textarea class="form-control font-monospace" rows="8" id="<?= SackNumbers::SETTING_LINES ?>" name="<?= SackNumbers::SETTING_LINES ?>" spellcheck="false"><?= e($sack_lines === '' ? $sack_lines_default : $sack_lines) ?></textarea>
+            <div class="form-text">
+                <?= I18N::translate('One line per entry, “number = prefix”. The prefix is what the line’s number stands for at the start of every path in it, which is why two people in different lines still have a common ancestor.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="<?= SackNumbers::SETTING_MARRIAGES ?>">
+            <?= I18N::translate('Marriages within the family') ?>
+        </label>
+        <div class="col-sm-9">
+            <textarea class="form-control font-monospace" rows="10" id="<?= SackNumbers::SETTING_MARRIAGES ?>" name="<?= SackNumbers::SETTING_MARRIAGES ?>" spellcheck="false"><?= e($sack_marriages === '' ? $sack_marriages_default : $sack_marriages) ?></textarea>
+            <div class="form-text">
+                <?= I18N::translate('One line per entry, “number = number”. The children of such a couple are filed under the right-hand number only, so the left-hand parent’s descent is invisible in the children’s numbers — this is what tells the calculation about it. Put a “!” after the left-hand number where that partner is the one who married in. A “#” starts a note.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('Getting this wrong makes relationships wrong rather than absent, so it is worth checking a known pair afterwards. A row that names a line which does not exist is ignored.') ?>
             </div>
         </div>
     </div>

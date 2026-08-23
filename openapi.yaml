@@ -2209,6 +2209,72 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /relationship:
+    get:
+      tags: [tree]
+      summary: How two archive numbers are related
+      description: |
+        The family's own calculator, which has existed as a page of its own
+        since 2009, brought inside the portal.
+
+        An SB number is not a label — it is a position in one descent. Expanded,
+        it is the line's prefix followed by one character per generation saying
+        which child. That makes the number a **complete ancestral path**, so the
+        relationship between any two members of the family is a property of two
+        strings: the longest common prefix is the nearest ancestor they share,
+        and the two remaining lengths are the rest of the answer.
+
+        Two things the tree cannot do follow from that. It reaches **any**
+        distance — a fourth cousin twice removed is the same arithmetic as a
+        brother — and it needs **no records at all**, so it answers about people
+        who are not in the tree, or whose connecting relatives are not visible
+        to the reader.
+
+        **It therefore has no privacy rule of its own, because there is nothing
+        to disclose.** Nobody is named, no record is read, and an unissued
+        number is answered exactly like an issued one — so this cannot be used
+        to find out whether a number belongs to anybody. Authentication is
+        required because everything in this API requires it, and no further.
+
+        Marriages between two people who both have a number are folded in
+        first: the children of such a couple are filed under one parent's
+        number only, and the table of those marriages is maintained in the
+        module's preferences alongside the table of line prefixes.
+      operationId: readRelationship
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: a
+          in: query
+          required: false
+          description: |
+            An archive number, written as the family writes it — dots and
+            spaces are ignored, `24/b521.12` and `24/b52112` are the same.
+          schema:
+            type: string
+            maxLength: 40
+        - name: b
+          in: query
+          required: false
+          description: The other one. The answer names *this* person.
+          schema:
+            type: string
+            maxLength: 40
+      responses:
+        '200':
+          description: |
+            Always `200`, including when a number cannot be read — `problem`
+            says what is wrong, so the screen can point at the field rather
+            than report a failure.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /index:
     get:
       tags: [tree]
@@ -2998,6 +3064,62 @@ components:
             - type: 'null'
         place:
           type: [string, 'null']
+
+    RelationshipResult:
+      type: object
+      additionalProperties: false
+      required: [a, b, problem, relationship, detail]
+      properties:
+        a:
+          type: string
+          description: The first number, as it was received.
+        b:
+          type: string
+        problem:
+          description: |
+            `incomplete` — one of the two was not given.
+            `invalid_a` / `invalid_b` — not an archive number: the wrong shape,
+            or a line the archive does not have.
+            `identical` — the same person twice.
+            `null` — there is an answer.
+          type: [string, 'null']
+          enum: [incomplete, invalid_a, invalid_b, identical, null]
+        relationship:
+          type: [string, 'null']
+          description: |
+            Named in the request's language. Where the sex is not known — and
+            two bare numbers never say — both forms are given, joined:
+            "Bruder/Schwester".
+          example: Cousin/Cousine 2. Grades
+        detail:
+          description: |
+            The working, for anybody who wants to check it. `null` when there
+            is no answer.
+          oneOf:
+            - $ref: '#/components/schemas/RelationshipDetail'
+            - type: 'null'
+
+    RelationshipDetail:
+      type: object
+      additionalProperties: false
+      required: [kind, generations, distance, degree]
+      properties:
+        kind:
+          type: string
+          enum: [self, sibling, ancestor, descendant, nephew, uncle, cousin]
+        generations:
+          type: integer
+          description: |
+            How many generations apart. Positive when the second person is the
+            elder.
+        distance:
+          type: integer
+          description: How far the first person stands from the ancestor they share.
+        degree:
+          type: [integer, 'null']
+          description: |
+            How far out a collateral relative sits — "2. Grades". `null` for
+            the near ones, which the family names without a degree.
 
     SearchPage:
       type: object

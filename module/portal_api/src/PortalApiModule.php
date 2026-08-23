@@ -55,6 +55,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushDelete;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PushRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ReplyCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\RelationshipRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SearchList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
@@ -81,6 +82,8 @@ use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
+use Engelking\Webtrees\PortalApi\Services\SackNumbers;
+use Engelking\Webtrees\PortalApi\Services\SackRelationship;
 use Engelking\Webtrees\PortalApi\Services\SearchConsent;
 use Engelking\Webtrees\PortalApi\Services\TreeSearch;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
@@ -118,6 +121,7 @@ use function max;
 use function min;
 use function rawurlencode;
 use function rtrim;
+use function str_replace;
 use function trim;
 
 /**
@@ -295,7 +299,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $user_service   = $container->get(UserService::class);
         $portal_trees   = new PortalTreeService($this, $tree_service);
         $pending        = new PendingChanges();
-        $relationships  = new RelationshipNamer($container->get(RelationshipService::class));
+        $sack_numbers   = new SackNumbers($this);
+        $sack           = new SackRelationship($sack_numbers);
+        $relationships  = new RelationshipNamer($container->get(RelationshipService::class), $sack);
         $photo_store    = new Photos($portal_trees, $pending);
         $photos         = new PhotoPresenter($photo_store);
         $presenter      = new RecordPresenter($pending, $relationships, $photos);
@@ -373,6 +379,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(MemberList::class, new MemberList($portal_trees, $presenter, $members, $connections));
         $container->set(SearchList::class, new SearchList($portal_trees, $presenter, $tree_search));
         $container->set(IndexRead::class, new IndexRead($portal_trees, $tree_search));
+        $container->set(RelationshipRead::class, new RelationshipRead($sack));
         $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
@@ -502,6 +509,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $private]);
 
         $map->get(IndexRead::class, self::ROUTE_PREFIX . '/index', IndexRead::class)
+            ->extras(['middleware' => $private]);
+
+        $map->get(RelationshipRead::class, self::ROUTE_PREFIX . '/relationship', RelationshipRead::class)
             ->extras(['middleware' => $private]);
 
         // Phase 2 — writes. Authenticated *and* CSRF-checked: these are the
@@ -701,6 +711,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_connections'  => $this->getPreference(self::SETTING_MEMBER_CONNECTIONS, '1'),
             'connection_code_minutes' => $this->getPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) Connections::DEFAULT_CODE_MINUTES),
             'remember_days'       => $this->getPreference(self::SETTING_REMEMBER_DAYS, (string) RememberedDevices::DEFAULT_DAYS),
+            'sack_lines'        => $this->getPreference(SackNumbers::SETTING_LINES, ''),
+            'sack_marriages'    => $this->getPreference(SackNumbers::SETTING_MARRIAGES, ''),
+            'sack_lines_default'     => SackNumbers::DEFAULT_LINES,
+            'sack_marriages_default' => SackNumbers::DEFAULT_MARRIAGES,
             'invitations_url'   => $this->invitationsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
@@ -729,9 +743,24 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) max(1, min(Connections::MAX_CODE_MINUTES, $body->integer(self::SETTING_CONNECTION_CODE_MINUTES, Connections::DEFAULT_CODE_MINUTES))));
         $this->setPreference(self::SETTING_REMEMBER_DAYS, (string) max(0, min(RememberedDevices::MAX_DAYS, $body->integer(self::SETTING_REMEMBER_DAYS, RememberedDevices::DEFAULT_DAYS))));
 
+        // Left empty on purpose when it matches what is shipped: an empty
+        // setting means "whatever the module was built with", so a later
+        // correction to the archive's own tables reaches an installation that
+        // never edited them.
+        $this->setPreference(SackNumbers::SETTING_LINES, $this->sackTable($body->string(SackNumbers::SETTING_LINES, ''), SackNumbers::DEFAULT_LINES));
+        $this->setPreference(SackNumbers::SETTING_MARRIAGES, $this->sackTable($body->string(SackNumbers::SETTING_MARRIAGES, ''), SackNumbers::DEFAULT_MARRIAGES));
+
         FlashMessages::addMessage(I18N::translate('The preferences for the module “%s” have been updated.', $this->title()), 'success');
 
         return redirect($this->getConfigLink());
+    }
+
+    /** @see postAdminAction() for why an unchanged table is stored as nothing. */
+    private function sackTable(string $submitted, string $default): string
+    {
+        $normalised = trim(str_replace("\r\n", "\n", $submitted));
+
+        return $normalised === trim($default) ? '' : $normalised;
     }
 
     // -----------------------------------------------------------------

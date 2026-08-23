@@ -3044,6 +3044,124 @@ were green before and after.
 
 ---
 
+### 2.55 The number was the answer all along
+
+The archive numbers everybody, and the number turned out not to be a label.
+Expanded — the line's prefix, then the rest with its dots dropped —
+`24/b521.12` is `7d3b52112`: **one character per generation, each saying which
+child.** A complete ancestral path, printed on every card in this portal since
+§2.51, and nobody had noticed what it was for.
+
+Which means the relationship between any two members of the family is a
+property of two strings. Longest common prefix is the nearest shared ancestor;
+the two remaining lengths are the rest of the answer. No tree, no records, no
+dates.
+
+The family has known this since 2009 — there is a PHP page that does it. This
+phase is that page, ported.
+
+#### Where it earns its place
+
+`RelationshipNamer` walks the GEDCOM and stops at four steps, because the walk
+is breadth-first over a graph that can be large and it runs on a screen a
+member opens often. So a page of search results — which is exactly where
+distant relatives turn up — was mostly blank in the one column that makes a
+list of names into a list of family.
+
+The walk still goes first, and that is not deference. **The tree knows things a
+number cannot**: a wife, a stepfather, an adopted child. An SB number describes
+descent, and describes it perfectly. So the tree answers wherever it can and
+the arithmetic fills in what is left, which is nearly always the same case —
+two people too far apart for four steps to reach.
+
+#### The rule it is allowed to cross, and why that is not a hole
+
+§2.25 refuses to name a relationship whose path runs through somebody the
+reader may not see: the name encodes the shape of the path, so "your cousin"
+would betray a shared grandparent the reader was never shown. This crosses that
+ground without hesitating.
+
+It is not an exception carved into the rule. It is that **an SB number already
+is the path**. Both numbers are on both cards, both were filtered by webtrees'
+fact-level privacy before they got there, and anybody holding the two of them
+can do this on the back of an envelope. Computing it discloses nothing the two
+visible numbers did not.
+
+The line that does still hold: a number the reader may not see is not used.
+`facts(['REFN'], …, $access_level)` settles it, so a confidential number is not
+in the list, and the answer is silence.
+
+Worth saying plainly somewhere the family will read it: **the numbering system
+is more revealing than it looks.** That is a fact about the archive, not about
+this portal.
+
+#### The tables are family data
+
+Two things are not in the number. The line prefixes, and the marriages between
+two people who both have a number — the archive files such a couple's children
+under one parent only, so the other parent's descent is invisible in the
+children's numbers and a calculation that ignored it gets one side of the
+family right and misses the other.
+
+Both are in the control panel, seeded with what the original used. A new line
+or a new marriage is an evening's news, not a release. An empty box means
+"whatever the module shipped with", so a later correction still reaches an
+installation that never edited them.
+
+#### Ported, and checked against the original
+
+Two things were kept that a rewrite would have argued with: `0` is not a valid
+child character, and the marriage fix-up replaces the joining character with
+`-` rather than splicing cleanly. Both are load-bearing — the second stops a
+re-rooted branch accidentally lining up with one of the other parent's own
+children.
+
+The port was checked by running both implementations over every ordered pair
+drawn from the marriage table plus a dozen hand-written numbers: **15,876
+pairs, no differences.** That is what made it safe to change anything at all.
+
+Three things did change, and each was a bug rather than a difference of
+opinion:
+
+* **A path that is all digits becomes an integer array key in PHP.**
+  `7243215` is one. The original keyed its marriage table by the number and
+  survived on coercion; a typed port cannot, and the harness found it on the
+  first run. It is a list now.
+* **The prefix belongs to each form, not to the pair.** "Urgroßvater" and
+  "Urgroßmutter", not "Urgroßvater/großmutter", which is neither of the two
+  things it is trying to say.
+* **The sex is known on a card**, so a card says "Schwester" where the
+  calculator, given two bare numbers, still says "Bruder/Schwester". Nothing in
+  a number says whose it is.
+
+#### The words are a table, not a catalogue
+
+The module has no gettext catalogue of its own, so a string put through
+`I18N::translate()` here would reach a German member in English. Two tables,
+one per language, keyed by the six shapes. Honest, and it is thirty
+family-specific terms rather than something a translator would ever see.
+
+`I18N::languageTag()` returns the full tag, and the first attempt compared it
+to `'en'` — so `en-US`, which is what the test harness initialises, was read as
+German and every English assertion came back in German. Caught by the tests
+that had nothing to do with language.
+
+#### The calculator screen
+
+A fourth tab, and the one screen in the portal that reads no records at all: no
+name, no record, and an unissued number is answered exactly like an issued one,
+so it cannot be used to find out whether a number belongs to anybody. Nothing
+to disclose, therefore no rule beyond being signed in.
+
+The member's own number is filled into the first field. The question somebody
+actually has at a family gathering is not "how are these two strangers related"
+but "how am I related to *this*" — and the number they are holding is the other
+one, read off a card or the back of a photograph.
+
+---
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

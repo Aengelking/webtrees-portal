@@ -116,6 +116,15 @@ test.describe('the smoke path', () => {
     // Back out to the index, which is where the member came from.
     await page.getByRole('button', { name: 'Zurück zu den Namen' }).click()
     await expect(page.getByRole('button', { name: /Beispiel/ })).toBeVisible()
+
+    // And the calculator, which touches no records at all: the member's own
+    // number is already in the first field, so the question is "how am I
+    // related to this one".
+    await page.getByRole('tab', { name: 'Rechner' }).click()
+    await expect(page.getByLabel('SB-Nr. 1')).toHaveValue('10/1335.11')
+
+    await page.getByLabel('SB-Nr. 2').fill('24/b6')
+    await expect(page.getByText('Cousin/Cousine 3. Grades')).toBeVisible()
   })
 
   test('a wrong password says nothing useful', async ({ page }) => {

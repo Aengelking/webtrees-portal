@@ -62,13 +62,13 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
 `DELETE /me/connection-links/{id}`, `GET /search`, `GET /index`,
-`GET /health`.
+`GET /relationship`, `GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Stammbaum (search the archive,
-and the surname and place indexes), Contacts (with the directory search in
-it), the member directory, member detail, Messages, connect (where a scanned
-code lands), invite close family, Settings.
+the surname and place indexes, and the archive-number calculator), Contacts
+(with the directory search in it), the member directory, member detail,
+Messages, connect (where a scanned code lands), invite close family, Settings.
 
 What a member may change about themselves: given names, surname, date and
 place of birth, occupation, and contact details (address, email, telephone,
@@ -833,6 +833,53 @@ Two consequences worth expecting:
 On a very large tree the two indexes stop after 5,000 records and the screen
 says so, because they are built by reading the records rather than by a query
 that would have to ignore the rule above.
+
+### The archive's numbering, and what it can work out
+
+*Control panel → Modules → Member portal API → preferences → The archive's
+numbering.*
+
+An SB number is not a label. Expanded — the line's prefix, then the rest with
+its dots dropped — `24/b521.12` is `7d3b52112`: **one character per
+generation, each saying which child.** That makes it a complete ancestral path,
+and it means the relationship between any two members of the family can be
+worked out from their two numbers alone.
+
+The portal uses this in two places:
+
+* **On every card.** Where the family tree can name the relationship, it does —
+  the tree knows about wives, stepfathers and adoptions, and a number does not.
+  Where it cannot, the numbers answer instead. That covers the case the tree is
+  worst at: relatives too distant for a four-step walk, and relatives whose
+  connecting ancestors the reader is not allowed to see.
+* **On the calculator** (*Stammbaum → Rechner*), which is the family's own tool
+  from 2009 brought inside. Two numbers in, a relationship out. It reads no
+  records at all, so it answers about people who are not in the tree — the
+  number written on the back of a photograph, or read off a cousin's card. The
+  member's own number is filled in already.
+
+**Two tables are not in the number and are kept here.** Both are shipped with
+the values the original calculator used, and both are family news rather than
+software — leave a box empty to keep using what the module was built with.
+
+* **Lines** — `number = prefix`, one per line. The prefix is what a line's
+  number stands for at the start of every path in it.
+* **Marriages within the family** — `number = number`. The archive files such
+  a couple's children under the right-hand number only, so the left-hand
+  parent's descent is invisible in the children's numbers; this is what tells
+  the calculation about it. A `!` after the left-hand number marks the partner
+  who married in. A `#` starts a note.
+
+Getting the marriage table wrong makes relationships *wrong* rather than
+absent, so it is worth checking a known pair on the calculator after editing
+it. A row naming a line that does not exist is ignored rather than fatal.
+
+**One thing worth knowing about the system itself.** Because the number is the
+path, anybody holding two numbers can work out the relationship on paper — the
+portal is not disclosing anything new by doing the arithmetic. That is a
+property of the archive's numbering, not of this software, and it is the reason
+the calculation is allowed to cross ground the tree walk deliberately will not.
+A reference number the tree marks confidential is not used.
 
 ### When something goes wrong
 
