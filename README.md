@@ -93,8 +93,11 @@ appears on neither.
 
 The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
-member is related to it. Drawn charts (fan, descendancy) are still webtrees'
-job, and every record still links out for them.
+member is related to it. The pedigree does not stop at a living relative it may
+not name — that rung is an unnamed placeholder and the line carries on above it
+— so the archive's dead stay reachable through the family's living. Drawn
+charts (fan, descendancy) are still webtrees' job, and every record still links
+out for them.
 
 Members get in by invitation. An administrator picks the person out of the
 tree and gets a one-time link to send; the invitee chooses their own username
@@ -987,6 +990,34 @@ nephews and parents-in-law.
 
 The Diagnosis screen reports the current state under *What a member can see*,
 including how many accounts still have no limit.
+
+#### One screen reads the limit differently: *Vorfahren*
+
+Everywhere else in the portal, somebody a member may not see is simply not
+there. On the pedigree they are — as a rung that says *Nicht freigegeben* and
+nothing else, so that the line can carry on above them to ancestors who are
+long dead and restricted by nobody. Without that, a limit of two steps ends
+almost every line at the reader's grandparents, and the archive the portal
+exists to open stops being reachable at all.
+
+What such a rung shows is that somebody occupies the position. It carries no
+name, no dates, no picture, no reference number and no link, and it never says
+*why* it is closed — a living relative outside the limit and a record marked
+`RESN confidential` look exactly the same, on purpose.
+
+**Two things can still end a line outright.** A `RESN` on the *family* record
+— somebody saying that this connection is confidential, rather than these
+people — and simply running out of recorded parents.
+
+**And one thing can put a name back on a rung: that person's own.** A member
+who has switched themselves into the member directory is named with the name
+they publish there, and the rung links to their member page. That is the same
+consent the search reads (see below), so switching the directory off in
+Settings takes them out of both. Nothing from the family tree is shown for
+them either way — the record stays closed; only what they publish in the
+portal appears. A record carrying `RESN confidential`, `RESN privacy` or a
+per-record privacy level set in *Control panel → Privacy* is never named this
+way, even for a listed member.
 
 ### Searching the family archive
 
@@ -1960,11 +1991,17 @@ own origin, never webtrees'; a photograph may be kept by a browser and by
 nothing else, and webtrees' own `public, max-age=31536000` is refused at the
 proxy.
 
-**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — a
-confidential ancestor is absent from the pedigree and the walk stops there
-rather than reaching around them; a relationship is never named through
-someone the member may not see, though a manager who can see the whole path is
-told; a hidden root and a missing one give byte-identical 404s.
+**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — an
+ancestor the member may not read is a placeholder carrying a position and
+nothing else, and the walk carries on above it to the dead who are not
+restricted; a living person hidden by the relationship path length produces the
+byte-identical entry to a confidential one, so "hidden" cannot be read as
+"alive"; a member who listed themselves in the directory is named from there
+and never from the record, while a restricted record is not named even for a
+listed member and an unlisted member is not named at all; a relationship is
+never named through someone the member may not see, though a manager who can
+see the whole path is told; a hidden root and a missing one give byte-identical
+404s.
 
 **Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
 `Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does

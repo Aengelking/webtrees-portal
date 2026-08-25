@@ -634,10 +634,14 @@ export const de = {
     },
     none: {
       title: 'Keine Vorfahren hinterlegt',
-      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst — oder sie sind für Sie nicht freigegeben.',
+      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst.',
+    },
+    private: {
+      name: 'Nicht freigegeben',
+      member: 'Im Mitgliederverzeichnis eingetragen',
     },
     privacyNote:
-      'Es werden nur Personen angezeigt, die für Sie freigegeben sind. Wo eine Linie endet, kann es sein, dass sie im Stammbaum weitergeht.',
+      'Wo eine Person für Sie nicht freigegeben ist — das sind fast immer die Lebenden — steht nur, dass dort jemand steht: kein Name, keine Daten. Wer sich selbst ins Mitgliederverzeichnis eingetragen hat, wird mit dem Namen aus dem Verzeichnis genannt; aus dem Stammbaum wird auch dann nichts angezeigt.',
   },
   error: {
     title: 'Da ist etwas schiefgelaufen',
