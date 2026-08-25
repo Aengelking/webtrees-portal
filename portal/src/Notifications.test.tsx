@@ -497,6 +497,12 @@ describe('signing back in', () => {
         ready: Promise.resolve({
           pushManager: { subscribe, getSubscription: vi.fn().mockResolvedValue(null) },
         }),
+        // The whole app is rendered here, and `useNotificationRoute` listens
+        // for the worker's "open this path" message. Without these it throws
+        // out of an effect — which vitest reports as an unhandled error and
+        // *not* as a failing test, so the run is red with every test green.
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
       },
     })
 
