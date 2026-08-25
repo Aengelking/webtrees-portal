@@ -4278,6 +4278,87 @@ themselves, and nothing from the tree is shown for them either way.
 
 ---
 
+### 2.73 The other house names them
+
+A member opened a deceased great-aunt's page **in webtrees** and read the names
+of the living people in that family — the same people the pedigree in the
+portal had just shown as unnamed placeholders. Nothing was broken. Two
+programs were answering the same question differently, and neither of them
+said so anywhere.
+
+**Why webtrees answers the way it does.** `Individual::canShowName()` is an
+**or**:
+
+```php
+return (int) $this->tree->getPreference('SHOW_LIVING_NAMES') >= $access_level || $this->canShow($access_level);
+```
+
+`SHOW_LIVING_NAMES` defaults to `Auth::PRIV_USER` (`Tree.php:80`), so for a
+signed-in member the first half is true and `canShow()` never gets a vote.
+`chart-box.phtml:135` then prints `fullName()` in both branches of its own
+`canShow()` test — only the *link* is conditional. And with
+`SHOW_PRIVATE_RELATIONSHIPS` on, which is also the default,
+`RelativesTabModule` reads the family's `HUSB`/`WIFE`/`CHIL` links at
+`Auth::PRIV_HIDE`, so every row is listed to begin with.
+
+It is deliberate, and the reasoning is sound on its own terms — webtrees' help
+text says "the names (but no other details)", and a chart of forty boxes
+reading *Private* is not a chart. The disclosure really does stop at the name:
+the thumbnail, the zoom menu and the links menu are all behind `canShow()`, and
+`lifespan()` reaches the dates through `facts()`, which returns nothing at all
+for a record the reader may not see.
+
+**Why it is this module's business anyway.** `IndividualView` puts a link into
+webtrees at the foot of every person's page, for every member — *Stammbaum und
+Diagramme öffnen*. So the placeholder discipline of §2.72 is exactly one tap
+deep. The portal being stricter than webtrees is not a property of the portal;
+it is a property of two tree settings that no screen in either program relates
+to the other.
+
+Which is the same shape of problem as §2.25, and gets the same answer: the
+state is real, it is invisible, and nobody would think to go and look. So
+`Diagnosis::livingNames()` looks.
+
+**What it reports, and what it refuses to.** Both settings, in the third
+column, by the names and values webtrees itself gives them — `I18N::translate(
+'Show names of private individuals')` and `Auth::accessLevelNames()` — so that
+the row can be found on the screen it is about, in the administrator's own
+language. Only `SHOW_LIVING_NAMES` drives the status:
+
+* *Show to managers* — **ok**. The two programs agree.
+* *Show to members* — **warning**. Members read in webtrees what the portal
+  withholds.
+* *Show to visitors* — **problem**, but only where the tree can be read without
+  signing in. Otherwise a visitor cannot open the tree at all, "visitors"
+  behaves as "members", and it is a warning. A diagnosis screen that shouts
+  about something disclosing nothing is a screen that gets ignored on the day
+  it is right.
+
+`SHOW_PRIVATE_RELATIONSHIPS` is reported and never complained about, and that
+is a consequence of §2.72 rather than a shrug: whether a hidden relative's row
+is listed as *Private* or left off the page entirely, the portal's own pedigree
+now says the first of those — somebody stands here. Either value agrees with
+it. It is on the screen as a fact.
+
+**One version fork, in a place that already had one.** Whether the tree can be
+read without signing in was `REQUIRE_AUTHENTICATION` in `gedcom_setting` until
+**2.2.6**, which moved it into a column behind `Tree::private()` and left a
+shim that raises a deprecation notice. So `requiresAuthentication()` asks each
+version by name, exactly as `PortalTreeService::treeFromRow()` does for the
+constructor that moved in the same release. The harness had already met this
+one from the other side: `PortalTestCase::requireAuthentication()` writes the
+flag where the running version keeps it, because the shim both raises a notice
+— which this suite counts as risky — and writes to *every* tree in the table
+rather than to one.
+
+**What this check cannot do is fix it.** Unlike the path length, there is no
+button: these are webtrees' own tree settings, the portal has no business
+writing them behind an administrator's back, and the screen that owns them is
+two clicks away. The advice names the setting, the value to choose and the path
+to it, and stops there.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

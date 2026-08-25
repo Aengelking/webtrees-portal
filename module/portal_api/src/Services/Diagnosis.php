@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
 use Throwable;
 
 use function count;
+use function method_exists;
 use function time;
 use function trim;
 
@@ -64,6 +65,7 @@ class Diagnosis
             $this->ownRegistration(),
             $this->unlinkedAccounts(),
             $this->visibility(),
+            $this->livingNames(),
             $this->mailingLists(),
             $this->recentErrors(),
         ]);
@@ -324,6 +326,119 @@ class Diagnosis
             I18N::plural('%s member account still sees every living person.', '%s member accounts still see every living person.', $unlimited, I18N::number($unlimited)),
             I18N::translate('The limit applies to accounts created by invitation from now on. Existing accounts keep what they had until it is applied to them — there is a button below. An account with no linked record cannot be limited at all, because the limit is measured from that record.')
         );
+    }
+
+    /**
+     * What *webtrees* names, which is wider than what the portal names.
+     *
+     * A member opens a deceased relative's page in webtrees and reads the
+     * names of the living people in that family — people the portal shows as
+     * an unnamed placeholder. Not a fault: `canShowName()` is an **or**,
+     *
+     * ```php
+     * (int) $tree->getPreference('SHOW_LIVING_NAMES') >= $access_level || $this->canShow($access_level)
+     * ```
+     *
+     * and `SHOW_LIVING_NAMES` defaults to `Auth::PRIV_USER`. webtrees does
+     * this on purpose — its own help text says so, "the names (but no other
+     * details)" — because a chart of forty boxes reading "Private" is not a
+     * chart. It is simply a different answer from the portal's, and nothing
+     * in either program says the two disagree.
+     *
+     * **Which matters because the portal hands every member the door.** There
+     * is a link into webtrees at the foot of every person's page, so the
+     * placeholder discipline of the pedigree (§2.72) holds only as far as this
+     * setting lets it. That is the whole reason for this check: like the
+     * relationship path length above, the state is real, it is invisible, and
+     * nobody would think to go and look.
+     *
+     * **`SHOW_PRIVATE_RELATIONSHIPS` is reported and never complained about.**
+     * It decides whether a hidden relative's row is listed as "Private" or
+     * left off the family page altogether — and since §2.72 the portal's own
+     * pedigree says the same thing as the first of those: somebody stands
+     * here. Either value agrees with the portal, so it is a fact for the
+     * administrator rather than a finding.
+     */
+    private function livingNames(): DiagnosisCheck
+    {
+        $label = I18N::translate('Names of living people in webtrees');
+
+        try {
+            $tree = $this->trees->tree();
+        } catch (Throwable) {
+            return new DiagnosisCheck('living_names', self::OK, $label, I18N::translate('Cannot be read without a family tree.'), '');
+        }
+
+        $names  = (int) $tree->getPreference('SHOW_LIVING_NAMES');
+        $levels = Auth::accessLevelNames();
+
+        // Both settings, by the names and values webtrees itself gives them,
+        // so that what is on this row can be found on that screen.
+        $detail = I18N::translate('Show names of private individuals') . ': ' . ($levels[$names] ?? (string) $names)
+            . ' · ' . I18N::translate('Show private relationships') . ': '
+            . ($tree->getPreference('SHOW_PRIVATE_RELATIONSHIPS') === '1' ? I18N::translate('yes') : I18N::translate('no'));
+
+        $where = I18N::translate('Control panel') . ' → ' . I18N::translate('Family trees')
+            . ' → ' . I18N::translate('Preferences') . ' → ' . I18N::translate('Privacy');
+
+        $fix = I18N::translate(
+            'Set “%1$s” to “%2$s” under %3$s to make webtrees agree with the portal. “%4$s” needs no change either way — whether a hidden relative is listed as private or left out, the portal now says the same thing.',
+            I18N::translate('Show names of private individuals'),
+            $levels[Auth::PRIV_NONE],
+            $where,
+            I18N::translate('Show private relationships')
+        );
+
+        if ($names <= Auth::PRIV_NONE) {
+            return new DiagnosisCheck(
+                'living_names',
+                self::OK,
+                $label,
+                $detail,
+                I18N::translate('webtrees withholds these names as the portal does. A member who follows the link out of a person’s page sees no more there than here.')
+            );
+        }
+
+        if ($names >= Auth::PRIV_PRIVATE && !$this->requiresAuthentication($tree)) {
+            return new DiagnosisCheck(
+                'living_names',
+                self::PROBLEM,
+                $label,
+                $detail,
+                I18N::translate('This tree does not require signing in, so the names of living people are readable by anybody who finds its address.') . ' ' . $fix
+            );
+        }
+
+        $mismatch = I18N::translate('Every member reads these names in webtrees, while the portal shows an unnamed placeholder — and there is a link into webtrees at the foot of every person’s page.');
+
+        // "Visitors" on a tree that cannot be read without signing in reaches
+        // exactly the people "members" reaches, so it is the same finding with
+        // one more sentence — not a quieter one, and not a louder one.
+        if ($names >= Auth::PRIV_PRIVATE) {
+            $mismatch = I18N::translate('Set for visitors, though this tree requires signing in — so in practice, every member.') . ' ' . $mismatch;
+        }
+
+        return new DiagnosisCheck('living_names', self::WARNING, $label, $detail, $mismatch . ' ' . $fix);
+    }
+
+    /**
+     * Whether the tree can be read without signing in.
+     *
+     * Asked through two doors, because webtrees moved it between them.
+     * **2.2.6** took `REQUIRE_AUTHENTICATION` out of `gedcom_setting` and made
+     * it a column with `Tree::private()` in front of it; reading it as a
+     * preference still works there and raises a deprecation notice while doing
+     * so. Same reasoning, and the same `method_exists` shape, as
+     * `PortalTreeService::treeFromRow()` — neither version's answer is assumed
+     * and each is asked for by name.
+     */
+    private function requiresAuthentication(Tree $tree): bool
+    {
+        if (method_exists($tree, 'private')) {
+            return $tree->private();
+        }
+
+        return $tree->getPreference('REQUIRE_AUTHENTICATION') === '1';
     }
 
     /**

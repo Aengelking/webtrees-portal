@@ -319,4 +319,107 @@ class VisibilityTest extends PortalTestCase
 
         self::assertSame('', $tree->getPreference('KEEP_ALIVE_YEARS_DEATH', ''));
     }
+
+    // -----------------------------------------------------------------
+    // What webtrees names, which the portal does not
+    // -----------------------------------------------------------------
+
+    /**
+     * The setting that makes the two programs disagree.
+     *
+     * `Individual::canShowName()` is an **or**: `SHOW_LIVING_NAMES` alone is
+     * enough, whatever `canShow()` says. Its default is `Auth::PRIV_USER`, so
+     * a member reading a deceased relative's page in webtrees sees the names
+     * of the living people in that family — the people the portal shows as an
+     * unnamed placeholder. Nothing in either program says so, and there is a
+     * link into webtrees at the foot of every person's page in the portal.
+     */
+    public function testWebtreesNamingLivingPeopleToMembersIsReported(): void
+    {
+        // PortalTestCase spells webtrees' own default out; this is it.
+        $check = $this->check('living_names');
+
+        self::assertSame(Diagnosis::WARNING, $check->status);
+        self::assertStringContainsString(Auth::accessLevelNames()[Auth::PRIV_USER], $check->detail);
+        self::assertStringContainsString('placeholder', $check->advice);
+    }
+
+    public function testWithholdingThemInWebtreesIsReportedAsAgreement(): void
+    {
+        // Written through the instance the services will read from — see
+        // portalTree().
+        $this->portalTree()->setPreference('SHOW_LIVING_NAMES', (string) Auth::PRIV_NONE);
+
+        $check = $this->check('living_names');
+
+        self::assertSame(Diagnosis::OK, $check->status);
+        self::assertStringContainsString(Auth::accessLevelNames()[Auth::PRIV_NONE], $check->detail);
+    }
+
+    /**
+     * "Show to visitors" on a tree anybody can open is a different order of
+     * problem: the names of living people are then readable by whoever finds
+     * the address, with no account at all.
+     */
+    public function testNamesShownToVisitorsOnAPublicTreeAreAProblem(): void
+    {
+        $this->portalTree()->setPreference('SHOW_LIVING_NAMES', (string) Auth::PRIV_PRIVATE);
+
+        self::assertSame(Diagnosis::PROBLEM, $this->check('living_names')->status);
+    }
+
+    /**
+     * And the same setting on a tree that requires signing in is not that.
+     *
+     * A visitor cannot open the tree at all there, so "visitors" behaves as
+     * "members" — worth reporting, not worth calling a problem. A diagnosis
+     * screen that shouts about something which discloses nothing is a screen
+     * that gets ignored when it is right.
+     *
+     * Signed in as a manager because that is who reads this screen, and
+     * because `TreeService::all()` hides a private tree from everybody else —
+     * including, otherwise, from the check itself.
+     *
+     * `requireAuthentication()` writes the flag where *this* version of
+     * webtrees keeps it; `Diagnosis::requiresAuthentication()` reads it
+     * through the matching pair of doors, for the same reason.
+     */
+    public function testATreeThatRequiresSigningInIsNotCalledAProblem(): void
+    {
+        $mia = $this->createUser('mia', 'Mia Verwalterin', 'correct-horse', UserInterface::ROLE_MANAGER, 'X1');
+
+        $this->requireAuthentication();
+
+        // A fresh request: `login()` installs a new cache, so the tree is
+        // rebuilt from the row that was just changed.
+        $this->login($mia);
+
+        $this->portalTree()->setPreference('SHOW_LIVING_NAMES', (string) Auth::PRIV_PRIVATE);
+
+        self::assertSame(Diagnosis::WARNING, $this->check('living_names')->status);
+    }
+
+    /**
+     * The second setting is reported and never complained about.
+     *
+     * `SHOW_PRIVATE_RELATIONSHIPS` decides whether a hidden relative's row is
+     * listed as "Private" or left off the family page altogether. Since §2.72
+     * the portal's own pedigree says the first of those — somebody stands
+     * here — so either value agrees with it. It belongs on the screen as a
+     * fact, not as a finding.
+     */
+    public function testTheRelationshipSettingIsReportedButNeverComplainedAbout(): void
+    {
+        $tree = $this->portalTree();
+        $tree->setPreference('SHOW_LIVING_NAMES', (string) Auth::PRIV_NONE);
+
+        foreach (['1', '0'] as $value) {
+            $tree->setPreference('SHOW_PRIVATE_RELATIONSHIPS', $value);
+
+            $check = $this->check('living_names');
+
+            self::assertSame(Diagnosis::OK, $check->status, 'Relationships set to ' . $value);
+            self::assertStringContainsString('Show private relationships', $check->detail);
+        }
+    }
 }
