@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\I18N;
+
+/**
+ * The personal invitation, sent to one mailbox because the round-robin letter
+ * could not carry it. See `Services/InvitationCampaigns.php`.
+ *
+ * It says who it is for and what it opens, and nothing about the family: this
+ * arrives in an inbox that may be read on a shared computer, and until
+ * somebody has signed in there is no reason to put a single name in it.
+ *
+ * @var string $url
+ * @var string $name
+ */
+
+?>
+<?= $name === '' ? I18N::translate('Hello…') : I18N::translate('Hello %s…', e($name)) ?>
+
+<?= I18N::translate('You are on one of the family’s mailing lists, and the family now has a portal: your own record, the tree, and who else is in it.') ?>
+
+<?= I18N::translate('This link is yours alone and works once. Please do not pass it on — anybody who opens it becomes you.') ?>
+
+<?= e($url) ?>
+
+<?= I18N::translate('You choose your own username and password on the way in.') ?>
+
+<?= I18N::translate('If you would rather not, there is nothing to do: the link expires on its own.') ?>

@@ -1,0 +1,167 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\InvitationCampaigns;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+
+/**
+ * @var array<int,array<string,mixed>>       $campaigns
+ * @var array<string,array<string,string>>   $lists
+ * @var PortalApiModule                      $module
+ * @var string                               $new_link
+ * @var string                               $letter
+ * @var string                               $portal_url
+ * @var string                               $settings_url
+ * @var string                               $title
+ */
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('A personal invitation cannot be sent to a mailing list. The list is one address that fans out to hundreds of people, so one letter carries one link — and an invitation here is a credential naming one person. Three hundred copies of it is not three hundred invitations; it is one, and whoever opens the letter first spends it on somebody else’s account.') ?>
+</p>
+
+<p>
+    <?= I18N::translate('So the letter carries the link below, which grants nothing. It opens a page with one field on it: the reader’s own address. If that address is on one of the lists this campaign covers, the personal invitation is made there and then and sent to that address — so what proves who somebody is, is the one thing a forwarded letter cannot carry.') ?>
+</p>
+
+<?php if ($portal_url === '') : ?>
+    <div class="alert alert-danger">
+        <?= I18N::translate('The portal address is not set, so a link cannot be built. Set it in the module preferences first.') ?>
+    </div>
+<?php endif ?>
+
+<?php if ($lists === []) : ?>
+    <div class="alert alert-warning">
+        <?= I18N::translate('No mailing lists are configured, so there is nothing to invite. Name them in the module preferences first.') ?>
+    </div>
+<?php endif ?>
+
+<?php if ($new_link !== '') : ?>
+    <div class="alert alert-success">
+        <h2 class="h5"><?= I18N::translate('The campaign is ready') ?></h2>
+
+        <p>
+            <?= I18N::translate('This link is shown once. It is not a credential — it may safely go in a letter to hundreds of people, which is what it is for — but it cannot be recovered here, so copy it now.') ?>
+        </p>
+
+        <input class="form-control mb-3" type="text" readonly value="<?= e($new_link) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Campaign link') ?>">
+
+        <p>
+            <?= I18N::translate('A letter to send to the list, if it is useful. Send it from your own mailbox: a family list usually refuses anything posted by an application, and a letter from a person reads better than one from a portal.') ?>
+        </p>
+
+        <textarea class="form-control font-monospace" rows="12" readonly onclick="this.select()" aria-label="<?= I18N::translate('Suggested letter') ?>"><?= e($letter) ?></textarea>
+    </div>
+<?php endif ?>
+
+<?php if ($lists !== []) : ?>
+    <h2 class="h5 mt-4"><?= I18N::translate('Start a campaign') ?></h2>
+
+    <form method="post">
+        <input type="hidden" name="campaign_action" value="create">
+
+        <div class="row mb-3">
+            <label class="col-sm-3 col-form-label" for="campaign_name"><?= I18N::translate('What to call it') ?></label>
+            <div class="col-sm-9">
+                <input class="form-control" type="text" id="campaign_name" name="campaign_name" maxlength="128" placeholder="<?= I18N::translate('Invitation, spring') ?>">
+                <div class="form-text"><?= I18N::translate('For this screen only. Nobody in the family sees it.') ?></div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-sm-9 offset-sm-3">
+                <fieldset>
+                    <legend class="h6"><?= I18N::translate('Which lists it accepts an address from') ?></legend>
+
+                    <?php foreach ($lists as $hash => $list) : ?>
+                        <?= view('components/checkbox', ['label' => $list['name'], 'name' => 'campaign_lists[' . $hash . ']', 'checked' => true]) ?>
+                    <?php endforeach ?>
+
+                    <div class="form-text">
+                        <?= I18N::translate('An address on none of the ticked lists gets the same answer as one that is on them, and no invitation. The page never says which it was.') ?>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <label class="col-sm-3 col-form-label" for="campaign_days"><?= I18N::translate('How long the link works (days)') ?></label>
+            <div class="col-sm-9">
+                <input class="form-control" type="number" min="1" max="<?= InvitationCampaigns::MAX_VALIDITY_DAYS ?>" id="campaign_days" name="campaign_days" value="<?= InvitationCampaigns::DEFAULT_VALIDITY_DAYS ?>">
+                <div class="form-text">
+                    <?= I18N::translate('Counted from now. Long enough that somebody who reads the letter on holiday can still answer it; not so long that a letter forwarded around the family still works next year.') ?>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" <?= $portal_url === '' ? 'disabled' : '' ?>>
+            <?= I18N::translate('Create the campaign and show me the link') ?>
+        </button>
+
+        <?= csrf_field() ?>
+    </form>
+<?php endif ?>
+
+<?php if ($campaigns !== []) : ?>
+    <h2 class="h5 mt-5"><?= I18N::translate('Campaigns') ?></h2>
+
+    <p class="text-muted">
+        <?= I18N::translate('“Answered” is how many addresses asked and were invited. “Already had one” is how many turned out to have an account and were pointed at the sign-in instead. “Not on a list” is how many addresses were typed that none of the ticked lists holds — a campaign that is nothing but those was sent to the wrong list.') ?>
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th><?= I18N::translate('Name') ?></th>
+                    <th><?= I18N::translate('Lists') ?></th>
+                    <th class="text-end"><?= I18N::translate('Answered') ?></th>
+                    <th class="text-end"><?= I18N::translate('Already had one') ?></th>
+                    <th class="text-end"><?= I18N::translate('Not on a list') ?></th>
+                    <th><?= I18N::translate('Good until') ?></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($campaigns as $campaign) : ?>
+                    <tr class="<?= $campaign['revoked'] || $campaign['expires_at'] < time() ? 'text-muted' : '' ?>">
+                        <td><?= e($campaign['name']) ?></td>
+                        <td><?= e(implode(', ', $campaign['lists'])) ?></td>
+                        <td class="text-end"><?= I18N::number((int) $campaign['invited']) ?></td>
+                        <td class="text-end"><?= I18N::number((int) $campaign['existing']) ?></td>
+                        <td class="text-end"><?= I18N::number((int) $campaign['unknown']) ?></td>
+                        <td>
+                            <?php if ($campaign['revoked']) : ?>
+                                <?= I18N::translate('Called off') ?>
+                            <?php else : ?>
+                                <?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make((int) $campaign['expires_at'])]) ?>
+                            <?php endif ?>
+                        </td>
+                        <td class="text-end">
+                            <?php if (!$campaign['revoked'] && $campaign['expires_at'] > time()) : ?>
+                                <form method="post" class="d-inline">
+                                    <input type="hidden" name="campaign_action" value="revoke">
+                                    <input type="hidden" name="campaign_id" value="<?= (int) $campaign['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <?= I18N::translate('Call it off') ?>
+                                    </button>
+                                    <?= csrf_field() ?>
+                                </form>
+                            <?php endif ?>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>

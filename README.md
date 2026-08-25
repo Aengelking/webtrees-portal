@@ -63,7 +63,8 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
 `DELETE /me/connection-links/{id}`, `GET|PATCH /me/mailing-lists`,
-`GET /search`, `GET /index`, `GET /relationship`, `GET /health`.
+`POST /invitation/claim`, `GET /search`, `GET /index`, `GET /relationship`,
+`GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Stammbaum (search the archive,
@@ -511,6 +512,55 @@ subscribed under the old one, and each member would have to switch it on again.
 members being offered it. Existing subscriptions stay in the table and start
 working again if it is switched back on.
 
+### Inviting a mailing list
+
+*Reached from the module preferences: **Invite a mailing list**. Needs the
+portal address and at least one configured list.*
+
+**A personal invitation cannot be sent to a distribution list.** The list is one
+address that fans out to hundreds of people, so one letter carries one link —
+and an invitation here is a credential naming one person. Three hundred copies
+of it is not three hundred invitations; it is one, and whoever opens the letter
+first spends it on somebody else's account.
+
+So the letter carries a **campaign link**, which grants nothing. It opens a page
+with one field on it: the reader's own address. If that address is on one of the
+lists the campaign covers, the personal invitation is made there and then and
+sent **to that address** — so what proves who somebody is, is the one thing a
+forwarded round-robin letter cannot carry, which is access to their own mailbox.
+
+That keeps the rule from §1.3 of NOTES intact. Nobody registers who was not
+asked: being on the family's mailing list *is* the asking, and it happened years
+ago.
+
+**The page never says whether an address belongs to the family.** On a list, on
+no list, already has an account, mail server down, campaign called off: one
+sentence, one status, a broadly similar delay. Otherwise this becomes a way of
+asking whether a person is in this family, of a portal built so that nobody can
+ask that.
+
+**Somebody who already has an account** is not offered a second one. They get a
+letter pointing at the sign-in, and at *Passwort vergessen?* if that is what
+they actually needed — which it usually is.
+
+**The archive number does the linking.** Where this family names its mail
+contacts `22/1a32.124 Antje Beispiel` — or plainly `4711 Anna Beispiel` — the
+first word is looked up as a reference number and the invitation is tied to that
+record, so the account arrives already linked. Nothing is guessed: two records
+under one number produce no link, and an unnumbered contact is invited anyway,
+unlinked, exactly as a hand-issued invitation would be.
+
+**The letter is written here and sent by you.** The screen offers a ready-made
+German text beside the link, to paste into your own mail programme. The module
+does not send it: a family distribution list usually refuses anything posted by
+an application that is not a member of it, and a letter that comes from a person
+reads better than one from a portal.
+
+The screen also shows what came of each campaign — how many were invited, how
+many turned out to have an account already, and how many addresses were typed
+that no ticked list holds. A campaign that is nothing but the last was sent to
+the wrong list.
+
 ### The family's mailing lists
 
 *Settings: **Members may manage their own mailing-list subscriptions**, off by
@@ -551,6 +601,14 @@ that ten minutes; a change made in the portal shows up at once, because the
 module knows what it just did and writes it into the same answer. A list that
 cannot be read falls back to what the portal recorded, which costs a
 wrong-looking switch and never a screen that will not open.
+
+The distinction that matters there is between an attempt and an answer. A list
+that was asked and did not reply is recorded as *asked* — so a dead Exchange is
+not tried again on every page load — and not as a list holding nobody, which
+would tell every member of it that they are not subscribed. **The diagnosis
+screen shows which:** per list, how many members were last read, or *never
+read*. If a list stays unread, the application can write but not read, and
+*Test the connection to Exchange* will say so.
 
 Only the hashes of the addresses are kept (`portal_list_snapshot`). The useful
 question is "is *this* address on that list", which a SHA-256 answers as well
@@ -2214,6 +2272,20 @@ asks when focusing it fails, opens a window when nothing is running, and says
 nothing to a window belonging to somebody else — and the app acts on that
 message, while ignoring one that names a path leading off this site.
 
+**Inviting a mailing list** (`module/tests/CampaignTest.php`,
+`portal/src/ClaimInvitation.test.tsx`) — the link in the letter invites nobody
+on its own, which is the promise the whole design rests on; an address on a
+ticked list is invited and the invitation goes only to the address that asked
+for it; the answer is asserted byte for byte to be identical for a member, a
+stranger and a token that was never issued, because a difference of one word
+would answer the question this refuses to; a called-off or expired campaign
+invites nobody; somebody who already has an account is pointed at the sign-in
+and gets no invitation; asking twice sends one letter; the archive number in a
+contact's name links the invitation to that record, and a contact without one is
+invited anyway, unlinked. On the client: the confirmation reads the same for an
+address that belongs and one that does not, and says so in words that are true
+either way.
+
 **Mailing lists** (`module/tests/MailingListTest.php`,
 `module/tests/ExchangeConnectorTest.php`, `portal/src/MailingLists.test.tsx`) —
 a list's address appears nowhere in the response at all, which is asserted against the whole body rather than a field,
@@ -2231,7 +2303,9 @@ change that has not landed says so. A member who never touched a switch is
 shown what Exchange says about them, somebody else being on the list says
 nothing about them, a list is not re-read on every visit, leaving one is not
 undone by an answer read ten minutes ago, and a list that cannot be read at all
-falls back rather than failing. `ExchangeConnectorTest` replaces the wire
+falls back rather than failing — and a list that could not be read is recorded
+as asked rather than as empty, which is the bug that told a whole family they
+were not subscribed. `ExchangeConnectorTest` replaces the wire
 with a script and pins what the connector may conclude from an answer: a write
 refused for want of a role is never excused by the list happening to look
 right — the shape of the one bug a live tenant found — while an ordinary

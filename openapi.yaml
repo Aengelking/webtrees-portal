@@ -467,6 +467,65 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /invitation/claim:
+    post:
+      tags: [invitations]
+      summary: Answer a letter that went to a mailing list
+      description: |
+        A distribution list is one address that fans out to hundreds of people,
+        so a letter to it carries one link — and an invitation in this portal
+        is a credential naming one person. Putting a personal link in a
+        round-robin letter therefore does not invite three hundred people; it
+        invites one, and whoever opens the letter first spends it.
+
+        So the letter carries a **campaign link**, which grants nothing, and
+        this is what the page behind it posts to. If the address given is on
+        one of the lists the campaign covers, a personal invitation is created
+        and sent **to that address** — so what proves who somebody is, is the
+        one thing a forwarded letter cannot carry: access to their own mailbox.
+
+        Where the family names its mail contacts by archive number, the
+        invitation is tied to that record and the account arrives linked.
+
+        **The answer is always the same.** On a list, on no list, already has an
+        account, mail server unreachable, campaign expired or called off — one
+        body, one status, and a broadly similar delay. Anything else would make
+        this a way of asking whether a person belongs to this family.
+      operationId: claimInvitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [campaign, email]
+              properties:
+                campaign:
+                  type: string
+                  description: The token from the link in the letter. Not a credential.
+                email:
+                  type: string
+                  description: The address the person reading the letter typed.
+      responses:
+        '202':
+          description: |
+            Accepted, and deliberately nothing more. Not `201`: a status that
+            varied with the outcome would say what the body refuses to.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [sent]
+
   /invitation/accept:
     post:
       tags: [session]

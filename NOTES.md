@@ -3954,6 +3954,125 @@ for somebody holding a number, not a place to learn the family's geography —
 and naming the branches there would need the table in the browser, which is a
 second decision and not this one.
 
+### 2.72 An attempt is not an answer
+
+The switches read Exchange (§2.66) and on the first tenant they read nothing:
+members who had been on the family lists for years were shown as not
+subscribed, and no error appeared anywhere.
+
+The cause is one line and the shape of the mistake is worth more than the fix.
+`refresh()` stored a list it could not read as a list holding nobody:
+
+    'members' => $column ?? '',      // $column is null when the read failed
+
+Once written, the two are indistinguishable. `subscribed()` sees a snapshot
+that exists and is empty, concludes that nobody is on the list, and tells every
+member so — for good, because each further failed attempt only moved
+`fetched_at` along and never produced an answer to replace it.
+
+**A cache has to be able to say "I do not know".** That is the whole lesson.
+The row now records the attempt in `fetched_at` and the answer in `read_at`,
+and only a row with the second is believed; without it the screen falls back to
+what the portal itself recorded. Both jobs are still done — a dead Exchange is
+still not asked on every page load, and it no longer asserts anything about the
+family while it is dead.
+
+This is the same error as §2.66's, one layer along, and it is worth naming as a
+pair. There, a refusal to *write* was read as evidence that the write had
+happened. Here, a failure to *read* was written down as the thing read. Both
+times something that was not an answer got filed as one.
+
+**The connector now refuses to hand back an emptiness it cannot vouch for.**
+`members()` throws when rows come back and not one of them holds anything
+shaped like an address — which is not an empty list, since an empty list
+returns no rows, but this module failing to read an answer it was given. That
+is exactly the assumption NOTES §3 flagged as a guess about somebody else's
+product, and it now announces itself instead of quietly emptying a list.
+
+**And the diagnosis screen says what was read.** Per list: how many members, or
+*never read*, with Exchange's own complaint beside it where there is one. The
+whole difficulty of finding this was that "read, and nobody is on it" and
+"never read" looked identical from outside, including to the person who wrote
+it.
+
+**Two more, found by working the live installation instead of reasoning about
+it.** Both were invisible in the same way — a member simply reads as not
+subscribed, and nothing anywhere is wrong.
+
+*One list is read per request, and it was always the first one.* Whenever every
+list was stale at once — which is every visit more than ten minutes after the
+last, so nearly every visit in a family portal — the loop picked the first
+configured list again and the second and third were never read at all. Two
+thirds of the memberships never arrived. It now takes the least recently asked,
+never-asked first.
+
+*The answer is paged, and only the first page was read.* OData hands back a long
+answer a page at a time. Not asking would have been a failure; asking and
+believing the first page is a truncation, which for a mailing list means
+members quietly missing from the middle of the answer. The family this was
+built for is already at three hundred on one list. `@odata.nextLink` is
+followed now, `Prefer: odata.maxpagesize=1000` keeps it to one round trip in
+practice, and running past a hundred pages throws rather than returning half a
+list — because half a list is indistinguishable from members who are not on
+it, which is the mistake this whole section is about.
+
+### 2.73 Phase 15: a letter to three hundred people cannot carry a credential
+
+The request was *"eine Einladung an diese Verteillisten mit einem persönlichen
+Einladungslink zum direkten Anmelden"*, and the first thing to do with it was
+say that it cannot be built as written.
+
+An invitation in this portal is a credential: one-time, hashed, and it names a
+person (§2.22). A distribution list is one address that fans out to three
+hundred people, so a letter to it carries one link. Put a personal invitation in
+it and you have not invited three hundred people — you have invited one, and
+whoever opens the letter first spends it on somebody else's account. The
+feature as asked for is a hole, and a quiet one: it works perfectly for the
+first reader.
+
+**What the letter carries instead grants nothing.** A campaign link opens a page
+with one field on it: your own address. If that address is on one of the lists
+the campaign covers, the personal invitation is made then and sent *to that
+address*. So the thing that proves who you are is the one thing a forwarded
+round-robin letter cannot pass on, which is access to your own mailbox — the
+same proof `/password/request` has always relied on, used one step earlier.
+
+That also keeps §1.3 intact rather than quietly repealing it. Self-registration
+was rejected because it puts a form on the internet that anybody can fill in and
+asks it to decide whether somebody is family. This form decides nothing: being
+on the family's mailing list is the asking, and it happened years ago.
+
+**One answer, whatever was found.** On a list, on no list, already an account,
+mail server down, campaign called off — one body, one status, a broadly similar
+delay. `CampaignTest` asserts it byte for byte rather than by description,
+because a difference of a single word is enough to turn this into a way of
+asking whether a person belongs to this family. Same rule as §2.0.2's password
+reset, and the screen is deliberately almost word for word the same one: two
+pages that keep a secret should not look like one of them is trying harder.
+
+**The archive number does the linking, and the fixture corrected me about what
+one looks like.** These contacts are named `22/1a32.124 Antje Beispiel`, so the
+name carries the fact that ties an account to a record. The first attempt gated
+on `SackNumbers::path()` — the parser for the descent form — and the test tree
+promptly failed, because half this archive's numbers are plain `4711` with no
+oblique in them. The gate is now the same one `TreeSearch::byReference()` uses,
+which is that the token contains a digit; the safety is not in the gate but in
+`individualByNumber()`, which answers only when exactly one record carries the
+number. Two records under one number is an archive to be corrected, not a coin
+to be tossed.
+
+**The module does not send the letter, and that is not laziness.** A family
+distribution list usually refuses anything posted by an application that is not
+a member of it, and a letter that comes from a person reads better than one from
+a portal. So the screen writes the words and puts them beside the link, and an
+administrator presses send from their own mailbox.
+
+---
+
+
+---
+
+
 ---
 
 ### 2.72 A card said "no record" and meant "not yours to see"
@@ -4492,7 +4611,16 @@ Flagging these so they get a second look rather than being inherited as fact.
     address somewhere in each member object — as `PrimarySmtpAddress`, or as an
     `SMTP:`-prefixed `ExternalEmailAddress` — so every string in the answer is
     searched rather than a chosen few. The exclusion for `401` and `403` is not
-    a guess: it is what the first live tenant cost. See §2.66.
+    a guess: it is what the first live tenant cost. See §2.66. Since §2.72 the
+    assumption announces itself: members coming back with no readable address
+    among them is reported as a failure rather than returned as an empty list.
+
+    **No longer a guess.** A member object from the live tenant is a fixture in
+    `ExchangeConnectorTest` now. A mail contact carries the address three
+    times — `PrimarySmtpAddress` bare, `ExternalEmailAddress` and
+    `EmailAddresses[]` with an `SMTP:` prefix — which is why searching every
+    string and de-duplicating is right, and why trusting one chosen field would
+    have been a coin toss between three.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than

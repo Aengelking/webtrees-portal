@@ -261,11 +261,111 @@ class ExchangeConnectorTest extends PortalTestCase
         self::assertSame(['anna@example.test', 'opa@gmx.de', 'tante@web.de'], $members);
     }
 
+    /**
+     * A real member object from a real tenant, in the shape Exchange Online
+     * actually returns it.
+     *
+     * Everything above this is a fixture somebody wrote by hand from reading
+     * the documentation, which is how NOTES §3 came to list "the address is
+     * somewhere in each member object" as a guess. This one is a mail contact
+     * as it came back from a live `Get-DistributionGroupMember`, trimmed of the
+     * hundred-odd fields that carry no address and with the addresses changed.
+     *
+     * Three fields hold it and they disagree about the form: an `SMTP:` prefix
+     * on two of them, a bare address on the third, and one of the two is inside
+     * an array. Which is exactly why this searches every string rather than
+     * trusting a chosen field — and why the same person must come back once.
+     */
+    public function testTheShapeALiveTenantActuallyReturns(): void
+    {
+        $this->exchange->answers = [[200, (string) json_encode(['value' => [[
+            'Identity'                             => '22/1a32.124 Antje Beispiel',
+            'Alias'                                => '22/1a32',
+            'ArchiveGuid'                          => '00000000-0000-0000-0000-000000000000',
+            'City'                                 => '',
+            'ExternalDirectoryObjectId'            => '4c91c8c4-d7db-4e79-8e45-3ef55c50ad36',
+            'EmailAddresses@odata.type'            => '#Collection(String)',
+            'EmailAddresses'                       => ['SMTP:antje@gmx.example'],
+            'ExternalEmailAddress'                 => 'SMTP:antje@gmx.example',
+            'DisplayName'                          => '22/1a32.124 Antje Beispiel',
+            'PrimarySmtpAddress'                   => 'antje@gmx.example',
+            'RecipientType'                        => 'MailContact',
+            'RecipientTypeDetails'                 => 'MailContact',
+            // The fields that look like addresses and are not. None of them
+            // may end up in the answer.
+            'ObjectCategory'                       => 'DEUP281A005.PROD.OUTLOOK.COM/Configuration/Schema/Person',
+            'OrganizationalUnit'                   => 'deup281a005.prod.outlook.com/Microsoft Exchange Hosted Organizations/example.onmicrosoft.com',
+            'DistinguishedName'                    => 'CN=22/1a32.124 Antje Beispiel,OU=example.onmicrosoft.com,DC=DEUP281A005,DC=PROD,DC=OUTLOOK,DC=COM',
+            'OriginatingServer'                    => 'DBBP281A05DC006.DEUP281A005.PROD.OUTLOOK.COM',
+        ]]])]];
+
+        // Once, not three times, and without the SMTP: prefix.
+        self::assertSame(['antje@gmx.example'], $this->exchange->members(self::LIST));
+    }
+
+    /**
+     * A long list arrives a page at a time, and every page counts.
+     *
+     * Reading only the first page does not fail — it truncates. For a mailing
+     * list that means members quietly missing from the middle of the answer
+     * and a portal telling each of them they are not subscribed, with nothing
+     * anywhere saying why. The family this was built for is already at three
+     * hundred on one list.
+     */
+    public function testALongAnswerIsFollowedToTheEnd(): void
+    {
+        $this->exchange->answers = [
+            [200, (string) json_encode([
+                'value'           => [['PrimarySmtpAddress' => 'erste@example.test']],
+                '@odata.nextLink' => 'https://outlook.office365.com/adminapi/beta/t/InvokeCommand?$skiptoken=2',
+            ])],
+            [200, (string) json_encode([
+                'value'           => [['PrimarySmtpAddress' => 'zweite@example.test']],
+                '@odata.nextLink' => 'https://outlook.office365.com/adminapi/beta/t/InvokeCommand?$skiptoken=3',
+            ])],
+            [200, (string) json_encode(['value' => [['PrimarySmtpAddress' => 'dritte@example.test']]])],
+        ];
+
+        $members = $this->exchange->members(self::LIST);
+
+        sort($members);
+
+        self::assertSame(['dritte@example.test', 'erste@example.test', 'zweite@example.test'], $members);
+    }
+
     public function testAnEmptyListIsAnEmptyAnswerAndNotAFailure(): void
     {
         $this->exchange->answers = [[200, (string) json_encode(['value' => []])]];
 
         self::assertSame([], $this->exchange->members(self::LIST));
+    }
+
+    /**
+     * Members came back and this module could not find an address in any of
+     * them. That is not an empty list — an empty list returns no rows — it is
+     * the code failing to read an answer it was given, and the difference
+     * matters: returning "no addresses" would tell every member of that list
+     * they are not subscribed, with nothing anywhere saying why.
+     *
+     * The assumption this guards is the one NOTES §3 flags: that
+     * `Get-DistributionGroupMember` puts the address somewhere in each member
+     * object. If a tenant returns objects that carry only a display name, this
+     * is what says so out loud instead of quietly emptying the list.
+     */
+    public function testMembersWithNoReadableAddressAreAFailureAndNotAnEmptyList(): void
+    {
+        $this->exchange->answers = [[200, (string) json_encode(['value' => [
+            ['Name' => 'Anna Beispiel', 'RecipientType' => 'MailContact'],
+            ['Name' => 'Opa', 'RecipientType' => 'MailContact'],
+        ]])]];
+
+        try {
+            $this->exchange->members(self::LIST);
+            self::fail('two unreadable members should be reported, not returned as an empty list');
+        } catch (ExchangeFailure $failure) {
+            self::assertStringContainsString('2 member(s)', $failure->getMessage());
+            self::assertStringContainsString('not the ones this module looks in', $failure->getMessage());
+        }
     }
 
     public function testALisThatCannotBeReadSaysSoRatherThanLookingEmpty(): void
