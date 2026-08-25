@@ -1015,9 +1015,12 @@ name, no dates, no picture, no reference number and no link, and it never says
 *why* it is closed — a living relative outside the limit and a record marked
 `RESN confidential` look exactly the same, on purpose.
 
-**Two things can still end a line outright.** A `RESN` on the *family* record
-— somebody saying that this connection is confidential, rather than these
-people — and simply running out of recorded parents.
+**Two things can still end a line outright.** A `RESN confidential` or `RESN
+privacy` on the *family* record — somebody saying that this connection is
+confidential, rather than these people — and simply running out of recorded
+parents. `RESN locked` is deliberately not among them: it forbids editing a
+record, not reading it, and treating it as a privacy notice truncates every
+locked line in the archive.
 
 **And one thing can put a name back on a rung: that person's own.** A member
 who has switched themselves into the member directory is named with the name
