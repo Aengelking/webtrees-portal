@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
@@ -76,6 +77,33 @@ class TreeTest extends PortalTestCase
         $this->login($anna);
 
         return $anna;
+    }
+
+    /**
+     * Put a restriction notice on a family record.
+     *
+     * Written into the row rather than through an editing screen, because what
+     * is under test is how the walk reads a `RESN` and not how one gets there.
+     * Call it before signing in: `login()` installs a fresh cache, which is
+     * what makes the edited record the one the request reads.
+     */
+    private function restrictFamily(string $xref, string $restriction): void
+    {
+        $gedcom = (string) DB::table('families')
+            ->where('f_id', '=', $xref)
+            ->where('f_file', '=', $this->tree->id())
+            ->value('f_gedcom');
+
+        self::assertNotSame('', $gedcom, 'No such family in the fixture: ' . $xref);
+
+        DB::table('families')
+            ->where('f_id', '=', $xref)
+            ->where('f_file', '=', $this->tree->id())
+            ->update(['f_gedcom' => str_replace(
+                '0 @' . $xref . '@ FAM' . "\n",
+                '0 @' . $xref . '@ FAM' . "\n" . '1 RESN ' . $restriction . "\n",
+                $gedcom
+            )]);
     }
 
     /**
@@ -181,6 +209,45 @@ class TreeTest extends PortalTestCase
 
         self::assertNull($names[7], 'Ida herself stays shut.');
         self::assertSame('Otto Fernab', $names[14], 'Her father is dead and unrestricted.');
+    }
+
+    /**
+     * **The regression that shipped.** A `RESN locked` on the parents' family
+     * emptied the whole pedigree: nine rungs became one, and the screen said
+     * "Keine Vorfahren hinterlegt" about an archive that has the line back to
+     * 1780.
+     *
+     * `locked` forbids editing a record, not reading it, and this archive uses
+     * it — Fritz (X6) carries one. The first version of §2.75 refused on any
+     * `RESN` at all, copying `RelationshipNamer::families()`, which is right
+     * where the cost of being wrong is a disclosure and exactly wrong here,
+     * where the cost is the pedigree.
+     */
+    public function testALockedFamilyDoesNotTruncateThePedigree(): void
+    {
+        $this->restrictFamily('F1', 'locked');
+        $this->signInAsAnna();
+
+        $names = $this->byPosition($this->ancestors('X1'));
+
+        self::assertSame('Emil Beispiel', $names[2], 'A locked family hid the parents.');
+        self::assertSame('Gustav Beispiel', $names[4], 'And everybody above them.');
+    }
+
+    /**
+     * And a family whose connection really is confidential still ends the
+     * branch, with no placeholder in the position it names — because the
+     * placeholder would say the one thing that was asked to stay quiet.
+     */
+    public function testAConfidentialFamilyStillEndsTheBranch(): void
+    {
+        $this->restrictFamily('F1', 'confidential');
+        $this->signInAsAnna();
+
+        $people = $this->ancestors('X1');
+
+        self::assertCount(1, $people, 'Only the root: the connection itself is confidential.');
+        self::assertSame(1, $people[0]['position']);
     }
 
     /**

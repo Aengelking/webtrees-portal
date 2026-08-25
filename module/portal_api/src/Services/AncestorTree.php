@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi\Services;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Elements\RestrictionNotice;
 use Fisharebest\Webtrees\Family;
+use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\Individual;
 
 use function array_key_exists;
@@ -179,10 +180,25 @@ class AncestorTree
         return ['id' => $member->id, 'display_name' => $member->display_name];
     }
 
-    /** Whether this record carries a restriction of its own, rather than being living. */
-    private function isRestricted(Individual $individual): bool
+    /**
+     * Whether this record carries a restriction on *reading* it.
+     *
+     * Asked of a person and of a family, because both questions come up in
+     * this class and both have exactly one right answer — webtrees'.
+     * `GedcomRecord::canShowRecord()` is mirrored line for line, so that if
+     * webtrees changes what counts as a restriction, this changes with it
+     * rather than growing a second opinion.
+     *
+     * **`RESN locked` is not one of them, and that distinction has already
+     * cost this class a pedigree.** It forbids *editing* a record, not reading
+     * it; an archive that locks its records — this one does — would otherwise
+     * have every locked line silently truncated. `getIndividualPrivacy()` is
+     * keyed by XREF whatever the record type, because `default_resn` is, which
+     * is why one lookup serves both.
+     */
+    private function isRestricted(GedcomRecord $record): bool
     {
-        if (preg_match('/\n1 RESN (.+)/', $individual->gedcom(), $match) === 1) {
+        if (preg_match('/\n1 RESN (.+)/', $record->gedcom(), $match) === 1) {
             $restriction = (new RestrictionNotice(''))->canonical($match[1]);
 
             if (str_starts_with($restriction, RestrictionNotice::VALUE_CONFIDENTIAL)) {
@@ -198,7 +214,7 @@ class AncestorTree
             }
         }
 
-        return array_key_exists($individual->xref(), $individual->tree()->getIndividualPrivacy());
+        return array_key_exists($record->xref(), $record->tree()->getIndividualPrivacy());
     }
 
     /**
@@ -221,13 +237,21 @@ class AncestorTree
      * shape of a pedigree would then move with settings that have nothing to
      * do with it.
      *
-     * **A restriction on the family record still ends the branch.** A `RESN`
-     * on a FAM is somebody saying that *this connection* is confidential —
-     * not these people, the fact that they are joined — and a placeholder in
-     * the position it names would say the one thing that was asked to stay
-     * quiet. Any restriction at all is enough to refuse; this is
-     * `RelationshipNamer::families()`' reasoning and its test, applied to the
-     * one place in this class that walks a connection.
+     * **A restriction on the family record still ends the branch — but only a
+     * restriction on reading it.** A `RESN confidential` or `RESN privacy` on
+     * a FAM is somebody saying that *this connection* is confidential — not
+     * these people, the fact that they are joined — and a placeholder in the
+     * position it names would say the one thing that was asked to stay quiet.
+     *
+     * `RESN locked` is emphatically not that, and this is where saying so
+     * matters most. `RelationshipNamer::families()` refuses on any restriction
+     * at all and is right to: it is deciding whether to *name* a relationship,
+     * where the cost of being wrong is a disclosure. Here the cost of being
+     * wrong is the opposite and it is enormous — a locked family truncated the
+     * whole pedigree above it, and an archive that locks records against
+     * accidental edits, as this one does, lost the lines it had most carefully
+     * kept. `isRestricted()` is asked instead, exactly as it is asked of a
+     * person.
      *
      * @return array<int,Individual>
      */
@@ -239,7 +263,7 @@ class AncestorTree
             return [];
         }
 
-        if (!$family->facts(['RESN'], false, Auth::PRIV_HIDE)->isEmpty()) {
+        if ($this->isRestricted($family)) {
             return [];
         }
 

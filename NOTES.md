@@ -4243,12 +4243,29 @@ silently escalates to `PRIV_HIDE` anyway whenever `SHOW_PRIVATE_RELATIONSHIPS`
 is on — which is webtrees' default. The shape of a pedigree would otherwise
 move with two settings that have nothing to do with it.
 
-**A `RESN` on the family record still ends the branch.** A restriction on a FAM
-is somebody saying that *this connection* is confidential — not these people,
-the fact that they are joined — and a placeholder in the position it names
-would say the one thing that was asked to stay quiet. This is
-`RelationshipNamer::families()`' reasoning, applied to the one place in
-`AncestorTree` that walks a connection.
+**A `RESN` on the family record still ends the branch — but only one that
+restricts reading.** A `confidential` or `privacy` notice on a FAM is somebody
+saying that *this connection* is confidential — not these people, the fact that
+they are joined — and a placeholder in the position it names would say the one
+thing that was asked to stay quiet.
+
+The first version of this refused on **any** `RESN` at all, copying
+`RelationshipNamer::families()` and its "not the place to be clever about
+which". That shipped, and it was wrong in the most expensive way available:
+`RESN locked` forbids *editing* a record, not reading it, and this archive uses
+it. One locked family emptied the entire pedigree above it — nine rungs became
+one, and the screen said *Keine Vorfahren hinterlegt* about a line the family
+has back to 1780.
+
+Two lessons, and the second is the one worth keeping. The first: the borrowed
+rule was right where it came from, because there the cost of being wrong is a
+disclosure, and it is exactly wrong here, where the cost is the archive. The
+second: this class had already written the distinction down one method above —
+`listedMember()` says in as many words that `locked` must not be read as a
+privacy notice — and then contradicted itself six lines later. `isRestricted()`
+is now asked of the family exactly as it is asked of a person, so there is one
+rule and it cannot drift. `TreeTest` pins both halves: a locked family does not
+truncate, a confidential one still ends the branch.
 
 The cost of not stopping is bounded and small: the walk now visits every
 position rather than however many happened to be visible, so six generations
