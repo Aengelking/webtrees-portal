@@ -23,10 +23,18 @@ use Psr\Http\Server\RequestHandlerInterface;
  * parent, but four generations is fifteen requests, which is slow on a phone
  * and unkind to a shared host.
  *
- * Nothing here is visible that tapping through would not also reach: the walk
- * runs at the member's access level and stops at anyone they may not see. A
- * record that does not exist and one they may not see produce the same 404,
- * as everywhere else.
+ * The walk does not stop at somebody the member may not read: that rung comes
+ * back as an anonymous placeholder and the line carries on above it, so the
+ * archive's dead stay reachable through its living. `AncestorTree` is where
+ * that rule is written down and argued for.
+ *
+ * **The root is the exception, and it is not one of the walk's rules.** A
+ * record the member may not read is a 404 here, byte for byte the same one a
+ * record that does not exist gets — as everywhere else in this API. A
+ * placeholder carries no XREF, so no screen in the portal can ask for such a
+ * pedigree; what the 404 refuses is somebody trying XREFs by hand to find out
+ * which of them name a real person. The endpoint answers about a person the
+ * reader already reached, and says nothing about anybody else.
  */
 class AncestorsRead implements RequestHandlerInterface
 {

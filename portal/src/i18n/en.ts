@@ -633,10 +633,14 @@ export const en: Translations = {
     },
     none: {
       title: 'No ancestors recorded',
-      body: 'The family tree records no parents for this person — or they are not shown to you.',
+      body: 'The family tree records no parents for this person.',
+    },
+    private: {
+      name: 'Not shown',
+      member: 'Listed in the member directory',
     },
     privacyNote:
-      'Only people you are allowed to see are shown. Where a line ends, it may well continue in the family tree.',
+      'Where somebody is not shared with you — which is nearly always the living — the row says only that somebody is there: no name, no dates. Anyone who has listed themselves in the member directory is named with the name they publish there; nothing from the family tree is shown for them either.',
   },
   error: {
     title: 'Something went wrong',

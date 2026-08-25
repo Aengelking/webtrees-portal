@@ -93,8 +93,11 @@ appears on neither.
 
 The tree can be walked in the portal: every relative is a link, four
 generations of ancestors are one request, and a record says how the signed-in
-member is related to it. Drawn charts (fan, descendancy) are still webtrees'
-job, and every record still links out for them.
+member is related to it. The pedigree does not stop at a living relative it may
+not name — that rung is an unnamed placeholder and the line carries on above it
+— so the archive's dead stay reachable through the family's living. Drawn
+charts (fan, descendancy) are still webtrees' job, and every record still links
+out for them.
 
 Members get in by invitation. An administrator picks the person out of the
 tree and gets a one-time link to send; the invitee chooses their own username
@@ -998,6 +1001,73 @@ nephews and parents-in-law.
 The Diagnosis screen reports the current state under *What a member can see*,
 including how many accounts still have no limit.
 
+#### One screen reads the limit differently: *Vorfahren*
+
+Everywhere else in the portal, somebody a member may not see is simply not
+there. On the pedigree they are — as a rung that says *Nicht freigegeben* and
+nothing else, so that the line can carry on above them to ancestors who are
+long dead and restricted by nobody. Without that, a limit of two steps ends
+almost every line at the reader's grandparents, and the archive the portal
+exists to open stops being reachable at all.
+
+What such a rung shows is that somebody occupies the position. It carries no
+name, no dates, no picture, no reference number and no link, and it never says
+*why* it is closed — a living relative outside the limit and a record marked
+`RESN confidential` look exactly the same, on purpose.
+
+**Two things can still end a line outright.** A `RESN` on the *family* record
+— somebody saying that this connection is confidential, rather than these
+people — and simply running out of recorded parents.
+
+**And one thing can put a name back on a rung: that person's own.** A member
+who has switched themselves into the member directory is named with the name
+they publish there, and the rung links to their member page. That is the same
+consent the search reads (see below), so switching the directory off in
+Settings takes them out of both. Nothing from the family tree is shown for
+them either way — the record stays closed; only what they publish in the
+portal appears. A record carrying `RESN confidential`, `RESN privacy` or a
+per-record privacy level set in *Control panel → Privacy* is never named this
+way, even for a listed member.
+
+#### Two settings in webtrees that the portal cannot reach
+
+*Control panel → Family trees → Preferences → Privacy.* These belong to
+webtrees, not to this module, and they decide what a member sees **after**
+following the link out of a person's page in the portal — a link every member
+has, at the foot of every record.
+
+**“Show names of private individuals”** (`SHOW_LIVING_NAMES`) is the one that
+matters, and its default is *Show to members*. It is worth knowing exactly what
+it does, because it looks like it should be covered by the privacy rules and is
+not:
+
+```php
+// Individual::canShowName()
+return (int) $this->tree->getPreference('SHOW_LIVING_NAMES') >= $access_level || $this->canShow($access_level);
+```
+
+An **or**. A member who may not open a living person's record still reads their
+name — on family pages, in charts, wherever webtrees draws a box. Only the name:
+no link, no photograph, no dates, no facts, because everything else goes through
+`canShow()` first. webtrees does this deliberately — its own help text says "the
+names (but no other details)" — since a chart of forty boxes reading *Private*
+is not a chart.
+
+The portal never does this. But it hands every member the door, so its own
+discipline holds only as far as this setting lets it. Set it to *Show to
+managers* to make the two agree.
+
+**“Show private relationships”** (`SHOW_PRIVATE_RELATIONSHIPS`) decides whether
+a hidden relative's row is listed as *Private* or left off the family page
+altogether. Either value agrees with the portal, which now says the same thing
+on the pedigree: somebody stands here.
+
+The Diagnosis screen reports both under *Names of living people in webtrees*,
+with their current values in webtrees' own words, so they can be found on that
+screen. It is a warning while members can read the names, and a problem when
+the tree does not require signing in — because the names are then readable by
+anybody who finds the address.
+
 ### Searching the family archive
 
 *No setting. This one is a rule, and it is worth knowing what it is.*
@@ -1172,9 +1242,10 @@ green — after a rehearsal against a test tree, that is the setting most likely
 to be quietly wrong), whether the database tables match the code, whether the
 module's routes registered at all, the portal address, the proxy secret,
 whether webtrees' own registration page is still open, accounts with no linked
-record, and errors in the last 24 hours.
+record, how much of the tree a member sees, whether webtrees names living
+people, the mailing lists, and errors in the last 24 hours.
 
-Two of them are hard to notice any other way:
+Three of them are hard to notice any other way:
 
 * **API routes — not registered.** The module did not start. webtrees is
   unaffected, which is exactly why nothing else looks wrong. The reason is in
@@ -1182,6 +1253,11 @@ Two of them are hard to notice any other way:
 * **Database tables — the code expects a newer version.** The files were
   uploaded but the migrations have not run. From the deployment's point of
   view this looks like success.
+* **Names of living people in webtrees.** webtrees names them to members even
+  where it will not open the record; the portal never does. The two settings
+  behind that are per tree, have no screen that mentions the portal, and are
+  one tap away from every member. See *Two settings in webtrees that the
+  portal cannot reach* below.
 
 **The error list.** Every request that failed for a member, newest first. Each
 one showed that member a short reference — if somebody quotes one, search for
@@ -1972,11 +2048,17 @@ own origin, never webtrees'; a photograph may be kept by a browser and by
 nothing else, and webtrees' own `public, max-age=31536000` is refused at the
 proxy.
 
-**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — a
-confidential ancestor is absent from the pedigree and the walk stops there
-rather than reaching around them; a relationship is never named through
-someone the member may not see, though a manager who can see the whole path is
-told; a hidden root and a missing one give byte-identical 404s.
+**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — an
+ancestor the member may not read is a placeholder carrying a position and
+nothing else, and the walk carries on above it to the dead who are not
+restricted; a living person hidden by the relationship path length produces the
+byte-identical entry to a confidential one, so "hidden" cannot be read as
+"alive"; a member who listed themselves in the directory is named from there
+and never from the record, while a restricted record is not named even for a
+listed member and an unlisted member is not named at all; a relationship is
+never named through someone the member may not see, though a manager who can
+see the whole path is told; a hidden root and a missing one give byte-identical
+404s.
 
 **Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
 `Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does
@@ -2026,7 +2108,11 @@ applying a limit touches member accounts and never editors, managers or
 administrators; an account with no linked record is skipped, because webtrees
 measures the distance from that record; and an account created by invitation
 arrives with the limit already set, or without one when the setting says not
-to restrict.
+to restrict. On the webtrees side of the same question: naming living people
+to members is reported as a mismatch with the portal, withholding them as
+agreement, and "show to visitors" as a problem only where the tree can be read
+without signing in — while the relationship setting is reported both ways round
+and complained about in neither.
 
 **Member invitations** (`module/tests/MemberInvitationTest.php`,
 `portal/src/Invite.test.tsx`) — a member is offered only living relatives

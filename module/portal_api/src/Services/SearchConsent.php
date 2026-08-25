@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Services;
 
 use Fisharebest\Webtrees\Auth;
-use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\Individual;
-use Fisharebest\Webtrees\Tree;
 
 /**
  * Who may be *found* by searching, which is not the same as who may be seen.
@@ -46,16 +44,6 @@ use Fisharebest\Webtrees\Tree;
  */
 class SearchConsent
 {
-    /**
-     * The xrefs of every living person who has agreed to be listed.
-     *
-     * Read once and kept for the request. A search page checks this against a
-     * few hundred records, and the answer cannot change while it does.
-     *
-     * @var array<string,true>|null
-     */
-    private array|null $listed = null;
-
     /** Whether this reader maintains the tree, asked once. */
     private bool|null $keeper = null;
 
@@ -102,38 +90,17 @@ class SearchConsent
     }
 
     /**
-     * @return array<string,true>
+     * Everybody who has agreed to be listed, keyed by xref.
+     *
+     * Kept in `MemberService` rather than here, and read once per request
+     * there. A search page checks this against a few hundred records and the
+     * pedigree checks it against a few dozen; one answer serves both, and two
+     * copies of "who consented" is exactly the pair that drifts apart.
+     *
+     * @return array<string,Member>
      */
     private function listedXrefs(): array
     {
-        if ($this->listed !== null) {
-            return $this->listed;
-        }
-
-        $tree   = $this->trees->tree();
-        $listed = [];
-
-        foreach ($this->members->allVisible() as $member) {
-            $xref = $this->linkedXref($tree, $member->user);
-
-            if ($xref !== '') {
-                $listed[$xref] = true;
-            }
-        }
-
-        return $this->listed = $listed;
-    }
-
-    /**
-     * The record webtrees links to an account, as an xref rather than a
-     * record.
-     *
-     * `PortalTreeService::linkedIndividual()` would build the Individual, and
-     * this needs only the string it is keyed by — for a directory of a hundred
-     * members that is a hundred records fetched to compare names of.
-     */
-    private function linkedXref(Tree $tree, UserInterface $user): string
-    {
-        return $tree->getUserPreference($user, UserInterface::PREF_TREE_ACCOUNT_XREF);
+        return $this->members->listedByXref($this->trees->tree());
     }
 }

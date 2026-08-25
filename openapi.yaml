@@ -2072,11 +2072,28 @@ paths:
         is 1, a father is 2n and a mother is 2n+1. The client indexes by
         `position` and never walks a nested structure.
 
-        Nothing here is visible that stepping from relative to relative would
-        not also reach. The walk runs at the member's access level and **stops**
-        at anyone they may not see: that person is absent, and so is everyone
-        above them. There is no placeholder and no gap to read meaning into —
-        the branch simply ends, exactly as it does on the profile screen.
+        **The shape is shown; who stands in it is not, unless the reader may
+        see them.** Every rung the walk reaches is in the answer. Where the
+        member may read the record, the entry is a full `IndividualRef`. Where
+        they may not, it is a placeholder — a position, `private: true`, and
+        nothing else — and the walk carries on above it, so the archive's dead
+        stay reachable through its living.
+
+        A placeholder carries no name, no dates, no picture, no archive number
+        and **no XREF**: it is not a link, and it cannot be used to ask this
+        API anything further. Nor does it say *why* the record is closed; a
+        living person outside the reader's reach and a record marked
+        confidential produce the identical entry.
+
+        The one thing that can be attached to a placeholder is `member`, and
+        it is that person's own decision rather than a reading of their record
+        — see the schema.
+
+        The **root** is the exception: a record the member may not read is a
+        404 here, byte for byte the same one an XREF that names nobody gets.
+        Placeholders carry no XREF, so nothing in the portal links to such a
+        pedigree; the refusal is there so that trying XREFs by hand does not
+        become a way of finding out which of them name a real person.
 
         This exists so that four generations are one request rather than
         fifteen, which matters on a phone and on shared hosting.
@@ -3579,32 +3596,104 @@ components:
           description: The full-size file, same origin, same reasoning.
           example: /api/v1/media/M1/6f8a1c2e4b7d9013a5c6e8f0b2d4a6c8/image
 
+    AncestorPlacement:
+      type: object
+      required:
+        - position
+        - generation
+        - private
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: |
+            The Ahnentafel number. 1 is the root, 2n is a father and 2n+1 a
+            mother.
+
+            Numbers are not contiguous, and a missing one means the archive
+            records nobody there — not somebody withheld. A person the reader
+            may not see is *present*, as a placeholder; it is a line that has
+            simply run out of recorded ancestors that is absent.
+          example: 5
+        generation:
+          type: integer
+          minimum: 0
+          description: 0 for the root, 1 for parents, and so on.
+          example: 2
+        private:
+          type: boolean
+          description: |
+            Whether this rung is a placeholder rather than a person.
+
+            Optional in older clients: a server that predates this field never
+            sends a placeholder either, so its absence reads correctly as
+            `false`.
+          example: false
+
     Ancestor:
+      description: |
+        One rung of the pedigree: either somebody the reader may read, or the
+        fact that somebody stands there.
+
+        Discriminated by `private`. When it is `false` (or missing, from an
+        older server) every `IndividualRef` field is present. When it is
+        `true`, none of them are — the entry carries `position`, `generation`,
+        `private` and at most `member`.
+      oneOf:
+        - $ref: '#/components/schemas/VisibleAncestor'
+        - $ref: '#/components/schemas/PrivateAncestor'
+
+    VisibleAncestor:
       allOf:
         - $ref: '#/components/schemas/IndividualRef'
-        - type: object
-          required:
-            - position
-            - generation
-          properties:
-            position:
-              type: integer
-              minimum: 1
-              description: |
-                The Ahnentafel number. 1 is the root, 2n is a father and 2n+1
-                a mother.
+        - $ref: '#/components/schemas/AncestorPlacement'
 
-                Numbers are not contiguous: a person the member may not see is
-                absent, and so is everyone above them. A missing number means
-                "nothing to show here", never "somebody hidden lives here" —
-                the two are indistinguishable by design, because a tree with a
-                labelled hole in it is a tree that tells you what fills it.
-              example: 5
-            generation:
-              type: integer
-              minimum: 0
-              description: 0 for the root, 1 for parents, and so on.
-              example: 2
+    PrivateAncestor:
+      allOf:
+        - $ref: '#/components/schemas/AncestorPlacement'
+        - type: object
+          additionalProperties: false
+          properties:
+            member:
+              type: object
+              nullable: true
+              additionalProperties: false
+              description: |
+                The directory listing this record belongs to, where the person
+                standing here is a member who put themselves in it — and null
+                otherwise, which is the ordinary case.
+
+                **This is consent, not a gap in the privacy rule.** Listing
+                oneself in the directory is a decision that every other member
+                may see one's name and open one's member page; the directory
+                screen has published exactly that since Phase 2. Repeating it
+                here adds one thing — that this listed member stands at this
+                position — which is what the pedigree is for.
+
+                Nothing from the genealogy record travels with it. The record
+                is closed and stays closed: the name here is the display name
+                from the portal's own member profile, not a name out of the
+                family tree, and there are no dates, no places and no
+                photograph beside it.
+
+                A record carrying an explicit restriction — `1 RESN
+                confidential`, `1 RESN privacy`, or a per-record privacy level
+                set in webtrees' control panel — is never named this way, even
+                for a listed member. That is somebody who keeps the archive
+                saying this record is not to be shown, and a switch in the
+                portal's settings does not answer it.
+              required:
+                - id
+                - display_name
+              properties:
+                id:
+                  type: integer
+                  description: The portal member id, as `/members/{id}` takes.
+                  example: 7
+                display_name:
+                  type: string
+                  description: The name this member publishes in the directory.
+                  example: Berta Beispiel
 
     AncestorPage:
       type: object
@@ -3619,7 +3708,9 @@ components:
           example: 4
         people:
           type: array
-          description: The visible ancestors, root first, in Ahnentafel order.
+          description: |
+            Every rung the walk reached, root first, in Ahnentafel order — the
+            people the reader may see, and placeholders for those they may not.
           items:
             $ref: '#/components/schemas/Ancestor'
 

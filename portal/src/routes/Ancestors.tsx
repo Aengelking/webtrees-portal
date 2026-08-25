@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAncestors } from '../api/queries'
-import type { Ancestor } from '../api/types'
+import type { Ancestor, PrivateAncestor, VisibleAncestor } from '../api/types'
 import { ErrorNotice, Loading, Notice, PageHeading } from '../components/ui'
 
 const GENERATIONS = 4
@@ -19,6 +19,15 @@ const GENERATIONS = 4
  * and each row says whether this is a father's or a mother's line. Ahnentafel
  * numbering does the arranging — the root is 1, a father is 2n, a mother is
  * 2n+1 — so the rows can be sorted into place without a nested payload.
+ *
+ * **Some rows are not people.** The server sends a placeholder wherever the
+ * reader may not read the record, and the line carries on above it — that is
+ * how a member gets to their great-great-grandparents through a living
+ * grandmother. A placeholder is deliberately not a link: there is no xref
+ * behind it and nothing to open. Where the person standing there is a member
+ * who put themselves in the directory, the row says so with the name they
+ * publish there and opens their member page, which is the thing they
+ * consented to and the only thing shown.
  */
 export function Ancestors() {
   const { t } = useTranslation()
@@ -32,7 +41,9 @@ export function Ancestors() {
     <>
       <PageHeading>{t('ancestors.title')}</PageHeading>
 
-      {root !== undefined && <p className="mt-2 text-base text-slate-700">{root.name}</p>}
+      {root !== undefined && !isPrivate(root) && (
+        <p className="mt-2 text-base text-slate-700">{root.name}</p>
+      )}
 
       {isPending && <Loading />}
 
@@ -50,36 +61,93 @@ export function Ancestors() {
             <ol className="space-y-2">
               {sortByPosition(people).map((person) => (
                 <li key={person.position} style={{ marginInlineStart: `${indent(person)}rem` }}>
-                  <Link
-                    to={`/individuals/${encodeURIComponent(person.xref)}`}
-                    className="block min-h-[44px] rounded-xl border border-slate-300 bg-white p-4 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-                  >
-                    <p className="text-sm font-medium uppercase tracking-wide text-slate-600">
-                      {t(`ancestors.line.${lineOf(person)}`)}
-                    </p>
-                    <p className="mt-1 text-base font-medium text-sky-900 underline underline-offset-4">
-                      {person.name}
-                    </p>
-                    {person.lifespan !== null && (
-                      <p className="mt-1 text-base text-slate-700">{person.lifespan}</p>
-                    )}
-                  </Link>
+                  {isPrivate(person) ? <PrivateRung person={person} /> : <PersonRung person={person} />}
                 </li>
               ))}
             </ol>
           )}
 
           {/*
-            Said plainly rather than left to be noticed. A pedigree with people
-            missing from it invites the reader to wonder what is missing and
-            why, and the honest answer — that they may simply not be allowed to
-            see everyone — is better said than guessed at.
+            Said plainly rather than left to be noticed. A pedigree with rows
+            the reader cannot open invites them to wonder what is behind them,
+            and the honest answer — that the archive does not show living
+            people to everybody — is better said than guessed at.
           */}
           <p className="mt-6 text-base text-slate-700">{t('ancestors.privacyNote')}</p>
         </div>
       )}
     </>
   )
+}
+
+const CARD =
+  'block min-h-[44px] rounded-xl border border-slate-300 bg-white p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700'
+
+function LineLabel({ person }: { person: Ancestor }) {
+  const { t } = useTranslation()
+
+  return (
+    <p className="text-sm font-medium uppercase tracking-wide text-slate-600">
+      {t(`ancestors.line.${lineOf(person)}`)}
+    </p>
+  )
+}
+
+function PersonRung({ person }: { person: VisibleAncestor }) {
+  return (
+    <Link to={`/individuals/${encodeURIComponent(person.xref)}`} className={`${CARD} hover:bg-slate-50`}>
+      <LineLabel person={person} />
+      <p className="mt-1 text-base font-medium text-sky-900 underline underline-offset-4">
+        {person.name}
+      </p>
+      {person.lifespan !== null && <p className="mt-1 text-base text-slate-700">{person.lifespan}</p>}
+    </Link>
+  )
+}
+
+/**
+ * A rung that is a position and not a person.
+ *
+ * Two shapes, and the difference between them is one person's own decision.
+ * Without a directory listing there is nothing to show and nothing to open, so
+ * the row is a plain block: no link, no hover, and the muted background of
+ * something that is deliberately not a target.
+ *
+ * With one, it is a link to that member's page in the portal — because that
+ * page is what they consented to publish, and it is already one tap away from
+ * Mitglieder. The second line says what the reader is looking at, so that a
+ * name here is not mistaken for the family tree opening up.
+ */
+function PrivateRung({ person }: { person: PrivateAncestor }) {
+  const { t } = useTranslation()
+  const member = person.member ?? null
+
+  if (member === null) {
+    return (
+      <div className={`${CARD} border-dashed bg-slate-50`}>
+        <LineLabel person={person} />
+        <p className="mt-1 text-base text-slate-600">{t('ancestors.private.name')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <Link to={`/members/${member.id}`} className={`${CARD} hover:bg-slate-50`}>
+      <LineLabel person={person} />
+      <p className="mt-1 text-base font-medium text-sky-900 underline underline-offset-4">
+        {member.display_name}
+      </p>
+      <p className="mt-1 text-base text-slate-700">{t('ancestors.private.member')}</p>
+    </Link>
+  )
+}
+
+/**
+ * `private` is optional in the type: a server older than this field never
+ * sends a placeholder, so its absence means "a person" and not "unknown".
+ */
+function isPrivate(person: Ancestor): person is PrivateAncestor {
+  return person.private === true
 }
 
 /**

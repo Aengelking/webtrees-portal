@@ -73,11 +73,17 @@ const ME = {
 const ANCESTORS = {
   generations: 4,
   people: [
-    { position: 1, generation: 0, xref: 'X1', name: 'Anna Beispiel', sex: 'F', is_deceased: false, lifespan: '1985–' },
-    { position: 2, generation: 1, xref: 'X5', name: 'Emil Beispiel', sex: 'M', is_deceased: true, lifespan: '1884–1961' },
-    { position: 3, generation: 1, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
-    // 6 without 7: Bertha's mother is confidential, so she is simply absent.
-    { position: 6, generation: 2, xref: 'X10', name: 'Konrad Beispiel', sex: 'M', is_deceased: true, lifespan: '1858–1929' },
+    { position: 1, generation: 0, private: false, xref: 'X1', name: 'Anna Beispiel', sex: 'F', is_deceased: false, lifespan: '1985–' },
+    { position: 2, generation: 1, private: false, xref: 'X5', name: 'Emil Beispiel', sex: 'M', is_deceased: true, lifespan: '1884–1961' },
+    { position: 3, generation: 1, private: false, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
+    // Emil's mother is alive and out of reach, and she is in the member
+    // directory — so she is named from there, and from nowhere else.
+    { position: 5, generation: 2, private: true, member: { id: 9, display_name: 'Helene Beispiel' } },
+    { position: 6, generation: 2, private: false, xref: 'X10', name: 'Konrad Beispiel', sex: 'M', is_deceased: true, lifespan: '1858–1929' },
+    // Bertha's mother is confidential: a position, and nothing else.
+    { position: 7, generation: 2, private: true, member: null },
+    // And the line carries on above her, which is the point of the placeholder.
+    { position: 14, generation: 3, private: false, xref: 'X12', name: 'Otto Fernab', sex: 'M', is_deceased: true, lifespan: '1830–1899' },
   ],
 }
 
@@ -180,15 +186,51 @@ describe('the ancestors view', () => {
   })
 
   /**
-   * A gap in a pedigree invites the reader to wonder what is missing. Saying
-   * it outright is better than letting them guess — and better than implying
-   * the tree simply ends there.
+   * A row the reader cannot open invites them to wonder what is behind it.
+   * Saying it outright is better than letting them guess.
    */
-  it('says that some people may not be shown', async () => {
+  it('says why some rows cannot be opened', async () => {
     stub()
     renderAt('/individuals/X1/ancestors')
 
-    expect(await screen.findByText(/nur Personen angezeigt, die für Sie freigegeben sind/)).toBeDefined()
+    expect(await screen.findByText(/das sind fast immer die Lebenden/)).toBeDefined()
+  })
+
+  /**
+   * The placeholder, and what makes it one: it is a position and not a
+   * person, so there is nothing to open and no link to offer.
+   */
+  it('shows a rung the reader may not see as a row that does not open', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    const placeholder = await screen.findByText('Nicht freigegeben')
+
+    expect(placeholder.closest('a')).toBeNull()
+  })
+
+  it('carries the line on above a rung it may not show', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByRole('link', { name: /Otto Fernab/ })).toBeDefined()
+  })
+
+  /**
+   * The one thing a placeholder may carry, and it is that person's own doing.
+   *
+   * The link goes to their member page rather than to a record, because the
+   * member page is what they consented to publish — and the row says so, so
+   * that a name here is not mistaken for the family tree opening up.
+   */
+  it('names a rung whose member listed themselves, and links to their member page', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    const listed = await screen.findByRole('link', { name: /Helene Beispiel/ })
+
+    expect(listed.getAttribute('href')).toBe('/members/9')
+    expect(screen.getByText('Im Mitgliederverzeichnis eingetragen')).toBeDefined()
   })
 
   it('explains an empty pedigree rather than showing an empty list', async () => {

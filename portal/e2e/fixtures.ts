@@ -625,8 +625,10 @@ export async function stubApi(page: Page): Promise<void> {
       return json(route, {
         generations: 4,
         people: [
-          { position: 1, generation: 0, ...refOf(ANNA) },
-          { position: 3, generation: 1, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
+          { position: 1, generation: 0, private: false, ...refOf(ANNA) },
+          // Anna's father is alive and out of reach: a rung, and no more.
+          { position: 2, generation: 1, private: true, member: null },
+          { position: 3, generation: 1, private: false, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
         ],
       })
     }

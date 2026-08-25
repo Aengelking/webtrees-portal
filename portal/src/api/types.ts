@@ -334,11 +334,47 @@ export interface PendingIndividual {
   individual: Individual | null
 }
 
-/** One ancestor, positioned by Ahnentafel number. */
-export interface Ancestor extends IndividualRef {
+/** Where a rung sits, which is true of a person and of a placeholder alike. */
+export interface AncestorPlacement {
   position: number
   generation: number
+  /**
+   * Whether this rung is a placeholder rather than a person.
+   *
+   * Optional because the module and the portal deploy separately, and a
+   * server that predates the field never sends a placeholder either — so its
+   * absence reads correctly as `false`.
+   */
+  private?: boolean
 }
+
+/** An ancestor the reader may read. */
+export type VisibleAncestor = IndividualRef & AncestorPlacement & { private?: false }
+
+/**
+ * Somebody stands here, and that is all the reader is told.
+ *
+ * No name, no dates, no picture, no archive number and no xref — so there is
+ * nothing to link to and nothing to ask the API about. Nor does it say *why*
+ * the record is closed: a living person outside the reader's reach and a
+ * record marked confidential arrive identically.
+ */
+export interface PrivateAncestor extends AncestorPlacement {
+  private: true
+  /**
+   * The directory listing this record belongs to, when the person standing
+   * here is a member who put themselves in it — null otherwise, which is the
+   * ordinary case.
+   *
+   * Their own decision, and portal data rather than genealogy data: the name
+   * is the one they publish in the member directory, and nothing from the
+   * family tree comes with it.
+   */
+  member?: { id: number; display_name: string } | null
+}
+
+/** One rung of the pedigree, positioned by Ahnentafel number. */
+export type Ancestor = VisibleAncestor | PrivateAncestor
 
 export interface AncestorPage {
   generations: number
