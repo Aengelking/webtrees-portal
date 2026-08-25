@@ -26,7 +26,7 @@ use PHPUnit\Framework\Attributes\RunInSeparateProcess;
  * Ida is the reason this file exists: everything here is about what happens
  * at the edge of what a member may see.
  *
- * Since §2.72 that edge is no longer a wall. A rung the member may not read
+ * Since §2.75 that edge is no longer a wall. A rung the member may not read
  * comes back as a placeholder — a position and nothing else — and the walk
  * carries on above it, which is how Otto (X12) is reachable at all. What these
  * tests pin is that the placeholder really is empty, that no reason for it is
@@ -166,7 +166,7 @@ class TreeTest extends PortalTestCase
     }
 
     /**
-     * And the line carries on above it, which is the whole point of §2.72.
+     * And the line carries on above it, which is the whole point of §2.75.
      *
      * Otto (X12) is Ida's father. He died in 1899, carries no restriction of
      * his own, and used to be unreachable from here for no better reason than

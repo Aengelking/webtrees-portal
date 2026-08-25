@@ -347,14 +347,14 @@ class Diagnosis
      *
      * **Which matters because the portal hands every member the door.** There
      * is a link into webtrees at the foot of every person's page, so the
-     * placeholder discipline of the pedigree (§2.72) holds only as far as this
+     * placeholder discipline of the pedigree (§2.75) holds only as far as this
      * setting lets it. That is the whole reason for this check: like the
      * relationship path length above, the state is real, it is invisible, and
      * nobody would think to go and look.
      *
      * **`SHOW_PRIVATE_RELATIONSHIPS` is reported and never complained about.**
      * It decides whether a hidden relative's row is listed as "Private" or
-     * left off the family page altogether — and since §2.72 the portal's own
+     * left off the family page altogether — and since §2.75 the portal's own
      * pedigree says the same thing as the first of those: somebody stands
      * here. Either value agrees with the portal, so it is a fact for the
      * administrator rather than a finding.

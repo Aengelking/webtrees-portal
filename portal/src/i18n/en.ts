@@ -525,7 +525,8 @@ export const en: Translations = {
     switchOff: 'Turn off on this device',
     working: 'One moment …',
     on: 'This device is being notified.',
-    untilSignOut: 'Signing out turns this off again on this device.',
+    untilSignOut:
+      'Signing out unsubscribes this device. Signing back in here switches it on again by itself — until you tap “Switch off on this device”.',
     needsInstall:
       'On an iPhone or iPad, notifications work only once the app is on the home screen. How to put it there is at the top of this page, under "On the home screen". You can turn notifications on here afterwards.',
     blocked:

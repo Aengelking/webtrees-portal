@@ -25,7 +25,7 @@ use function str_starts_with;
  * down flat. The client indexes by number and never has to walk a nested
  * structure.
  *
- * ## The rule this screen goes by (§2.72)
+ * ## The rule this screen goes by (§2.75)
  *
  * **The shape of the pedigree is shown; who stands in it is not, unless the
  * reader may see them.** A rung the member may not read comes back as an

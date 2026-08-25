@@ -403,7 +403,7 @@ class VisibilityTest extends PortalTestCase
      * The second setting is reported and never complained about.
      *
      * `SHOW_PRIVATE_RELATIONSHIPS` decides whether a hidden relative's row is
-     * listed as "Private" or left off the family page altogether. Since §2.72
+     * listed as "Private" or left off the family page altogether. Since §2.75
      * the portal's own pedigree says the first of those — somebody stands
      * here — so either value agrees with it. It belongs on the screen as a
      * fact, not as a finding.
