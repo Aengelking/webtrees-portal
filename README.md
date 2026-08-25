@@ -476,14 +476,24 @@ Startbildschirm* one section above it. It used to render nothing there, which
 left the largest part of the audience looking at a settings screen with no
 explanation of why the feature everyone else had was absent.
 
-**Signing out switches it off on that device.** A push subscription is not part
-of the session — it is a row against a member's account plus an address held by
-the browser's push service — so nothing about signing out would otherwise reach
-it, and the phone would go on announcing arrivals for an account nobody is
-signed into. The card says so before a member switches it on. An expired
-session is *not* the same thing and is left alone: that is the case the feature
-exists for, and the member is taken to the login screen and on to the message
-from the notification itself.
+**Signing out switches it off on that device — and signing back in switches it
+on again.** A push subscription is not part of the session — it is a row
+against a member's account plus an address held by the browser's push service
+— so nothing about signing out would otherwise reach it, and the phone would go
+on announcing arrivals for an account nobody is signed into.
+
+But leaving is not the same as changing your mind, so the *wish* is kept: the
+browser remembers which member switched notifications on here, and when that
+member signs in again the device subscribes itself, silently and without a
+prompt (the browser's permission outlives the session). **Whose device it was
+is the point** — a shared tablet must not start buzzing for the person who used
+it last, so the remembered account has to match. Switching notifications off
+clears it; that is changing your mind, and nothing switches itself back on
+afterwards. The card says all of this before a member switches it on.
+
+An expired session is *not* the same thing and is left alone: that is the case
+the feature exists for, and the member is taken to the login screen and on to
+the message from the notification itself.
 
 **Every message knocks**, unlike the e-mail notification above, which stays
 quiet while something is already unread. A notification that arrives while the
@@ -1726,11 +1736,13 @@ the way they open everything else on that phone.
 **The offer is made once, after signing in**, as a dialogue: a member who can
 install is asked, answers in one tap, and is never asked again on that device.
 What is remembered is one flag saying the question was asked — a device
-preference, and one of the two things the portal keeps in browser storage.
-(The other is the language, and only as the answer for the moment before the
+preference, and one of the three things the portal keeps in browser storage.
+(The second is the language, and only as the answer for the moment before the
 portal knows who is reading: once somebody is signed in, their language comes
-from their account.) Saying no costs nothing: the offer stays in *Einstellungen*
-for good, and the dialogue says so. Somebody whose browser cannot install at
+from their account. The third is which account switched notifications on in
+this browser, so that signing out and back in does not undo the decision.)
+Saying no costs nothing: the offer stays in *Einstellungen* for good, and the
+dialogue says so. Somebody whose browser cannot install at
 all is not stopped on their way in, and neither is somebody reading inside
 another app's browser — that case needs "leave this app first", which is not
 what a dialogue on the way in is for.
@@ -2203,8 +2215,16 @@ told the link is there because of their role.
 
 **Frontend** (`portal/src/**/*.test.ts*`) — the client attaches CSRF only to
 unsafe requests and retries once on a stale token; a 401 anywhere resets the
-app to the login screen; nothing but the language preference reaches browser
-storage.
+app to the login screen; and only three things reach browser storage, none of
+them anybody's personal data: the language, the install prompt's "asked
+already", and which account switched notifications on in this browser.
+
+**Notifications across a sign-out** (`portal/src/Notifications.test.tsx`) —
+signing out unsubscribes the device while there is still a session to say so
+with; signing back in resubscribes it silently, without a permission prompt;
+a *different* account signing in on that device is left alone; a family that
+switched notifications off, and a browser that is blocking, are both obeyed;
+and switching off clears the wish, so nothing switches itself back on.
 
 **The navigation bar** (`portal/e2e/smoke.spec.ts`) — it stays at the bottom of
 the screen while the page scrolls under it, on a phone held upright *and* on

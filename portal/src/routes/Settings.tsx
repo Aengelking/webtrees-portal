@@ -59,7 +59,7 @@ export function Settings() {
       <InstallPortal />
 
       {/* Renders nothing where notifications cannot happen at all. */}
-      <Notifications />
+      <Notifications {...(me === null ? {} : { account: me.user.id })} />
 
       {/*
         Beside the notifications rather than beside the contact details,
