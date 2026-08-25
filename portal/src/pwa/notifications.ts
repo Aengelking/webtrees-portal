@@ -214,3 +214,37 @@ export function rememberedNotifications(): number | null {
     return null
   }
 }
+
+/**
+ * Told when this device's subscription changed without anybody on screen
+ * having pressed anything.
+ *
+ * There is exactly one such moment: the silent restore after a sign-in
+ * (`AuthProvider`). Everywhere else the member pressed the switch, and the
+ * screen that owns the switch already knows.
+ *
+ * A listener rather than a query invalidation, because the question the switch
+ * asks — *is this device subscribed?* — is answered by the browser and not by
+ * the server, and no amount of refetching `/push` makes the browser answer it
+ * again. Refetching is worth doing as well, and is not enough on its own:
+ * TanStack keeps the previous object where the JSON is unchanged, so a member
+ * already subscribed on their telephone would see no new `data` and the
+ * effect keyed on it would not run.
+ */
+type Listener = () => void
+
+const listeners = new Set<Listener>()
+
+export function onSubscriptionChange(listener: Listener): () => void {
+  listeners.add(listener)
+
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+export function subscriptionChanged(): void {
+  for (const listener of [...listeners]) {
+    listener()
+  }
+}

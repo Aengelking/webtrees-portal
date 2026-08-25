@@ -4,7 +4,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api, forgetCsrfToken, setUnauthenticatedHandler } from '../api/client'
 import type { Credentials, InvitationAcceptance, Me } from '../api/types'
 import i18n, { portalLanguage } from '../i18n'
-import { disable, permission, rememberedNotifications, resume } from '../pwa/notifications'
+import {
+  disable,
+  permission,
+  rememberedNotifications,
+  resume,
+  subscriptionChanged,
+} from '../pwa/notifications'
 
 type Status = 'checking' | 'signed-in' | 'signed-out'
 
@@ -113,10 +119,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const id = me?.user?.id
 
-    if (id !== undefined) {
-      void restoreThisDevice(id)
+    if (id === undefined) {
+      return
     }
-  }, [me?.user?.id])
+
+    void restoreThisDevice(id).then((restored) => {
+      if (!restored) {
+        return
+      }
+
+      // Two audiences, and neither is optional. The switch in Settings asks
+      // the *browser* whether this device is subscribed, and it asks once —
+      // so it has to be told, or a member who opens Settings straight after
+      // signing in reads "off" about a device that is on. And `/push` is now
+      // out of date, because the row it counts was created a moment ago.
+      subscriptionChanged()
+
+      void queryClient.invalidateQueries({ queryKey: ['push'] })
+    })
+  }, [me?.user?.id, queryClient])
 
   const signIn = useCallback(
     async (credentials: Credentials) => {
@@ -199,29 +220,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
  * offers it, and the portal still has keys to send with. Any of them missing
  * is an answer, not an error.
  *
+ * Answers whether it actually subscribed, so that the screens which show the
+ * switch can be told — see the effect above.
+ *
  * Silent throughout. Nobody asked for this *now* — it is the standing wish of
  * somebody who asked once — so a failure has no business interrupting a
  * sign-in, and the switch in Settings goes on saying what is actually true.
  */
-async function restoreThisDevice(userId: number): Promise<void> {
+async function restoreThisDevice(userId: number): Promise<boolean> {
   if (rememberedNotifications() !== userId || permission() !== 'granted') {
-    return
+    return false
   }
 
   try {
     const state = await api.push()
 
     if (!state.available) {
-      return
+      return false
     }
 
     const endpoint = await resume(state.public_key)
 
-    if (endpoint !== null) {
-      await api.subscribeToPush(endpoint)
+    if (endpoint === null) {
+      return false
     }
+
+    await api.subscribeToPush(endpoint)
+
+    return true
   } catch {
     // See above: this was nobody's request at this moment.
+    return false
   }
 }
 

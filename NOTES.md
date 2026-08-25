@@ -4130,6 +4130,30 @@ The sentence under the switch says both halves now. The first was already
 there; the second is the surprising one, and therefore the one that most needs
 saying.
 
+#### And the screen has to be told
+
+Shipped, and a member said the switch still read "off" until they reloaded.
+Fair: the restore is a round trip to the browser's push service, the settings
+screen is on its feet long before it comes back, and that screen asks whether
+this device is subscribed exactly once.
+
+Refetching `/push` is worth doing — the row it counts was created a moment ago
+— and it is **not enough**. The question the switch asks is answered by the
+*browser*, not the server, so no amount of refetching makes the browser answer
+it again; and where the member is already subscribed on another device the
+server's answer does not change at all, TanStack keeps the previous object by
+structural sharing, and an effect keyed on it never runs.
+
+So the restore says when it has actually subscribed, and the screen listens
+(`onSubscriptionChange`). Both halves: the refetch keeps the server's count
+honest, the listener keeps the switch honest.
+
+The first test written for this passed against the broken code, which is worth
+recording. The stub subscribed instantly, so the restore had finished before
+the screen ever asked — the bug needs the *order* it has in life, and the test
+only pins anything once the subscription is held until the screen has already
+said "off".
+
 ---
 
 ## 3. Things that were guessed

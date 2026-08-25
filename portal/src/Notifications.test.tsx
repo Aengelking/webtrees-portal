@@ -460,7 +460,10 @@ describe('signing back in', () => {
     csrf_token: 'token-1',
   }
 
-  function signedIn(push: { available: boolean; public_key: string; subscribed: boolean }) {
+  function signedIn(
+    push: { available: boolean; public_key: string; subscribed: boolean },
+    slow = false,
+  ) {
     posted.length = 0
     calls.length = 0
 
@@ -485,7 +488,27 @@ describe('signing back in', () => {
       }),
     )
 
-    const subscribe = vi.fn().mockResolvedValue({ endpoint: 'https://push.example.test/new' })
+    // Stateful on purpose: a device that has just subscribed *has* a
+    // subscription, and the screen asks the browser for exactly that.
+    let subscription: { endpoint: string } | null = null
+
+    // And slow on purpose where the test asks for it. Subscribing is a round
+    // trip to the browser's push service, and the screen is on its feet long
+    // before it comes back — which is the whole of the bug this pins.
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const subscribe = vi.fn().mockImplementation(async () => {
+      if (slow) {
+        await held
+      }
+
+      subscription = { endpoint: 'https://push.example.test/new' }
+
+      return subscription
+    })
 
     vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
     vi.stubGlobal('PushManager', function PushManager() {})
@@ -495,7 +518,7 @@ describe('signing back in', () => {
       maxTouchPoints: 0,
       serviceWorker: {
         ready: Promise.resolve({
-          pushManager: { subscribe, getSubscription: vi.fn().mockResolvedValue(null) },
+          pushManager: { subscribe, getSubscription: async () => subscription },
         }),
         // The whole app is rendered here, and `useNotificationRoute` listens
         // for the worker's "open this path" message. Without these it throws
@@ -506,15 +529,15 @@ describe('signing back in', () => {
       },
     })
 
-    return { subscribe }
+    return { subscribe, release: () => release() }
   }
 
-  function renderApp() {
+  function renderApp(path = '/me') {
     return render(
       <QueryClientProvider
         client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
       >
-        <MemoryRouter initialEntries={['/me']}>
+        <MemoryRouter initialEntries={[path]}>
           <AuthProvider>
             <App />
           </AuthProvider>
@@ -542,6 +565,55 @@ describe('signing back in', () => {
     // a prompt nobody tapped anything to get is a prompt out of nowhere.
     expect(subscribe).toHaveBeenCalled()
     expect(vi.mocked(Notification.requestPermission)).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The half that was missing, and that a member noticed: the device came back
+   * on, and *Einstellungen* went on saying it was off until the page was
+   * reloaded.
+   *
+   * The switch asks the browser — not the server — whether this device is
+   * subscribed, and it asked once, before the silent restore had finished. So
+   * the restore says when it has done something, and the screen asks again.
+   */
+  it('shows the switch as on without a reload', async () => {
+    const { release } = signedIn({ available: true, public_key: 'BKxQ', subscribed: false }, true)
+
+    window.localStorage.setItem('portal.notifications', '7')
+
+    renderApp('/settings')
+
+    // The screen is up first, and rightly says nothing is subscribed here yet.
+    expect(await screen.findByRole('button', { name: 'Benachrichtigungen einschalten' })).toBeDefined()
+
+    // The restore comes back a moment later. Nothing was reloaded.
+    await act(async () => {
+      release()
+    })
+
+    expect(await screen.findByText('Dieses Gerät wird benachrichtigt.')).toBeDefined()
+  })
+
+  /**
+   * The same, for a member who is already subscribed on their telephone. The
+   * server's answer does not change when this device joins, so `/push` comes
+   * back byte-identical, TanStack keeps the previous object, and an effect
+   * keyed on it never runs again. Only being *told* saves this one.
+   */
+  it('shows it even where the server’s answer never changes', async () => {
+    const { release } = signedIn({ available: true, public_key: 'BKxQ', subscribed: true }, true)
+
+    window.localStorage.setItem('portal.notifications', '7')
+
+    renderApp('/settings')
+
+    expect(await screen.findByRole('button', { name: 'Benachrichtigungen einschalten' })).toBeDefined()
+
+    await act(async () => {
+      release()
+    })
+
+    expect(await screen.findByText('Dieses Gerät wird benachrichtigt.')).toBeDefined()
   })
 
   /**
