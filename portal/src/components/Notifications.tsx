@@ -4,7 +4,15 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { PushState } from '../api/types'
 import { useInstallState } from '../pwa/install'
-import { disable, enable, permission, subscribedHere } from '../pwa/notifications'
+import {
+  disable,
+  enable,
+  forgetNotifications,
+  onSubscriptionChange,
+  permission,
+  rememberNotifications,
+  subscribedHere,
+} from '../pwa/notifications'
 import { Button, Card, ErrorNotice, Section } from './ui'
 
 /**
@@ -31,7 +39,15 @@ import { Button, Card, ErrorNotice, Section } from './ui'
  * harder: the way to notifications is one section up the same screen. So it
  * is said, rather than left to be guessed at.
  */
-export function Notifications() {
+/**
+ * @param account Whose wish to remember when this device is switched on — see
+ *                `rememberNotifications`. Passed in rather than read from a
+ *                context or a second query: the screen that renders this
+ *                already has the member in hand, and a component that asks for
+ *                the whole session to answer one number is a component that
+ *                cannot be rendered on its own.
+ */
+export function Notifications({ account }: { account?: number }) {
   const { t } = useTranslation()
   const install = useInstallState()
 
@@ -49,6 +65,12 @@ export function Notifications() {
   useEffect(() => {
     void subscribedHere().then(setHere)
   }, [data?.subscribed])
+
+  // And again whenever the device subscribed itself behind this screen's back
+  // — the silent restore after a sign-in (`AuthProvider`). Without this, a
+  // member who opens Settings straight after signing in is told "off" about a
+  // device that is on, and only a reload puts it right.
+  useEffect(() => onSubscriptionChange(() => void subscribedHere().then(setHere)), [])
 
   const state = permission()
 
@@ -100,6 +122,12 @@ export function Notifications() {
       if (endpoint !== null) {
         await api.subscribeToPush(endpoint)
         setHere(true)
+
+        // The wish, so that signing out does not undo the decision along with
+        // the subscription. See `rememberNotifications`.
+        if (account !== undefined) {
+          rememberNotifications(account)
+        }
       }
     } catch (cause) {
       setFailed(cause)
@@ -119,6 +147,10 @@ export function Notifications() {
       if (endpoint !== null) {
         await api.unsubscribeFromPush(endpoint)
       }
+
+      // *This* is changing your mind, as opposed to signing out — so the wish
+      // goes with the subscription and nothing switches itself back on.
+      forgetNotifications()
 
       setHere(false)
     } catch (cause) {
@@ -150,8 +182,10 @@ export function Notifications() {
             {here ? (
               <>
                 <p className="mb-1 text-base font-medium text-slate-900">{t('notifications.on')}</p>
-                {/* Signing out switches this off — see `forgetThisDevice`. A
-                    member is told that here rather than discovering it. */}
+                {/* Signing out switches the device off (`forgetThisDevice`)
+                    and signing in switches it back on (`restoreThisDevice`).
+                    Said here rather than left to be discovered — in both
+                    directions, because the second is the surprising one. */}
                 <p className="mb-3 text-base text-slate-700">{t('notifications.untilSignOut')}</p>
                 <Button variant="secondary" disabled={busy} onClick={() => void switchOff()}>
                   {t('notifications.switchOff')}

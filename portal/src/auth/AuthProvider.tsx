@@ -4,7 +4,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api, forgetCsrfToken, setUnauthenticatedHandler } from '../api/client'
 import type { Credentials, InvitationAcceptance, Me } from '../api/types'
 import i18n, { portalLanguage } from '../i18n'
-import { disable } from '../pwa/notifications'
+import {
+  disable,
+  permission,
+  rememberedNotifications,
+  resume,
+  subscriptionChanged,
+} from '../pwa/notifications'
 
 type Status = 'checking' | 'signed-in' | 'signed-out'
 
@@ -97,6 +103,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [me?.user?.language])
 
+  /**
+   * Notifications back on, where this member had them on here.
+   *
+   * The other half of `forgetThisDevice()`. Signing out switches the device
+   * off — see there for why it must — and a member who had switched it on had
+   * to go and find the switch again on every visit. Leaving is not the same as
+   * changing your mind.
+   *
+   * Runs whenever `me` arrives: a sign-in, an accepted invitation, and an
+   * ordinary reload. The last one is not waste — a browser that dropped its
+   * subscription (an update, a cleared site setting) gets it back without
+   * anybody noticing it was gone.
+   */
+  useEffect(() => {
+    const id = me?.user?.id
+
+    if (id === undefined) {
+      return
+    }
+
+    void restoreThisDevice(id).then((restored) => {
+      if (!restored) {
+        return
+      }
+
+      // Two audiences, and neither is optional. The switch in Settings asks
+      // the *browser* whether this device is subscribed, and it asks once —
+      // so it has to be told, or a member who opens Settings straight after
+      // signing in reads "off" about a device that is on. And `/push` is now
+      // out of date, because the row it counts was created a moment ago.
+      subscriptionChanged()
+
+      void queryClient.invalidateQueries({ queryKey: ['push'] })
+    })
+  }, [me?.user?.id, queryClient])
+
   const signIn = useCallback(
     async (credentials: Credentials) => {
       const result = await api.login(credentials)
@@ -169,6 +211,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
  * Order matters: `DELETE /push` needs the session, so it goes before
  * `api.logout()` rather than after it.
  */
+/**
+ * Switch this device's notifications back on, silently, or do nothing at all.
+ *
+ * Four things have to be true, and each of them is somebody's decision rather
+ * than a technicality: this member is the one who switched it on here
+ * (`rememberedNotifications`), the browser still allows it, the family still
+ * offers it, and the portal still has keys to send with. Any of them missing
+ * is an answer, not an error.
+ *
+ * Answers whether it actually subscribed, so that the screens which show the
+ * switch can be told — see the effect above.
+ *
+ * Silent throughout. Nobody asked for this *now* — it is the standing wish of
+ * somebody who asked once — so a failure has no business interrupting a
+ * sign-in, and the switch in Settings goes on saying what is actually true.
+ */
+async function restoreThisDevice(userId: number): Promise<boolean> {
+  if (rememberedNotifications() !== userId || permission() !== 'granted') {
+    return false
+  }
+
+  try {
+    const state = await api.push()
+
+    if (!state.available) {
+      return false
+    }
+
+    const endpoint = await resume(state.public_key)
+
+    if (endpoint === null) {
+      return false
+    }
+
+    await api.subscribeToPush(endpoint)
+
+    return true
+  } catch {
+    // See above: this was nobody's request at this moment.
+    return false
+  }
+}
+
 async function forgetThisDevice(): Promise<void> {
   try {
     const endpoint = await Promise.race([disable(), givingUp()])

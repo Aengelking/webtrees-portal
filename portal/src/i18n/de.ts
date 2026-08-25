@@ -527,7 +527,8 @@ export const de = {
     switchOff: 'Auf diesem Gerät ausschalten',
     working: 'Einen Moment …',
     on: 'Dieses Gerät wird benachrichtigt.',
-    untilSignOut: 'Wenn Sie sich abmelden, wird das auf diesem Gerät wieder ausgeschaltet.',
+    untilSignOut:
+      'Beim Abmelden wird dieses Gerät abgemeldet. Sobald Sie sich hier wieder anmelden, schaltet es sich von selbst wieder ein — bis Sie oben auf „Auf diesem Gerät ausschalten“ tippen.',
     needsInstall:
       'Auf dem iPhone und iPad gibt es Benachrichtigungen nur, wenn die App auf dem Home-Bildschirm liegt. Wie Sie sie dorthin legen, steht oben auf dieser Seite unter „Auf den Startbildschirm“. Danach können Sie die Benachrichtigungen hier einschalten.',
     blocked:
@@ -652,10 +653,14 @@ export const de = {
     },
     none: {
       title: 'Keine Vorfahren hinterlegt',
-      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst — oder sie sind für Sie nicht freigegeben.',
+      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst.',
+    },
+    private: {
+      name: 'Nicht freigegeben',
+      member: 'Im Mitgliederverzeichnis eingetragen',
     },
     privacyNote:
-      'Es werden nur Personen angezeigt, die für Sie freigegeben sind. Wo eine Linie endet, kann es sein, dass sie im Stammbaum weitergeht.',
+      'Wo eine Person für Sie nicht freigegeben ist — das sind fast immer die Lebenden — steht nur, dass dort jemand steht: kein Name, keine Daten. Wer sich selbst ins Mitgliederverzeichnis eingetragen hat, wird mit dem Namen aus dem Verzeichnis genannt; aus dem Stammbaum wird auch dann nichts angezeigt.',
   },
   error: {
     title: 'Da ist etwas schiefgelaufen',

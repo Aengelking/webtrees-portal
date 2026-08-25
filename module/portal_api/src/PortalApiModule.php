@@ -328,8 +328,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $photo_store    = new Photos($portal_trees, $pending);
         $photos         = new PhotoPresenter($photo_store);
         $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers);
-        $ancestors      = new AncestorTree($presenter);
         $members        = new MemberService($user_service);
+        $ancestors      = new AncestorTree($presenter, $members);
         $search_consent = new SearchConsent($members, $portal_trees);
         $tree_search    = new TreeSearch($portal_trees, $container->get(SearchService::class), $search_consent);
         $rate_limiter   = new LoginRateLimiter($this);

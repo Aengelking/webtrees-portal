@@ -24,8 +24,11 @@ use function openssl_pkey_get_details;
 use function openssl_pkey_get_private;
 use function openssl_sign;
 use function openssl_verify;
+use function str_pad;
 use function strlen;
 use function strtr;
+
+use const STR_PAD_LEFT;
 
 /**
  * Phase 13: notifications.
@@ -235,6 +238,16 @@ class PushTest extends PortalTestCase
     /**
      * The public key is the private one's point, not an unrelated string. If
      * these two ever drift apart every push is rejected and nothing says why.
+     *
+     * **The coordinates must be padded, and this test used not to.** OpenSSL
+     * hands back `x` and `y` as big-endian integers with no leading zeroes, so
+     * roughly one key in 128 has a coordinate 31 bytes long instead of 32. An
+     * uncompressed point is fixed-width by definition — `0x04` and two 32-byte
+     * halves, which is what a browser's `applicationServerKey` requires — so
+     * `WebPush::ensureKeys()` pads, correctly. This test did not, and on those
+     * keys it failed: about one CI run in 128, always by accusing code that
+     * was right. The length assertion below says the rule out loud, so that
+     * the padding cannot quietly go missing on either side again.
      */
     public function testThePublicKeyBelongsToThePrivateOne(): void
     {
@@ -245,7 +258,11 @@ class PushTest extends PortalTestCase
         self::assertNotFalse($key);
 
         $details = openssl_pkey_get_details($key);
-        $point   = "\x04" . $details['ec']['x'] . $details['ec']['y'];
+        $point   = "\x04"
+            . str_pad($details['ec']['x'], 32, "\0", STR_PAD_LEFT)
+            . str_pad($details['ec']['y'], 32, "\0", STR_PAD_LEFT);
+
+        self::assertSame(65, strlen($point), 'An uncompressed point is 0x04 and two 32-byte halves.');
 
         self::assertSame(
             $push->publicKey(),

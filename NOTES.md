@@ -3729,175 +3729,6 @@ who unsubscribed would be told for ten minutes that they had not.
 
 ---
 
-### 2.66 A card said "no record" and meant "not yours to see"
-
-A member opened a connection request and read *Kein verknüpfter Eintrag im
-Stammbaum* under a name. The archive had a record for that person. The line
-was simply false.
-
-The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
-returns null when the caller may not see the record, and
-`Connections::present()` also has nothing to hand over when nobody linked that
-account to a record at all. One field, two meanings — and the card picked the
-rarer one and stated it as a fact about the archive, out of an answer that was
-about the *reader*.
-
-**Which of the two it is cannot be disclosed**, and that is not an oversight:
-saying "there is a record here that is not yours to see" is exactly the
-sentence webtrees' privacy exists to withhold. So the server keeps both cases
-as one null, and the client says the only thing that is true of both —
-"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
-that way since Phase 2 (`member.private`); the two list rows had invented
-their own wording and got it wrong. They now share one string,
-`individual.notVisible`, so they cannot drift apart again.
-
-Worth knowing how ordinary the hidden case is: with a path-length limit set,
-every living person outside a member's own few steps is hidden from them
-(§2.34), so on such an installation *most* incoming requests arrive as a name
-with no record. The line was wrong far more often than it was right.
-
-#### The harness was answering privacy questions from the wrong member
-
-Pinning this found a fault in the tests rather than in the module. webtrees
-caches `canShow()` in `Registry::cache()->array()` under record, tree and
-access level — **not** under user, which is right in production, where that
-cache lives and dies inside one request. `PortalTestCase::login()` does not
-end a request, so a `true` computed for the member looking at *their own*
-record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
-handed to the next member who asked the same question at the same access
-level.
-
-The first version of this test said a confidential record travelled with a
-connection request. It does not; the harness had cached the subject's own view
-of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
-request gets, and the test says what it means to say. Any test in this suite
-that signs two people in and asks about privacy was until now capable of
-proving the opposite of the truth.
-
----
-
-### 2.66 A card said "no record" and meant "not yours to see"
-
-A member opened a connection request and read *Kein verknüpfter Eintrag im
-Stammbaum* under a name. The archive had a record for that person. The line
-was simply false.
-
-The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
-returns null when the caller may not see the record, and
-`Connections::present()` also has nothing to hand over when nobody linked that
-account to a record at all. One field, two meanings — and the card picked the
-rarer one and stated it as a fact about the archive, out of an answer that was
-about the *reader*.
-
-**Which of the two it is cannot be disclosed**, and that is not an oversight:
-saying "there is a record here that is not yours to see" is exactly the
-sentence webtrees' privacy exists to withhold. So the server keeps both cases
-as one null, and the client says the only thing that is true of both —
-"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
-that way since Phase 2 (`member.private`); the two list rows had invented
-their own wording and got it wrong. They now share one string,
-`individual.notVisible`, so they cannot drift apart again.
-
-Worth knowing how ordinary the hidden case is: with a path-length limit set,
-every living person outside a member's own few steps is hidden from them
-(§2.34), so on such an installation *most* incoming requests arrive as a name
-with no record. The line was wrong far more often than it was right.
-
-#### The harness was answering privacy questions from the wrong member
-
-Pinning this found a fault in the tests rather than in the module. webtrees
-caches `canShow()` in `Registry::cache()->array()` under record, tree and
-access level — **not** under user, which is right in production, where that
-cache lives and dies inside one request. `PortalTestCase::login()` does not
-end a request, so a `true` computed for the member looking at *their own*
-record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
-handed to the next member who asked the same question at the same access
-level.
-
-The first version of this test said a confidential record travelled with a
-connection request. It does not; the harness had cached the subject's own view
-of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
-request gets, and the test says what it means to say. Any test in this suite
-that signs two people in and asks about privacy was until now capable of
-proving the opposite of the truth.
-
----
-
-### 2.67 A name and white space is not an address book
-
-§2.66 fixed what the card *said*. What it showed was still a name and nothing
-else, and for a member whose record is closed to the reader that is the
-ordinary case rather than the exception: a connection request arrives, and the
-person it is from cannot be recognised at all.
-
-The record is closed for a good reason and stays closed. But two things on
-that card do not come from the archive's account of the person, and each has
-its own permission behind it.
-
-**A photograph they uploaded here themselves.** §2.50 already says a living
-person's picture is shown only where they put it — `portal_photo` is that
-consent, given to this portal, for exactly this. Withholding it because
-webtrees hides the record it hangs on would be honouring a rule about the
-*family's* data against the person the data is about. So it crosses, and
-nothing else in the gallery does: the family's photographs of them stay behind
-the record's privacy where they belong.
-
-**The archive number, if the family says so.** Off by default, and a switch in
-the control panel rather than a per-member choice, because the number is the
-family's naming scheme rather than anybody's personal data — it comes off a
-letterhead. And §2.57 already lets any member *type* a number and reach the
-person it belongs to whether or not they may read the record: showing it makes
-legible what was already searchable.
-
-A number the record marks confidential is still withheld. `Fact::canShow()`
-asks about the `RESN` on the fact rather than the privacy of the record around
-it, which is exactly the half that belongs here — the same split the number
-search relies on.
-
-**And nothing else.** Not the name on the record, not the years, not the
-nickname, not the relationship. `Recognition` is the whole rule and it is two
-fields wide.
-
-#### Two traps, and they are the same trap
-
-`GedcomRecord::facts()` hands back **nothing at all** for a record the reader
-may not see. So both halves of this walk into it:
-
-* `Media::firstImageFile()` reads `facts(['FILE'])`, and a media object counts
-  as private whenever any record it is linked to is
-  (`Media::canShowByType()`). The ordinary call therefore answers "this
-  photograph has no files in it" for precisely the pictures this exists to
-  show.
-* The archive number is a `REFN` fact, with the same answer — which is why
-  `Connections::memberByReference()` already reads at `PRIV_HIDE` and filters
-  fact by fact, and why this does too.
-
-The permission is decided first and the reading is done afterwards, at
-`PRIV_HIDE`, in both places.
-
-The third instance of the same trap is the one that would have shipped a
-broken image: `MediaRead` gates on `Media::canShow()`, so the URL in the
-payload would have answered 404 for every portrait this feature adds. A
-consent that is honoured in the JSON and refused at the image is not a feature,
-it is a grey box — so the handler knows the rule too, and knows only this one:
-a `portal_photo` row, and nothing else, opens that door.
-
-#### Where it appears, and where it does not
-
-Three payloads carry the two fields — the directory row, the member's own
-page, and a connection card — **and only where `individual` is null**. Where
-the record is readable both live inside it and follow its rules; a second copy
-beside it would be two answers to one question, and they would not always
-agree (a dead person's family photograph is a portrait, and never a
-`portal_photo` row).
-
-Deliberately *not* on the tree screens. `individualRef()` returning null is
-what keeps a hidden relative out of a relative list altogether, and that
-must not change: this is an address book of people who already have accounts,
-not a way around the archive's own privacy.
-
----
-
 ### 2.68 An invitation is for somebody who cannot see the tree yet
 
 **The bug: every invitation link was dead on arrival**, on any tree with
@@ -4241,6 +4072,457 @@ administrator presses send from their own mailbox.
 
 ---
 
+
+---
+
+### 2.72 A card said "no record" and meant "not yours to see"
+
+A member opened a connection request and read *Kein verknüpfter Eintrag im
+Stammbaum* under a name. The archive had a record for that person. The line
+was simply false.
+
+The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
+returns null when the caller may not see the record, and
+`Connections::present()` also has nothing to hand over when nobody linked that
+account to a record at all. One field, two meanings — and the card picked the
+rarer one and stated it as a fact about the archive, out of an answer that was
+about the *reader*.
+
+**Which of the two it is cannot be disclosed**, and that is not an oversight:
+saying "there is a record here that is not yours to see" is exactly the
+sentence webtrees' privacy exists to withhold. So the server keeps both cases
+as one null, and the client says the only thing that is true of both —
+"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
+that way since Phase 2 (`member.private`); the two list rows had invented
+their own wording and got it wrong. They now share one string,
+`individual.notVisible`, so they cannot drift apart again.
+
+Worth knowing how ordinary the hidden case is: with a path-length limit set,
+every living person outside a member's own few steps is hidden from them
+(§2.34), so on such an installation *most* incoming requests arrive as a name
+with no record. The line was wrong far more often than it was right.
+
+#### The harness was answering privacy questions from the wrong member
+
+Pinning this found a fault in the tests rather than in the module. webtrees
+caches `canShow()` in `Registry::cache()->array()` under record, tree and
+access level — **not** under user, which is right in production, where that
+cache lives and dies inside one request. `PortalTestCase::login()` does not
+end a request, so a `true` computed for the member looking at *their own*
+record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
+handed to the next member who asked the same question at the same access
+level.
+
+The first version of this test said a confidential record travelled with a
+connection request. It does not; the harness had cached the subject's own view
+of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
+request gets, and the test says what it means to say. Any test in this suite
+that signs two people in and asks about privacy was until now capable of
+proving the opposite of the truth.
+
+---
+
+### 2.73 A name and white space is not an address book
+
+§2.66 fixed what the card *said*. What it showed was still a name and nothing
+else, and for a member whose record is closed to the reader that is the
+ordinary case rather than the exception: a connection request arrives, and the
+person it is from cannot be recognised at all.
+
+The record is closed for a good reason and stays closed. But two things on
+that card do not come from the archive's account of the person, and each has
+its own permission behind it.
+
+**A photograph they uploaded here themselves.** §2.50 already says a living
+person's picture is shown only where they put it — `portal_photo` is that
+consent, given to this portal, for exactly this. Withholding it because
+webtrees hides the record it hangs on would be honouring a rule about the
+*family's* data against the person the data is about. So it crosses, and
+nothing else in the gallery does: the family's photographs of them stay behind
+the record's privacy where they belong.
+
+**The archive number, if the family says so.** Off by default, and a switch in
+the control panel rather than a per-member choice, because the number is the
+family's naming scheme rather than anybody's personal data — it comes off a
+letterhead. And §2.57 already lets any member *type* a number and reach the
+person it belongs to whether or not they may read the record: showing it makes
+legible what was already searchable.
+
+A number the record marks confidential is still withheld. `Fact::canShow()`
+asks about the `RESN` on the fact rather than the privacy of the record around
+it, which is exactly the half that belongs here — the same split the number
+search relies on.
+
+**And nothing else.** Not the name on the record, not the years, not the
+nickname, not the relationship. `Recognition` is the whole rule and it is two
+fields wide.
+
+#### Two traps, and they are the same trap
+
+`GedcomRecord::facts()` hands back **nothing at all** for a record the reader
+may not see. So both halves of this walk into it:
+
+* `Media::firstImageFile()` reads `facts(['FILE'])`, and a media object counts
+  as private whenever any record it is linked to is
+  (`Media::canShowByType()`). The ordinary call therefore answers "this
+  photograph has no files in it" for precisely the pictures this exists to
+  show.
+* The archive number is a `REFN` fact, with the same answer — which is why
+  `Connections::memberByReference()` already reads at `PRIV_HIDE` and filters
+  fact by fact, and why this does too.
+
+The permission is decided first and the reading is done afterwards, at
+`PRIV_HIDE`, in both places.
+
+The third instance of the same trap is the one that would have shipped a
+broken image: `MediaRead` gates on `Media::canShow()`, so the URL in the
+payload would have answered 404 for every portrait this feature adds. A
+consent that is honoured in the JSON and refused at the image is not a feature,
+it is a grey box — so the handler knows the rule too, and knows only this one:
+a `portal_photo` row, and nothing else, opens that door.
+
+#### Where it appears, and where it does not
+
+Three payloads carry the two fields — the directory row, the member's own
+page, and a connection card — **and only where `individual` is null**. Where
+the record is readable both live inside it and follow its rules; a second copy
+beside it would be two answers to one question, and they would not always
+agree (a dead person's family photograph is a portrait, and never a
+`portal_photo` row).
+
+Deliberately *not* on the tree screens. `individualRef()` returning null is
+what keeps a hidden relative out of a relative list altogether, and that
+must not change: this is an address book of people who already have accounts,
+not a way around the archive's own privacy.
+
+---
+
+### 2.74 Leaving is not the same as changing your mind
+
+§2.52 made signing out unsubscribe the device, and that was right: a tablet
+that goes on buzzing for the account somebody just left announces to the next
+person in the kitchen that something arrived for the last one. What it also
+did — and nobody noticed until a member said so — was throw away the
+*decision*. Switch notifications on, sign out, come back: the switch is off
+again, in a place you have to remember, on every visit.
+
+So the two are separated. Signing out still unsubscribes the device. The wish
+is remembered, and the next sign-in acts on it.
+
+**The wish is an account id, not a flag.** That is the whole of the design.
+A boolean saying "notifications were on in this browser" would switch them on
+for whoever signs in next, which on a shared device is precisely what §2.52
+refused to do. `portal.notifications` holds the id of the member who switched
+them on here, and the restore happens only when that member is the one who
+came back.
+
+That id is the third thing this portal keeps in browser storage, after the
+language and the install prompt's "asked already". It is not a credential and
+unlocks nothing — it says that somebody with that portal id reads this family's
+portal in this browser — and switching notifications off clears it, because
+*that* is changing your mind.
+
+#### Silent, and permitted to be
+
+The restore asks nobody anything, and it is allowed not to because permission
+belongs to the *browser* and outlives the session: a member who granted it
+before signing out has already answered. `resume()` is `enable()` without the
+question, and it refuses anything short of `granted` rather than prompting —
+a permission prompt outside a user gesture is a prompt nobody tapped anything
+to get, and browsers are right to treat it as spam.
+
+Which turned up the one trap in the split. `enable()` asks and then subscribes;
+when it delegated the subscribing to `resume()`, `resume()` re-read
+`Notification.permission` — the very question just answered — and a browser
+that has not yet updated that property answered "not granted" to a member who
+had just said yes. Both paths now share the part after the decision and neither
+re-decides.
+
+Four things have to hold, and each is somebody's decision rather than a
+technicality: this member switched it on here, the browser still allows it, the
+family still offers the facility, and the portal still has keys. A failure of
+any of them is silent — nobody asked for this *now*; it is the standing wish of
+somebody who asked once — and the switch in *Einstellungen* goes on saying what
+is actually true.
+
+The sentence under the switch says both halves now. The first was already
+there; the second is the surprising one, and therefore the one that most needs
+saying.
+
+#### And the screen has to be told
+
+Shipped, and a member said the switch still read "off" until they reloaded.
+Fair: the restore is a round trip to the browser's push service, the settings
+screen is on its feet long before it comes back, and that screen asks whether
+this device is subscribed exactly once.
+
+Refetching `/push` is worth doing — the row it counts was created a moment ago
+— and it is **not enough**. The question the switch asks is answered by the
+*browser*, not the server, so no amount of refetching makes the browser answer
+it again; and where the member is already subscribed on another device the
+server's answer does not change at all, TanStack keeps the previous object by
+structural sharing, and an effect keyed on it never runs.
+
+So the restore says when it has actually subscribed, and the screen listens
+(`onSubscriptionChange`). Both halves: the refetch keeps the server's count
+honest, the listener keeps the switch honest.
+
+The first test written for this passed against the broken code, which is worth
+recording. The stub subscribed instantly, so the restore had finished before
+the screen ever asked — the bug needs the *order* it has in life, and the test
+only pins anything once the subscription is held until the screen has already
+said "off".
+
+---
+
+### 2.75 The pedigree stopped at the living, and the family are the living
+
+A member opened *Vorfahren* on their own record and read four rows: themselves,
+their parents, and one grandfather. The archive has that line back to 1780. It
+was not a bug, it was §2.20 working exactly as written — a person the member
+may not see was absent, and so was everyone above them — and it had quietly
+stopped being the right rule the day Phase 8 (§2.25) put a relationship path
+length on member accounts. From then on almost every line ran into a living
+person within two or three rungs and ended there. A genealogy portal whose
+genealogy ends at the reader's grandparents is not a genealogy portal.
+
+**The new rule: the shape is shown, the people in it are not.** Every rung the
+walk reaches is in the answer. Where the member may read the record, the entry
+is the full `IndividualRef` it always was. Where they may not, it is a
+placeholder — a position, `private: true`, and nothing else — and the walk
+carries on above it. The dead the archive exists to keep are reachable again,
+through the living, without any of the living being named.
+
+The old argument against a placeholder was that "a pedigree with a labelled
+hole in it tells the reader what fills the hole". That was true of a *labelled*
+hole, and it is the reason this one carries no label. What a placeholder says
+is that somebody occupies the position — which is what a pedigree is, and what
+the reader can work out anyway from the fact that they have a great-grandmother
+at all. What it does not say is anything about that person: no name, no dates,
+no picture, no archive number, and **no XREF**, so it is not a link and cannot
+be turned into a question to any other endpoint.
+
+**And it never says why.** A living person outside the member's reach and a
+record carrying `1 RESN confidential` produce the byte-identical entry. That
+was the one thing worth being careful about: "hidden" must not become readable
+as "alive", or the placeholder would answer a question about a person that
+nobody asked it. It is the same discipline `individualRef()` has kept since
+§2.5 — one null, two meanings, and the reader cannot tell which.
+
+**The root is the exception, and stays one.** A record the member may not read
+is still a 404 from `/individuals/{xref}/ancestors`, byte for byte the one an
+XREF that names nobody gets. Placeholders carry no XREF, so nothing in the
+portal can link to such a pedigree; what the refusal is for is somebody trying
+XREFs by hand to find out which of them name a real person. The endpoint
+answers about somebody the reader already reached and says nothing about
+anybody else.
+
+#### The one thing a placeholder may carry is that person's own decision
+
+Where the record belongs to a member who put themselves in the member
+directory, the rung carries the name they publish there and the member id
+behind it, and the portal links it to their member page.
+
+**That is consent being honoured, not privacy being widened.** Listing oneself
+in the directory is a decision that every other member may read that name and
+open that page; `Members` has published exactly that since Phase 2. Saying it
+again on a rung of a pedigree adds one fact — that this listed member stands at
+this position — which is the fact the family asked this screen for.
+
+**No genealogy data crosses.** The record stays shut: `individualRef()` refused
+it and nothing goes back to ask it a second question. The name comes from
+`portal_member_profile`, which is what `Member` was built to keep apart from
+the tree ("appearing in the directory ... must not turn into a way to read
+genealogy data that privacy rules would otherwise hide"), and no birth year, no
+place and no photograph travels beside it. It is the same switch `SearchConsent`
+already reads, so a member who turns the directory off in Settings disappears
+from the pedigree and from the search together — one switch, one meaning.
+
+**An explicit restriction on the record outranks it.** `1 RESN confidential`,
+`1 RESN privacy`, or a per-record privacy level set in webtrees' control panel
+is somebody who keeps the archive saying that *this record* is not to be shown,
+and that is a different question from what a person publishes about themselves
+in the portal. Such a rung stays a bare placeholder even for a listed member —
+who is still in the directory, where their name has been all along.
+`RESN locked` is deliberately not among them: it forbids editing, not reading,
+and treating it as a privacy notice would hide people the archive never meant
+to hide. The test mirrors `GedcomRecord::canShowRecord()` line for line so that
+it changes when webtrees does rather than growing a second opinion.
+
+#### Two things about webtrees that the walk had to stop trusting
+
+**The structure is now read at `Auth::PRIV_HIDE`, and that is the absence of a
+privacy decision rather than one.** Which family, and which two people are in
+it, is what this screen shows in every case; whether either of them may be
+*read* is decided one level up, in `rung()`, where the module's single gate
+is. Asking webtrees for the structure at the member's own level gives a worse
+answer, not a safer one: `Family::spouses()` filters on `canShowName()`, which
+turns on the tree's `SHOW_LIVING_NAMES` preference, and `childFamilies()`
+silently escalates to `PRIV_HIDE` anyway whenever `SHOW_PRIVATE_RELATIONSHIPS`
+is on — which is webtrees' default. The shape of a pedigree would otherwise
+move with two settings that have nothing to do with it.
+
+**A `RESN` on the family record still ends the branch — but only one that
+restricts reading.** A `confidential` or `privacy` notice on a FAM is somebody
+saying that *this connection* is confidential — not these people, the fact that
+they are joined — and a placeholder in the position it names would say the one
+thing that was asked to stay quiet.
+
+The first version of this refused on **any** `RESN` at all, copying
+`RelationshipNamer::families()` and its "not the place to be clever about
+which". That shipped, and it was wrong in the most expensive way available:
+`RESN locked` forbids *editing* a record, not reading it, and this archive uses
+it. One locked family emptied the entire pedigree above it — nine rungs became
+one, and the screen said *Keine Vorfahren hinterlegt* about a line the family
+has back to 1780.
+
+Two lessons, and the second is the one worth keeping. The first: the borrowed
+rule was right where it came from, because there the cost of being wrong is a
+disclosure, and it is exactly wrong here, where the cost is the archive. The
+second: this class had already written the distinction down one method above —
+`listedMember()` says in as many words that `locked` must not be read as a
+privacy notice — and then contradicted itself six lines later. `isRestricted()`
+is now asked of the family exactly as it is asked of a person, so there is one
+rule and it cannot drift. `TreeTest` pins both halves: a locked family does not
+truncate, a confidential one still ends the branch.
+
+The cost of not stopping is bounded and small: the walk now visits every
+position rather than however many happened to be visible, so six generations
+is at most 127 records instead of a handful. The screen asks for four, which
+is at most 31, each of them a record webtrees has already cached for the
+request — and the whole reason this endpoint exists is that 31 records in one
+response beat 31 round trips from a phone.
+
+#### What the tests had to be re-pointed at
+
+`TreeTest` used to assert the opposite of all of this — Ida absent, the walk
+stopping below her — and those two tests are now the other way round: Ida is a
+placeholder that carries nothing, and Otto (X12), her father, dead since 1899
+and restricted by nobody, is reachable at position 14. Four cases were added:
+a living person hidden by the path length produces the identical entry to a
+restricted one; a listed member is named from the directory and not from the
+record; a restricted record is not named even for a listed member; and a member
+who stayed out of the directory is not named either.
+
+The fixture has no living ancestors and cannot grow one — everybody above Anna
+died before 1980, and their dates are what makes them her ancestors — so the
+living case is produced the way a real installation produces it, with
+`KEEP_ALIVE_YEARS_DEATH` and a per-user relationship path length. That is the
+same pair of settings §2.25 is about, which is the point: the test is about the
+configuration the family actually runs.
+
+Those three tests carry `#[RunInSeparateProcess]`, and it is not optional.
+`Individual::isRelated()` keeps its breadth-first walk in a function-level
+`static` keyed by neither user nor tree, and matches with `in_array(…, true)` —
+strict identity, against `Individual` objects from whichever test ran first. A
+second test in the same process is therefore answered from a stranger's
+neighbourhood, against object identities that no longer exist, and *everybody*
+comes out unrelated. It passed alone and failed in the suite, which is exactly
+how that trap presents; `VisibilityTest` had already been bitten by it and says
+so in the same words.
+
+#### The client
+
+One shape on the wire became two, so `Ancestor` is a discriminated union in
+TypeScript rather than an interface with everything optional — a screen that
+forgets to handle a placeholder now fails to compile instead of rendering
+`undefined` as somebody's name. `private` is optional on the placement, because
+the module and the portal deploy separately and a server that predates the
+field never sends a placeholder either, so its absence reads correctly as
+"a person".
+
+A placeholder is not a link and does not look like one: a dashed border, a
+muted ground, no hover state, no tap target. The only placeholder that *is* a
+link is a listed member's, and it goes to `/members/{id}` — their portal page,
+which is what they consented to — with a second line saying so, so that a name
+on a rung is not read as the family tree having opened up.
+
+And the note under the list changed with the rule. It used to say that only
+people you are allowed to see are shown and that a line might continue beyond
+where it ends; both halves are now false. It says what is true instead: the
+dead are shown by name, the living stand in the line unnamed unless they listed
+themselves, and nothing from the tree is shown for them either way.
+
+---
+
+### 2.76 The other house names them
+
+A member opened a deceased great-aunt's page **in webtrees** and read the names
+of the living people in that family — the same people the pedigree in the
+portal had just shown as unnamed placeholders. Nothing was broken. Two
+programs were answering the same question differently, and neither of them
+said so anywhere.
+
+**Why webtrees answers the way it does.** `Individual::canShowName()` is an
+**or**:
+
+```php
+return (int) $this->tree->getPreference('SHOW_LIVING_NAMES') >= $access_level || $this->canShow($access_level);
+```
+
+`SHOW_LIVING_NAMES` defaults to `Auth::PRIV_USER` (`Tree.php:80`), so for a
+signed-in member the first half is true and `canShow()` never gets a vote.
+`chart-box.phtml:135` then prints `fullName()` in both branches of its own
+`canShow()` test — only the *link* is conditional. And with
+`SHOW_PRIVATE_RELATIONSHIPS` on, which is also the default,
+`RelativesTabModule` reads the family's `HUSB`/`WIFE`/`CHIL` links at
+`Auth::PRIV_HIDE`, so every row is listed to begin with.
+
+It is deliberate, and the reasoning is sound on its own terms — webtrees' help
+text says "the names (but no other details)", and a chart of forty boxes
+reading *Private* is not a chart. The disclosure really does stop at the name:
+the thumbnail, the zoom menu and the links menu are all behind `canShow()`, and
+`lifespan()` reaches the dates through `facts()`, which returns nothing at all
+for a record the reader may not see.
+
+**Why it is this module's business anyway.** `IndividualView` puts a link into
+webtrees at the foot of every person's page, for every member — *Stammbaum und
+Diagramme öffnen*. So the placeholder discipline of §2.75 is exactly one tap
+deep. The portal being stricter than webtrees is not a property of the portal;
+it is a property of two tree settings that no screen in either program relates
+to the other.
+
+Which is the same shape of problem as §2.25, and gets the same answer: the
+state is real, it is invisible, and nobody would think to go and look. So
+`Diagnosis::livingNames()` looks.
+
+**What it reports, and what it refuses to.** Both settings, in the third
+column, by the names and values webtrees itself gives them — `I18N::translate(
+'Show names of private individuals')` and `Auth::accessLevelNames()` — so that
+the row can be found on the screen it is about, in the administrator's own
+language. Only `SHOW_LIVING_NAMES` drives the status:
+
+* *Show to managers* — **ok**. The two programs agree.
+* *Show to members* — **warning**. Members read in webtrees what the portal
+  withholds.
+* *Show to visitors* — **problem**, but only where the tree can be read without
+  signing in. Otherwise a visitor cannot open the tree at all, "visitors"
+  behaves as "members", and it is a warning. A diagnosis screen that shouts
+  about something disclosing nothing is a screen that gets ignored on the day
+  it is right.
+
+`SHOW_PRIVATE_RELATIONSHIPS` is reported and never complained about, and that
+is a consequence of §2.75 rather than a shrug: whether a hidden relative's row
+is listed as *Private* or left off the page entirely, the portal's own pedigree
+now says the first of those — somebody stands here. Either value agrees with
+it. It is on the screen as a fact.
+
+**One version fork, in a place that already had one.** Whether the tree can be
+read without signing in was `REQUIRE_AUTHENTICATION` in `gedcom_setting` until
+**2.2.6**, which moved it into a column behind `Tree::private()` and left a
+shim that raises a deprecation notice. So `requiresAuthentication()` asks each
+version by name, exactly as `PortalTreeService::treeFromRow()` does for the
+constructor that moved in the same release. The harness had already met this
+one from the other side: `PortalTestCase::requireAuthentication()` writes the
+flag where the running version keeps it, because the shim both raises a notice
+— which this suite counts as risky — and writes to *every* tree in the table
+rather than to one.
+
+**What this check cannot do is fix it.** Unlike the path length, there is no
+button: these are webtrees' own tree settings, the portal has no business
+writing them behind an administrator's back, and the screen that owns them is
+two clicks away. The advice names the setting, the value to choose and the path
+to it, and stops there.
 
 ---
 
