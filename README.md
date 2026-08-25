@@ -124,7 +124,7 @@ itself and nothing about anybody — see *Installing it on a phone* below.
 
 ### Requirements
 
-* webtrees 2.2.x — developed and tested against **2.2.1**
+* webtrees 2.2.x — developed against 2.2.1, and tested against **2.2.6**, which is what the host runs
 * PHP 8.3–8.4 (webtrees 2.2's own requirement; the handoff said 8.2+, which is
   no longer enough for webtrees itself — see `NOTES.md`)
 * MySQL / MariaDB, or any database webtrees supports
@@ -536,6 +536,24 @@ invitation and password resets go to, not the one they may have published under
 contact details. If they later change it, the portal takes the old address off
 the list and puts the new one on, in that order.
 
+**The switch shows what Exchange says, not what the portal was told.** The
+family's lists are older than this portal, so most members are on one or two of
+them without ever having seen a switch — and telling those people "not
+subscribed" is not a cautious answer, it is a wrong one that invites them to
+subscribe to something they already get. So each list is read from Exchange and
+the answer kept for ten minutes: one list per request, which means a cold cache
+warms over as many visits as there are lists rather than putting three round
+trips in front of one screen. A change made in the admin centre shows up within
+that ten minutes; a change made in the portal shows up at once, because the
+module knows what it just did and writes it into the same answer. A list that
+cannot be read falls back to what the portal recorded, which costs a
+wrong-looking switch and never a screen that will not open.
+
+Only the hashes of the addresses are kept (`portal_list_snapshot`). The useful
+question is "is *this* address on that list", which a SHA-256 answers as well
+as the address does — and a second copy of the family's mailing list is not
+something this portal has any reason to hold.
+
 **Members never see a list's address.** A list is identified to the portal by
 the SHA-256 of its address, so that offering a subscription does not hand the
 family's distribution addresses to every browser. What a member sees is the
@@ -563,9 +581,11 @@ the syncing — the members' answers are in this portal's own database.
    (client) ID* and create a *client secret*.
 2. Under *API permissions*, add **Office 365 Exchange Online →
    Application permissions → `Exchange.ManageAsApp`**, and grant admin consent.
-3. Give its service principal an Entra role that may edit recipients.
-   **Exchange Recipient Administrator** is enough, and is a great deal less
-   than Exchange Administrator.
+3. Assign the Entra role **Exchange Administrator** to its **service
+   principal** — see *Which role, and where* below. This step is not the one
+   the previous step looks like: `Exchange.ManageAsApp` says the application
+   may speak to Exchange at all, and the role says what it may do. Without the
+   second, every call comes back `403`.
 4. In the module's preferences, fill in the tenant (its ID or its
    `.onmicrosoft.com` domain), the client ID and the secret.
 5. Name the lists, one per line:
@@ -578,6 +598,37 @@ the syncing — the members' answers are in this portal's own database.
    and lines beginning with `#` are ignored.
 6. Switch **Members may manage their own mailing-list subscriptions** on, and
    use *Test the connection to Exchange* on the diagnosis screen.
+
+##### Which role, and where
+
+**Where.** Not on the application. The *Roles and administrators* blade of an
+enterprise application lists who may administer *that app* — Cloud Application
+Administrator and the like — and is a different question entirely. The role
+goes on the service principal from the tenant-wide list: **Identity → Roles &
+admins → Roles & admins**, find the role, open it, *Add assignments*, and type
+the application's **exact** display name. The picker looks as though it only
+knows users and groups; service principals appear on an exact match and there
+is no filter that reveals them.
+
+A role that has never been used in the tenant exists only as a template and is
+invisible in that list. `New-MgDirectoryRole -RoleTemplateId …` materialises it;
+`New-MgDirectoryRoleMemberByRef` then assigns it. Under PIM the assignment must
+be **active**, not eligible — a daemon cannot activate a role. Allow a quarter
+of an hour before Exchange sees it.
+
+**Which.** Exchange Administrator, and it is worth knowing why the smaller role
+is not enough. Every write here carries `-BypassSecurityGroupManagerCheck`,
+because the check it bypasses asks whether the caller is in the list's
+`ManagedBy` — and a service principal can never be, not being a recipient. That
+switch needs Organization Management or the *Security Group Creation and
+Membership* role, and **Exchange Recipient Administrator has neither**. It is
+enough to create the mail contacts and not to change a single membership, which
+fails in the least helpful way possible: subscribing appears to work.
+
+A tenant that can define custom Exchange role groups has a smaller answer
+available — Exchange Recipient Administrator plus a role group granting
+*Security Group Creation and Membership* to the same service principal.
+Microsoft supports that combination. Not every plan allows it.
 
 **Addresses outside the tenant get a mail contact automatically**, because a
 distribution list holds recipients and not addresses. They are created hidden
@@ -1689,8 +1740,9 @@ preference, and one of the three things the portal keeps in browser storage.
 (The second is the language, and only as the answer for the moment before the
 portal knows who is reading: once somebody is signed in, their language comes
 from their account. The third is which account switched notifications on in
-this browser, so that signing out and back in does not undo the decision.) Saying no costs nothing: the offer stays in *Einstellungen*
-for good, and the dialogue says so. Somebody whose browser cannot install at
+this browser, so that signing out and back in does not undo the decision.)
+Saying no costs nothing: the offer stays in *Einstellungen* for good, and the
+dialogue says so. Somebody whose browser cannot install at
 all is not stopped on their way in, and neither is somebody reading inside
 another app's browser — that case needs "leave this app first", which is not
 what a dialogue on the way in is for.
@@ -2069,8 +2121,8 @@ nothing to a window belonging to somebody else — and the app acts on that
 message, while ignoring one that names a path leading off this site.
 
 **Mailing lists** (`module/tests/MailingListTest.php`,
-`portal/src/MailingLists.test.tsx`) — a list's address appears nowhere in the
-response at all, which is asserted against the whole body rather than a field,
+`module/tests/ExchangeConnectorTest.php`, `portal/src/MailingLists.test.tsx`) —
+a list's address appears nowhere in the response at all, which is asserted against the whole body rather than a field,
 while the hash that stands in for it does; a member's answer is written down
 before Exchange is told and survives a refusal, so the row still says what they
 wanted when nobody could be told about it; a refusal that will not change stops
@@ -2081,7 +2133,16 @@ account address takes the old one off the list before it puts the new one on; a
 key that names no configured list is a 400, the family's off switch is a 403
 that keeps what was already decided, and a signed-out caller gets 401 from
 both methods. On the client: the switch that moved is the only one sent, and a
-change that has not landed says so.
+change that has not landed says so. A member who never touched a switch is
+shown what Exchange says about them, somebody else being on the list says
+nothing about them, a list is not re-read on every visit, leaving one is not
+undone by an answer read ten minutes ago, and a list that cannot be read at all
+falls back rather than failing. `ExchangeConnectorTest` replaces the wire
+with a script and pins what the connector may conclude from an answer: a write
+refused for want of a role is never excused by the list happening to look
+right — the shape of the one bug a live tenant found — while an ordinary
+refusal is still checked against the membership, so "already a member" stays a
+success without this module recognising the sentence.
 
 **Messages** (`module/tests/InboxTest.php`, `portal/src/Messages.test.tsx`) —
 a member sees only messages addressed to them, and somebody else's message id

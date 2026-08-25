@@ -12,15 +12,21 @@ These are §12 of the handoff, plus what turned up while building.
 
 ### 1.1 The exact webtrees and PHP version on the target host
 
-**Still open, and it matters.**
+**Answered, and it mattered.** The host runs **2.2.6**; the suite now runs
+against 2.2.6 too, and `setup-test-env.sh` defaults to it.
 
-Built and tested against **webtrees 2.2.1**. Everything the module uses is
-webtrees' documented custom-module surface (`AbstractModule`,
-`ModuleCustomInterface`, `Registry::routeFactory()`, `GedcomRecord::canShow()`,
+Built originally against 2.2.1. Everything the module uses is webtrees'
+documented custom-module surface (`AbstractModule`, `ModuleCustomInterface`,
+`Registry::routeFactory()`, `GedcomRecord::canShow()`,
 `MigrationService::updateSchema()`), which is stable across 2.2.x — but
-internals do shift between minors, so **check the host's version before
-installing** and re-run `module/tools/setup-test-env.sh <version>` against it.
-The tests will tell you quickly if something moved.
+internals do shift between minors, and in 2.2.6 they did: `Tree` went from a
+three-argument constructor to nine, its title and members-only flag moved out
+of `gedcom_setting` into columns of `gedcom`, and `TimeoutService` grew an
+argument. That reached production as a fatal on one endpoint; see §2.70.
+
+So: **check the host's version before installing**, run
+`module/tools/setup-test-env.sh <version>` against it, and treat a suite that
+only passes on one release as untested rather than green.
 
 **One correction to the handoff:** it says PHP 8.2+. webtrees 2.2's own
 `composer.json` requires `"php": "8.3 - 8.4"`. If the host is on 8.2, webtrees
@@ -3361,9 +3367,9 @@ not exist.
 This is the part worth remembering. `create()` used to check the posted xref
 against the candidate list, which is exactly right while that list is a
 member's close family — a dozen people, built in full. For an editor the
-eligible set is the whole archive, and the screen is handed the first two
-hundred of it. Checking against *that* would have refused number two hundred
-and one for no reason anybody could explain.
+eligible set is the whole archive, and the screen was handed the first two
+hundred of it (since §2.69, none at all). Checking against *that* would have
+refused number two hundred and one for no reason anybody could explain.
 
 So there is now one method, `invitable()`, that answers about one person
 without building any list, and both the screen and the endpoint ask it. The
@@ -3647,9 +3653,310 @@ member of the group"* — matching Exchange's wording in Exchange's language,
 subject to Exchange's changes of mind, is the kind of dependency that breaks
 quietly in a year.
 
+**What the first live tenant taught, an hour after this was merged.** Both
+guesses survived. The recovery built on the second did not, and it failed in
+the worst available way: silently, and in the direction of looking fine.
+
+The application had been given *Exchange Recipient Administrator*, on the
+strength of a sentence in this repository's own README saying that was enough.
+It could read everything and write nothing. Every `Add-DistributionGroupMember`
+came back `403` with an empty body — and the read-back that followed said "yes,
+this address is on the list", because the administrator testing it was already
+a member of the list he was subscribing to. Three subscriptions reported as
+applied; none had been. The first *unsubscribe* was what broke the spell, and
+only because it is the one case where the wish and the world are obliged to
+disagree.
+
+Two things were wrong and each is worth stating on its own.
+
+The narrow one: **a refusal to act is not evidence about the world.** Reading
+the state back is a sound way to recover from "you asked for something that was
+already true" and a worthless one for "you may not ask" — in the second case
+the state says what it says for reasons that have nothing to do with the call.
+`ExchangeFailure` now carries `denied`, and a denied write is rethrown without
+the read-back. The regression test is the exact live configuration:
+`ExchangeConnectorTest`.
+
+The wide one: **the README was wrong about the role, and the code was what made
+it wrong.** Every write carries `-BypassSecurityGroupManagerCheck`, because a
+service principal can never be in a list's `ManagedBy` — it is not a recipient.
+That switch requires Organization Management or *Security Group Creation and
+Membership*, and Recipient Administrator is neither. So the least-privilege
+recommendation was never achievable *for this design*; it was achievable for a
+design that did not need the switch, and no such design exists here. Exchange
+Administrator is what it takes, unless a tenant can define its own Exchange role
+groups — which this one cannot.
+
+Worth keeping as a rule: **a fallback that turns failures into successes needs
+to know which failures it is entitled to forgive.** This one forgave all of
+them, and the cost was a feature that reported itself working for as long as
+nobody tried to undo anything.
+
+**The switch was answering the wrong question**, which the same afternoon made
+plain. Every member with no row was shown "not subscribed", and the family's
+lists are older than this portal — so that was wrong about nearly everybody,
+and it invited people to subscribe to post they already got. The fix is to read
+the membership and show that: a member asking "do I get this?" is asking about
+Exchange, and this portal is only the record of having asked for something.
+
+Three things that decides.
+
+**A pending decision still wins.** For the ten seconds between a member moving
+a switch and Exchange agreeing, the screen shows what they did — anything else
+is a switch springing back under their hand. Only a settled row defers to the
+world.
+
+**The answer is cached, and the cache is per list rather than per member.**
+There is no cmdlet for "which lists is this address on", so it has to be asked
+list by list; one answer then serves everybody who looks in the next ten
+minutes. One list is refreshed per request, for the same reason `outstanding()`
+applies one row per request — three lists times a ten-second timeout is not a
+delay to put in front of a screen on the day Exchange is what is broken. A cold
+cache warms over three visits.
+
+**Only hashes are kept.** `portal_list_snapshot` holds SHA-256 of each member
+address, which answers "is this address on that list" exactly as well as the
+address would and does not leave a second copy of the family's mailing list in
+a second database. Same reasoning as the list addresses themselves (§2.66,
+above) and the same non-claim: a hash of a known address is guessable by
+anybody who knows it. This is not secrecy, it is not keeping what there is no
+reason to keep.
+
+The one thing that had to be added rather than discovered: after a change is
+applied, the module writes the result into the snapshot itself instead of
+waiting for the next read. It knows what it just did, and without that a member
+who unsubscribed would be told for ten minutes that they had not.
+
 ---
 
-### 2.67 A card said "no record" and meant "not yours to see"
+### 2.68 An invitation is for somebody who cannot see the tree yet
+
+**The bug: every invitation link was dead on arrival**, on any tree with
+`REQUIRE_AUTHENTICATION` switched on — which is every tree this portal is
+built for. The invitee opened the link and read *„Diese Einladung gilt nicht
+mehr“*. Withdrawing it and issuing another produced another dead link, because
+nothing was wrong with either of them.
+
+Both endpoints on that path began with `PortalTreeService::tree()`, and that
+method resolves the portal's tree through webtrees' `TreeService::all()` —
+which is filtered by whoever is asking. webtrees' rule for a non-administrator
+is that a tree requiring authentication is visible only to somebody who holds a
+role on it. A person holding an invitation holds nothing: that is the entire
+premise. So the list came back empty, the configured tree looked deleted, and
+`POST /invitation/preview` and `POST /invitation/accept` both answered 503
+*before either of them looked at the token*.
+
+This class had already been bitten twice by the same filtering — `GET /health`
+answered `not_configured` for a healthy installation, and the link out to
+webtrees dead-ended for signed-out readers — and both were fixed in place, each
+with a paragraph explaining it. The third time it is a method:
+`PortalTreeService::configuredTree()` reads the module's configured tree from
+the `gedcom` table and hands back the `Tree`, asking nobody's permission. Only
+the two invitation endpoints use it. Nothing is granted by it — a `Tree` is an
+id, a name and a title, the two callers read no records through it, and what
+actually opens an invitation is the token, checked on the very next line.
+
+**Two things came out of the same hole.**
+
+*The test harness was hiding it.* `TreeService::all()` caches its answer for
+the request, and `PortalTestCase` kept one cache across every request a test
+made — so a visitor's request was answered out of the list built by the
+administrator who imports the fixture. `api()` now clears that cache before
+each dispatch, which is what a request boundary does in production. The
+fixture also leaves `REQUIRE_AUTHENTICATION` off, so the three new tests in
+`InvitationTest` turn it on: that is how the portal is actually run.
+
+*The screen was blaming the invitation.* `Invitation.tsx` treated **any**
+failed preview as a spent link. A 503 is not an answer about the token, and
+saying it is sends the invitee to ask for a replacement that fails identically
+— which is exactly the loop this bug produced. Only `invalid_token` now reads
+as "no longer valid"; everything else gets the ordinary error notice, with its
+retry and its reference number, and the accept form names `not_configured` and
+`server_error` rather than shrugging.
+
+---
+
+### 2.69 The list an editor never saw
+
+Two complaints about one screen, and the same sentence answers both: **an
+editor's invite screen is a search box, and it was being handed a list.**
+
+*It took a long time to open.* `overview()` built the editor's candidate list
+by reading every record in the archive and asking three questions of each — is
+this person visible to me, are they living, do they already have an account.
+The third went back to the database once per record (`outstanding()`), and the
+one behind it walked every user account in the installation (`hasAccount()`).
+Then the first two hundred survivors were presented in full — name,
+relationship, portrait — and the screen **threw all of it away**, because for
+`scope: anyone` it draws a search box and never looks at `candidates`. §2.60
+already knew the list was not the rule; what it kept was the list.
+
+So the editor gets no list: `candidates` is empty, and the search is the list.
+Nothing is lost by it. The rule lives in `invitable()` and is asked when the
+invitation is issued, which is where every refusal has always come from — and
+the two tests that used to read the list now ask the endpoint instead, which is
+the thing they were really about. `LISTED` is gone; the number an editor is
+told is left of their quota is now called `NO_QUOTA` and says why it is 200
+rather than a sentinel: a client one deploy behind would print "noch -1
+Einladungen". The screen no longer prints it at all where there is no quota —
+"Sie können noch 200 Einladungen offen haben" was a number invented to fill a
+line.
+
+*And the person was not shown.* Arriving from somebody's own page is the
+ordinary way onto this screen and it carries them in `?xref=`. The search
+component only recognised a choice that appeared in its own results, and it had
+searched for nothing — so the person the editor had just pressed the button for
+had to be found again by typing their name. It now fetches that one record when
+the choice came from the address bar rather than from a result, and says
+*Ausgewählt: …* before anything is typed. One record, and only when somebody is
+already chosen.
+
+---
+
+### 2.70 A constructor is not an interface
+
+The fix in §2.68 shipped, and the host answered every invitation with a fatal:
+
+```
+Too few arguments to function Fisharebest\Webtrees\Tree::__construct(),
+3 passed ... and exactly 9 expected
+```
+
+`configuredTree()` had to build a `Tree` webtrees would not hand over, and it
+did the obvious thing — `new Tree($id, $name, $title)`, which is what the
+three-argument constructor in 2.2.1 takes. **The host runs 2.2.6.** There,
+`Tree` takes nine constructor arguments, and its title, media folder,
+GEDCOM filename, contact users and members-only flag have moved out of
+`gedcom_setting` into columns of `gedcom`. The change is clean and deliberate
+on webtrees' part; what was wrong was reaching for the constructor at all.
+
+**Each version's own factory is asked for by name instead.** 2.2.6 and later
+have `Tree::fromDB($row)`, which takes the whole `gedcom` row; 2.2.5 and
+earlier have `Tree::rowMapper()`, which takes three fields and finds the title
+in `gedcom_setting`. `configuredTree()` picks by `method_exists()` and shapes
+the row the way that version's own `TreeService::all()` shapes it — because
+those two factories exist to serve exactly that query. There is no window
+between them: 2.2.6 is the release that swapped one for the other.
+
+It also asks webtrees first now. Where the caller *can* see the tree — a
+public tree, an editor, an administrator — `TreeService::all()` answers and
+nothing is constructed at all. Only a visitor to a members-only tree, which is
+the case §2.68 exists for, reaches the factory.
+
+**The suite ran on the wrong webtrees, which is why nothing caught it.** It is
+now pinned to 2.2.6 — `setup-test-env.sh` and both workflow cache keys — and
+three things in the harness had to move with it: `TimeoutService` grew a
+`PhpService` argument, so services come from the container rather than from
+`new`; the "has the import finished" flag became a column whose value a `Tree`
+object caches at construction, so it is read from the database instead of from
+the object; and `setPreference('REQUIRE_AUTHENTICATION', …)` is now a
+compatibility shim that raises a notice *and* writes to every tree in the
+table, so `PortalTestCase::requireAuthentication()` writes the column where
+there is one. A test that turned that notice into a failure is how the last of
+those was found.
+
+The lesson worth keeping: **webtrees' constructors are not its API.** Factories,
+services and the container are. Anything this module `new`s from webtrees'
+namespace is a version pin that will not announce itself until a host upgrades.
+
+---
+
+---
+
+### 2.71 The number says which branch, and nobody was reading it
+
+A member reads *SB 10/1335.21* on their own record and the portal has told them
+nothing they did not already know. The part in front of the oblique is a line,
+and the family does not talk in lines: lines 8 to 14 are together the **Zweig
+Cleve**, 21 to 31 the **Zweig Rothenhof**, 32 to 35 the Wilhelminische Linie.
+Asked where they come from, nobody answers "line 12". The branch was in the
+number the whole time, and the portal was printing the number and dropping the
+one part of it a member would say out loud.
+
+webtrees already shows it, as a badge from the family's own module. So this is
+the portal catching up with the back office rather than a new idea, and the
+grouping is ported from there unchanged.
+
+**The branch is derived from the number, not stored on the record.** It is a
+reading of `REFN`, in `SackNumbers::branch()`, called from
+`RecordPresenter::references()` — which means it stays right when the family
+edits the table, and it discloses nothing: the number it reads has already been
+through `Fact::canShow()`, and a number the reader may not see is not in the
+response to be read. It travels on the `Reference` shape as a third field, so a
+record with two numbers can name two branches, which is a thing that happens.
+
+Two services build that shape — `RecordPresenter::references()` and
+`Recognition::references()`, the one that lets a number through for a record
+the reader may not open — and both carry the branch. A card reading the list
+does not know which of the two filled it, and one of them being a field short
+is how one shape quietly becomes two.
+
+Four decisions inside it, each of which could have gone the other way.
+
+**Read what is written, not the resolved path.** `path()` turns a number into
+an ancestral path and is the basis of the whole calculator — but it only reads
+what the calculator can use. `HS/…`, the descendants of Heinrich Sack, is a
+numbering it does not read at all, and a member carrying one would have got no
+branch from a path-based reading. Taking the head as written gives `GS` and
+`HS` a name for free, and the branch is a property of the line anyway: it is
+settled before a single character of the descent has been looked at.
+
+**A number without an oblique gets no branch.** This is the one place the
+portal is deliberately less helpful than it could be. "24" is how the archive
+writes the head of line 24 — and it is also what the older, unrelated numbering
+looks like once it reaches two digits (§2.57). The fixture's Dieter carries a
+bare "9" and a "10/1335.21", and reading the first as line 9 would print *Zweig
+Cleve* on a record that has nothing to do with it. Naming the wrong branch on
+somebody's own record is a worse failure than naming none, so the oblique is
+required. The 36 line heads written bare are the price, and they are written
+"24/" as often as "24".
+
+**The names are family data, and the family writes them in both languages.**
+The two tables in `SackNumbers` are already the family's to edit rather than
+the software's — a new line in the archive is an evening's news, not a release
+— and the branch table is a third of the same kind, `sack_branches`, with its
+own box in the preferences.
+
+*This shipped once with the names untranslated*, on the reasoning that
+Mansfeld and Georg Sack are places and people rather than words. Which is true
+of the middle of the name and false of the rest of it: "Ernestinische Linie –
+Zweig Rothenhof" against "Ernestine Line – Rothenhof Branch" is two words of
+grammar around one unchanged place, and an English reader was getting a German
+sentence on their own record while every fact label and date beside it followed
+their language (§2.17). So a row now carries the name in as many languages as
+the family cares to write, `Name | en: Name`, and the reader gets theirs.
+
+Three things fall out of it, and each is the safe direction:
+
+* **The untagged name answers everybody who has no name of their own.** A
+  branch added on a Tuesday has one name until somebody writes the other, and
+  a reader of the second language must get *that* name — a branch missing
+  entirely reads as "we do not know where you are from", which is worse than
+  reading it in German.
+* **A country's English gets the English name.** webtrees has four Englishes
+  and one German; `en-GB` takes an `en:` name, because the difference between
+  two Englishes is not what this table is for.
+* **A second name with no language tag is dropped, not shown.** It would
+  otherwise appear as somebody's branch in a language they are not reading,
+  which is how a table like this goes quietly wrong.
+
+What the portal owns is still only the word in front: "Zweig der Familie", for
+a screen reader. The name itself is quoted, in whichever language it was
+quoted in.
+
+**On the record and nowhere else.** The number goes everywhere — every card in
+the portal has carried it since §2.51 — but the branch does not. `PersonCard`
+already carries a name, a lifespan, a number and a kinship in one line; the
+branch is a thing to read about a person you have opened, not a fifth thing to
+skim past on the way somewhere. The branch wheel in the connect form (§2.57)
+still offers bare numbers for the same reason it always did — that is a control
+for somebody holding a number, not a place to learn the family's geography —
+and naming the branches there would need the table in the browser, which is a
+second decision and not this one.
+
+---
+
+### 2.72 A card said "no record" and meant "not yours to see"
 
 A member opened a connection request and read *Kein verknüpfter Eintrag im
 Stammbaum* under a name. The archive had a record for that person. The line
@@ -3696,9 +4003,9 @@ proving the opposite of the truth.
 
 ---
 
-### 2.68 A name and white space is not an address book
+### 2.73 A name and white space is not an address book
 
-§2.67 fixed what the card *said*. What it showed was still a name and nothing
+§2.66 fixed what the card *said*. What it showed was still a name and nothing
 else, and for a member whose record is closed to the reader that is the
 ordinary case rather than the exception: a connection request arrives, and the
 person it is from cannot be recognised at all.
@@ -3771,7 +4078,7 @@ not a way around the archive's own privacy.
 
 ---
 
-### 2.69 Leaving is not the same as changing your mind
+### 2.74 Leaving is not the same as changing your mind
 
 §2.52 made signing out unsubscribe the device, and that was right: a tablet
 that goes on buzzing for the account somebody just left announces to the next
@@ -3822,8 +4129,6 @@ is actually true.
 The sentence under the switch says both halves now. The first was already
 there; the second is the surprising one, and therefore the one that most needs
 saying.
-
----
 
 ---
 
@@ -3891,13 +4196,14 @@ Flagging these so they get a second look rather than being inherited as fact.
     relative of the same name. A different failure therefore costs one wasted
     call before it is reported — which is cheaper than matching Exchange's
     wording, and does not rot when that wording changes.
-14. **A failed add or remove is checked by reading the membership back.** This
-    is how "already a member" and "not a member" are treated as successes
-    without recognising either sentence. It assumes
-    `Get-DistributionGroupMember` returns the address somewhere in each member
-    object — as `PrimarySmtpAddress`, or as an `SMTP:`-prefixed
-    `ExternalEmailAddress` — so every string in the answer is searched rather
-    than a chosen few.
+14. **A failed add or remove is checked by reading the membership back**, and
+    a refusal about *permission* deliberately is not. This is how "already a
+    member" and "not a member" are treated as successes without recognising
+    either sentence. It assumes `Get-DistributionGroupMember` returns the
+    address somewhere in each member object — as `PrimarySmtpAddress`, or as an
+    `SMTP:`-prefixed `ExternalEmailAddress` — so every string in the answer is
+    searched rather than a chosen few. The exclusion for `401` and `403` is not
+    a guess: it is what the first live tenant cost. See §2.66.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than

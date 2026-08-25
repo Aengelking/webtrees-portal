@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthProvider'
 import { ApiError, api } from '../api/client'
 import type { InvitationPreview } from '../api/types'
-import { Button, Field, Loading, Notice, PageHeading } from '../components/ui'
+import { Button, ErrorNotice, Field, Loading, Notice, PageHeading } from '../components/ui'
 
 const MINIMUM_PASSWORD_LENGTH = 8
 
@@ -33,6 +33,12 @@ export function Invitation() {
   const [preview, setPreview] = useState<InvitationPreview | null>(null)
   const [checking, setChecking] = useState(true)
   const [expired, setExpired] = useState(false)
+  // Kept apart from `expired`, because they are different things to be told.
+  // "This invitation is no longer valid" is an answer about the invitation;
+  // an unreachable or misconfigured server is not, and saying it anyway sends
+  // somebody to ask for a new link that will fail in exactly the same way.
+  const [failure, setFailure] = useState<unknown>(null)
+  const [attempt, setAttempt] = useState(0)
 
   const [username, setUsername] = useState('')
   const [realName, setRealName] = useState('')
@@ -51,6 +57,10 @@ export function Invitation() {
 
     let cancelled = false
 
+    setChecking(true)
+    setFailure(null)
+    setExpired(false)
+
     api
       .previewInvitation(token)
       .then((result) => {
@@ -64,9 +74,19 @@ export function Invitation() {
         setRealName(result.invited_name ?? '')
         setEmail(result.email ?? '')
       })
-      .catch(() => {
-        if (!cancelled) {
+      .catch((cause: unknown) => {
+        if (cancelled) {
+          return
+        }
+
+        // Only the server's own verdict on the token means the invitation is
+        // spent. Anything else — no network, a 503 from a portal that is not
+        // configured — is about the server, and treating it as an expired
+        // invitation is how a working link comes to look dead.
+        if (cause instanceof ApiError && cause.code === 'invalid_token') {
           setExpired(true)
+        } else {
+          setFailure(cause)
         }
       })
       .finally(() => {
@@ -78,7 +98,7 @@ export function Invitation() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, attempt])
 
   // Someone who is already signed in has nothing to do here. Redeeming the
   // invitation would replace the session they are already using.
@@ -90,6 +110,14 @@ export function Invitation() {
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
         <Loading />
+      </div>
+    )
+  }
+
+  if (failure !== null) {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-4 py-10">
+        <ErrorNotice error={failure} onRetry={() => setAttempt((previous) => previous + 1)} />
       </div>
     )
   }
@@ -249,6 +277,13 @@ function messageFor(cause: unknown, t: (key: string) => string): string {
       return t('invitation.badDetails')
     case 'network_error':
       return t('error.network')
+    // The account was not created, and not because of anything the invitee
+    // typed. Saying so is the difference between them waiting and them asking
+    // somebody who can fix it.
+    case 'not_configured':
+      return t('error.not_configured')
+    case 'server_error':
+      return t('error.server_error')
     default:
       return t('error.unknown')
   }

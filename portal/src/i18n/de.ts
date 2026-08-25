@@ -583,6 +583,7 @@ export const de = {
     spouses: 'Partnerinnen und Partner',
     children: 'Kinder',
     reference: 'SB-Nummer im Familienarchiv',
+    branch: 'Zweig der Familie',
     relationship: 'Für Sie: {{relationship}}',
     showAncestors: 'Vorfahren anzeigen',
     editInWebtrees: 'In webtrees öffnen und bearbeiten',

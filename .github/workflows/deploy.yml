@@ -95,7 +95,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: module/.webtrees
-          key: webtrees-2.2.1-${{ runner.os }}-php8.3
+          key: webtrees-2.2.6-${{ runner.os }}-php8.3
 
       - name: Set up the test environment
         run: module/tools/setup-test-env.sh

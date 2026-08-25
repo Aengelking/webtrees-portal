@@ -180,6 +180,71 @@ class InvitationTest extends PortalTestCase
     }
 
     // -----------------------------------------------------------------
+    // The invitee is a visitor
+    // -----------------------------------------------------------------
+
+    /**
+     * The whole point of an invitation is that its holder has no account, so
+     * nothing on this path may ask what they are allowed to see *before* it
+     * reads the token.
+     *
+     * It did. `PortalTreeService::tree()` resolves the portal's tree through
+     * `TreeService::all()`, which webtrees filters by whoever is asking: on a
+     * tree with `REQUIRE_AUTHENTICATION` a signed-out reader's list is empty,
+     * the configured tree looks deleted, and both endpoints refused with 503
+     * before the token was looked at. Every invitation on a private family
+     * tree — which is every invitation this portal is for — arrived at the
+     * invitee as "this invitation is no longer valid".
+     *
+     * The fixture leaves the setting off, which is why the tests above never
+     * saw it. This one turns it on, because that is how the portal is run.
+     */
+    public function testAnInvitationOpensOnATreeThatRequiresAuthentication(): void
+    {
+        $this->requireAuthentication();
+
+        $token   = $this->invite();
+        $preview = $this->preview($token);
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $preview->getStatusCode());
+        self::assertSame('Anna Beispiel', $this->json($preview)['invited_name']);
+        self::assertSame('Portal test tree', $this->json($preview)['tree']['title']);
+    }
+
+    /**
+     * And accepting it works too — including the part after the account
+     * exists, which reads the tree again as the member it has just made.
+     */
+    public function testAnInvitationIsAcceptedOnATreeThatRequiresAuthentication(): void
+    {
+        $this->requireAuthentication();
+
+        $response = $this->accept($this->invite());
+        $body     = $this->json($response);
+
+        self::assertSame(StatusCodeInterface::STATUS_CREATED, $response->getStatusCode());
+        self::assertSame('anna', $body['user']['username']);
+        self::assertSame('member', $body['user']['role']);
+        self::assertSame('Portal test tree', $body['tree']['title']);
+        self::assertNotNull($body['individual'], 'The new member cannot read their own record.');
+    }
+
+    /**
+     * What the fix must not do: hand the tree to somebody without a usable
+     * invitation. The tree is resolved before the token is read, so the
+     * refusal has to come from the token and nothing else.
+     */
+    public function testATreeThatRequiresAuthenticationStillRefusesAnUnknownToken(): void
+    {
+        $this->requireAuthentication();
+
+        $response = $this->preview(str_repeat('a', 64));
+
+        self::assertSame(StatusCodeInterface::STATUS_BAD_REQUEST, $response->getStatusCode());
+        self::assertSame('invalid_token', $this->json($response)['error']);
+    }
+
+    // -----------------------------------------------------------------
     // What the preview discloses
     // -----------------------------------------------------------------
 
@@ -481,8 +546,10 @@ class InvitationTest extends PortalTestCase
             'exchange_hide_contacts'  => '1',
             'sack_lines'              => '',
             'sack_marriages'          => '',
+            'sack_branches'           => '',
             'sack_lines_default'      => SackNumbers::DEFAULT_LINES,
             'sack_marriages_default'  => SackNumbers::DEFAULT_MARRIAGES,
+            'sack_branches_default'   => SackNumbers::DEFAULT_BRANCHES,
         ]);
 
         self::assertStringContainsString('invitation_days', $html);
@@ -499,10 +566,12 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('push_notifications', $html);
         self::assertStringContainsString('remember_days', $html);
 
-        // The two tables the family maintains, pre-filled with what is
+        // The three tables the family maintains, pre-filled with what is
         // shipped: an empty box would look like "we have no lines".
         self::assertStringContainsString(SackNumbers::SETTING_LINES, $html);
         self::assertStringContainsString('24 = 7d3', $html);
         self::assertStringContainsString(SackNumbers::SETTING_MARRIAGES, $html);
+        self::assertStringContainsString(SackNumbers::SETTING_BRANCHES, $html);
+        self::assertStringContainsString('Zweig Rothenhof', $html);
     }
 }

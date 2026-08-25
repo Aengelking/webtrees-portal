@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-WEBTREES_VERSION="${1:-${WEBTREES_VERSION:-2.2.1}}"
+WEBTREES_VERSION="${1:-${WEBTREES_VERSION:-2.2.6}}"
 
 MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEBTREES_DIR="${MODULE_DIR}/.webtrees"

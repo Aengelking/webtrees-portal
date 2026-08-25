@@ -14,10 +14,10 @@ use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\User;
 use Fisharebest\Webtrees\Auth;
-use Fisharebest\Webtrees\Tree;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 
@@ -303,6 +303,20 @@ class VisibilityTest extends PortalTestCase
      */
     public function testKeepAliveYearsPullTheRecentlyDeadBackIntoTheLimit(): void
     {
-        self::assertSame('', (new Tree(0, 'x', 'X'))->getPreference('KEEP_ALIVE_YEARS_DEATH', ''));
+        // Asked of a tree that has never been given the setting, because the
+        // point is webtrees' default rather than the fixture's. Built the way
+        // the module builds one — `new Tree(...)` took three arguments until
+        // 2.2.6 and nine after it, and a test that pins the old shape is a
+        // test that fails on the version the host actually runs.
+        DB::table('gedcom_setting')
+            ->where('gedcom_id', '=', $this->tree->id())
+            ->where('setting_name', '=', 'KEEP_ALIVE_YEARS_DEATH')
+            ->delete();
+
+        Registry::cache()->array()->forget('all-trees');
+
+        $tree = Registry::container()->get(PortalTreeService::class)->configuredTree();
+
+        self::assertSame('', $tree->getPreference('KEEP_ALIVE_YEARS_DEATH', ''));
     }
 }

@@ -218,6 +218,25 @@ class RecognitionTest extends PortalTestCase
     }
 
     /**
+     * The same shape the record's own numbers have, branch and all.
+     *
+     * Two services build this list now — `RecordPresenter::references()` and
+     * this one — and the card that reads it does not know which. One of them
+     * being a field short is how one shape quietly becomes two. Clara's number
+     * carries no oblique, so its branch is null (§2.67); what is asserted here
+     * is that the field is *there*.
+     */
+    public function testTheNumberCarriesItsBranchLikeEverywhereElse(): void
+    {
+        $this->showNumbers(true);
+
+        self::assertSame(
+            [['number' => '4713', 'type' => 'SB', 'branch' => null]],
+            $this->row()['references']
+        );
+    }
+
+    /**
      * `Fact::canShow()` asks about the `RESN` on the fact rather than the
      * privacy of the record around it — which is exactly the half that belongs
      * here. Clara's second number is marked confidential and stays that way.

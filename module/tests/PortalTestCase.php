@@ -25,7 +25,8 @@ use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\TestCase;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
-use Middleland\Dispatcher;
+use Fisharebest\Webtrees\Http\Dispatcher as WebtreesDispatcher;
+use Middleland\Dispatcher as MiddlelandDispatcher;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -34,6 +35,10 @@ use ReflectionProperty;
 use function json_decode;
 use function json_encode;
 use function preg_replace;
+use function class_exists;
+use function ini_set;
+use function sys_get_temp_dir;
+use function property_exists;
 use function time;
 
 use const JSON_THROW_ON_ERROR;
@@ -56,6 +61,13 @@ abstract class PortalTestCase extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Again here, not only in the bootstrap: webtrees' own `TestCase`
+        // re-bootstraps the program for every test, and PHPUnit restores ini
+        // settings around each one. The module's diagnostics belong in a file
+        // either way — on the runner's output they are counted as unexpected
+        // output, and this suite fails on risky tests by design.
+        ini_set('error_log', sys_get_temp_dir() . '/portal_api-tests.log');
 
         $this->correctTheRouterBasePath();
 
@@ -121,23 +133,51 @@ abstract class PortalTestCase extends TestCase
 
     private function loadPortalTree(): Tree
     {
-        $gedcom_import_service = new GedcomImportService();
-        $tree_service          = new TreeService($gedcom_import_service);
+        // Resolved from the container rather than constructed, because their
+        // constructors are not this harness's business: `TimeoutService` grew
+        // a `PhpService` argument in webtrees 2.2.6, and a `new` here pins the
+        // suite to one release of a program the module has to work across.
+        $container             = Registry::container();
+        $gedcom_import_service = $container->get(GedcomImportService::class);
+        $tree_service          = $container->get(TreeService::class);
         $tree                  = $tree_service->create('portal', 'Portal test tree');
-        $stream                = Registry::container()
+        $stream                = $container
             ->get(StreamFactoryInterface::class)
             ->createStreamFromFile(__DIR__ . '/data/portal.ged');
 
         $tree_service->importGedcomFile($tree, $stream, 'portal.ged', '');
 
-        $controller = new GedcomLoad($gedcom_import_service, new TimeoutService());
+        $controller = new GedcomLoad($gedcom_import_service, $container->get(TimeoutService::class));
         $request    = self::createRequest()->withAttribute('tree', $tree);
 
         do {
             $controller->handle($request);
-        } while (!$tree->getPreference('imported'));
+        } while (!$this->imported($tree));
 
         return $tree;
+    }
+
+    /**
+     * Has the import finished?
+     *
+     * Asked of the database rather than of the `Tree`, and that is not
+     * fussiness. In 2.2.6 the flag moved out of `gedcom_setting` into a
+     * column of `gedcom`, and the object's copy of it is fixed at
+     * construction — so a tree object made before the import says "not
+     * imported" forever, and this loop would never end.
+     */
+    private function imported(Tree $tree): bool
+    {
+        $row = DB::table('gedcom')->where('gedcom_id', '=', $tree->id())->first();
+
+        if ($row !== null && property_exists($row, 'imported')) {
+            return (bool) $row->imported;
+        }
+
+        return (string) DB::table('gedcom_setting')
+            ->where('gedcom_id', '=', $tree->id())
+            ->where('setting_name', '=', 'imported')
+            ->value('setting_value') !== '';
     }
 
     /**
@@ -191,6 +231,28 @@ abstract class PortalTestCase extends TestCase
      * Found while pinning that a confidential record does not travel with a
      * connection request: it did not, and the test said it did.
      */
+    /**
+     * Make the fixture tree the thing this portal is built for: members only.
+     *
+     * Written where this version of webtrees keeps it. In 2.2.6 the flag moved
+     * out of `gedcom_setting` into a column of `gedcom`, and the compatibility
+     * shim left behind both raises a notice — which a test that turns notices
+     * into failures cannot ignore — and writes to *every* tree in the table
+     * rather than this one.
+     */
+    protected function requireAuthentication(): void
+    {
+        $row = DB::table('gedcom')->where('gedcom_id', '=', $this->tree->id())->first();
+
+        if ($row !== null && property_exists($row, 'private')) {
+            DB::table('gedcom')->where('gedcom_id', '=', $this->tree->id())->update(['private' => 1]);
+
+            return;
+        }
+
+        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+    }
+
     protected function login(User $user): void
     {
         Registry::cache(new CacheFactory());
@@ -255,6 +317,16 @@ abstract class PortalTestCase extends TestCase
     ): ResponseInterface {
         $route = Registry::routeFactory()->routeMap()->getRoute($route_name);
 
+        // A request in production gets a fresh array cache, and
+        // `TreeService::all()` caches the tree list in it **filtered by
+        // whoever is asking**. Keeping one cache across the several requests
+        // a test makes would answer a visitor out of an administrator's list
+        // — and the fixture is imported by an administrator, so that is
+        // precisely what it would do. The invitation endpoints run for a
+        // visitor, so this is the difference between testing them and testing
+        // something else.
+        Registry::cache()->array()->forget('all-trees');
+
         $request = self::createRequest($method, $query)
             ->withAttribute('route', $route)
             ->withAttribute('client-ip', '203.0.113.7');
@@ -291,7 +363,15 @@ abstract class PortalTestCase extends TestCase
 
         $middleware = [...$route->extras['middleware'], RequestHandler::class];
 
-        return (new Dispatcher($middleware, Registry::container()))->dispatch($request);
+        // Whichever dispatcher this webtrees runs its own middleware through.
+        // 2.2.6 dropped `oscarotero/middleland` for a static dispatcher of its
+        // own, so a harness that names one of them is a harness that only
+        // works on one side of that release.
+        if (class_exists(WebtreesDispatcher::class)) {
+            return WebtreesDispatcher::dispatch($middleware, $request);
+        }
+
+        return (new MiddlelandDispatcher($middleware, Registry::container()))->dispatch($request);
     }
 
     /**

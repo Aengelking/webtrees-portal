@@ -189,4 +189,31 @@ describe('accepting an invitation', () => {
 
     expect(await screen.findByText('Diese Einladung gilt nicht mehr')).toBeDefined()
   })
+
+  /**
+   * The server can refuse for reasons that have nothing to do with the token
+   * — it did, on every tree that requires a login. Reporting that as a spent
+   * invitation is worse than saying nothing: the invitee asks for a new link,
+   * and the new one fails in exactly the same way.
+   */
+  it('does not blame the invitation for a server that could not answer', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        const url = String(input)
+
+        if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+        if (url.endsWith('/invitation/preview')) {
+          return jsonResponse({ error: 'not_configured', message: 'Not configured.' }, 503)
+        }
+
+        return jsonResponse({ error: 'unauthenticated', message: 'Please sign in.' }, 401)
+      }),
+    )
+
+    renderAt('/invitation?token=abc123')
+
+    expect(await screen.findByText('Da ist etwas schiefgelaufen')).toBeDefined()
+    expect(screen.queryByText('Diese Einladung gilt nicht mehr')).toBeNull()
+  })
 })

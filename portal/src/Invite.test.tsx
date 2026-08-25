@@ -499,7 +499,7 @@ describe('inviting anybody, as somebody who keeps the tree', () => {
     is_deceased: false,
     lifespan: '1992–',
     portrait: null,
-    references: [{ number: '4716', type: 'SB' }],
+    references: [{ number: '4716', type: 'SB', branch: null }],
     relationship: null,
   }
 
@@ -537,6 +537,23 @@ describe('inviting anybody, as somebody who keeps the tree', () => {
         }
 
         return jsonResponse({ ...OVERVIEW, scope: 'anyone', candidates: [], remaining: 200 })
+      }
+
+      if (url.includes('/individuals/X6')) {
+        return jsonResponse({
+          ...FRITZ,
+          name_alternative: null,
+          birth: null,
+          death: null,
+          events: [],
+          parents: [],
+          siblings: [],
+          spouses: [],
+          children: [],
+          pending_change: false,
+          invitable: true,
+          webtrees_url: 'https://tree.example.test/X6',
+        })
       }
 
       return jsonResponse(ME)
@@ -581,6 +598,30 @@ describe('inviting anybody, as somebody who keeps the tree', () => {
       expect(posted).toBeDefined()
       expect(String(posted?.[1]?.body)).toContain('X6')
     })
+  })
+
+  /**
+   * Arriving from a person's own page is the ordinary way onto this screen,
+   * and it carries them in `?xref=`. The search box cannot show that on its
+   * own — it has searched for nothing — so the person the editor pressed the
+   * button for used to have to be found again by name.
+   */
+  it('shows who was chosen on the way in, before anything is typed', async () => {
+    vi.stubGlobal('fetch', stubEditor())
+    renderAt('/invite?xref=X6')
+
+    expect(await screen.findByText(/Ausgewählt: Fritz Beispiel/)).toBeDefined()
+    expect((screen.getByLabelText('Person suchen') as HTMLInputElement).value).toBe('')
+  })
+
+  /** No quota, so no line about one — see `keepsTheTree()`. */
+  it('does not invent a number of invitations left', async () => {
+    vi.stubGlobal('fetch', stubEditor())
+    renderInvite()
+
+    await screen.findByLabelText('Person suchen')
+
+    expect(screen.queryByText(/offen haben/)).toBeNull()
   })
 
   it('says so when the search finds nobody', async () => {

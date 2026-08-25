@@ -127,7 +127,7 @@ describe('App', () => {
               ...ME,
               individual: {
                 ...ME.individual,
-                references: [{ number: '4711', type: 'SB' }],
+                references: [{ number: '4711', type: 'SB', branch: null }],
               },
             }),
       ),
@@ -140,6 +140,135 @@ describe('App', () => {
     // The name is a name. The number is its own line, after it.
     expect(heading.textContent).toBe('Anna Beispiel')
     expect(screen.getByText('SB 4711')).toBeDefined()
+  })
+
+  /**
+   * The line number is the bookkeeping; the branch is the answer somebody
+   * actually gives when asked where in the family they come from.
+   */
+  it('names the branch the number belongs to, under the number', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({
+              ...ME,
+              individual: {
+                ...ME.individual,
+                references: [
+                  {
+                    number: '10/1335.21',
+                    type: 'SB',
+                    branch: 'Ernestinische Linie – Zweig Cleve',
+                  },
+                ],
+              },
+            }),
+      ),
+    )
+
+    renderApp('/me')
+
+    expect(await screen.findByText('SB 10/1335.21')).toBeDefined()
+    expect(screen.getByText('Ernestinische Linie – Zweig Cleve')).toBeDefined()
+  })
+
+  /**
+   * The archive numbered some people more than once, and the older number can
+   * sit in a different branch. Both are true, so both are said — and a branch
+   * named twice is said once.
+   */
+  it('names every branch its numbers name, and each of them once', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({
+              ...ME,
+              individual: {
+                ...ME.individual,
+                references: [
+                  { number: '9', type: 'SB', branch: null },
+                  {
+                    number: '10/1335.21',
+                    type: 'SB',
+                    branch: 'Ernestinische Linie – Zweig Cleve',
+                  },
+                  {
+                    number: '10/1341.2',
+                    type: 'SB',
+                    branch: 'Ernestinische Linie – Zweig Cleve',
+                  },
+                  {
+                    number: '7/22.9',
+                    type: 'SB',
+                    branch: 'Ernestinische Linie – Zweig Dessau',
+                  },
+                ],
+              },
+            }),
+      ),
+    )
+
+    renderApp('/me')
+
+    // The label in front is for a screen reader — sighted readers get the
+    // branch under the number and need no word saying so.
+    expect((await screen.findByText(/Zweig Cleve/)).textContent).toBe(
+      'Zweig der Familie: Ernestinische Linie – Zweig Cleve · Ernestinische Linie – Zweig Dessau',
+    )
+  })
+
+  /**
+   * The field is newer than some of the servers that will answer this app, and
+   * a missing one must read as "no branch", not as the word "undefined".
+   */
+  it('survives a server that does not send the branch yet', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({
+              ...ME,
+              individual: {
+                ...ME.individual,
+                references: [{ number: '10/1335.21', type: 'SB' }],
+              },
+            }),
+      ),
+    )
+
+    renderApp('/me')
+
+    expect(await screen.findByText('SB 10/1335.21')).toBeDefined()
+    expect(screen.queryByText(/undefined/)).toBeNull()
+    expect(screen.queryByText(/Zweig/)).toBeNull()
+  })
+
+  /** A number that names no branch gets no line, rather than an empty one. */
+  it('says nothing about a branch where the number does not name one', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : jsonResponse({
+              ...ME,
+              individual: {
+                ...ME.individual,
+                references: [{ number: '4711', type: 'SB', branch: null }],
+              },
+            }),
+      ),
+    )
+
+    renderApp('/me')
+
+    expect(await screen.findByText('SB 4711')).toBeDefined()
+    expect(screen.queryByText(/Zweig/)).toBeNull()
   })
 
   it('survives a server that does not send reference numbers yet', async () => {

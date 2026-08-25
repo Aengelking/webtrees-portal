@@ -196,6 +196,118 @@ class PortalTreeService
     }
 
     /**
+     * The portal's tree itself, resolved without asking who wants it.
+     *
+     * `configuredTreeName()` above answers the same question and hands back a
+     * name. This hands back the tree, for the callers that need the record
+     * rather than a URL — and it is the third time this class has had to say
+     * the same thing, so it is worth saying plainly:
+     *
+     * **`tree()` cannot serve a visitor.** It resolves through
+     * `TreeService::all()`, which is filtered by whoever is asking: on a tree
+     * with `REQUIRE_AUTHENTICATION` — the setting a private family portal is
+     * built on — a signed-out reader's list is empty, so the configured tree
+     * looks deleted and `tree()` refuses with `not_configured`.
+     *
+     * That is the right answer for every authenticated endpoint. It is the
+     * wrong answer for the two that run *precisely* when nobody is signed in:
+     * `POST /invitation/preview` and `POST /invitation/accept`. The whole
+     * point of an invitation is that the person holding it has no account
+     * yet, so measuring their access to the tree before reading the token
+     * refuses everybody, always. The invitee sees "this invitation is no
+     * longer valid" and the invitation is perfectly good.
+     *
+     * Nothing is granted by resolving it this way. A `Tree` is an id, a name
+     * and a title; every record read through it is still privacy filtered at
+     * `Auth::accessLevel()`, and the only two callers read no records at all.
+     * What opens an invitation is the token, which is a credential, and it is
+     * checked immediately afterwards.
+     *
+     * @throws ApiException when no tree is configured and none can be guessed.
+     */
+    public function configuredTree(): Tree
+    {
+        $name = $this->configuredTreeName();
+
+        // Ask webtrees first. Wherever the caller *can* see the tree — a
+        // public one, an editor, an administrator — webtrees' own object is
+        // the one to use, and building another would be a second answer to a
+        // question that already has one.
+        $tree = $name === '' ? null : $this->tree_service->all()->get($name);
+
+        if ($tree instanceof Tree) {
+            return $tree;
+        }
+
+        $query = DB::table('gedcom')->where('gedcom_id', '>', 0);
+
+        if ($name !== '') {
+            $query->where('gedcom_name', '=', $name);
+        } else {
+            // `tree()`'s last resort, in its own order: no setting and no site
+            // default, so whichever tree exists.
+            $query->orderBy('gedcom_id');
+        }
+
+        $row = $query->first();
+
+        if ($row === null) {
+            throw $this->notConfigured(
+                $name === ''
+                    ? 'this webtrees installation has no family trees.'
+                    : 'the configured tree "' . $name . '" does not exist. Available: ' . $this->treeNames()
+            );
+        }
+
+        return $this->treeFromRow($row);
+    }
+
+    /**
+     * Build the tree object the way *this* webtrees builds it.
+     *
+     * `new Tree(...)` is not an option, and the reason is worth writing down
+     * because it cost a live portal an evening. In **2.2.6** the constructor
+     * went from three arguments to nine, and the title, the media folder and
+     * the members-only flag moved out of `gedcom_setting` into columns of
+     * `gedcom`. A module that calls the constructor itself is broken by that
+     * release with an `ArgumentCountError` — which is exactly what happened,
+     * on a host running 2.2.6 while this was written against 2.2.1.
+     *
+     * So neither version's shape is assumed. Each has a factory of its own
+     * and it is asked for by name; the row is shaped the way that version's
+     * `TreeService::all()` shapes it, because that is the code these two
+     * factories exist to serve.
+     *
+     * The next such move will break this again, and visibly — a fatal on one
+     * endpoint, with the version named in this comment. That is the trade for
+     * a portal that a visitor can be invited into at all; see
+     * `configuredTree()` above for why there is no third way.
+     */
+    private function treeFromRow(object $row): Tree
+    {
+        if (method_exists(Tree::class, 'fromDB')) {
+            // 2.2.6 and later. Everything the object needs is in its own row,
+            // which is why this is handed the whole of it.
+            return Tree::fromDB($row);
+        }
+
+        // 2.2.5 and earlier: three fields, and the title is a setting. A tree
+        // that has never been given one still has to be usable.
+        $title = (string) DB::table('gedcom_setting')
+            ->where('gedcom_id', '=', $row->gedcom_id)
+            ->where('setting_name', '=', 'title')
+            ->value('setting_value');
+
+        $mapper = Tree::rowMapper();
+
+        return $mapper((object) [
+            'tree_id'    => (int) $row->gedcom_id,
+            'tree_name'  => $row->gedcom_name,
+            'tree_title' => $title === '' ? $row->gedcom_name : $title,
+        ]);
+    }
+
+    /**
      * Refuse, telling the member nothing and the administrator everything.
      *
      * The member-facing message stays generic — it is shown to whoever is
