@@ -105,7 +105,7 @@ class AncestorTree
                     continue;
                 }
 
-                foreach ($this->parents($individual) as $offset => $parent) {
+                foreach ($this->parents($individual, $access_level) as $offset => $parent) {
                     $next[$position * 2 + $offset] = $parent;
                 }
             }
@@ -133,7 +133,7 @@ class AncestorTree
             return ['private' => false] + $ref;
         }
 
-        return ['private' => true, 'member' => $this->listedMember($individual)];
+        return ['private' => true, 'member' => $this->listedMember($individual, $access_level)];
     }
 
     /**
@@ -165,9 +165,9 @@ class AncestorTree
      *
      * @return array<string,mixed>|null
      */
-    private function listedMember(Individual $individual): array|null
+    private function listedMember(Individual $individual, int $access_level): array|null
     {
-        if ($this->isRestricted($individual)) {
+        if ($this->restrictedFrom($individual, $access_level)) {
             return null;
         }
 
@@ -181,32 +181,43 @@ class AncestorTree
     }
 
     /**
-     * Whether this record carries a restriction on *reading* it.
+     * Whether the record's **own** restriction hides it from *this* reader.
      *
-     * Asked of a person and of a family, because both questions come up in
-     * this class and both have exactly one right answer — webtrees'.
-     * `GedcomRecord::canShowRecord()` is mirrored line for line, so that if
-     * webtrees changes what counts as a restriction, this changes with it
-     * rather than growing a second opinion.
+     * The question webtrees asks, asked the same way. It has cost this class
+     * two pedigrees to arrive at, and both mistakes were the same mistake in
+     * different clothes: asking whether a record carries a restriction instead
+     * of whether that restriction applies to the person reading.
      *
-     * **`RESN locked` is not one of them, and that distinction has already
-     * cost this class a pedigree.** It forbids *editing* a record, not reading
-     * it; an archive that locks its records — this one does — would otherwise
-     * have every locked line silently truncated. `getIndividualPrivacy()` is
-     * keyed by XREF whatever the record type, because `default_resn` is, which
-     * is why one lookup serves both.
+     * `RESN` is not a flag, it is a level. `confidential` means "managers";
+     * `privacy` means "members"; `none` means everybody; `locked` is not about
+     * reading at all — it forbids editing, and an archive that locks records
+     * against accidental change, as this one does, must not lose its lines for
+     * it. `GedcomRecord::canShowRecord()` is mirrored below so that if webtrees
+     * ever changes what a notice means, this changes with it rather than
+     * growing a second opinion.
+     *
+     * **Deliberately only the record's own notice**, which is why this exists
+     * at all rather than a call to `Family::canShow()`. webtrees hides a family
+     * whenever *any* of its members is private (§2.20), so one confidential
+     * cousin would end a line that has nothing confidential about it. What is
+     * asked here is whether somebody said that *this record* is not to be
+     * shown.
+     *
+     * `getIndividualPrivacy()` is keyed by XREF whatever the record type,
+     * because `default_resn` is, so one lookup serves people and families
+     * alike.
      */
-    private function isRestricted(GedcomRecord $record): bool
+    private function restrictedFrom(GedcomRecord $record, int $access_level): bool
     {
         if (preg_match('/\n1 RESN (.+)/', $record->gedcom(), $match) === 1) {
             $restriction = (new RestrictionNotice(''))->canonical($match[1]);
 
             if (str_starts_with($restriction, RestrictionNotice::VALUE_CONFIDENTIAL)) {
-                return true;
+                return Auth::PRIV_NONE < $access_level;
             }
 
             if (str_starts_with($restriction, RestrictionNotice::VALUE_PRIVACY)) {
-                return true;
+                return Auth::PRIV_USER < $access_level;
             }
 
             if (str_starts_with($restriction, RestrictionNotice::VALUE_NONE)) {
@@ -214,7 +225,9 @@ class AncestorTree
             }
         }
 
-        return array_key_exists($record->xref(), $record->tree()->getIndividualPrivacy());
+        $privacy = $record->tree()->getIndividualPrivacy();
+
+        return array_key_exists($record->xref(), $privacy) && $privacy[$record->xref()] < $access_level;
     }
 
     /**
@@ -237,25 +250,31 @@ class AncestorTree
      * shape of a pedigree would then move with settings that have nothing to
      * do with it.
      *
-     * **A restriction on the family record still ends the branch — but only a
-     * restriction on reading it.** A `RESN confidential` or `RESN privacy` on
-     * a FAM is somebody saying that *this connection* is confidential — not
-     * these people, the fact that they are joined — and a placeholder in the
-     * position it names would say the one thing that was asked to stay quiet.
+     * **A restriction on the family record ends the branch — for the readers it
+     * is meant to keep out, and for nobody else.** A `RESN` on a FAM is
+     * somebody saying that *this connection* is confidential: not these
+     * people, the fact that they are joined. A placeholder in the position it
+     * names would say the one thing that was asked to stay quiet, so the line
+     * ends there instead.
      *
-     * `RESN locked` is emphatically not that, and this is where saying so
-     * matters most. `RelationshipNamer::families()` refuses on any restriction
-     * at all and is right to: it is deciding whether to *name* a relationship,
-     * where the cost of being wrong is a disclosure. Here the cost of being
-     * wrong is the opposite and it is enormous — a locked family truncated the
-     * whole pedigree above it, and an archive that locks records against
-     * accidental edits, as this one does, lost the lines it had most carefully
-     * kept. `isRestricted()` is asked instead, exactly as it is asked of a
-     * person.
+     * **Which readers, though, is the whole of it**, and getting that wrong
+     * cost this screen its pedigree twice over. `RelationshipNamer::families()`
+     * refuses on any restriction at all and is right to: it decides whether to
+     * *name* a relationship, where being wrong means a disclosure. Copying it
+     * here inverted the cost — being wrong means losing the archive — and it
+     * was wrong twice, in the same way both times. First `RESN locked`, which
+     * is not about reading at all and truncated every locked line in a family
+     * that locks its records. Then `RESN privacy`, which webtrees shows to
+     * every member, and `confidential`, which it shows to every manager: read
+     * as flags rather than as levels, they cut the line for the very people
+     * entitled to see past them — including the administrator looking at the
+     * screen and wondering where the family went.
+     *
+     * `restrictedFrom()` asks webtrees' own question, with the reader in it.
      *
      * @return array<int,Individual>
      */
-    private function parents(Individual $individual): array
+    private function parents(Individual $individual, int $access_level): array
     {
         $family = $individual->childFamilies(Auth::PRIV_HIDE)->first();
 
@@ -263,7 +282,7 @@ class AncestorTree
             return [];
         }
 
-        if ($this->isRestricted($family)) {
+        if ($this->restrictedFrom($family, $access_level)) {
             return [];
         }
 
