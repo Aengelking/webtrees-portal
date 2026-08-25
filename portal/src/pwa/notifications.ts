@@ -73,6 +73,34 @@ export async function enable(publicKey: string): Promise<string | null> {
     return null
   }
 
+  // Not `resume()`: it guards on `Notification.permission`, which is exactly
+  // the question that was just answered — and a browser that has said yes to
+  // the prompt has not necessarily updated that property yet.
+  return subscribeHere(publicKey)
+}
+
+/**
+ * Subscribe without asking anybody anything.
+ *
+ * The half of `enable()` after the question, for the case where the question
+ * has already been answered: this device was switched on, the member signed
+ * out, and now the same member has signed back in (`AuthProvider`). Permission
+ * belongs to the browser and outlives the session, so there is nothing to ask
+ * — and asking is exactly what may not happen here, because a permission
+ * prompt outside a user gesture is a prompt nobody clicked anything to get.
+ *
+ * Anything short of `granted` answers null rather than prompting.
+ */
+export async function resume(publicKey: string): Promise<string | null> {
+  if (permission() !== 'granted' || publicKey === '') {
+    return null
+  }
+
+  return subscribeHere(publicKey)
+}
+
+/** The subscription itself, once somebody else has established that it may be made. */
+async function subscribeHere(publicKey: string): Promise<string | null> {
   const registration = await navigator.serviceWorker.ready
 
   // An existing subscription is reused rather than replaced: it is the same
@@ -129,4 +157,60 @@ export async function subscribedHere(): Promise<boolean> {
   const registration = await navigator.serviceWorker.ready
 
   return (await registration.pushManager.getSubscription()) !== null
+}
+
+/**
+ * Which member had notifications switched on *on this device*.
+ *
+ * Signing out unsubscribes the device (§2.52), and rightly: a tablet that
+ * keeps buzzing for the account somebody just left announces to the next
+ * person that something arrived for the last one. But leaving is not the same
+ * as changing your mind, and a member who switched notifications on and then
+ * signed out had to go and find the switch again every time. So the *wish* is
+ * remembered here, and honoured the next time that member signs in.
+ *
+ * **An account id and not a boolean**, which is the whole reason this is
+ * worth writing down. A flag saying "notifications were on here" would switch
+ * them on for whoever signs in next, which on a shared tablet is precisely the
+ * thing §2.52 refused to do. The id is what makes "this member, on this
+ * device" answerable.
+ *
+ * It is not a credential and unlocks nothing: it is a number that says
+ * somebody with that portal id reads this family's portal in this browser.
+ * The third thing the portal keeps in browser storage, after the language and
+ * the install prompt's "asked already" flag — and, like them, a device
+ * preference rather than personal data of anybody else's.
+ *
+ * Switching notifications off clears it, because that *is* changing your mind.
+ */
+const STORAGE_KEY = 'portal.notifications'
+
+export function rememberNotifications(userId: number): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, String(userId))
+  } catch {
+    // Storage can be unavailable — a private window, blocked cookies. The
+    // member keeps notifications on this session; they just have to switch
+    // them on again after the next sign-in, which is where this started.
+  }
+}
+
+export function forgetNotifications(): void {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Nothing to do about it, and nothing that breaks: a flag that cannot be
+    // cleared only ever causes a subscription the member can switch off.
+  }
+}
+
+/** The remembered account, or null where this device has no wish on file. */
+export function rememberedNotifications(): number | null {
+  try {
+    const stored = Number(window.localStorage.getItem(STORAGE_KEY))
+
+    return Number.isInteger(stored) && stored > 0 ? stored : null
+  } catch {
+    return null
+  }
 }

@@ -3649,7 +3649,7 @@ quietly in a year.
 
 ---
 
-### 2.66 A card said "no record" and meant "not yours to see"
+### 2.67 A card said "no record" and meant "not yours to see"
 
 A member opened a connection request and read *Kein verknüpfter Eintrag im
 Stammbaum* under a name. The archive had a record for that person. The line
@@ -3696,56 +3696,9 @@ proving the opposite of the truth.
 
 ---
 
-### 2.66 A card said "no record" and meant "not yours to see"
+### 2.68 A name and white space is not an address book
 
-A member opened a connection request and read *Kein verknüpfter Eintrag im
-Stammbaum* under a name. The archive had a record for that person. The line
-was simply false.
-
-The mechanism is one null doing two jobs. `RecordPresenter::individualRef()`
-returns null when the caller may not see the record, and
-`Connections::present()` also has nothing to hand over when nobody linked that
-account to a record at all. One field, two meanings — and the card picked the
-rarer one and stated it as a fact about the archive, out of an answer that was
-about the *reader*.
-
-**Which of the two it is cannot be disclosed**, and that is not an oversight:
-saying "there is a record here that is not yours to see" is exactly the
-sentence webtrees' privacy exists to withhold. So the server keeps both cases
-as one null, and the client says the only thing that is true of both —
-"Keine Angaben aus dem Stammbaum sichtbar". The member's own page has said it
-that way since Phase 2 (`member.private`); the two list rows had invented
-their own wording and got it wrong. They now share one string,
-`individual.notVisible`, so they cannot drift apart again.
-
-Worth knowing how ordinary the hidden case is: with a path-length limit set,
-every living person outside a member's own few steps is hidden from them
-(§2.34), so on such an installation *most* incoming requests arrive as a name
-with no record. The line was wrong far more often than it was right.
-
-#### The harness was answering privacy questions from the wrong member
-
-Pinning this found a fault in the tests rather than in the module. webtrees
-caches `canShow()` in `Registry::cache()->array()` under record, tree and
-access level — **not** under user, which is right in production, where that
-cache lives and dies inside one request. `PortalTestCase::login()` does not
-end a request, so a `true` computed for the member looking at *their own*
-record (`GedcomRecord::canShowRecord()` has an explicit exception for it) was
-handed to the next member who asked the same question at the same access
-level.
-
-The first version of this test said a confidential record travelled with a
-connection request. It does not; the harness had cached the subject's own view
-of herself. `login()` now installs a fresh `CacheFactory`, which is what a new
-request gets, and the test says what it means to say. Any test in this suite
-that signs two people in and asks about privacy was until now capable of
-proving the opposite of the truth.
-
----
-
-### 2.67 A name and white space is not an address book
-
-§2.66 fixed what the card *said*. What it showed was still a name and nothing
+§2.67 fixed what the card *said*. What it showed was still a name and nothing
 else, and for a member whose record is closed to the reader that is the
 ordinary case rather than the exception: a connection request arrives, and the
 person it is from cannot be recognised at all.
@@ -3815,6 +3768,60 @@ Deliberately *not* on the tree screens. `individualRef()` returning null is
 what keeps a hidden relative out of a relative list altogether, and that
 must not change: this is an address book of people who already have accounts,
 not a way around the archive's own privacy.
+
+---
+
+### 2.69 Leaving is not the same as changing your mind
+
+§2.52 made signing out unsubscribe the device, and that was right: a tablet
+that goes on buzzing for the account somebody just left announces to the next
+person in the kitchen that something arrived for the last one. What it also
+did — and nobody noticed until a member said so — was throw away the
+*decision*. Switch notifications on, sign out, come back: the switch is off
+again, in a place you have to remember, on every visit.
+
+So the two are separated. Signing out still unsubscribes the device. The wish
+is remembered, and the next sign-in acts on it.
+
+**The wish is an account id, not a flag.** That is the whole of the design.
+A boolean saying "notifications were on in this browser" would switch them on
+for whoever signs in next, which on a shared device is precisely what §2.52
+refused to do. `portal.notifications` holds the id of the member who switched
+them on here, and the restore happens only when that member is the one who
+came back.
+
+That id is the third thing this portal keeps in browser storage, after the
+language and the install prompt's "asked already". It is not a credential and
+unlocks nothing — it says that somebody with that portal id reads this family's
+portal in this browser — and switching notifications off clears it, because
+*that* is changing your mind.
+
+#### Silent, and permitted to be
+
+The restore asks nobody anything, and it is allowed not to because permission
+belongs to the *browser* and outlives the session: a member who granted it
+before signing out has already answered. `resume()` is `enable()` without the
+question, and it refuses anything short of `granted` rather than prompting —
+a permission prompt outside a user gesture is a prompt nobody tapped anything
+to get, and browsers are right to treat it as spam.
+
+Which turned up the one trap in the split. `enable()` asks and then subscribes;
+when it delegated the subscribing to `resume()`, `resume()` re-read
+`Notification.permission` — the very question just answered — and a browser
+that has not yet updated that property answered "not granted" to a member who
+had just said yes. Both paths now share the part after the decision and neither
+re-decides.
+
+Four things have to hold, and each is somebody's decision rather than a
+technicality: this member switched it on here, the browser still allows it, the
+family still offers the facility, and the portal still has keys. A failure of
+any of them is silent — nobody asked for this *now*; it is the standing wish of
+somebody who asked once — and the switch in *Einstellungen* goes on saying what
+is actually true.
+
+The sentence under the switch says both halves now. The first was already
+there; the second is the surprising one, and therefore the one that most needs
+saying.
 
 ---
 

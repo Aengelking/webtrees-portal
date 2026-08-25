@@ -268,14 +268,21 @@ describe('offering notifications', () => {
     })
   })
 
-  it('says that signing out will switch this device off again', async () => {
+  /**
+   * Both halves of it. Signing out unsubscribes the device, and signing back
+   * in switches it on again — the second is the surprising one, so it is the
+   * one that most needs saying.
+   */
+  it('says what signing out and back in does to this device', async () => {
     stub(
       { available: true, public_key: 'BKxQ', subscribed: true },
       { permission: 'granted', existing: { endpoint: 'https://push.example.test/old' } },
     )
     renderIt()
 
-    expect(await screen.findByText(/Wenn Sie sich abmelden/)).toBeDefined()
+    const sentence = await screen.findByText(/Beim Abmelden/)
+
+    expect(sentence.textContent).toMatch(/schaltet es sich von selbst wieder ein/)
   })
 })
 
@@ -404,6 +411,220 @@ describe('signing out', () => {
  * this wrong fails at subscribe time with a message that names neither the key
  * nor the encoding, which is a bad afternoon.
  */
+/** Switching on records the wish, which is what the next sign-in reads. */
+describe('switching on', () => {
+  afterEach(() => {
+    window.localStorage.clear()
+  })
+
+  it('remembers whose device this is', async () => {
+    stub({ available: true, public_key: 'BKxQ', subscribed: false })
+
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <MemoryRouter>
+          <Notifications account={7} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await userEvent.setup().click(
+      await screen.findByRole('button', { name: 'Benachrichtigungen einschalten' }),
+    )
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('portal.notifications')).toBe('7')
+    })
+  })
+})
+
+/**
+ * And the other direction, which is the point of the first one being safe to
+ * do at all.
+ *
+ * Signing out unsubscribes the device — see above, and it must — but leaving
+ * is not the same as changing your mind. A member who switched notifications
+ * on here and signed out had to go and find the switch again on every visit.
+ * So the *wish* is kept (`rememberNotifications`), and the next sign-in acts
+ * on it without asking anybody anything.
+ */
+describe('signing back in', () => {
+  /** Signed in as this account, which is what the wish is keyed by. */
+  const ME = {
+    user: { id: 7, username: 'anna', real_name: 'Anna', email: 'a@b.test', language: 'de', role: 'member' },
+    profile: null,
+    individual: null,
+    tree: { name: 'portal', title: 'Familie Beispiel' },
+    csrf_token: 'token-1',
+  }
+
+  function signedIn(push: { available: boolean; public_key: string; subscribed: boolean }) {
+    posted.length = 0
+    calls.length = 0
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+        const url = String(input)
+
+        calls.push(`${init?.method ?? 'GET'} ${url}`)
+
+        if (url.endsWith('/csrf')) return jsonResponse({ csrf_token: 'token-1' })
+
+        if (url.includes('/push')) {
+          if (init?.method !== undefined && init.method !== 'GET') {
+            posted.push({ ...(JSON.parse(String(init.body)) as { endpoint: string }), method: init.method })
+          }
+
+          return jsonResponse(push)
+        }
+
+        return jsonResponse(ME)
+      }),
+    )
+
+    const subscribe = vi.fn().mockResolvedValue({ endpoint: 'https://push.example.test/new' })
+
+    vi.stubGlobal('Notification', { permission: 'granted', requestPermission: vi.fn() })
+    vi.stubGlobal('PushManager', function PushManager() {})
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent: DESKTOP,
+      maxTouchPoints: 0,
+      serviceWorker: {
+        ready: Promise.resolve({
+          pushManager: { subscribe, getSubscription: vi.fn().mockResolvedValue(null) },
+        }),
+      },
+    })
+
+    return { subscribe }
+  }
+
+  function renderApp() {
+    return render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <MemoryRouter initialEntries={['/me']}>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+  }
+
+  afterEach(() => {
+    window.localStorage.clear()
+  })
+
+  it('switches this device back on for the member who had it on', async () => {
+    const { subscribe } = signedIn({ available: true, public_key: 'BKxQ', subscribed: false })
+
+    window.localStorage.setItem('portal.notifications', '7')
+
+    renderApp()
+
+    await waitFor(() => {
+      expect(posted).toEqual([{ endpoint: 'https://push.example.test/new', method: 'POST' }])
+    })
+
+    // Silently: the permission was given once and belongs to the browser, and
+    // a prompt nobody tapped anything to get is a prompt out of nowhere.
+    expect(subscribe).toHaveBeenCalled()
+    expect(vi.mocked(Notification.requestPermission)).not.toHaveBeenCalled()
+  })
+
+  /**
+   * The whole reason the wish is an account id rather than a flag. A shared
+   * tablet must not start buzzing for the person who used it last.
+   */
+  it('leaves somebody else’s device alone', async () => {
+    signedIn({ available: true, public_key: 'BKxQ', subscribed: false })
+
+    window.localStorage.setItem('portal.notifications', '9')
+
+    renderApp()
+
+    await screen.findByRole('heading', { name: 'Mein Profil' })
+
+    expect(posted).toEqual([])
+  })
+
+  /** Nothing remembered is the ordinary case, and it stays quiet. */
+  it('does nothing where nobody ever switched it on here', async () => {
+    signedIn({ available: true, public_key: 'BKxQ', subscribed: false })
+    renderApp()
+
+    await screen.findByRole('heading', { name: 'Mein Profil' })
+
+    expect(posted).toEqual([])
+  })
+
+  /** The family's switch still decides, and it is asked before anything else. */
+  it('does not resubscribe where the family switched notifications off', async () => {
+    signedIn({ available: false, public_key: '', subscribed: false })
+
+    window.localStorage.setItem('portal.notifications', '7')
+
+    renderApp()
+
+    await screen.findByRole('heading', { name: 'Mein Profil' })
+
+    expect(posted).toEqual([])
+  })
+
+  /** A browser that is blocking is not asked, and is not worked around. */
+  /**
+   * Switching off *is* changing your mind, and it clears the wish — otherwise
+   * the next sign-in would undo the decision the member just made.
+   */
+  it('forgets the wish when the member switches this device off', async () => {
+    const { unsubscribe } = stub(
+      { available: true, public_key: 'BKxQ', subscribed: true },
+      { permission: 'granted', existing: { endpoint: 'https://push.example.test/old' } },
+    )
+
+    window.localStorage.setItem('portal.notifications', '7')
+
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
+      >
+        <MemoryRouter>
+          <Notifications account={7} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    await userEvent.setup().click(
+      await screen.findByRole('button', { name: 'Auf diesem Gerät ausschalten' }),
+    )
+
+    await waitFor(() => {
+      expect(unsubscribe).toHaveBeenCalled()
+    })
+
+    expect(window.localStorage.getItem('portal.notifications')).toBeNull()
+  })
+
+  it('does not resubscribe where the browser is blocking', async () => {
+    signedIn({ available: true, public_key: 'BKxQ', subscribed: false })
+
+    vi.stubGlobal('Notification', { permission: 'denied', requestPermission: vi.fn() })
+    window.localStorage.setItem('portal.notifications', '7')
+
+    renderApp()
+
+    await screen.findByRole('heading', { name: 'Mein Profil' })
+
+    expect(posted).toEqual([])
+  })
+})
+
 describe('the application server key', () => {
   it('decodes base64url, padding and all', () => {
     // "hello" in base64url, one padding character short of base64.
