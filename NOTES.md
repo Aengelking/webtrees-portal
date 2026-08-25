@@ -4257,15 +4257,29 @@ it. One locked family emptied the entire pedigree above it — nine rungs became
 one, and the screen said *Keine Vorfahren hinterlegt* about a line the family
 has back to 1780.
 
-Two lessons, and the second is the one worth keeping. The first: the borrowed
-rule was right where it came from, because there the cost of being wrong is a
-disclosure, and it is exactly wrong here, where the cost is the archive. The
-second: this class had already written the distinction down one method above —
-`listedMember()` says in as many words that `locked` must not be read as a
-privacy notice — and then contradicted itself six lines later. `isRestricted()`
-is now asked of the family exactly as it is asked of a person, so there is one
-rule and it cannot drift. `TreeTest` pins both halves: a locked family does not
-truncate, a confidential one still ends the branch.
+And then it was wrong a second time, in the same way, which is what makes it
+worth writing down properly. The first fix excluded `locked` and kept asking
+*whether a record carries a restriction*. But a `RESN` is not a flag, it is a
+**level**: `confidential` means "managers may see this", `privacy` means
+"members may see this". Read as flags, both cut the line for exactly the people
+entitled to see past them — a `privacy` notice on a family removed the pedigree
+for every member, which is everybody the portal has, and a `confidential` one
+removed it for the administrator who was looking at the screen wondering where
+the family went.
+
+So the question is not "is this record restricted" but "does its restriction
+hide it **from this reader**", which is webtrees' own question and the one
+`GedcomRecord::canShowRecord()` answers. `restrictedFrom()` mirrors that
+section, with the access level in it, and is asked of a family exactly as it is
+asked of a person.
+
+Deliberately still the record's *own* notice, and not `Family::canShow()`:
+webtrees hides a family whenever any of its members is private (§2.20), so one
+confidential cousin would end a line with nothing confidential about it.
+
+`TreeTest` pins all four corners: a locked family does not truncate; a
+`privacy` family does not truncate for a member; a `confidential` family
+truncates for a member and not for a manager.
 
 The cost of not stopping is bounded and small: the walk now visits every
 position rather than however many happened to be visible, so six generations

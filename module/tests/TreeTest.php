@@ -239,7 +239,7 @@ class TreeTest extends PortalTestCase
      * branch, with no placeholder in the position it names — because the
      * placeholder would say the one thing that was asked to stay quiet.
      */
-    public function testAConfidentialFamilyStillEndsTheBranch(): void
+    public function testAConfidentialFamilyEndsTheBranchForAMember(): void
     {
         $this->restrictFamily('F1', 'confidential');
         $this->signInAsAnna();
@@ -248,6 +248,40 @@ class TreeTest extends PortalTestCase
 
         self::assertCount(1, $people, 'Only the root: the connection itself is confidential.');
         self::assertSame(1, $people[0]['position']);
+    }
+
+    /**
+     * **The second regression, and the same mistake as the first.** A `RESN` is
+     * a level, not a flag. `privacy` means "members may see this"; reading it
+     * as "somebody restricted this record" cut the line for every member —
+     * that is, for everybody the portal has.
+     */
+    public function testAPrivacyNoticeOnAFamilyDoesNotEndTheBranchForAMember(): void
+    {
+        $this->restrictFamily('F1', 'privacy');
+        $this->signInAsAnna();
+
+        $names = $this->byPosition($this->ancestors('X1'));
+
+        self::assertSame('Emil Beispiel', $names[2], 'webtrees shows a “privacy” family to members.');
+        self::assertSame('Gustav Beispiel', $names[4]);
+    }
+
+    /**
+     * And `confidential` means "managers may see this" — so a manager keeps
+     * the line that a member loses. Two readers, one archive, one rule, taken
+     * from `GedcomRecord::canShowRecord()` rather than invented here.
+     */
+    public function testAManagerKeepsTheBranchAConfidentialFamilyTakesFromAMember(): void
+    {
+        $this->restrictFamily('F1', 'confidential');
+
+        $this->login($this->createUser('mia', 'Mia Verwalterin', 'geheim', UserInterface::ROLE_MANAGER, 'X1'));
+
+        $names = $this->byPosition($this->ancestors('X1'));
+
+        self::assertSame('Emil Beispiel', $names[2], 'A manager may see past a confidential connection.');
+        self::assertSame('Ida Beispiel', $names[7], 'And past a confidential person.');
     }
 
     /**

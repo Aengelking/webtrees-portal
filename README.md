@@ -1015,12 +1015,17 @@ name, no dates, no picture, no reference number and no link, and it never says
 *why* it is closed — a living relative outside the limit and a record marked
 `RESN confidential` look exactly the same, on purpose.
 
-**Two things can still end a line outright.** A `RESN confidential` or `RESN
-privacy` on the *family* record — somebody saying that this connection is
+**Two things can still end a line outright.** A restriction on the *family*
+record that hides it from this reader — somebody saying that this connection is
 confidential, rather than these people — and simply running out of recorded
-parents. `RESN locked` is deliberately not among them: it forbids editing a
-record, not reading it, and treating it as a privacy notice truncates every
-locked line in the archive.
+parents.
+
+Note *from this reader*: a `RESN` is a level, not a flag. `RESN confidential`
+ends the line for members and not for managers; `RESN privacy` ends it for
+visitors, so in the portal it ends it for nobody; and `RESN locked` is not a
+privacy notice at all — it forbids editing a record, not reading it — so it
+ends nothing. The rule is webtrees' own, taken from
+`GedcomRecord::canShowRecord()` rather than invented.
 
 **And one thing can put a name back on a rung: that person's own.** A member
 who has switched themselves into the member directory is named with the name
