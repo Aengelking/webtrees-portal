@@ -33,6 +33,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/individuals/{xref}',
       '/individuals/{xref}/ancestors',
       '/invitation/accept',
+      '/invitation/claim',
       '/invitation/preview',
       '/invitations',
       '/invitations/{id}',
@@ -79,6 +80,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/individuals/{xref}/ancestors': '}/ancestors`',
       '/invitation/preview': "'/invitation/preview'",
       '/invitation/accept': "'/invitation/accept'",
+      '/invitation/claim': "'/invitation/claim'",
       '/invitations': "'/invitations'",
       '/invitations/{id}': '`/invitations/${',
       // Served straight into <img src>, so the client has no fetch for it —

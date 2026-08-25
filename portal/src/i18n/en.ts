@@ -531,6 +531,24 @@ export const en: Translations = {
     blocked:
       'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
   },
+  claim: {
+    title: 'Join the family portal',
+    intro:
+      'You were sent this link in one of the family’s round-robin letters. Enter the email address that letter arrived at, and your personal invitation will be sent there.',
+    email: 'Your email address',
+    emailHint:
+      'The address the letter arrived at. We cannot send an invitation anywhere else.',
+    submit: 'Ask for an invitation',
+    sending: 'Sending…',
+    missing: 'Please enter your email address.',
+    sent: {
+      title: 'Please check your inbox',
+      body:
+        'If this address belongs to the family, your personal invitation is on its way. The link in it is yours alone and works once — please do not pass it on. Have a look in the spam folder too.',
+    },
+    haveAccount: 'Already have an account?',
+    backToLogin: 'Go to sign in',
+  },
   lists: {
     title: 'The family’s round-robin letters',
     intro:

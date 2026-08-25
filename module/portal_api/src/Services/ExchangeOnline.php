@@ -251,6 +251,43 @@ class ExchangeOnline
         ]);
     }
 
+    /**
+     * What Exchange calls the recipient at this address.
+     *
+     * Wanted for one thing only: this family names its mail contacts
+     * `22/1a32.124 Antje Beispiel` — the archive number, then the person — so
+     * the name carries the one fact that can tie an invitation to a record in
+     * the tree. See `InvitationCampaigns`.
+     *
+     * An empty string where there is no such recipient, or no name on it.
+     * Nothing here is worth failing an invitation over: a name that cannot be
+     * read costs the automatic link and nothing else, and an account that
+     * arrives unlinked is what every invitation issued by hand produces
+     * anyway.
+     */
+    public function recipientName(string $address): string
+    {
+        try {
+            $found = $this->invoke($this->token(), 'Get-Recipient', ['Identity' => $address]);
+        } catch (ExchangeFailure) {
+            return '';
+        }
+
+        $first = $found[0] ?? null;
+
+        if (!is_array($first)) {
+            return '';
+        }
+
+        foreach (['Name', 'DisplayName'] as $field) {
+            if (is_string($first[$field] ?? null) && trim($first[$field]) !== '') {
+                return trim($first[$field]);
+            }
+        }
+
+        return '';
+    }
+
     private function recipientExists(string $token, string $address): bool
     {
         try {

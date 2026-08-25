@@ -550,6 +550,32 @@ class DistributionLists
     }
 
     /**
+     * Is this address on any of these lists, as far as anybody here knows?
+     *
+     * Answered from the snapshots and never from Exchange directly, so it
+     * costs nothing and cannot be used to make somebody else's cloud busy. A
+     * list with no answer counts as no — see `subscribed()` for why an absent
+     * snapshot must never be read as an emptiness, and note that here it errs
+     * the safe way round: it withholds an invitation rather than handing one
+     * to somebody who is on no list at all.
+     *
+     * @param array<int,string> $lists list hashes
+     */
+    public function holds(string $address, array $lists): bool
+    {
+        $snapshots = $this->snapshots();
+        $mine      = self::hash($address);
+
+        foreach ($lists as $list) {
+            if (in_array($mine, $snapshots[$list] ?? [], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The address hashes on each list, as last read.
      *
      * @return array<string,array<int,string>>

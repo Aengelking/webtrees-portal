@@ -533,6 +533,24 @@ export const de = {
     blocked:
       'Ihr Browser blockiert Benachrichtigungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
   },
+  claim: {
+    title: 'Zum Familienportal anmelden',
+    intro:
+      'Sie haben diesen Link über eine Rundmail der Familie bekommen. Geben Sie hier die E-Mail-Adresse ein, an die diese Rundmail gegangen ist — Ihre persönliche Einladung schicken wir dann genau dorthin.',
+    email: 'Ihre E-Mail-Adresse',
+    emailHint:
+      'Die Adresse, unter der Sie die Rundmail bekommen haben. An eine andere können wir nichts schicken.',
+    submit: 'Einladung anfordern',
+    sending: 'Wird gesendet …',
+    missing: 'Bitte geben Sie Ihre E-Mail-Adresse ein.',
+    sent: {
+      title: 'Bitte sehen Sie in Ihr Postfach',
+      body:
+        'Wenn diese Adresse zur Familie gehört, ist Ihre persönliche Einladung unterwegs. Der Link darin gilt nur für Sie und nur einmal — bitte geben Sie ihn nicht weiter. Sehen Sie auch im Spam-Ordner nach.',
+    },
+    haveAccount: 'Sie haben schon einen Zugang?',
+    backToLogin: 'Zur Anmeldung',
+  },
   lists: {
     title: 'Rundmails der Familie',
     intro:
