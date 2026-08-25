@@ -8,6 +8,7 @@ import {
   disable,
   enable,
   forgetNotifications,
+  onSubscriptionChange,
   permission,
   rememberNotifications,
   subscribedHere,
@@ -64,6 +65,12 @@ export function Notifications({ account }: { account?: number }) {
   useEffect(() => {
     void subscribedHere().then(setHere)
   }, [data?.subscribed])
+
+  // And again whenever the device subscribed itself behind this screen's back
+  // — the silent restore after a sign-in (`AuthProvider`). Without this, a
+  // member who opens Settings straight after signing in is told "off" about a
+  // device that is on, and only a reload puts it right.
+  useEffect(() => onSubscriptionChange(() => void subscribedHere().then(setHere)), [])
 
   const state = permission()
 

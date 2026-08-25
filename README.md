@@ -2224,7 +2224,11 @@ signing out unsubscribes the device while there is still a session to say so
 with; signing back in resubscribes it silently, without a permission prompt;
 a *different* account signing in on that device is left alone; a family that
 switched notifications off, and a browser that is blocking, are both obeyed;
-and switching off clears the wish, so nothing switches itself back on.
+switching off clears the wish, so nothing switches itself back on; and the
+switch in *Einstellungen* shows the device as on **without a reload**, with
+the subscription deliberately held until the screen has already said "off" —
+including for a member whose server-side answer never changes because they are
+subscribed on another device too.
 
 **The navigation bar** (`portal/e2e/smoke.spec.ts`) — it stays at the bottom of
 the screen while the page scrolls under it, on a phone held upright *and* on
