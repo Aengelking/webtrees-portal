@@ -6,6 +6,8 @@ namespace Engelking\Webtrees\PortalApi\Tests;
 
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberAncestorsRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
@@ -414,6 +416,99 @@ class TreeTest extends PortalTestCase
     public function testAncestorsNeedASession(): void
     {
         self::assertSame(401, $this->api(AncestorsRead::class, attributes: ['xref' => 'X1'])->getStatusCode());
+    }
+
+    // -----------------------------------------------------------------
+    // The other door: a member whose record is shut (§2.77)
+    // -----------------------------------------------------------------
+
+    /**
+     * The case this door was cut for.
+     *
+     * Clara (X3) carries `1 RESN confidential` and is alive. A member looking
+     * at her page in Kontakte sees a name, no record — and until §2.77, no way
+     * at all into the family above her, though her parents are Emil and
+     * Bertha, dead since 1961 and 1976 and restricted by nobody.
+     */
+    public function testAListedMembersPedigreeOpensThoughHerRecordDoesNot(): void
+    {
+        $clara = $this->createUser('clara', 'Clara Beispiel', 'geheim', UserInterface::ROLE_MEMBER, 'X3');
+        $id    = $this->createProfile($clara, true);
+
+        $this->signInAsAnna();
+
+        $response = $this->api(MemberAncestorsRead::class, attributes: ['id' => $id]);
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $people = $this->json($response)['people'];
+        $names  = $this->byPosition($people);
+
+        self::assertTrue($this->at($people, 1)['private'], 'Her own record is still shut.');
+        self::assertSame('Emil Beispiel', $names[2]);
+        self::assertSame('Bertha "Betty" Beispiel', $names[3]);
+
+        // The record stayed shut, and nothing of it travelled with the answer.
+        self::assertStringNotContainsString('X3', $this->raw($response));
+        self::assertStringNotContainsString('1987', $this->raw($response));
+    }
+
+    /**
+     * And the door is the member page's own, not a new one.
+     *
+     * A member who stayed out of the directory and connected with nobody is a
+     * 404 here exactly as they are there — and so is a member the tree has no
+     * record for. Which of the two it is, is the sentence §2.66 keeps to
+     * itself, so the two refusals are byte-identical.
+     */
+    public function testTheDoorIsTheMemberPagesOwn(): void
+    {
+        $unlisted = $this->createUser('ulf', 'Ulf Unsichtbar', 'geheim', UserInterface::ROLE_MEMBER, 'X3');
+        $hidden   = $this->createProfile($unlisted, false);
+
+        $recordless = $this->createUser('nora', 'Nora Ohnesatz', 'geheim', UserInterface::ROLE_MEMBER);
+        $listed     = $this->createProfile($recordless, true);
+
+        $this->signInAsAnna();
+
+        $a = $this->api(MemberAncestorsRead::class, attributes: ['id' => $hidden]);
+        $b = $this->api(MemberAncestorsRead::class, attributes: ['id' => $listed]);
+
+        self::assertSame(404, $a->getStatusCode(), 'Not listed, not connected.');
+        self::assertSame(404, $b->getStatusCode(), 'Listed, but the tree has no record for them.');
+        self::assertSame($this->raw($a), $this->raw($b));
+    }
+
+    /**
+     * The member page says whether the door leads anywhere, so that the button
+     * is not offered onto an empty room.
+     */
+    public function testTheMemberPageSaysWhetherThereIsAPedigreeToOpen(): void
+    {
+        $clara  = $this->createProfile(
+            $this->createUser('clara', 'Clara Beispiel', 'geheim', UserInterface::ROLE_MEMBER, 'X3'),
+            true
+        );
+        // Fritz (X6) is in the tree and has no parents recorded at all.
+        $fritz  = $this->createProfile(
+            $this->createUser('fritz', 'Fritz Beispiel', 'geheim', UserInterface::ROLE_MEMBER, 'X6'),
+            true
+        );
+
+        $this->signInAsAnna();
+
+        $hers = $this->json($this->api(MemberRead::class, attributes: ['id' => $clara]));
+        $his  = $this->json($this->api(MemberRead::class, attributes: ['id' => $fritz]));
+
+        self::assertNull($hers['individual_detail'], 'Her record is confidential.');
+        self::assertTrue($hers['ancestors'], 'And her parents are in the archive.');
+
+        self::assertFalse($his['ancestors'], 'Nobody stands above him.');
+    }
+
+    public function testAMembersPedigreeNeedsASession(): void
+    {
+        self::assertSame(401, $this->api(MemberAncestorsRead::class, attributes: ['id' => 1])->getStatusCode());
     }
 
     // -----------------------------------------------------------------

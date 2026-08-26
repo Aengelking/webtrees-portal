@@ -1095,6 +1095,26 @@ portal appears. A record carrying `RESN confidential`, `RESN privacy` or a
 per-record privacy level set in *Control panel → Privacy* is never named this
 way, even for a listed member.
 
+#### Reaching the pedigree of somebody whose record is closed to you
+
+A contact's page in *Kontakte* shows no record where the archive entry is not
+shared with the reader — and therefore none of the buttons that live on a
+record. The family above that person was unreachable that way, though it is
+mostly people long dead.
+
+So a member's page offers *Vorfahren anzeigen* of its own, which opens the same
+pedigree by member id rather than by archive reference. It appears only where
+somebody actually stands above that member, and it opens exactly where their
+member page opens: they listed themselves in the member directory, or the two
+of you connected. The person themselves is an unnamed rung in their own
+pedigree, like any other living person; what is named is the dead above them.
+
+One consequence worth knowing, because the portal is otherwise careful about
+it: the presence of that button says that this member has an entry in the
+archive. It is shown only to somebody who may already open their page — and
+that page may already be showing their archive number — but it is a thing the
+portal elsewhere declines to say.
+
 #### Two settings in webtrees that the portal cannot reach
 
 *Control panel → Family trees → Preferences → Privacy.* These belong to
@@ -2114,7 +2134,8 @@ own origin, never webtrees'; a photograph may be kept by a browser and by
 nothing else, and webtrees' own `public, max-age=31536000` is refused at the
 proxy.
 
-**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — an
+**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`,
+`portal/src/Contacts.test.tsx`) — an
 ancestor the member may not read is a placeholder carrying a position and
 nothing else, and the walk carries on above it to the dead who are not
 restricted; a living person hidden by the relationship path length produces the
@@ -2124,7 +2145,11 @@ and never from the record, while a restricted record is not named even for a
 listed member and an unlisted member is not named at all; a relationship is
 never named through someone the member may not see, though a manager who can
 see the whole path is told; a hidden root and a missing one give byte-identical
-404s.
+404s. A contact whose record is closed still has a pedigree that opens, by
+member id, with her own rung a placeholder and her dead parents named; a member
+who is neither listed nor connected and a member the tree has no record for
+give byte-identical 404s; and the button is offered only where somebody stands
+above them.
 
 **Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
 `Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does

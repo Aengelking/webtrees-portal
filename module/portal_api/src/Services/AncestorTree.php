@@ -117,6 +117,24 @@ class AncestorTree
     }
 
     /**
+     * Is there a rung above this person at all?
+     *
+     * Asked by the member screen, which offers a way into the pedigree of
+     * somebody whose record it may not open, and should not offer a door onto
+     * an empty room. Deliberately the same question `build()` asks — the first
+     * child family, the same restriction test, the same reader — so the button
+     * and the screen behind it cannot disagree.
+     *
+     * It answers about the *shape*: true where somebody stands above, whether
+     * or not this reader may read them. That is the whole point of §2.75, and
+     * it is why a member with only living parents still gets the door.
+     */
+    public function hasParents(Individual $individual, int $access_level): bool
+    {
+        return $this->parents($individual, $access_level) !== [];
+    }
+
+    /**
      * One rung: the person, or the fact that somebody is standing there.
      *
      * `individualRef()` is the module's single gate on genealogy data and it

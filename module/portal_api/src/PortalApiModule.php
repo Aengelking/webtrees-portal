@@ -48,6 +48,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndexRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberAncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordResetCreate;
@@ -423,7 +424,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(SearchList::class, new SearchList($portal_trees, $presenter, $tree_search));
         $container->set(IndexRead::class, new IndexRead($portal_trees, $tree_search));
         $container->set(RelationshipRead::class, new RelationshipRead($sack));
-        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections, $recognition));
+        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections, $recognition, $ancestors));
+        $container->set(MemberAncestorsRead::class, new MemberAncestorsRead($portal_trees, $members, $connections, $ancestors));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
@@ -544,6 +546,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $private]);
 
         $map->get(MemberRead::class, self::ROUTE_PREFIX . '/members/{id}', MemberRead::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $private]);
+
+        // The pedigree of somebody whose record the reader may not open. Keyed
+        // by member id rather than XREF on purpose — see the handler.
+        $map->get(MemberAncestorsRead::class, self::ROUTE_PREFIX . '/members/{id}/ancestors', MemberAncestorsRead::class)
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $private]);
 

@@ -2535,6 +2535,68 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /members/{id}/ancestors:
+    get:
+      tags: [members]
+      summary: A member's ancestors, by member id
+      description: |
+        The same pedigree as `/individuals/{xref}/ancestors`, reached by a
+        different door — and it exists because that door cannot open for the
+        case that needs it most.
+
+        A member whose genealogy record is closed to this reader has no XREF
+        here to ask with: the member page does not publish one, and the other
+        endpoint refuses a root the reader may not see. It has to, because an
+        XREF is a guessable string and answering differently for one would turn
+        it into a way of finding out which XREFs name a real person. A portal
+        member id is not that.
+
+        **The gate is the member page's own.** This opens exactly where
+        `GET /members/{id}` opens: the member listed themselves in the
+        directory, or the two of them connected — the narrower consent of the
+        two, because both gave it. Anything else is `404`, and so is a member
+        with no record in the tree: which of the two it is, is the sentence the
+        portal keeps to itself.
+
+        The root is very often a placeholder, because a closed record is the
+        reason for coming here. Its name is on the member page the reader came
+        from; the pedigree does not repeat it.
+      operationId: getMemberAncestors
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: id
+          in: path
+          required: true
+          description: The portal member id, as `/members/{id}` takes.
+          schema:
+            type: integer
+            minimum: 1
+        - name: generations
+          in: query
+          required: false
+          description: |
+            How many generations above the root to include. Clamped to 1..6
+            rather than refused; the response says what was used.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 6
+            default: 4
+      responses:
+        '200':
+          description: The pedigree.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AncestorPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
 
   securitySchemes:
@@ -3953,6 +4015,22 @@ components:
             connections_enabled:
               type: boolean
               description: False when the family has switched connections off.
+            ancestors:
+              type: boolean
+              description: |
+                Whether `/members/{id}/ancestors` has anything to show — that
+                is, whether somebody stands above this member in the archive.
+
+                The way in for a member whose record is closed to this reader:
+                `individual_detail` is then null, so the screen has no record
+                view and no button of its own, and the family above them would
+                otherwise be unreachable.
+
+                It discloses one thing — that this member has a record in the
+                tree — which the portal otherwise keeps to itself. The family
+                chose to spend it here: narrowly, to whoever may already open
+                this page, on a screen that may already be showing this
+                person's archive number.
 
     Connection:
       type: object
