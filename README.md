@@ -533,6 +533,14 @@ That keeps the rule from §1.3 of NOTES intact. Nobody registers who was not
 asked: being on the family's mailing list *is* the asking, and it happened years
 ago.
 
+**The language can be chosen on that page**, as on the sign-in screen. It is the
+first page of the portal anybody sees, and the only one reached without an
+account to read a preference from — so a member who does not read German would
+otherwise have to fill in a German form to ask for an invitation, and would then
+be sent that invitation in German too: the chosen language rides along on
+`Accept-Language`, and the letter is written in the language the request asked
+for.
+
 **The page never says whether an address belongs to the family.** On a list, on
 no list, already has an account, mail server down, campaign called off: one
 sentence, one status, a broadly similar delay. Otherwise this becomes a way of
@@ -2164,8 +2172,9 @@ portal refetches rather than leaving English labels on a German screen; an
 unavailable language changes nothing rather than failing. The choice is kept
 on the *account*: the switch saves it, a signed-in member's language comes
 from their account rather than from the browser, a tag the portal has no
-translation for leaves the language alone, and the login screen — where there
-is no account yet — saves nothing.
+translation for leaves the language alone, and the screens reached without one
+— the login screen, and the campaign page a round-robin letter points at —
+offer the switch but save nothing.
 
 **Invitations** (`module/tests/InvitationTest.php`,
 `portal/src/Invitation.test.tsx`) — the raw token appears in no column of
