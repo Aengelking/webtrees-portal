@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ApiError, api } from '../api/client'
 import { Button, Field, Notice, PageHeading } from '../components/ui'
+import { LanguageSwitcher } from '../components/LanguageSwitcher'
 
 /**
  * Where the letter to the mailing list points.
@@ -23,6 +24,15 @@ import { Button, Field, Notice, PageHeading } from '../components/ui'
  * The same shape as `PasswordRequest`, for the same reason and almost word for
  * word — which is deliberate: two screens that keep a secret should not look
  * like one of them is trying harder.
+ *
+ * **The language can be chosen here, as on the login screen.** This is the
+ * first page of the portal a member ever sees, reached from a letter and not
+ * from an account, so there is no stored preference to read them in: German is
+ * simply what the device defaults to. Somebody who reads English would
+ * otherwise have to fill in a German form to ask for an invitation — and then
+ * receive that invitation in German too, because the chosen language travels
+ * with the request (`Accept-Language`) and decides the language the letter is
+ * written in.
  */
 export function ClaimInvitation() {
   const { t } = useTranslation()
@@ -106,6 +116,15 @@ export function ClaimInvitation() {
           </p>
         </form>
       )}
+
+      {/*
+        At the foot of the page, in both states, exactly where the login
+        screen keeps it — the two screens are one step apart and the switch
+        should not move between them.
+      */}
+      <div className="mt-10">
+        <LanguageSwitcher />
+      </div>
     </div>
   )
 }

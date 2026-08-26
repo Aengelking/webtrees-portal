@@ -3,8 +3,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { AuthProvider } from './auth/AuthProvider'
 import { ClaimInvitation } from './routes/ClaimInvitation'
-import './i18n'
+import i18n from './i18n'
 
 /**
  * Phase 15: the page a letter to a mailing list points at.
@@ -36,6 +37,14 @@ function stub() {
         })
       }
 
+      // Nobody is signed in here — that is the whole premise of the page.
+      if (url.endsWith('/me')) {
+        return new Response(JSON.stringify({ error: 'unauthenticated' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
       posted.push(JSON.parse(String(init?.body)) as { campaign: string; email: string })
 
       return new Response(JSON.stringify({ status: 'sent' }), {
@@ -52,14 +61,17 @@ function renderAt(path: string) {
       client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
     >
       <MemoryRouter initialEntries={[path]}>
-        <ClaimInvitation />
+        <AuthProvider>
+          <ClaimInvitation />
+        </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   )
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals()
+  await i18n.changeLanguage('de')
 })
 
 describe('answering the letter that went to a mailing list', () => {
@@ -118,5 +130,56 @@ describe('answering the letter that went to a mailing list', () => {
 
     expect(await screen.findByText(/Bitte sehen Sie in Ihr Postfach/)).toBeDefined()
     expect(posted).toEqual([{ campaign: '', email: 'anna@example.test' }])
+  })
+})
+
+/**
+ * The first page of the portal anybody sees, and the only one they reach
+ * without an account to read a preference from. A member who does not read
+ * German would otherwise have to fill in a German form — and would then be
+ * sent an invitation in German, because the language chosen here travels with
+ * the request and decides the language the letter is written in.
+ */
+describe('choosing the language on the way in', () => {
+  it('offers the switch and changes the page with it', async () => {
+    stub()
+
+    renderAt('/einladung?aktion=abc123')
+
+    expect(await screen.findByRole('heading', { name: 'Zum Familienportal anmelden' })).toBeDefined()
+
+    await userEvent.click(screen.getByRole('button', { name: 'English' }))
+
+    expect(await screen.findByRole('heading', { name: 'Join the family portal' })).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Ask for an invitation' })).toBeDefined()
+  })
+
+  /** There is no account yet, so there is nothing to save the choice to. */
+  it('saves nothing to an account, because there is none', async () => {
+    stub()
+
+    renderAt('/einladung?aktion=abc123')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'English' }))
+
+    await screen.findByRole('heading', { name: 'Join the family portal' })
+
+    expect(posted).toEqual([])
+  })
+
+  /** The switch is still there once the letter is on its way. */
+  it('is still offered on the confirmation', async () => {
+    stub()
+
+    renderAt('/einladung?aktion=abc123')
+
+    await userEvent.type(await screen.findByLabelText(/E-Mail-Adresse/), 'anna@example.test')
+    await userEvent.click(screen.getByRole('button', { name: 'Einladung anfordern' }))
+
+    await screen.findByText(/Bitte sehen Sie in Ihr Postfach/)
+
+    await userEvent.click(screen.getByRole('button', { name: 'English' }))
+
+    expect(await screen.findByText(/Please check your inbox/)).toBeDefined()
   })
 })
