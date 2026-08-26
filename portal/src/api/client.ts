@@ -293,6 +293,20 @@ export const api = {
     })
   },
 
+  /**
+   * The pedigree of a member, by member id rather than by XREF.
+   *
+   * A different door onto the same room, for the case the other one cannot
+   * open: somebody whose record is closed to this reader has no XREF here to
+   * ask with. See the module's `MemberAncestorsRead`.
+   */
+  memberAncestors(id: number, generations: number, signal?: AbortSignal): Promise<AncestorPage> {
+    return request<AncestorPage>(`/members/${id}/ancestors`, {
+      query: { generations },
+      ...(signal === undefined ? {} : { signal }),
+    })
+  },
+
   members(
     params: { q?: string; page?: number; per_page?: number },
     signal?: AbortSignal,

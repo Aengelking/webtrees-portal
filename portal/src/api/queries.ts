@@ -42,6 +42,7 @@ export const queryKeys = {
   me: ['me'] as const,
   individual: (xref: string) => ['individual', xref] as const,
   ancestors: (xref: string, generations: number) => ['ancestors', xref, generations] as const,
+  memberAncestors: (id: number, generations: number) => ['member-ancestors', id, generations] as const,
   members: (q: string, page: number) => ['members', q, page] as const,
   member: (id: number) => ['member', id] as const,
   search: (params: SearchParams) =>
@@ -98,6 +99,17 @@ export function useAncestors(xref: string | undefined, generations: number) {
     queryKey: [...queryKeys.ancestors(xref ?? '', generations), language],
     queryFn: ({ signal }) => api.ancestors(xref as string, generations, signal),
     enabled: xref !== undefined && xref !== '',
+  })
+}
+
+/** The same pedigree, asked for by member id — see `api.memberAncestors`. */
+export function useMemberAncestors(id: number | undefined, generations: number) {
+  const language = useLanguage()
+
+  return useQuery<AncestorPage>({
+    queryKey: [...queryKeys.memberAncestors(id ?? 0, generations), language],
+    queryFn: ({ signal }) => api.memberAncestors(id as number, generations, signal),
+    enabled: id !== undefined,
   })
 }
 

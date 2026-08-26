@@ -6,6 +6,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\ContactDetails;
 use Engelking\Webtrees\PortalApi\Services\Member;
@@ -39,6 +40,7 @@ class MemberRead implements RequestHandlerInterface
         private readonly MemberInvitations $invitations,
         private readonly Connections $connections,
         private readonly Recognition $recognition,
+        private readonly AncestorTree $ancestors,
     ) {
     }
 
@@ -63,11 +65,13 @@ class MemberRead implements RequestHandlerInterface
         $individual = $this->trees->linkedIndividual($tree, $member->user);
         $ref        = null;
         $detail     = null;
+        $ancestors  = false;
 
         if ($individual instanceof Individual) {
-            $viewer = $this->trees->linkedIndividual($tree, $viewer_user);
-            $ref    = $this->presenter->individualRef($individual, $access_level, $viewer);
-            $detail = $this->presenter->individualDetail($individual, $access_level, false, $viewer);
+            $viewer    = $this->trees->linkedIndividual($tree, $viewer_user);
+            $ref       = $this->presenter->individualRef($individual, $access_level, $viewer);
+            $detail    = $this->presenter->individualDetail($individual, $access_level, false, $viewer);
+            $ancestors = $this->ancestors->hasParents($individual, $access_level);
         }
 
         // Asked here and nowhere else. Deciding "close family" means walking
@@ -90,6 +94,17 @@ class MemberRead implements RequestHandlerInterface
             // ever a face its subject uploaded here and a number the family
             // publishes. See `Recognition`.
             ...($ref === null ? $this->recognition->of($member->user, $access_level) : []),
+            // Whether `/members/{id}/ancestors` has anything to show, so that
+            // a record this reader may not open can still be a way into the
+            // family above it — and so that the button is not a door onto an
+            // empty room.
+            //
+            // It does disclose one thing: that this member has a record in the
+            // tree. §2.66 keeps that sentence to itself in the general case,
+            // and the family chose to spend it here — narrowly, to whoever may
+            // already open this page, on a screen that may already be showing
+            // this person's archive number. See §2.77.
+            'ancestors'         => $ancestors,
             'contact'           => $contact,
             // Whether the *form* is worth showing. The endpoint checks again;
             // this only saves the member from a button that would refuse.

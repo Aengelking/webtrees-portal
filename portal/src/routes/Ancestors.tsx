@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useAncestors } from '../api/queries'
+import { useAncestors, useMember, useMemberAncestors } from '../api/queries'
 import type { Ancestor, PrivateAncestor, VisibleAncestor } from '../api/types'
 import { ErrorNotice, Loading, Notice, PageHeading } from '../components/ui'
 
@@ -30,19 +30,51 @@ const GENERATIONS = 4
  * consented to and the only thing shown.
  */
 export function Ancestors() {
-  const { t } = useTranslation()
   const { xref } = useParams<{ xref: string }>()
-  const { data, isPending, isError, error, refetch } = useAncestors(xref, GENERATIONS)
+  const query = useAncestors(xref, GENERATIONS)
+
+  return <Pedigree query={query} />
+}
+
+/**
+ * The same pedigree, reached from a member's page instead of a record's.
+ *
+ * The way in for somebody whose genealogy record is closed to this reader —
+ * there is no XREF to ask with, so the member id asks instead. The root is
+ * then a placeholder like any other rung, which is why the heading takes the
+ * name from the member page rather than from the pedigree. That page is where
+ * the reader just came from, so it is already in the cache and this costs no
+ * request.
+ */
+export function MemberAncestors() {
+  const { id } = useParams<{ id: string }>()
+  const memberId = id === undefined || !/^\d+$/.test(id) ? undefined : Number(id)
+  const query = useMemberAncestors(memberId, GENERATIONS)
+  const member = useMember(memberId)
+
+  return <Pedigree query={query} name={member.data?.display_name} />
+}
+
+function Pedigree({
+  query,
+  name,
+}: {
+  query: ReturnType<typeof useAncestors>
+  name?: string | undefined
+}) {
+  const { t } = useTranslation()
+  const { data, isPending, isError, error, refetch } = query
 
   const people = data?.people ?? []
   const root = people.find((person) => person.position === 1)
+  const heading = name ?? (root !== undefined && !isPrivate(root) ? root.name : undefined)
 
   return (
     <>
       <PageHeading>{t('ancestors.title')}</PageHeading>
 
-      {root !== undefined && !isPrivate(root) && (
-        <p className="mt-2 text-base text-slate-700">{root.name}</p>
+      {heading !== undefined && heading !== '' && (
+        <p className="mt-2 text-base text-slate-700">{heading}</p>
       )}
 
       {isPending && <Loading />}

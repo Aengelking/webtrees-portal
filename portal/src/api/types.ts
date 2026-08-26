@@ -687,6 +687,18 @@ export interface MemberDetail extends MemberSummary {
    * survive a server that predates the field.
    */
   connections_enabled?: boolean
+  /**
+   * Whether this member's pedigree can be opened — `/members/{id}/ancestors`
+   * has somebody standing above them.
+   *
+   * The way in for a member whose genealogy record is closed to this reader:
+   * `individual_detail` is then null, so no record view and no button of its
+   * own, and the family above them was unreachable. See §2.77.
+   *
+   * Optional for the usual reason: the module ships over SFTP and the portal
+   * through CI, so a server that predates the field simply offers nothing.
+   */
+  ancestors?: boolean
 }
 
 export interface MemberPage {

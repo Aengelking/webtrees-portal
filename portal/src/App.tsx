@@ -14,7 +14,7 @@ import { Login } from './routes/Login'
 import { PasswordRequest } from './routes/PasswordRequest'
 import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
-import { Ancestors } from './routes/Ancestors'
+import { Ancestors, MemberAncestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
 import { Tree } from './routes/Tree'
 import { Conversation } from './routes/Conversation'
@@ -94,6 +94,7 @@ export function App() {
           <Route path="/conversations/new" element={<NewConversation />} />
           <Route path="/conversations/:id" element={<Conversation />} />
           <Route path="/members/:id" element={<MemberDetail />} />
+          <Route path="/members/:id/ancestors" element={<MemberAncestors />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>

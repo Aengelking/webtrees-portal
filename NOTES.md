@@ -4540,6 +4540,69 @@ to it, and stops there.
 
 ---
 
+### 2.77 The pedigree had no door on the side it was needed
+
+§2.75 made the pedigree walk *through* people the reader may not read, so that
+the archive's dead stay reachable through the family's living. It did not give
+such a person a door of their own, and that turned out to be the half that
+mattered.
+
+A member opened a contact's page in *Kontakte* — somebody who had agreed to be
+found, whose name and photograph were on the screen — and there was no
+*Vorfahren anzeigen* on it. `MemberDetail` renders `IndividualView` only when
+`individual_detail` is not null, and that button lives inside `IndividualView`.
+A closed genealogy record therefore meant no record view, no button, and no way
+at all into the family above her — though every name in that pedigree would
+have been either an unnamed placeholder or somebody dead for fifty years.
+
+**Two rounds of the wrong bug before that was found**, and the reason is worth
+keeping: the report was "I see no ancestors", and it was read as a fault in the
+walk. The walk did have two faults (§2.75), both real and both measured, and
+neither was this. What settled it was asking which *screen* the reader was on,
+which should have been the first question rather than the fourth.
+
+#### Why a second endpoint rather than a looser first one
+
+`/individuals/{xref}/ancestors` refuses a root the reader may not see, and has
+to: an XREF is a guessable string, so answering differently for one would turn
+the endpoint into a way of finding out which XREFs name a real person. That
+refusal was a deliberate decision in §2.75 and it stands.
+
+A portal member id is not a guessable string in that sense — it is the
+portal's own key, and `GET /members/{id}` already gates it. So
+`/members/{id}/ancestors` opens exactly where the member page opens:
+`readableMember()`, which means the member listed themselves in the directory,
+or the two of them connected — the narrower consent of the two, because both
+gave it. Anything else is a 404, and so is a member the tree has no record for:
+which of the two it is stays the sentence §2.66 keeps to itself, and the two
+refusals are byte-identical.
+
+Nothing new is disclosed about a *record*. The pedigree is `AncestorTree`'s,
+unchanged, at the reader's own access level: the root is very often a
+placeholder — a closed record is the reason for coming here at all — and what
+the reader gains is the shape of a family above somebody who agreed to be
+found, with the dead in it named because they always were.
+
+#### The one sentence the family chose to spend
+
+The button is offered only where there is something behind it, which needs the
+server to say whether anybody stands above this member: `MemberDetail.ancestors`.
+That discloses that this member has a record in the tree, and §2.66 exists
+because the portal otherwise keeps exactly that to itself.
+
+It was put to the family and they chose it, knowing the trade. What makes it a
+small coin rather than a large one: it is shown only to somebody who may
+already open that member's page, on a screen that may already be carrying that
+person's archive number from `Recognition`, about a person who is in a family
+portal — where being in the family tree is close to a given. The alternative
+was a button that leads to an empty room about as often as not.
+
+`AncestorTree::hasParents()` answers it, and deliberately by asking `parents()`
+— the same first child family, the same restriction test, the same reader — so
+the button and the screen behind it cannot come to disagree.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

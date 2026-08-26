@@ -48,6 +48,7 @@ describe('openapi.yaml and the API client agree', () => {
       '/media/{xref}/{fact}/{size}',
       '/members',
       '/members/{id}',
+      '/members/{id}/ancestors',
       '/members/{id}/message',
       '/messages',
       '/messages/{id}',

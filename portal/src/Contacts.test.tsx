@@ -794,7 +794,7 @@ describe('a member\u2019s own page', () => {
     connections_enabled: true,
   }
 
-  function stubMember(connection: unknown) {
+  function stubMember(connection: unknown, member: Record<string, unknown> = {}) {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
       const url = String(input)
       const method = init?.method ?? 'GET'
@@ -807,7 +807,26 @@ describe('a member\u2019s own page', () => {
           : jsonResponse(OVERVIEW)
       }
 
-      if (url.includes('/members/')) return jsonResponse({ ...MEMBER, connection })
+      if (url.includes('/ancestors')) {
+        return jsonResponse({
+          generations: 4,
+          people: [
+            { position: 1, generation: 0, private: true, member: null },
+            {
+              position: 2,
+              generation: 1,
+              private: false,
+              xref: 'X5',
+              name: 'Emil Beispiel',
+              sex: 'M',
+              is_deceased: true,
+              lifespan: '1884–1961',
+            },
+          ],
+        })
+      }
+
+      if (url.includes('/members/')) return jsonResponse({ ...MEMBER, ...member, connection })
 
       return jsonResponse(ME)
     })
@@ -816,6 +835,48 @@ describe('a member\u2019s own page', () => {
 
     return fetchMock
   }
+
+  /**
+   * The way into the family above somebody whose record is shut here.
+   *
+   * Their page has no record view, and therefore none of the buttons that
+   * live on one — so until §2.77 the pedigree was simply unreachable from a
+   * contact, however much of it was people long dead.
+   */
+  it('opens the pedigree of a contact whose record is not shared, by member id', async () => {
+    const fetchMock = stubMember({ status: 'accepted', id: 9 }, { ancestors: true })
+    renderAt('/members/3')
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Vorfahren anzeigen' }))
+
+    expect(await screen.findByRole('heading', { name: 'Vorfahren' })).toBeDefined()
+    expect(await screen.findByRole('link', { name: /Emil Beispiel/ })).toBeDefined()
+
+    // The name comes from the member page, and the ask goes by id — there is
+    // no xref on this screen and the portal never invents one.
+    expect(screen.getAllByText('Dieter Beispiel').length).toBeGreaterThan(0)
+    expect(
+      fetchMock.mock.calls.map(([url]) => String(url)).some((url) => url.includes('/members/3/ancestors')),
+    ).toBe(true)
+  })
+
+  /** And no door where the server says there is nothing behind it. */
+  it('offers no pedigree where nobody stands above the member', async () => {
+    stubMember({ status: 'accepted', id: 9 }, { ancestors: false })
+    renderAt('/members/3')
+
+    expect(await screen.findByText('Keine Daten sichtbar')).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Vorfahren anzeigen' })).toBeNull()
+  })
+
+  /** A server that predates the field offers nothing, rather than a 404. */
+  it('offers no pedigree against a server that does not know about it', async () => {
+    stubMember({ status: 'accepted', id: 9 })
+    renderAt('/members/3')
+
+    expect(await screen.findByText('Keine Daten sichtbar')).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Vorfahren anzeigen' })).toBeNull()
+  })
 
   it('offers to connect, and asks by member id rather than by number', async () => {
     const fetchMock = stubMember({ status: 'none', id: null })
