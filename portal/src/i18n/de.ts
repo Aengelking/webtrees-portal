@@ -662,8 +662,14 @@ export const de = {
         father: 'Vaters',
         mother: 'Mutters',
       },
-      father: 'Vater',
-      mother: 'Mutter',
+      final: {
+        father: 'Vater',
+        mother: 'Mutter',
+      },
+      step: {
+        father: 'Vater',
+        mother: 'Mutter',
+      },
     },
     none: {
       title: 'Keine Vorfahren hinterlegt',

@@ -288,9 +288,18 @@ function generationName(t: Translate, generation: number): string {
  * 1110, so mother, mother, father — and that is exactly how somebody would say
  * where Otto stands.
  *
- * Two shapes, because German possessives are the natural way to say it and
- * stop being readable at about four: "Vaters Vaters Mutter" up to the third
+ * Two shapes, because a possessive chain is the natural way to say it and
+ * stops being readable at about four: "Vaters Vaters Mutter" up to the third
  * generation, then the same path with arrows.
+ *
+ * **The two languages do not compose alike**, which is why the chain word and
+ * the arrow word are separate entries rather than one reused. German
+ * capitalises its nouns wherever they stand, so "Vaters Vaters Mutter" and
+ * "Vater › Mutter" are both right as written. English does not: the chain is
+ * "father's father's mother" in lower case with only the first letter raised,
+ * while the arrow path reads as a list of steps and takes a capital on each.
+ * Composing English out of the German shape produced "Father's Father's
+ * mother", which is nobody's English.
  */
 function pathName(t: Translate, person: Ancestor): string {
   const steps = pathSteps(person.position, person.generation)
@@ -299,19 +308,32 @@ function pathName(t: Translate, person: Ancestor): string {
     return ''
   }
 
-  const last = steps[steps.length - 1] === 'f' ? 'father' : 'mother'
+  const word = (step: 'f' | 'm'): string => (step === 'f' ? 'father' : 'mother')
+  const last = word(steps[steps.length - 1] as 'f' | 'm')
 
   if (steps.length === 1) {
     return t(`ancestors.path.your.${last}`)
   }
 
   if (steps.length <= 3) {
-    const owners = steps.slice(0, -1).map((step) => t(`ancestors.path.possessive.${step === 'f' ? 'father' : 'mother'}`))
+    const owners = steps.slice(0, -1).map((step) => t(`ancestors.path.possessive.${word(step)}`))
 
-    return [...owners, t(`ancestors.path.${last}`)].join(' ')
+    return capitalise([...owners, t(`ancestors.path.final.${last}`)].join(' '))
   }
 
-  return steps.map((step) => t(`ancestors.path.${step === 'f' ? 'father' : 'mother'}`)).join(' › ')
+  return steps.map((step) => t(`ancestors.path.step.${word(step)}`)).join(' › ')
+}
+
+/**
+ * Only the first letter, and only ever of a phrase this file composed.
+ *
+ * German needs none of it — its nouns are capitalised where they stand — so
+ * this is a no-op there, and it is the reason English can keep its words lower
+ * case in the catalogue, which is where they have to be for the middle of a
+ * chain.
+ */
+function capitalise(phrase: string): string {
+  return phrase.charAt(0).toLocaleUpperCase() + phrase.slice(1)
 }
 
 /** @returns one entry per step up, oldest step last. */

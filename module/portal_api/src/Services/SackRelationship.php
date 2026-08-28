@@ -8,6 +8,7 @@ use Fisharebest\Webtrees\I18N;
 
 use function abs;
 use function min;
+use function str_repeat;
 use function str_starts_with;
 use function strlen;
 use function substr;
@@ -111,19 +112,28 @@ class SackRelationship
     {
         // The tag is a full one — "de", "de-AT", "en-US" — so the test is on
         // the language and not on the exact string. Everything that is not
-        // German gets the English table, which is the module's fallback
+        // German gets the English rules, which are the module's fallback
         // everywhere else too.
-        $german = str_starts_with(I18N::languageTag(), 'de');
-        $steps  = abs($relation['generations']);
+        return str_starts_with(I18N::languageTag(), 'de')
+            ? $this->german($relation, $sex)
+            : $this->english($relation, $sex);
+    }
+
+    /**
+     * @param array{kind:string,generations:int,distance:int,degree:int|null} $relation
+     */
+    private function german(array $relation, string $sex): string
+    {
+        $steps = abs($relation['generations']);
 
         $forms = match ($relation['kind']) {
-            'self'       => $this->forms('self', $german),
-            'sibling'    => $this->forms('sibling', $german),
-            'ancestor'   => $this->generational($steps, 'parent', 'grandparent', $german),
-            'descendant' => $this->generational($steps, 'child', 'grandchild', $german),
-            'nephew'     => $this->generational($steps, 'nephew', 'grandnephew', $german),
-            'uncle'      => $this->generational($steps, 'uncle', 'granduncle', $german),
-            default      => $this->forms('cousin', $german),
+            'self'       => $this->forms('self', true),
+            'sibling'    => $this->forms('sibling', true),
+            'ancestor'   => $this->generational($steps, 'parent', 'grandparent', true),
+            'descendant' => $this->generational($steps, 'child', 'grandchild', true),
+            'nephew'     => $this->generational($steps, 'nephew', 'grandnephew', true),
+            'uncle'      => $this->generational($steps, 'uncle', 'granduncle', true),
+            default      => $this->forms('cousin', true),
         };
 
         $name = $this->pick($forms, $sex);
@@ -134,9 +144,95 @@ class SackRelationship
 
         // "Cousine 2. Grades", "Neffe 3. Grades" — the family's own way of
         // saying how far out a collateral relative sits.
-        return $german
-            ? $name . ' ' . $relation['degree'] . '. Grades'
-            : $name . ' (' . $this->ordinal($relation['degree']) . ' degree)';
+        return $name . ' ' . $relation['degree'] . '. Grades';
+    }
+
+    /**
+     * **English is not translated German here, it is a different system.**
+     *
+     * German counts a collateral relative by degree and keeps the near word:
+     * *Großneffe 2. Grades*, *Onkel 3. Grades*. English has no such phrase.
+     * Everything that is not a plain nephew or a plain uncle becomes a
+     * **cousin**, counted by how far back the shared ancestor is and by how
+     * many generations the two people sit apart: *second cousin once removed*.
+     *
+     * Translating word for word produced sentences that are not English at
+     * all — "nephew (second degree)", "cousin (third degree)" — which is what
+     * a member reported. So the two languages branch here rather than sharing
+     * a shape, and this side follows the family's own calculator
+     * (`rechner.php`, `$relation_en`) rather than the German above it.
+     *
+     * @param array{kind:string,generations:int,distance:int,degree:int|null} $relation
+     */
+    private function english(array $relation, string $sex): string
+    {
+        // A degree is exactly what the German would have counted, and it is
+        // the signal that English stops using the near word. A cousin is one
+        // whether or not it carries a degree: "cousin", "second cousin".
+        if ($relation['kind'] === 'cousin' || $relation['degree'] !== null) {
+            return $this->cousin($relation);
+        }
+
+        $steps = abs($relation['generations']);
+
+        $forms = match ($relation['kind']) {
+            'self'       => $this->forms('self', false),
+            'sibling'    => $this->forms('sibling', false),
+            'ancestor'   => $this->greats($steps, 'parent', 'grandparent'),
+            'descendant' => $this->greats($steps, 'child', 'grandchild'),
+            'nephew'     => $this->greats($steps, 'nephew', 'grandnephew'),
+            default      => $this->greats($steps, 'uncle', 'granduncle'),
+        };
+
+        return $this->pick($forms, $sex);
+    }
+
+    /**
+     * "second cousin once removed", and the rules behind it.
+     *
+     * How far back the shared ancestor is names the cousin — distance two is a
+     * plain cousin, three a second cousin — and how many generations apart the
+     * two of them sit is the removal. Neither word has a female form, which is
+     * why this returns a string where the rest of the class returns a pair.
+     *
+     * @param array{kind:string,generations:int,distance:int,degree:int|null} $relation
+     */
+    private function cousin(array $relation): string
+    {
+        $name = $relation['distance'] > 2
+            ? $this->ordinal($relation['distance'] - 1) . ' cousin'
+            : 'cousin';
+
+        $steps = abs($relation['generations']);
+
+        return $steps === 0 ? $name : $name . ' ' . $this->times($steps) . ' removed';
+    }
+
+    /**
+     * The English prefix, which repeats where the German counts.
+     *
+     * *great-great-grandfather*, not *2x great-grandfather*: English says the
+     * word again. That is long by the tenth generation and it is still what
+     * the language does, and what the family's calculator writes.
+     *
+     * @return array{0:string,1:string}
+     */
+    private function greats(int $steps, string $near, string $grand): array
+    {
+        if ($steps <= 1) {
+            return $this->forms($near, false);
+        }
+
+        $prefix = str_repeat('great-', $steps - 2);
+        [$male, $female] = $this->forms($grand, false);
+
+        return [$prefix . $male, $prefix . $female];
+    }
+
+    /** once, twice, thrice — how far apart two cousins stand. */
+    private function times(int $steps): string
+    {
+        return self::TIMES[$steps] ?? $steps . ' times';
     }
 
     /**
@@ -308,9 +404,21 @@ class SackRelationship
             'nephew'       => ['nephew', 'niece'],
             'grandnephew'  => ['grand-nephew', 'grand-niece'],
             'uncle'        => ['uncle', 'aunt'],
-            'granduncle'   => ['great-uncle', 'great-aunt'],
+            // "grand-uncle", not "great-uncle": both are English, and this is
+            // the one the family's calculator writes, so the prefixes above it
+            // stack the same way as everywhere else — great-grand-uncle.
+            'granduncle'   => ['grand-uncle', 'grand-aunt'],
             'cousin'       => ['cousin', 'cousin'],
         ],
+    ];
+
+    /** @var array<int,string> */
+    private const array TIMES = [
+        1 => 'once',
+        2 => 'twice',
+        3 => 'thrice',
+        4 => 'four times',
+        5 => 'five times',
     ];
 
     /** @var array<int,string> */

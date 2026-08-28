@@ -5150,7 +5150,72 @@ in that gap will be found on the host and nowhere else.
 
 ---
 
-### 2.83 Die Middleware, die man nicht abwählen kann
+### 2.83 English is not German with English words in it
+
+A member read the portal in English and the relationships were wrong — not
+mistranslated, but *not sentences*. "nephew (second degree)". "cousin (third
+degree)". Nobody says that, because English does not have the phrase German is
+using.
+
+**The two systems differ in shape, not in vocabulary.** German counts a
+collateral relative by degree and keeps the near word: *Großneffe 2. Grades*,
+*Onkel 3. Grades*, *Cousine 2. Grades*. English has no "uncle of the third
+degree". Anything that is not a plain nephew or a plain uncle becomes a
+**cousin**, named by how far back the shared ancestor is and how many
+generations the two people stand apart: *second cousin once removed*. The same
+pair of numbers is therefore `Neffe 2. Grades` in one language and
+`second cousin once removed` in the other, and both are right.
+
+`describe()` had been building one shape and swapping the words, with the
+degree pasted on as "(second degree)" where German writes "2. Grades". So it
+now branches: `german()` keeps what it had, `english()` follows different rules
+entirely, and the two share only the measurement underneath.
+
+Three smaller things came with it, all from the same source:
+
+* **The prefix repeats rather than counting.** German writes *2. Urgroßvater*;
+  English says the word again — *great-great-grandfather*. The module had
+  invented "2x great-grandfather", which is neither.
+* **"grand-uncle", not "great-uncle".** Both are English; this is the one the
+  family's calculator writes, and it lets the prefixes stack the same way as
+  everywhere else — *great-grand-uncle*.
+* **A first cousin has no ordinal** in either language. German says *Cousine*,
+  English *cousin*, and the counting starts at the second.
+
+#### The authority is the family's own calculator, and it is run beside this one
+
+`rechner.php` — Amos's relationship calculator, 2009 — is where these rules
+come from, and it is the only place they were ever written down. Its
+`$relation_en` is not a translation of its `$relation`: the two are computed
+separately, and the English branch collapses nephews and uncles into cousins
+through a `$removed_cousin` flag.
+
+So `SackRelationshipTest` transcribes that branch and runs it against the
+module over a grid of every generation and distance the classifier can
+produce, comparing the male form of each. The shapes are read back out of
+`between()` rather than assumed, so what is compared is two namings of the same
+*measured* relationship rather than two guesses about what the numbers mean.
+That is what caught the prefix and the grand-uncle wording, neither of which
+was in the complaint.
+
+One thing was deliberately not copied: the original's `countName()` has "fith"
+in it. Copying a typo into a portal is not fidelity.
+
+#### And the same fault in the pedigree's path labels
+
+§2.78 put the path to each ancestor on its card — *Vaters Vaters Mutter* — and
+composed the English the same way, out of the same pieces. That gave "Father's
+Father's mother", which has the same disease in miniature: German capitalises
+its nouns wherever they stand, so its chain is right as written, and English
+does not. The chain is now lower case with a single capital at the front, while
+the arrow path used for the fourth generation and beyond is a list of steps and
+takes a capital on each — *Father › Mother › Mother › Father*. The catalogue
+holds separate words for the two positions rather than one word reused, because
+that is where the difference actually lives.
+
+---
+
+### 2.84 Die Middleware, die man nicht abwählen kann
 
 Every authenticated MCP call was answered with a **302 back to its own URL**.
 Not the origin, not Cloudflare, not the `Authorization` header: webtrees'
@@ -5205,7 +5270,9 @@ logic these tests cover — they were in what surrounds a request: a header the
 webserver eats, a transaction webtrees opens, a middleware webtrees injects.
 The suite is thorough about what the module *decides* and was blind to what it
 *runs inside*. `CheckCsrf` closes one of those gaps for good. The transaction
-and the session (§2.82) are still outside, and still only findable on the host.
+and the session — §2.82, *Anmelden ist mehr, als den Benutzer zu merken*; there
+are two entries numbered 2.82 — are still outside, and still only findable on
+the host.
 
 ---
 
