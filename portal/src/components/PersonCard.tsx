@@ -26,12 +26,40 @@ import { Portrait } from './Photos'
  *   strangers' names into a list of relatives. A page of search results
  *   without it is a phone book.
  *
+ * A fourth line appears only for the few people it is true of: the office
+ * they hold in the foundation. It is the one thing on the card that says why
+ * this person, of all the names here, is the one to write to — so it is set
+ * apart rather than folded in with the years and the number.
+ *
  * The relationship is absent rather than blank when there is none to name —
  * see openapi.yaml for the four reasons, one of which is a disclosure the
  * portal will not make. "Nicht verwandt" is not among them and is not said:
  * silence here means "no answer within four steps", which is a different
  * thing from "no relation".
  */
+/**
+ * An office, set apart from the archive's own lines about a person.
+ *
+ * Shared by the two cards so the office looks the same in the directory and
+ * in the tree; a member should not have to work out that the amber line here
+ * and the amber line there are the same kind of thing.
+ */
+export function Office({ title }: { title: string }) {
+  const { t } = useTranslation()
+
+  return (
+    <span className="mt-1 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-sm font-medium text-amber-900">
+      {/*
+        Colour and a box say "this is a different kind of thing" to a reader
+        who can see them and nothing at all to a reader who cannot. The words
+        that carry the distinction go in the text itself.
+      */}
+      <span className="sr-only">{t('common.office')}: </span>
+      {title}
+    </span>
+  )
+}
+
 export function PersonCard({ person }: { person: IndividualRef }) {
   const { t } = useTranslation()
 
@@ -40,6 +68,7 @@ export function PersonCard({ person }: { person: IndividualRef }) {
   )
 
   const relationship = person.relationship ?? null
+  const office = person.office ?? null
 
   return (
     <Link
@@ -49,6 +78,7 @@ export function PersonCard({ person }: { person: IndividualRef }) {
       <Portrait person={person} />
       <span className="min-w-0">
         <span className="block text-base font-medium text-slate-900">{person.name}</span>
+        {office !== null && office !== '' && <Office title={office} />}
         {details.length > 0 && (
           <span className="mt-1 block text-base text-slate-700">{details.join(' · ')}</span>
         )}

@@ -82,9 +82,13 @@ const MEMBERS = [
       is_deceased: false,
       lifespan: '1990–',
       references: [{ number: '4714', type: 'SB', branch: null }],
+      office: 'Vorsitzender des Vorstands',
     },
   },
-  { id: 3, display_name: 'Nora Ohnesatz', individual: null },
+  // Nora's record is closed to this reader, and her office reaches the row
+  // beside it rather than inside it — the two ways it can arrive, both on
+  // the one screen. See NOTES §2.82.
+  { id: 3, display_name: 'Nora Ohnesatz', individual: null, office: 'Schriftführerin' },
 ]
 
 function refOf(individual: typeof ANNA) {

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAcceptConnection, useConnect, useMembers } from '../api/queries'
 import type { MemberSummary } from '../api/types'
+import { Office } from '../components/PersonCard'
 import { Portrait } from '../components/Photos'
 import { referenceLabel } from '../components/reference'
 import { Button, Card, ErrorNotice, Field, Loading, Notice, PageHeading } from '../components/ui'
@@ -203,6 +204,18 @@ function MemberRow({ member, offerConnection }: { member: MemberSummary; offerCo
                     .filter((part): part is string => part !== null && part !== '')
                     .join(' · ')}
             </span>
+            {/*
+              The office, if this member holds one. It reaches the row two
+              ways for one reason: where the record is readable it travels
+              inside it, and where it is not `Recognition` carries it beside
+              the name — the same shape `portrait` has, and read the same way.
+            */}
+            {(() => {
+              const office = member.individual?.office ?? member.office ?? null
+
+              return office !== null && office !== '' ? <Office title={office} /> : null
+            })()}
+
             {/*
               And how the reader stands to them, which is the difference
               between a directory of accounts and a directory of relatives.

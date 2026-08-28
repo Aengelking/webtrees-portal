@@ -3657,6 +3657,20 @@ components:
             path that produced it, so naming one through a hidden person would
             disclose that they exist.
           example: Ihre Urgroßmutter
+        office:
+          type: [string, 'null']
+          description: |
+            The office this person holds in the foundation, in the foundation's
+            own words — *Vorsitzende des Vorstands* and the like — or `null`
+            when they hold none.
+
+            Not read out of the record. The foundation keeps its own short
+            list, keyed by the person in the tree, so this is the same answer
+            on every card that names them and it does not follow the record's
+            privacy: it is the foundation's statement about one of its
+            officers, not the archive's account of a person. See `Offices` and
+            NOTES §2.82. Nothing else about the person becomes visible with it.
+          example: Vorsitzende des Vorstands
 
     Reference:
       type: object
@@ -4005,6 +4019,14 @@ components:
             even then. When `individual` is present, read its `references`.
           items:
             $ref: '#/components/schemas/Reference'
+        office:
+          type: [string, 'null']
+          description: |
+            **Present only where `individual` is null.** The office this
+            member holds in the foundation. It is portal data rather than
+            genealogy, so — like the self-uploaded portrait beside it — it
+            survives a record the reader may not open. When `individual` is
+            present, read its `office`.
         connection:
           allOf:
             - $ref: '#/components/schemas/ConnectionState'

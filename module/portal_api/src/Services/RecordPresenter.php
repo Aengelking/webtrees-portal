@@ -58,6 +58,7 @@ class RecordPresenter
         private readonly RelationshipNamer $relationships,
         private readonly PhotoPresenter $photos,
         private readonly SackNumbers $sack_numbers,
+        private readonly Offices $offices,
     ) {
     }
 
@@ -131,6 +132,11 @@ class RecordPresenter
             // person the reader was looking for. Null when there is no path
             // within reach, or when the reader has no record of their own.
             'relationship' => $this->relationships->name($viewer, $individual, $access_level),
+            // What this person does for the foundation, if anything. Not read
+            // out of the record — see `Offices` — so it is the same answer on
+            // every card that names them, and the same answer `Recognition`
+            // gives for a person this reader may not look up at all.
+            'office'       => $this->offices->titleFor($individual->xref()),
         ];
     }
 

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { referenceLabel } from './reference'
-import { PersonCard } from './PersonCard'
+import { Office, PersonCard } from './PersonCard'
 import { useTranslation } from 'react-i18next'
 import type { Individual, IndividualRef, Event, Reference, Role } from '../api/types'
 import { useAuth } from '../auth/AuthProvider'
@@ -164,6 +164,16 @@ export function IndividualView({ individual }: { individual: Individual }) {
           <h2 className="text-xl font-semibold text-slate-900">{individual.name}</h2>
           {individual.name_alternative !== null && (
             <p className="mt-1 text-base text-slate-700">{individual.name_alternative}</p>
+          )}
+          {/*
+            The office, above the archive's own lines about them: on a page
+            about one person it is the sentence that says what they do for the
+            family, and it does not belong among the numbers.
+          */}
+          {individual.office !== null && individual.office !== undefined && individual.office !== '' && (
+            <p className="mt-1">
+              <Office title={individual.office} />
+            </p>
           )}
           <References references={individual.references ?? []} />
           {individual.relationship !== null && individual.relationship !== undefined && (

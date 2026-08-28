@@ -251,6 +251,16 @@ export interface IndividualRef {
    * as the portrait.
    */
   relationship?: string | null
+  /**
+   * What this person does for the foundation — *Vorsitzende des Vorstands* and
+   * the like — or null when they hold no office.
+   *
+   * Not read out of the record: the foundation keeps its own short list, so
+   * this is the same answer wherever a card names them, including on the row
+   * of somebody whose record this reader may not open. See NOTES §2.82.
+   * Optional for the same reason as the portrait.
+   */
+  office?: string | null
 }
 
 /** The working behind a calculated relationship, for anybody who checks it. */
@@ -488,6 +498,13 @@ export interface MemberSummary {
    */
   portrait?: Photo | null
   references?: Reference[]
+  /**
+   * The office this member holds in the foundation, on the same terms as
+   * `portrait` — **only ever present when `individual` is null**, because
+   * where the record is readable the office travels inside it. Read
+   * `individual?.office ?? office` and never both.
+   */
+  office?: string | null
   /**
    * Where the reader and this member stand. Carried on every row of the
    * directory, so a request can be sent from the list without opening the

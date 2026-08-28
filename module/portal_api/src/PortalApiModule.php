@@ -99,6 +99,7 @@ use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\Recognition;
+use Engelking\Webtrees\PortalApi\Services\Offices;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Engelking\Webtrees\PortalApi\Services\SackNumbers;
@@ -116,6 +117,7 @@ use Fisharebest\Webtrees\Module\ModuleConfigTrait;
 use Fisharebest\Webtrees\Module\ModuleCustomInterface;
 use Fisharebest\Webtrees\Module\ModuleCustomTrait;
 use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\EmailService;
 use Fisharebest\Webtrees\Services\MessageService;
@@ -143,6 +145,7 @@ use function min;
 use function rawurlencode;
 use function rtrim;
 use function str_replace;
+use function strip_tags;
 use function trim;
 
 /**
@@ -165,7 +168,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.4.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 17;
+    private const int SCHEMA_VERSION = 18;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -363,7 +366,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $relationships  = new RelationshipNamer($container->get(RelationshipService::class), $sack);
         $photo_store    = new Photos($portal_trees, $pending);
         $photos         = new PhotoPresenter($photo_store);
-        $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers);
+        $offices        = new Offices($portal_trees);
+        $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers, $offices);
         $members        = new MemberService($user_service);
         $ancestors      = new AncestorTree($presenter, $members);
         $search_consent = new SearchConsent($members, $portal_trees);
@@ -374,7 +378,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $errors         = new ErrorLog();
         $close_family   = new CloseFamily($container->get(RelationshipService::class), $user_service);
         $member_invites = new MemberInvitations($this, $portal_trees, $invitations, $close_family, $presenter);
-        $recognition    = new Recognition($this, $portal_trees, $photos, $sack_numbers);
+        $recognition    = new Recognition($this, $portal_trees, $photos, $sack_numbers, $offices);
         $connections    = new Connections($this, $portal_trees, $members, $presenter, $user_service, $recognition);
         $contacts       = new ContactDetails($this, $close_family, $connections);
         $inbox          = new Inbox($user_service);
@@ -426,6 +430,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
+        $container->set(Offices::class, $offices);
         $container->set(RelationshipNamer::class, $relationships);
         $container->set(PhotoPresenter::class, $photos);
         $container->set(AncestorTree::class, $ancestors);
@@ -895,6 +900,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'campaigns_url'     => $this->campaignsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
             'accounts_url'      => $this->accountsUrl(),
+            'offices_url'       => $this->officesUrl(),
         ]);
     }
 
@@ -1481,6 +1487,103 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     private function accountsUrl(): string
     {
         return route('module', ['module' => $this->name(), 'action' => 'AdminAccounts']);
+    }
+
+    // -----------------------------------------------------------------
+    // Offices (administrators only)
+    // -----------------------------------------------------------------
+
+    /** Who holds an office in the foundation, and the form to change it. */
+    public function getAdminOfficesAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $trees     = $container->get(PortalTreeService::class);
+        $tree      = $trees->tree();
+
+        return $this->viewResponse($this->name() . '::offices', [
+            'title'        => I18N::translate('Offices'),
+            'module'       => $this,
+            'tree'         => $tree,
+            'offices'      => $this->officeRows($tree),
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    /** Add or change one office, or take one away. */
+    public function postAdminOfficesAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body    = Validator::parsedBody($request);
+        $offices = Registry::container()->get(Offices::class);
+        $xref    = trim($body->string('xref', ''));
+
+        if ($body->string('office_action', 'save') === 'remove') {
+            if ($offices->remove($xref)) {
+                FlashMessages::addMessage(I18N::translate('The office has been removed.'), 'success');
+            }
+
+            return redirect($this->officesUrl());
+        }
+
+        // A person the tree does not have is refused rather than stored: an
+        // office nobody can be shown holding is a row that will never explain
+        // itself, and the reference number the administrator mistyped is
+        // still on their screen to correct.
+        if ($xref === '' || !$this->officeSubject($xref) instanceof Individual) {
+            FlashMessages::addMessage(I18N::translate('There is nobody in the family tree with that reference.'), 'danger');
+
+            return redirect($this->officesUrl());
+        }
+
+        if ($offices->set($xref, $body->string('title', ''), $body->integer('sort_order', 0))) {
+            FlashMessages::addMessage(I18N::translate('The office has been saved.'), 'success');
+        }
+
+        return redirect($this->officesUrl());
+    }
+
+    /**
+     * The offices with the person named, for the screen.
+     *
+     * Read at `PRIV_HIDE`: an administrator maintaining the list must see
+     * whom every row is about, including the living, or the screen becomes a
+     * column of xrefs. This is the control panel, which webtrees has already
+     * decided they may open.
+     *
+     * @return array<int,array{xref:string,title:string,sort_order:int,name:string|null,url:string|null}>
+     */
+    private function officeRows(Tree $tree): array
+    {
+        $rows = [];
+
+        foreach (Registry::container()->get(Offices::class)->listed() as $office) {
+            $individual = Registry::individualFactory()->make($office['xref'], $tree);
+
+            $rows[] = [
+                'xref'       => $office['xref'],
+                'title'      => $office['title'],
+                'sort_order' => $office['sort_order'],
+                'name'       => $individual instanceof Individual ? strip_tags($individual->fullName()) : null,
+                'url'        => $individual instanceof Individual ? $individual->url() : null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** The person an office is about to be given to, if the tree has them. */
+    private function officeSubject(string $xref): Individual|null
+    {
+        return Registry::individualFactory()->make(
+            $xref,
+            Registry::container()->get(PortalTreeService::class)->tree()
+        );
+    }
+
+    private function officesUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminOffices']);
     }
 
     /** The configured visibility limit, clamped. Zero means "do not restrict". */

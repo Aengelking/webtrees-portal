@@ -1841,6 +1841,40 @@ a line goes into webtrees' authentication log. Two requests that left one
 telephone together are not that: the token one step back stays usable for a
 minute, so a flaky connection is not mistaken for a theft.
 
+### Naming the people who hold an office
+
+*Control panel → Modules → Member portal API → Offices.*
+
+A member looking through Kontakte sees names. Which of them is the one to
+write to about the family magazine is not on the page — and that is the
+question people actually arrive with. So the foundation can name its officers,
+and the office is shown beside that person wherever the portal names them: on
+their row in Kontakte, on the cards in the Stammbaum, and at the top of their
+page.
+
+Give somebody an office by typing the reference of their record in the family
+tree — the `X123` in the address bar when you open them in webtrees — and the
+office in the foundation's own words. It is free text on purpose: a statute
+that renames a body should not need a deployment. One office per person; typing
+a second for the same person replaces the first, and clearing the field takes
+the office away.
+
+**This is the portal's own list, not part of the family tree.** Nothing here is
+written into the archive, and that is deliberate rather than incidental. An
+office is what the *foundation* says about one of its officers; a fact on a
+record is what the *archive* says about a person, and it follows the record's
+privacy. Had the office been a fact, it would have been withheld from exactly
+the members who go looking for it — a living officer's record is closed to
+most of the family — so the feature would have worked only where nobody needed
+it. Kept here, the office stays legible to a member who may not read a word of
+that person's record.
+
+Nothing else crosses with it. Naming somebody's office says nothing about their
+years, their nickname or how the reader is related to them, and it does not put
+anybody into a list they were absent from. A person whose record was later
+deleted in webtrees leaves their row behind harmlessly: it names nobody, and the
+screen says so.
+
 ### Letting an assistant read the archive
 
 *Control panel → Modules → Member portal API → Assistant access.*
@@ -2727,6 +2761,26 @@ marked `RESN confidential` stays where it is, the search finds a shared note
 through both of the dead people who link it and never finds the one that only a
 living person links, and with the setting off the notes are absent and the tool
 that searches them is not offered.
+
+**An office in the foundation** is pinned from both sides of the privacy line.
+Where the record can be read the office travels inside it, on the record itself
+and on every card that names the person; where it cannot — Clara carries
+`RESN confidential`, so an ordinary member may not read her at all — it arrives
+beside the name instead, on her directory row, on her member page and on a
+connection request she sent. What did *not* come with it is asserted as
+carefully: no years, no relationship, and not the nickname that lives on the
+record and nowhere else, which is the cleanest proof the record was never read.
+Giving somebody an office does not open their record — reading it by reference
+is still refused. The rest is bookkeeping: one office per person, a second one
+replaces it rather than joining it, an emptied title takes it away, saving the
+same office twice reports that nothing changed, titles are tidied and capped,
+and an office on a record that is gone names nobody without disturbing the
+directory.
+
+On the screen, five tests hold the reading rule — the office reaches a row two
+ways and a screen that reads only one of them would show it to some members and
+not others — and three of them fail if that line is removed. The browser path
+walks the directory and sees both kinds of office on the one page.
 
 ## Troubleshooting
 
