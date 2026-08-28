@@ -5276,6 +5276,52 @@ the host.
 
 ---
 
+### 2.85 PHP kann `{}` nicht von `[]` unterscheiden — MCP schon
+
+The connection got past every layer of §2.81 to §2.84 and then died on the
+handshake:
+
+```
+$ZodError: [ { "path": ["capabilities","tools"],
+               "message": "Invalid input: expected object, received array" } ]
+```
+
+`initialize` answered `"capabilities":{"tools":[]}`. The specification's schema
+says object there. PHP has **one** array type for both a list and a map, and
+`json_encode` guesses from the keys — an empty array has none, so it always
+becomes `[]`, never `{}`. The code said
+
+```php
+'tools' => [],   // meant as "the tools capability, with nothing in it"
+```
+
+and a client that validates its input against the published schemas — the MCP
+SDK does, with zod, and `mcp-remote` is built on it — refuses the whole
+message. `ping` had the same defect one method along: its result is the empty
+object, and it was going out as `[]`.
+
+**The fix is to say object out loud.** `new stdClass()` for the capability, and
+one rule in `Server::success()` — an empty MCP result encodes as `{}` — which
+covers `ping` and anything later that answers with nothing. It is deliberately
+*not* `JSON_FORCE_OBJECT`: half of what this server returns is genuinely a
+list, and a search that found nobody must stay `[]`.
+
+**Why the existing tests were happy.** `McpTest` decodes each response with
+`json_decode($body, true)` and asserts against PHP arrays — where `{}` and
+`[]` both arrive as `[]`. The assertion `assertArrayHasKey('tools',
+$result['capabilities'])` passed against a wire format no client would accept.
+Forty-one tests covered this endpoint and not one of them could see the bug,
+because they all looked at the response *after* the ambiguity had been thrown
+away.
+
+The two added for it decode with `json_decode($body, false)` and assert
+`instanceof stdClass`. Same principle as §2.84's harness fix, one layer out:
+**a test that reads the response the way the server built it cannot see what
+the client sees.** For a protocol whose contract is a published JSON schema, at
+least one assertion has to be on the bytes.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

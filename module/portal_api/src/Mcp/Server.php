@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Mcp;
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
+use stdClass;
 use Throwable;
 
 use function array_key_exists;
@@ -159,7 +160,13 @@ final class Server
             'capabilities'    => [
                 // No `listChanged`: the tools are in the source code and the
                 // source code does not change while a request is in flight.
-                'tools' => [],
+                //
+                // An object, spelled out, because PHP cannot tell an empty map
+                // from an empty list and `json_encode` guesses `[]`. The
+                // specification's schema says object here, and a client that
+                // validates against it — mcp-remote does — rejects the whole
+                // handshake over the difference. It cost an evening.
+                'tools' => new stdClass(),
             ],
             'serverInfo'      => [
                 'name'    => self::NAME,
@@ -251,7 +258,10 @@ final class Server
      */
     private function success(string|int $id, array $result): array
     {
-        return ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result];
+        // Every MCP result is an object, including the empty one `ping`
+        // answers with. PHP would encode that as `[]` and a client validating
+        // the reply would refuse it, so the empty case says `{}` out loud.
+        return ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result === [] ? new stdClass() : $result];
     }
 
     /**
