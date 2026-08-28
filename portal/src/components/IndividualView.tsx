@@ -118,6 +118,27 @@ function RelativeList({ title, people }: { title: string; people: IndividualRef[
  * the arrays. The portal does no filtering of its own, precisely so there is
  * only one place where that decision is made.
  */
+/**
+ * Both webtrees links leave the portal, and both now leave it in a window of
+ * their own.
+ *
+ * **The installed app is the case that decides it.** There is no address bar
+ * and no Back button in a standalone PWA, so following a link in place puts a
+ * member inside webtrees with no way home but closing and reopening the app.
+ * In a tab it is merely convenient — the record stays where it was while the
+ * tree is read beside it.
+ *
+ * The words are for a screen reader, and they are not decoration: a link that
+ * opens a new window without saying so is the standard complaint about
+ * `target="_blank"`. `rel="noopener"` was already there and stays — a page
+ * opened this way must not get a handle on the one that opened it.
+ */
+function NewWindow() {
+  const { t } = useTranslation()
+
+  return <span className="sr-only"> ({t('common.newWindow')})</span>
+}
+
 export function IndividualView({ individual }: { individual: Individual }) {
   const { t } = useTranslation()
   const { me } = useAuth()
@@ -159,9 +180,11 @@ export function IndividualView({ individual }: { individual: Individual }) {
           <a
             className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-slate-400 bg-white px-5 py-3 text-base font-semibold text-slate-900 hover:bg-slate-50"
             href={individual.webtrees_url}
+            target="_blank"
             rel="noopener noreferrer"
           >
             {t('individual.editInWebtrees')}
+            <NewWindow />
           </a>
           {/*
             Said once, quietly: an editor who sees a link nobody else mentions
@@ -237,9 +260,11 @@ export function IndividualView({ individual }: { individual: Individual }) {
           <a
             className="inline-flex min-h-[44px] items-center text-base font-semibold text-sky-800 underline underline-offset-4 hover:text-sky-900"
             href={individual.webtrees_url}
+            target="_blank"
             rel="noopener noreferrer"
           >
             {t('profile.openInWebtrees')}
+            <NewWindow />
           </a>
         </p>
       )}

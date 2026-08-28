@@ -665,6 +665,7 @@ export const de = {
   },
   common: {
     loading: 'Wird geladen …',
+    newWindow: 'öffnet in einem neuen Fenster',
   },
 }
 

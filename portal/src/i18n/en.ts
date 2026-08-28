@@ -663,5 +663,6 @@ export const en: Translations = {
   },
   common: {
     loading: 'Loading …',
+    newWindow: 'opens in a new window',
   },
 }

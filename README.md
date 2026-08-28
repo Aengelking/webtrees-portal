@@ -931,6 +931,13 @@ What the distinction buys is that a member is not pointed at an editing screen
 they have no business on, an editor does not hunt for the tree they maintain,
 and neither is shown two links to one page.
 
+**Both open in a window of their own**, and say so for anybody using a screen
+reader. In a browser tab that is a convenience — the record stays where it was
+while the tree is read beside it. In the installed app it is the difference
+between a door and a trap: a standalone web app has no address bar and no Back
+button, so a link followed in place leaves a member inside webtrees with no way
+home but closing and reopening the app.
+
 **Both links go through `/portal/individual/{xref}` on the webtrees host, not
 at the record directly.** The portal and webtrees are separate origins and the
 session cookie belongs to the portal, so anybody following a link out arrives
