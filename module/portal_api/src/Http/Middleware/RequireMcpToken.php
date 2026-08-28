@@ -9,7 +9,7 @@ use Engelking\Webtrees\PortalApi\Http\Json;
 use Engelking\Webtrees\PortalApi\Mcp\Server;
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\McpTokens;
-use Fisharebest\Webtrees\Auth;
+use Fisharebest\Webtrees\Session;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -28,7 +28,7 @@ use function preg_match;
  * and holds no session at all.
  *
  * **This is not a second permission system.** The token says which webtrees
- * account to read as; `Auth::login()` makes that account the signed-in user
+ * account to read as; this middleware makes that account the signed-in user
  * for the rest of the request, and from there every record goes through
  * webtrees' own privacy code at that account's access level, exactly as it
  * would for a person. The MCP server then narrows *that* to the dead — see
@@ -43,9 +43,28 @@ use function preg_match;
  * token defends a browser that carries a cookie automatically, and there is no
  * browser and no cookie here.
  *
- * **A session is created and immediately abandoned.** `Auth::login()` writes
- * to webtrees' session, so each MCP request leaves one short-lived session
- * behind for webtrees' own garbage collection to clear. That is the price of
+ * **Signed in without `Auth::login()`, and that is deliberate.** That method is
+ * two things: `Session::regenerate()` and then `Session::put('wt_user', …)`.
+ * Only the second is wanted here.
+ *
+ * Regenerating exists to stop session fixation — a *browser* signing in while
+ * carrying a session id somebody else planted on it. There is no such risk on
+ * this endpoint: the client sends no cookie, so PHP created this session
+ * microseconds ago and nobody else has ever seen its id. Regenerating it
+ * protects nothing.
+ *
+ * And it broke the live installation. `session_regenerate_id()` destroys the
+ * old session row and writes a new one *during* the request, and webtrees wraps
+ * every request in a database transaction (`UseTransaction`). On the host that
+ * ended the transaction: every MCP request died at the commit with "There is no
+ * active transaction", and what reached the client was a webtrees error page
+ * where JSON should have been. Nothing reproduced it in the test suite, which
+ * runs on SQLite with no active PHP session — `regenerate()` there does nothing
+ * at all, so no test could have failed.
+ *
+ * A session is still created and abandoned: `Auth::id()` reads `wt_user` out of
+ * the session and there is no other way in, so each MCP request leaves one
+ * short-lived row for webtrees' own garbage collection. That is the price of
  * using webtrees' privacy code rather than reimplementing it, and it is the
  * right way round: a second opinion about who may see what is the one thing
  * this module must never grow.
@@ -100,8 +119,13 @@ class RequireMcpToken implements MiddlewareInterface
         }
 
         // From here on this request *is* that account, as far as webtrees is
-        // concerned. Nothing below this line knows a token was involved.
-        Auth::login($user);
+        // concerned — `Auth::id()` reads exactly this. Nothing below this line
+        // knows a token was involved.
+        //
+        // Deliberately not `Auth::login()`: see the class note for what its
+        // session regeneration cost, and why there is nothing here for it to
+        // protect.
+        Session::put('wt_user', $user->id());
 
         return $handler->handle($request);
     }
