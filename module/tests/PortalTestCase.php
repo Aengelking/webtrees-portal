@@ -13,6 +13,7 @@ use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Factories\CacheFactory;
+use Fisharebest\Webtrees\Http\Middleware\CheckCsrf;
 use Fisharebest\Webtrees\Http\Middleware\RequestHandler;
 use Fisharebest\Webtrees\Http\RequestHandlers\GedcomLoad;
 use Fisharebest\Webtrees\Registry;
@@ -382,7 +383,20 @@ abstract class PortalTestCase extends TestCase
 
         Registry::container()->set(ServerRequestInterface::class, $request);
 
-        $middleware = [...$route->extras['middleware'], RequestHandler::class];
+        // The chain webtrees actually builds, not the one the route declares.
+        //
+        // `Http\Middleware\Router` injects `CheckCsrf` between a route's own
+        // middleware and its handler, on every route, whether the route asked
+        // for it or not. Leaving it out of the harness meant the suite tested a
+        // shorter chain than production runs — and it cost an evening: every
+        // authenticated MCP call was answered with a 302 back to itself, by a
+        // middleware no test had ever dispatched.
+        //
+        // This is still not the whole of production. Everything webtrees wraps
+        // *around* routing — the transaction, the session, the theme — is
+        // outside `$route->extras` and outside this harness; see NOTES.md
+        // §2.82 for what that has already hidden.
+        $middleware = [...$route->extras['middleware'], CheckCsrf::class, RequestHandler::class];
 
         // Whichever dispatcher this webtrees runs its own middleware through.
         // 2.2.6 dropped `oscarotero/middleland` for a static dispatcher of its

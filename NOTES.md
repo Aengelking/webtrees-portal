@@ -5150,6 +5150,65 @@ in that gap will be found on the host and nowhere else.
 
 ---
 
+### 2.83 Die Middleware, die man nicht abwählen kann
+
+Every authenticated MCP call was answered with a **302 back to its own URL**.
+Not the origin, not Cloudflare, not the `Authorization` header: webtrees'
+`CheckCsrf`, doing exactly what it is for.
+
+```php
+if ($client_token !== $session_token) {
+    return redirect((string) $request->getUri());
+}
+```
+
+`redirect()` is a 302, and the target is the request's own URI — which
+`BaseUrl` has already rewritten to the canonical host in ugly-URL form. That is
+character for character the `Location` this hunt had been staring at for hours,
+and it looked so much like an origin misconfiguration that `WEBTREES_ORIGIN`
+was moved into version control on its account. (Which it should have been
+anyway; see §2.80.)
+
+**A route cannot opt out of it.** `Http\Middleware\Router` builds the chain as
+the route's own middleware, then `CheckCsrf`, then the handler. This module's
+MCP route declares a chain without CSRF, and had a comment explaining why —
+"a CSRF token defends a browser that carries a cookie automatically, and there
+is no browser and no cookie here" — which is sound reasoning about a decision
+that was never ours to make.
+
+**Why it only appeared with a good token.** `RequireMcpToken` runs *before*
+`CheckCsrf`. Without a token it refuses, and the request never reaches the
+check. With one, it passes — and then meets it. So the endpoint answered
+sensibly to everything except the one thing it was built for, which is about
+the worst shape a bug can have.
+
+**Satisfying it takes nothing away.** A CSRF token defends a credential the
+browser attaches *by itself*. This endpoint has none: it is opened by a bearer
+token in a header, which no cross-origin page can make a browser send. There is
+nothing for a forged request to ride on. `RequireMcpToken` now puts the
+session's own token on the request, for that request only.
+
+#### The harness was testing a shorter chain than production runs
+
+`PortalTestCase::api()` dispatched `[...$route->extras['middleware'],
+RequestHandler::class]` — the chain the route *declares*. webtrees dispatches
+the chain it *builds*, with `CheckCsrf` in the middle. Nothing in this suite had
+ever run that middleware.
+
+It does now, and the difference is not theoretical: with the fix reverted, 29
+tests fail with "Failed asserting that 302 is identical to 200". That is the
+production bug, reproduced locally, by tests that already existed. They were
+right all along; they were simply never asked the real question.
+
+**Three of this evening's bugs were the same bug.** Not one of them was in the
+logic these tests cover — they were in what surrounds a request: a header the
+webserver eats, a transaction webtrees opens, a middleware webtrees injects.
+The suite is thorough about what the module *decides* and was blind to what it
+*runs inside*. `CheckCsrf` closes one of those gaps for good. The transaction
+and the session (§2.82) are still outside, and still only findable on the host.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

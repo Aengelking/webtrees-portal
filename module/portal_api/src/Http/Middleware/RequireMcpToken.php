@@ -127,7 +127,36 @@ class RequireMcpToken implements MiddlewareInterface
         // protect.
         Session::put('wt_user', $user->id());
 
-        return $handler->handle($request);
+        return $handler->handle($this->satisfyWebtreesCsrf($request));
+    }
+
+    /**
+     * Answer webtrees' own CSRF check, which this module cannot opt out of.
+     *
+     * **It is injected, not chosen.** `Http\Middleware\Router` builds every
+     * route's chain as the route's own middleware, then `CheckCsrf`, then the
+     * handler — so declaring a chain without it, as this route does, changes
+     * nothing. On a `POST` whose `X-CSRF-TOKEN` does not match the session's,
+     * it answers `redirect((string) $request->getUri())`: a **302 back to the
+     * same URL**. Every MCP call was answered with one, and a redirect is fatal
+     * to a `POST` — the body is dropped or the method turns into `GET`.
+     *
+     * It only ever appeared once a token was accepted, which is what made it
+     * so hard to see: without one, `RequireMcpToken` refuses first and the
+     * request never reaches `CheckCsrf` at all.
+     *
+     * **Satisfying it takes nothing away.** A CSRF token defends a browser
+     * that attaches its credential automatically — a cookie — against a page
+     * on another origin making a request it did not intend. This endpoint has
+     * no such credential: it is opened by a bearer token in a header, which no
+     * cross-origin page can make a browser send. There is nothing for a forged
+     * request to ride on, so there is nothing here for a CSRF token to protect.
+     * webtrees' check is generic and cannot know that; this says it, for this
+     * request only, and changes nothing for any other route.
+     */
+    private function satisfyWebtreesCsrf(ServerRequestInterface $request): ServerRequestInterface
+    {
+        return $request->withHeader('X-CSRF-TOKEN', Session::getCsrfToken());
     }
 
     /**
