@@ -4669,6 +4669,33 @@ thing that does not need one.
 
 ---
 
+### 2.79 A door out of an app with no way back in
+
+Both links into webtrees — the member's *Stammbaum und Diagramme öffnen* and
+the editor's *In webtrees öffnen und bearbeiten* — opened in place. In a
+browser tab that is merely inconvenient: Back returns. **In the installed app
+it is a trap.** A standalone PWA has no address bar and no Back button, so
+following the link puts a member inside webtrees with no way home but closing
+and reopening the app. §2.30 went to some trouble to make that door land in the
+right place; it was still a door with no handle on the other side.
+
+So both open in a window of their own. `rel="noopener noreferrer"` was already
+there and stays — a page opened this way must not get a handle on the one that
+opened it.
+
+**And the link says so.** A `target="_blank"` that does not announce itself is
+the standard complaint about the pattern: somebody using a screen reader hears
+a link, follows it, and is somewhere else with no explanation of what happened
+to where they were. The words are in the link's accessible name — a `sr-only`
+span rather than a `title`, because a title is not read reliably and is not
+read at all on a telephone.
+
+Which broke six tests, all of them looking the link up by its exact name. That
+is the right kind of breakage: the name is what a member hears, it changed, and
+the tests said so.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
