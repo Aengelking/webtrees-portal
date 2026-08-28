@@ -364,6 +364,11 @@ class OperationsTest extends PortalTestCase
         // worth a look — correctly, because it means every member sees every
         // living person. A healthy installation has made a choice about it.
         $this->module()->setPreference(PortalApiModule::SETTING_MEMBER_PATH_LENGTH, '2');
+        // Same reasoning, on webtrees' side of the question: left at its own
+        // default, webtrees names living people to every member while the
+        // portal shows a placeholder, and the two disagree one tap apart. A
+        // healthy installation has made a choice about that too.
+        $this->tree->setPreference('SHOW_LIVING_NAMES', (string) Auth::PRIV_NONE);
         Site::setPreference('USE_REGISTRATION_MODULE', '0');
 
         $diagnosis = Registry::container()->get(Diagnosis::class);
@@ -463,7 +468,7 @@ class OperationsTest extends PortalTestCase
 
         $checks = $this->diagnose();
 
-        self::assertCount(10, $checks);
+        self::assertCount(11, $checks);
         self::assertSame(Diagnosis::PROBLEM, Registry::container()->get(Diagnosis::class)->worst($checks));
     }
 

@@ -525,6 +525,7 @@ class InvitationTest extends PortalTestCase
             'rate_limit_window' => '900',
             'invitation_days'   => '14',
             'invitations_url'   => '/invitations',
+            'campaigns_url'     => '/campaigns',
             'diagnosis_url'     => '/diagnosis',
             'member_invites'      => '1',
             'member_invite_steps' => '2',

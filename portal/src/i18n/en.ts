@@ -532,6 +532,24 @@ export const en: Translations = {
     blocked:
       'Your browser is blocking notifications for this site. Only the browser’s own settings can allow them again.',
   },
+  claim: {
+    title: 'Join the family portal',
+    intro:
+      'You were sent this link in one of the family’s round-robin letters. Enter the email address that letter arrived at, and your personal invitation will be sent there.',
+    email: 'Your email address',
+    emailHint:
+      'The address the letter arrived at. We cannot send an invitation anywhere else.',
+    submit: 'Ask for an invitation',
+    sending: 'Sending…',
+    missing: 'Please enter your email address.',
+    sent: {
+      title: 'Please check your inbox',
+      body:
+        'If this address belongs to the family, your personal invitation is on its way. The link in it is yours alone and works once — please do not pass it on. Have a look in the spam folder too.',
+    },
+    haveAccount: 'Already have an account?',
+    backToLogin: 'Go to sign in',
+  },
   lists: {
     title: 'The family’s round-robin letters',
     intro:
@@ -626,17 +644,37 @@ export const en: Translations = {
   },
   ancestors: {
     title: 'Ancestors',
-    line: {
-      root: 'Starting point',
-      paternal: "Father's line",
-      maternal: "Mother's line",
+    generation: {
+      1: 'Parents',
+      2: 'Grandparents',
+      3: 'Great-grandparents',
+      4: 'Great-great-grandparents',
+      nth: 'Generation {{n}}',
+    },
+    path: {
+      your: {
+        father: 'Your father',
+        mother: 'Your mother',
+      },
+      possessive: {
+        father: "Father's",
+        mother: "Mother's",
+      },
+      father: 'father',
+      mother: 'mother',
     },
     none: {
       title: 'No ancestors recorded',
-      body: 'The family tree records no parents for this person — or they are not shown to you.',
+      body: 'The family tree records no parents for this person.',
     },
+    private: {
+      name: 'Not shown',
+      member: 'Listed in the member directory',
+    },
+    truncated:
+      'The archive goes back further than can be shown here. Open one of the people at the top to carry on from there.',
     privacyNote:
-      'Only people you are allowed to see are shown. Where a line ends, it may well continue in the family tree.',
+      'Where somebody is not shared with you — which is nearly always the living — the row says only that somebody is there: no name, no dates. Anyone who has listed themselves in the member directory is named with the name they publish there; nothing from the family tree is shown for them either.',
   },
   error: {
     title: 'Something went wrong',

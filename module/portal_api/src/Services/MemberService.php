@@ -30,6 +30,13 @@ class MemberService
 {
     public const string TABLE = 'portal_member_profile';
 
+    /**
+     * `listedByXref()`'s answer, per tree, for the length of one request.
+     *
+     * @var array<int,array<string,Member>>
+     */
+    private array $listed_by_xref = [];
+
     public function __construct(private readonly UserService $user_service)
     {
     }
@@ -148,6 +155,43 @@ class MemberService
             })
             ->filter()
             ->values();
+    }
+
+    /**
+     * Every directory-listed member, keyed by the record webtrees links them to.
+     *
+     * The same set as `allVisible()`, asked the other way round: not "who is
+     * listed" but "is *this* record a listed member's own". The pedigree asks
+     * it once per rung it may not show, and the answer cannot change while a
+     * request runs, so it is read once and kept.
+     *
+     * Keyed by tree because the link is a per-tree user preference. In
+     * practice this holds one entry — the portal serves one tree — but keying
+     * it on the tree costs nothing and cannot be wrong later.
+     *
+     * First listing wins where two accounts claim the same record. That is a
+     * misconfiguration rather than a case to handle, and picking one is better
+     * than picking neither.
+     *
+     * @return array<string,Member>
+     */
+    public function listedByXref(Tree $tree): array
+    {
+        if (array_key_exists($tree->id(), $this->listed_by_xref)) {
+            return $this->listed_by_xref[$tree->id()];
+        }
+
+        $listed = [];
+
+        foreach ($this->allVisible() as $member) {
+            $xref = $tree->getUserPreference($member->user, UserInterface::PREF_TREE_ACCOUNT_XREF);
+
+            if ($xref !== '' && !array_key_exists($xref, $listed)) {
+                $listed[$xref] = $member;
+            }
+        }
+
+        return $this->listed_by_xref[$tree->id()] = $listed;
     }
 
     /**

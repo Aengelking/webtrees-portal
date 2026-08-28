@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\I18N;
+
+/**
+ * The same invitation, for mail readers that show HTML. See the text version.
+ *
+ * @var string $url
+ * @var string $name
+ */
+
+?>
+<div dir="<?= I18N::locale()->direction() ?>" lang="<?= I18N::locale()->languageTag() ?>">
+    <p>
+        <?= $name === '' ? I18N::translate('Hello…') : I18N::translate('Hello %s…', '<bdi>' . e($name) . '</bdi>') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('You are on one of the family’s mailing lists, and the family now has a portal: your own record, the tree, and who else is in it.') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('This link is yours alone and works once. Please do not pass it on — anybody who opens it becomes you.') ?>
+    </p>
+
+    <p>
+        <a href="<?= e($url) ?>"><?= e($url) ?></a>
+    </p>
+
+    <p>
+        <?= I18N::translate('You choose your own username and password on the way in.') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('If you would rather not, there is nothing to do: the link expires on its own.') ?>
+    </p>
+</div>

@@ -63,7 +63,8 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
 `DELETE /me/connection-links/{id}`, `GET|PATCH /me/mailing-lists`,
-`GET /search`, `GET /index`, `GET /relationship`, `GET /health`.
+`POST /invitation/claim`, `GET /search`, `GET /index`, `GET /relationship`,
+`GET /health`.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Stammbaum (search the archive,
@@ -91,10 +92,13 @@ because this family tells two people of the same name apart by it. It is the
 same list the full record shows, filtered the same way: a confidential number
 appears on neither.
 
-The tree can be walked in the portal: every relative is a link, four
-generations of ancestors are one request, and a record says how the signed-in
-member is related to it. Drawn charts (fan, descendancy) are still webtrees'
-job, and every record still links out for them.
+The tree can be walked in the portal: every relative is a link, the whole
+pedigree back to the archive's base is one request, and a record says how the
+signed-in member is related to it. The pedigree does not stop at a living relative it may
+not name — that rung is an unnamed placeholder and the line carries on above it
+— so the archive's dead stay reachable through the family's living. Drawn
+charts (fan, descendancy) are still webtrees' job, and every record still links
+out for them.
 
 Members get in by invitation. An administrator picks the person out of the
 tree and gets a one-time link to send; the invitee chooses their own username
@@ -508,6 +512,63 @@ subscribed under the old one, and each member would have to switch it on again.
 members being offered it. Existing subscriptions stay in the table and start
 working again if it is switched back on.
 
+### Inviting a mailing list
+
+*Reached from the module preferences: **Invite a mailing list**. Needs the
+portal address and at least one configured list.*
+
+**A personal invitation cannot be sent to a distribution list.** The list is one
+address that fans out to hundreds of people, so one letter carries one link —
+and an invitation here is a credential naming one person. Three hundred copies
+of it is not three hundred invitations; it is one, and whoever opens the letter
+first spends it on somebody else's account.
+
+So the letter carries a **campaign link**, which grants nothing. It opens a page
+with one field on it: the reader's own address. If that address is on one of the
+lists the campaign covers, the personal invitation is made there and then and
+sent **to that address** — so what proves who somebody is, is the one thing a
+forwarded round-robin letter cannot carry, which is access to their own mailbox.
+
+That keeps the rule from §1.3 of NOTES intact. Nobody registers who was not
+asked: being on the family's mailing list *is* the asking, and it happened years
+ago.
+
+**The language can be chosen on that page**, as on the sign-in screen. It is the
+first page of the portal anybody sees, and the only one reached without an
+account to read a preference from — so a member who does not read German would
+otherwise have to fill in a German form to ask for an invitation, and would then
+be sent that invitation in German too: the chosen language rides along on
+`Accept-Language`, and the letter is written in the language the request asked
+for.
+
+**The page never says whether an address belongs to the family.** On a list, on
+no list, already has an account, mail server down, campaign called off: one
+sentence, one status, a broadly similar delay. Otherwise this becomes a way of
+asking whether a person is in this family, of a portal built so that nobody can
+ask that.
+
+**Somebody who already has an account** is not offered a second one. They get a
+letter pointing at the sign-in, and at *Passwort vergessen?* if that is what
+they actually needed — which it usually is.
+
+**The archive number does the linking.** Where this family names its mail
+contacts `22/1a32.124 Antje Beispiel` — or plainly `4711 Anna Beispiel` — the
+first word is looked up as a reference number and the invitation is tied to that
+record, so the account arrives already linked. Nothing is guessed: two records
+under one number produce no link, and an unnumbered contact is invited anyway,
+unlinked, exactly as a hand-issued invitation would be.
+
+**The letter is written here and sent by you.** The screen offers a ready-made
+German text beside the link, to paste into your own mail programme. The module
+does not send it: a family distribution list usually refuses anything posted by
+an application that is not a member of it, and a letter that comes from a person
+reads better than one from a portal.
+
+The screen also shows what came of each campaign — how many were invited, how
+many turned out to have an account already, and how many addresses were typed
+that no ticked list holds. A campaign that is nothing but the last was sent to
+the wrong list.
+
 ### The family's mailing lists
 
 *Settings: **Members may manage their own mailing-list subscriptions**, off by
@@ -548,6 +609,14 @@ that ten minutes; a change made in the portal shows up at once, because the
 module knows what it just did and writes it into the same answer. A list that
 cannot be read falls back to what the portal recorded, which costs a
 wrong-looking switch and never a screen that will not open.
+
+The distinction that matters there is between an attempt and an answer. A list
+that was asked and did not reply is recorded as *asked* — so a dead Exchange is
+not tried again on every page load — and not as a list holding nobody, which
+would tell every member of it that they are not subscribed. **The diagnosis
+screen shows which:** per list, how many members were last read, or *never
+read*. If a list stays unread, the application can write but not read, and
+*Test the connection to Exchange* will say so.
 
 Only the hashes of the addresses are kept (`portal_list_snapshot`). The useful
 question is "is *this* address on that list", which a SHA-256 answers as well
@@ -1005,6 +1074,120 @@ nephews and parents-in-law.
 The Diagnosis screen reports the current state under *What a member can see*,
 including how many accounts still have no limit.
 
+#### One screen reads the limit differently: *Vorfahren*
+
+Everywhere else in the portal, somebody a member may not see is simply not
+there. On the pedigree they are — as a rung that says *Nicht freigegeben* and
+nothing else, so that the line can carry on above them to ancestors who are
+long dead and restricted by nobody. Without that, a limit of two steps ends
+almost every line at the reader's grandparents, and the archive the portal
+exists to open stops being reachable at all.
+
+What such a rung shows is that somebody occupies the position. It carries no
+name, no dates, no picture, no reference number and no link, and it never says
+*why* it is closed — a living relative outside the limit and a record marked
+`RESN confidential` look exactly the same, on purpose.
+
+**Two things can still end a line outright.** A restriction on the *family*
+record that hides it from this reader — somebody saying that this connection is
+confidential, rather than these people — and simply running out of recorded
+parents.
+
+Note *from this reader*: a `RESN` is a level, not a flag. `RESN confidential`
+ends the line for members and not for managers; `RESN privacy` ends it for
+visitors, so in the portal it ends it for nobody; and `RESN locked` is not a
+privacy notice at all — it forbids editing a record, not reading it — so it
+ends nothing. The rule is webtrees' own, taken from
+`GedcomRecord::canShowRecord()` rather than invented.
+
+**And one thing can put a name back on a rung: that person's own.** A member
+who has switched themselves into the member directory is named with the name
+they publish there, and the rung links to their member page. That is the same
+consent the search reads (see below), so switching the directory off in
+Settings takes them out of both. Nothing from the family tree is shown for
+them either way — the record stays closed; only what they publish in the
+portal appears. A record carrying `RESN confidential`, `RESN privacy` or a
+per-record privacy level set in *Control panel → Privacy* is never named this
+way, even for a listed member.
+
+#### How deep the pedigree goes, and how it reads
+
+*Vorfahren* walks as far as the archive does — up to twenty generations, which
+reaches Georg Sack with room to spare — and stops the moment a line runs out of
+recorded parents, which on most lines is after three or four. Asking deep costs
+nothing on a shallow line.
+
+What bounds the answer is the number of people, not the number of generations:
+a pedigree grows by doubling, so generations are a poor proxy for size. The cap
+is 400, it is never reached in practice, and where it is the screen says so
+rather than letting a line that stopped read as a family that ended.
+
+The list is grouped under a heading per generation — *Eltern*, *Großeltern*,
+*Urgroßeltern*, *Ururgroßeltern*, then *N. Generation* — and every card says
+the path that reaches that person: *Ihr Vater*, *Vaters Vaters Mutter*, and
+from the fourth generation *Vater › Mutter › Mutter › Vater › Vater*. Both are
+read out of the position number, and both keep working however deep the tree
+goes, which an indent does not.
+
+#### Reaching the pedigree of somebody whose record is closed to you
+
+A contact's page in *Kontakte* shows no record where the archive entry is not
+shared with the reader — and therefore none of the buttons that live on a
+record. The family above that person was unreachable that way, though it is
+mostly people long dead.
+
+So a member's page offers *Vorfahren anzeigen* of its own, which opens the same
+pedigree by member id rather than by archive reference. It appears only where
+somebody actually stands above that member, and it opens exactly where their
+member page opens: they listed themselves in the member directory, or the two
+of you connected. The person themselves is an unnamed rung in their own
+pedigree, like any other living person; what is named is the dead above them.
+
+One consequence worth knowing, because the portal is otherwise careful about
+it: the presence of that button says that this member has an entry in the
+archive. It is shown only to somebody who may already open their page — and
+that page may already be showing their archive number — but it is a thing the
+portal elsewhere declines to say.
+
+#### Two settings in webtrees that the portal cannot reach
+
+*Control panel → Family trees → Preferences → Privacy.* These belong to
+webtrees, not to this module, and they decide what a member sees **after**
+following the link out of a person's page in the portal — a link every member
+has, at the foot of every record.
+
+**“Show names of private individuals”** (`SHOW_LIVING_NAMES`) is the one that
+matters, and its default is *Show to members*. It is worth knowing exactly what
+it does, because it looks like it should be covered by the privacy rules and is
+not:
+
+```php
+// Individual::canShowName()
+return (int) $this->tree->getPreference('SHOW_LIVING_NAMES') >= $access_level || $this->canShow($access_level);
+```
+
+An **or**. A member who may not open a living person's record still reads their
+name — on family pages, in charts, wherever webtrees draws a box. Only the name:
+no link, no photograph, no dates, no facts, because everything else goes through
+`canShow()` first. webtrees does this deliberately — its own help text says "the
+names (but no other details)" — since a chart of forty boxes reading *Private*
+is not a chart.
+
+The portal never does this. But it hands every member the door, so its own
+discipline holds only as far as this setting lets it. Set it to *Show to
+managers* to make the two agree.
+
+**“Show private relationships”** (`SHOW_PRIVATE_RELATIONSHIPS`) decides whether
+a hidden relative's row is listed as *Private* or left off the family page
+altogether. Either value agrees with the portal, which now says the same thing
+on the pedigree: somebody stands here.
+
+The Diagnosis screen reports both under *Names of living people in webtrees*,
+with their current values in webtrees' own words, so they can be found on that
+screen. It is a warning while members can read the names, and a problem when
+the tree does not require signing in — because the names are then readable by
+anybody who finds the address.
+
 ### Searching the family archive
 
 *No setting. This one is a rule, and it is worth knowing what it is.*
@@ -1179,9 +1362,10 @@ green — after a rehearsal against a test tree, that is the setting most likely
 to be quietly wrong), whether the database tables match the code, whether the
 module's routes registered at all, the portal address, the proxy secret,
 whether webtrees' own registration page is still open, accounts with no linked
-record, and errors in the last 24 hours.
+record, how much of the tree a member sees, whether webtrees names living
+people, the mailing lists, and errors in the last 24 hours.
 
-Two of them are hard to notice any other way:
+Three of them are hard to notice any other way:
 
 * **API routes — not registered.** The module did not start. webtrees is
   unaffected, which is exactly why nothing else looks wrong. The reason is in
@@ -1189,6 +1373,11 @@ Two of them are hard to notice any other way:
 * **Database tables — the code expects a newer version.** The files were
   uploaded but the migrations have not run. From the deployment's point of
   view this looks like success.
+* **Names of living people in webtrees.** webtrees names them to members even
+  where it will not open the record; the portal never does. The two settings
+  behind that are per tree, have no screen that mentions the portal, and are
+  one tap away from every member. See *Two settings in webtrees that the
+  portal cannot reach* below.
 
 **The error list.** Every request that failed for a member, newest first. Each
 one showed that member a short reference — if somebody quotes one, search for
@@ -1979,11 +2168,22 @@ own origin, never webtrees'; a photograph may be kept by a browser and by
 nothing else, and webtrees' own `public, max-age=31536000` is refused at the
 proxy.
 
-**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`) — a
-confidential ancestor is absent from the pedigree and the walk stops there
-rather than reaching around them; a relationship is never named through
-someone the member may not see, though a manager who can see the whole path is
-told; a hidden root and a missing one give byte-identical 404s.
+**The tree** (`module/tests/TreeTest.php`, `portal/src/Tree.test.tsx`,
+`portal/src/Contacts.test.tsx`) — an
+ancestor the member may not read is a placeholder carrying a position and
+nothing else, and the walk carries on above it to the dead who are not
+restricted; a living person hidden by the relationship path length produces the
+byte-identical entry to a confidential one, so "hidden" cannot be read as
+"alive"; a member who listed themselves in the directory is named from there
+and never from the record, while a restricted record is not named even for a
+listed member and an unlisted member is not named at all; a relationship is
+never named through someone the member may not see, though a manager who can
+see the whole path is told; a hidden root and a missing one give byte-identical
+404s. A contact whose record is closed still has a pedigree that opens, by
+member id, with her own rung a placeholder and her dead parents named; a member
+who is neither listed nor connected and a member the tree has no record for
+give byte-identical 404s; and the button is offered only where somebody stands
+above them.
 
 **Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
 `Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does
@@ -1998,8 +2198,9 @@ portal refetches rather than leaving English labels on a German screen; an
 unavailable language changes nothing rather than failing. The choice is kept
 on the *account*: the switch saves it, a signed-in member's language comes
 from their account rather than from the browser, a tag the portal has no
-translation for leaves the language alone, and the login screen — where there
-is no account yet — saves nothing.
+translation for leaves the language alone, and the screens reached without one
+— the login screen, and the campaign page a round-robin letter points at —
+offer the switch but save nothing.
 
 **Invitations** (`module/tests/InvitationTest.php`,
 `portal/src/Invitation.test.tsx`) — the raw token appears in no column of
@@ -2033,7 +2234,11 @@ applying a limit touches member accounts and never editors, managers or
 administrators; an account with no linked record is skipped, because webtrees
 measures the distance from that record; and an account created by invitation
 arrives with the limit already set, or without one when the setting says not
-to restrict.
+to restrict. On the webtrees side of the same question: naming living people
+to members is reported as a mismatch with the portal, withholding them as
+agreement, and "show to visitors" as a problem only where the tree can be read
+without signing in — while the relationship setting is reported both ways round
+and complained about in neither.
 
 **Member invitations** (`module/tests/MemberInvitationTest.php`,
 `portal/src/Invite.test.tsx`) — a member is offered only living relatives
@@ -2127,6 +2332,20 @@ asks when focusing it fails, opens a window when nothing is running, and says
 nothing to a window belonging to somebody else — and the app acts on that
 message, while ignoring one that names a path leading off this site.
 
+**Inviting a mailing list** (`module/tests/CampaignTest.php`,
+`portal/src/ClaimInvitation.test.tsx`) — the link in the letter invites nobody
+on its own, which is the promise the whole design rests on; an address on a
+ticked list is invited and the invitation goes only to the address that asked
+for it; the answer is asserted byte for byte to be identical for a member, a
+stranger and a token that was never issued, because a difference of one word
+would answer the question this refuses to; a called-off or expired campaign
+invites nobody; somebody who already has an account is pointed at the sign-in
+and gets no invitation; asking twice sends one letter; the archive number in a
+contact's name links the invitation to that record, and a contact without one is
+invited anyway, unlinked. On the client: the confirmation reads the same for an
+address that belongs and one that does not, and says so in words that are true
+either way.
+
 **Mailing lists** (`module/tests/MailingListTest.php`,
 `module/tests/ExchangeConnectorTest.php`, `portal/src/MailingLists.test.tsx`) —
 a list's address appears nowhere in the response at all, which is asserted against the whole body rather than a field,
@@ -2144,7 +2363,9 @@ change that has not landed says so. A member who never touched a switch is
 shown what Exchange says about them, somebody else being on the list says
 nothing about them, a list is not re-read on every visit, leaving one is not
 undone by an answer read ten minutes ago, and a list that cannot be read at all
-falls back rather than failing. `ExchangeConnectorTest` replaces the wire
+falls back rather than failing — and a list that could not be read is recorded
+as asked rather than as empty, which is the bug that told a whole family they
+were not subscribed. `ExchangeConnectorTest` replaces the wire
 with a script and pins what the connector may conclude from an answer: a write
 refused for want of a role is never excused by the list happening to look
 right — the shape of the one bug a live tenant found — while an ordinary

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Services;
 
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Fact;
 use Fisharebest\Webtrees\I18N;
@@ -368,6 +369,29 @@ class TreeSearch
         return $this->search
             ->searchIndividualNames([$tree], array_values(array_filter($terms)), 0, self::MAX_MATCHES)
             ->all();
+    }
+
+    /**
+     * The one person carrying this archive number, or nobody.
+     *
+     * For the server acting on its own account rather than on a member's —
+     * turning the number in an Exchange contact's name into the record an
+     * invitation should be tied to. `Auth::PRIV_NONE` is a manager's view,
+     * which is right here and would be wrong anywhere a member can see: the
+     * people being invited are living, so a member's access level would hide
+     * most of them and the linking would silently stop working for exactly
+     * the records it is for.
+     *
+     * **Null unless the answer is one.** Two records carrying the same number
+     * is an archive to be corrected, not a coin to be tossed, and guessing
+     * would tie somebody's account to the wrong person — which is the one
+     * mistake here that is hard to see and hard to undo.
+     */
+    public function individualByNumber(Tree $tree, string $number): Individual|null
+    {
+        $found = $this->byReference($tree, $number, Auth::PRIV_NONE);
+
+        return count($found) === 1 ? $found[0] : null;
     }
 
     /**

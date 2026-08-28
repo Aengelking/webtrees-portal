@@ -467,6 +467,65 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /invitation/claim:
+    post:
+      tags: [invitations]
+      summary: Answer a letter that went to a mailing list
+      description: |
+        A distribution list is one address that fans out to hundreds of people,
+        so a letter to it carries one link — and an invitation in this portal
+        is a credential naming one person. Putting a personal link in a
+        round-robin letter therefore does not invite three hundred people; it
+        invites one, and whoever opens the letter first spends it.
+
+        So the letter carries a **campaign link**, which grants nothing, and
+        this is what the page behind it posts to. If the address given is on
+        one of the lists the campaign covers, a personal invitation is created
+        and sent **to that address** — so what proves who somebody is, is the
+        one thing a forwarded letter cannot carry: access to their own mailbox.
+
+        Where the family names its mail contacts by archive number, the
+        invitation is tied to that record and the account arrives linked.
+
+        **The answer is always the same.** On a list, on no list, already has an
+        account, mail server unreachable, campaign expired or called off — one
+        body, one status, and a broadly similar delay. Anything else would make
+        this a way of asking whether a person belongs to this family.
+      operationId: claimInvitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [campaign, email]
+              properties:
+                campaign:
+                  type: string
+                  description: The token from the link in the letter. Not a credential.
+                email:
+                  type: string
+                  description: The address the person reading the letter typed.
+      responses:
+        '202':
+          description: |
+            Accepted, and deliberately nothing more. Not `201`: a status that
+            varied with the outcome would say what the body refuses to.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [sent]
+
   /invitation/accept:
     post:
       tags: [session]
@@ -2072,11 +2131,28 @@ paths:
         is 1, a father is 2n and a mother is 2n+1. The client indexes by
         `position` and never walks a nested structure.
 
-        Nothing here is visible that stepping from relative to relative would
-        not also reach. The walk runs at the member's access level and **stops**
-        at anyone they may not see: that person is absent, and so is everyone
-        above them. There is no placeholder and no gap to read meaning into —
-        the branch simply ends, exactly as it does on the profile screen.
+        **The shape is shown; who stands in it is not, unless the reader may
+        see them.** Every rung the walk reaches is in the answer. Where the
+        member may read the record, the entry is a full `IndividualRef`. Where
+        they may not, it is a placeholder — a position, `private: true`, and
+        nothing else — and the walk carries on above it, so the archive's dead
+        stay reachable through its living.
+
+        A placeholder carries no name, no dates, no picture, no archive number
+        and **no XREF**: it is not a link, and it cannot be used to ask this
+        API anything further. Nor does it say *why* the record is closed; a
+        living person outside the reader's reach and a record marked
+        confidential produce the identical entry.
+
+        The one thing that can be attached to a placeholder is `member`, and
+        it is that person's own decision rather than a reading of their record
+        — see the schema.
+
+        The **root** is the exception: a record the member may not read is a
+        404 here, byte for byte the same one an XREF that names nobody gets.
+        Placeholders carry no XREF, so nothing in the portal links to such a
+        pedigree; the refusal is there so that trying XREFs by hand does not
+        become a way of finding out which of them name a real person.
 
         This exists so that four generations are one request rather than
         fifteen, which matters on a phone and on shared hosting.
@@ -2093,13 +2169,19 @@ paths:
           in: query
           required: false
           description: |
-            How many generations above the root to include. Clamped to 1..6
+            How many generations above the root to include. Clamped to 1..20
             rather than refused; the response says what was used.
+
+            The default is the maximum, because that is what a member asks for:
+            this archive is measured from one man about a dozen generations up,
+            and a pedigree that stops at four stops in the nineteenth century.
+            Asking deep costs nothing on a shallow line — the walk stops the
+            moment a generation turns up empty.
           schema:
             type: integer
             minimum: 1
-            maximum: 6
-            default: 4
+            maximum: 20
+            default: 20
       responses:
         '200':
           description: The visible ancestors.
@@ -2454,6 +2536,74 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MemberDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /members/{id}/ancestors:
+    get:
+      tags: [members]
+      summary: A member's ancestors, by member id
+      description: |
+        The same pedigree as `/individuals/{xref}/ancestors`, reached by a
+        different door — and it exists because that door cannot open for the
+        case that needs it most.
+
+        A member whose genealogy record is closed to this reader has no XREF
+        here to ask with: the member page does not publish one, and the other
+        endpoint refuses a root the reader may not see. It has to, because an
+        XREF is a guessable string and answering differently for one would turn
+        it into a way of finding out which XREFs name a real person. A portal
+        member id is not that.
+
+        **The gate is the member page's own.** This opens exactly where
+        `GET /members/{id}` opens: the member listed themselves in the
+        directory, or the two of them connected — the narrower consent of the
+        two, because both gave it. Anything else is `404`, and so is a member
+        with no record in the tree: which of the two it is, is the sentence the
+        portal keeps to itself.
+
+        The root is very often a placeholder, because a closed record is the
+        reason for coming here. Its name is on the member page the reader came
+        from; the pedigree does not repeat it.
+      operationId: getMemberAncestors
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: id
+          in: path
+          required: true
+          description: The portal member id, as `/members/{id}` takes.
+          schema:
+            type: integer
+            minimum: 1
+        - name: generations
+          in: query
+          required: false
+          description: |
+            How many generations above the root to include. Clamped to 1..20
+            rather than refused; the response says what was used.
+
+            The default is the maximum, because that is what a member asks for:
+            this archive is measured from one man about a dozen generations up,
+            and a pedigree that stops at four stops in the nineteenth century.
+            Asking deep costs nothing on a shallow line — the walk stops the
+            moment a generation turns up empty.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+      responses:
+        '200':
+          description: The pedigree.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AncestorPage'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -3579,32 +3729,104 @@ components:
           description: The full-size file, same origin, same reasoning.
           example: /api/v1/media/M1/6f8a1c2e4b7d9013a5c6e8f0b2d4a6c8/image
 
+    AncestorPlacement:
+      type: object
+      required:
+        - position
+        - generation
+        - private
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          description: |
+            The Ahnentafel number. 1 is the root, 2n is a father and 2n+1 a
+            mother.
+
+            Numbers are not contiguous, and a missing one means the archive
+            records nobody there — not somebody withheld. A person the reader
+            may not see is *present*, as a placeholder; it is a line that has
+            simply run out of recorded ancestors that is absent.
+          example: 5
+        generation:
+          type: integer
+          minimum: 0
+          description: 0 for the root, 1 for parents, and so on.
+          example: 2
+        private:
+          type: boolean
+          description: |
+            Whether this rung is a placeholder rather than a person.
+
+            Optional in older clients: a server that predates this field never
+            sends a placeholder either, so its absence reads correctly as
+            `false`.
+          example: false
+
     Ancestor:
+      description: |
+        One rung of the pedigree: either somebody the reader may read, or the
+        fact that somebody stands there.
+
+        Discriminated by `private`. When it is `false` (or missing, from an
+        older server) every `IndividualRef` field is present. When it is
+        `true`, none of them are — the entry carries `position`, `generation`,
+        `private` and at most `member`.
+      oneOf:
+        - $ref: '#/components/schemas/VisibleAncestor'
+        - $ref: '#/components/schemas/PrivateAncestor'
+
+    VisibleAncestor:
       allOf:
         - $ref: '#/components/schemas/IndividualRef'
-        - type: object
-          required:
-            - position
-            - generation
-          properties:
-            position:
-              type: integer
-              minimum: 1
-              description: |
-                The Ahnentafel number. 1 is the root, 2n is a father and 2n+1
-                a mother.
+        - $ref: '#/components/schemas/AncestorPlacement'
 
-                Numbers are not contiguous: a person the member may not see is
-                absent, and so is everyone above them. A missing number means
-                "nothing to show here", never "somebody hidden lives here" —
-                the two are indistinguishable by design, because a tree with a
-                labelled hole in it is a tree that tells you what fills it.
-              example: 5
-            generation:
-              type: integer
-              minimum: 0
-              description: 0 for the root, 1 for parents, and so on.
-              example: 2
+    PrivateAncestor:
+      allOf:
+        - $ref: '#/components/schemas/AncestorPlacement'
+        - type: object
+          additionalProperties: false
+          properties:
+            member:
+              type: object
+              nullable: true
+              additionalProperties: false
+              description: |
+                The directory listing this record belongs to, where the person
+                standing here is a member who put themselves in it — and null
+                otherwise, which is the ordinary case.
+
+                **This is consent, not a gap in the privacy rule.** Listing
+                oneself in the directory is a decision that every other member
+                may see one's name and open one's member page; the directory
+                screen has published exactly that since Phase 2. Repeating it
+                here adds one thing — that this listed member stands at this
+                position — which is what the pedigree is for.
+
+                Nothing from the genealogy record travels with it. The record
+                is closed and stays closed: the name here is the display name
+                from the portal's own member profile, not a name out of the
+                family tree, and there are no dates, no places and no
+                photograph beside it.
+
+                A record carrying an explicit restriction — `1 RESN
+                confidential`, `1 RESN privacy`, or a per-record privacy level
+                set in webtrees' control panel — is never named this way, even
+                for a listed member. That is somebody who keeps the archive
+                saying this record is not to be shown, and a switch in the
+                portal's settings does not answer it.
+              required:
+                - id
+                - display_name
+              properties:
+                id:
+                  type: integer
+                  description: The portal member id, as `/members/{id}` takes.
+                  example: 7
+                display_name:
+                  type: string
+                  description: The name this member publishes in the directory.
+                  example: Berta Beispiel
 
     AncestorPage:
       type: object
@@ -3612,6 +3834,7 @@ components:
       required:
         - generations
         - people
+        - truncated
       properties:
         generations:
           type: integer
@@ -3619,9 +3842,25 @@ components:
           example: 4
         people:
           type: array
-          description: The visible ancestors, root first, in Ahnentafel order.
+          description: |
+            Every rung the walk reached, root first, in Ahnentafel order — the
+            people the reader may see, and placeholders for those they may not.
           items:
             $ref: '#/components/schemas/Ancestor'
+        truncated:
+          type: boolean
+          description: |
+            True where the walk stopped at its own limit rather than at the top
+            of the archive.
+
+            Generations are the wrong unit to bound a pedigree by, because it
+            grows by doubling; what is bounded is the number of people. Real
+            pedigrees are nothing like complete — lines run out within three or
+            four rungs except the one the archive was built to follow — so this
+            is false in practice. It is reported rather than hidden because "the
+            archive ends here" and "we stopped reading here" are different
+            sentences, and a line that simply stops would be read as the first.
+          example: false
 
     Individual:
       allOf:
@@ -3803,6 +4042,22 @@ components:
             connections_enabled:
               type: boolean
               description: False when the family has switched connections off.
+            ancestors:
+              type: boolean
+              description: |
+                Whether `/members/{id}/ancestors` has anything to show — that
+                is, whether somebody stands above this member in the archive.
+
+                The way in for a member whose record is closed to this reader:
+                `individual_detail` is then null, so the screen has no record
+                view and no button of its own, and the family above them would
+                otherwise be unreachable.
+
+                It discloses one thing — that this member has a record in the
+                tree — which the portal otherwise keeps to itself. The family
+                chose to spend it here: narrowly, to whoever may already open
+                this page, on a screen that may already be showing this
+                person's archive number.
 
     Connection:
       type: object

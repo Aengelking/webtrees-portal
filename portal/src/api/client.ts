@@ -293,6 +293,20 @@ export const api = {
     })
   },
 
+  /**
+   * The pedigree of a member, by member id rather than by XREF.
+   *
+   * A different door onto the same room, for the case the other one cannot
+   * open: somebody whose record is closed to this reader has no XREF here to
+   * ask with. See the module's `MemberAncestorsRead`.
+   */
+  memberAncestors(id: number, generations: number, signal?: AbortSignal): Promise<AncestorPage> {
+    return request<AncestorPage>(`/members/${id}/ancestors`, {
+      query: { generations },
+      ...(signal === undefined ? {} : { signal }),
+    })
+  },
+
   members(
     params: { q?: string; page?: number; per_page?: number },
     signal?: AbortSignal,
@@ -571,6 +585,21 @@ export const api = {
    * request this page goes on to make. A body is the only place it can go
    * that none of those keep.
    */
+  /**
+   * Answer a letter that went to a mailing list.
+   *
+   * The campaign token grants nothing; it says which letter is being answered.
+   * The response is the same whatever the server found — on a list, on no
+   * list, already an account — so there is nothing here for the screen to
+   * branch on, which is the point.
+   */
+  claimInvitation(campaign: string, email: string): Promise<{ status: string }> {
+    return request<{ status: string }>('/invitation/claim', {
+      method: 'POST',
+      body: { campaign, email },
+    })
+  },
+
   previewInvitation(token: string): Promise<InvitationPreview> {
     return request<InvitationPreview>('/invitation/preview', { method: 'POST', body: { token } })
   },

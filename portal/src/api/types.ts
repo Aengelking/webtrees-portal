@@ -334,15 +334,59 @@ export interface PendingIndividual {
   individual: Individual | null
 }
 
-/** One ancestor, positioned by Ahnentafel number. */
-export interface Ancestor extends IndividualRef {
+/** Where a rung sits, which is true of a person and of a placeholder alike. */
+export interface AncestorPlacement {
   position: number
   generation: number
+  /**
+   * Whether this rung is a placeholder rather than a person.
+   *
+   * Optional because the module and the portal deploy separately, and a
+   * server that predates the field never sends a placeholder either — so its
+   * absence reads correctly as `false`.
+   */
+  private?: boolean
 }
+
+/** An ancestor the reader may read. */
+export type VisibleAncestor = IndividualRef & AncestorPlacement & { private?: false }
+
+/**
+ * Somebody stands here, and that is all the reader is told.
+ *
+ * No name, no dates, no picture, no archive number and no xref — so there is
+ * nothing to link to and nothing to ask the API about. Nor does it say *why*
+ * the record is closed: a living person outside the reader's reach and a
+ * record marked confidential arrive identically.
+ */
+export interface PrivateAncestor extends AncestorPlacement {
+  private: true
+  /**
+   * The directory listing this record belongs to, when the person standing
+   * here is a member who put themselves in it — null otherwise, which is the
+   * ordinary case.
+   *
+   * Their own decision, and portal data rather than genealogy data: the name
+   * is the one they publish in the member directory, and nothing from the
+   * family tree comes with it.
+   */
+  member?: { id: number; display_name: string } | null
+}
+
+/** One rung of the pedigree, positioned by Ahnentafel number. */
+export type Ancestor = VisibleAncestor | PrivateAncestor
 
 export interface AncestorPage {
   generations: number
   people: Ancestor[]
+  /**
+   * True where the walk stopped at its own limit rather than at the top of the
+   * archive — so that a line which simply ends is not read as a cut-off one.
+   *
+   * Optional for the usual reason: a server that predates the field never
+   * truncates either, so its absence reads correctly as `false`.
+   */
+  truncated?: boolean
 }
 
 export interface Individual extends IndividualRef {
@@ -651,6 +695,18 @@ export interface MemberDetail extends MemberSummary {
    * survive a server that predates the field.
    */
   connections_enabled?: boolean
+  /**
+   * Whether this member's pedigree can be opened — `/members/{id}/ancestors`
+   * has somebody standing above them.
+   *
+   * The way in for a member whose genealogy record is closed to this reader:
+   * `individual_detail` is then null, so no record view and no button of its
+   * own, and the family above them was unreachable. See §2.77.
+   *
+   * Optional for the usual reason: the module ships over SFTP and the portal
+   * through CI, so a server that predates the field simply offers nothing.
+   */
+  ancestors?: boolean
 }
 
 export interface MemberPage {

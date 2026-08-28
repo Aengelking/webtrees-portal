@@ -6,9 +6,9 @@ namespace Engelking\Webtrees\PortalApi\Services;
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
 
-use function array_filter;
 use function array_keys;
 use function array_walk_recursive;
+use function count;
 use function curl_close;
 use function curl_error;
 use function curl_exec;
@@ -83,6 +83,15 @@ class ExchangeOnline
 {
     /** Seconds. A family portal must not sit waiting on somebody else's cloud. */
     private const int TIMEOUT = 10;
+
+    /**
+     * How many pages of one answer to follow before giving up on it.
+     *
+     * A thousand rows a page, so this is a hundred thousand recipients — far
+     * past any family, and low enough that a paging loop which never ends
+     * stops rather than holding a request open until the web server kills it.
+     */
+    private const int MAX_PAGES = 100;
 
     private const string TOKEN_URL = 'https://login.microsoftonline.com/%s/oauth2/v2.0/token';
 
@@ -242,6 +251,43 @@ class ExchangeOnline
         ]);
     }
 
+    /**
+     * What Exchange calls the recipient at this address.
+     *
+     * Wanted for one thing only: this family names its mail contacts
+     * `22/1a32.124 Antje Beispiel` — the archive number, then the person — so
+     * the name carries the one fact that can tie an invitation to a record in
+     * the tree. See `InvitationCampaigns`.
+     *
+     * An empty string where there is no such recipient, or no name on it.
+     * Nothing here is worth failing an invitation over: a name that cannot be
+     * read costs the automatic link and nothing else, and an account that
+     * arrives unlinked is what every invitation issued by hand produces
+     * anyway.
+     */
+    public function recipientName(string $address): string
+    {
+        try {
+            $found = $this->invoke($this->token(), 'Get-Recipient', ['Identity' => $address]);
+        } catch (ExchangeFailure) {
+            return '';
+        }
+
+        $first = $found[0] ?? null;
+
+        if (!is_array($first)) {
+            return '';
+        }
+
+        foreach (['Name', 'DisplayName'] as $field) {
+            if (is_string($first[$field] ?? null) && trim($first[$field]) !== '') {
+                return trim($first[$field]);
+            }
+        }
+
+        return '';
+    }
+
     private function recipientExists(string $token, string $address): bool
     {
         try {
@@ -339,6 +385,20 @@ class ExchangeOnline
             }
         });
 
+        // Rows came back and not one of them held anything shaped like an
+        // address. That is not an empty list — an empty list returns no rows —
+        // it is this module failing to read an answer it was given, and the
+        // only honest thing to do with it is say so. Reported as a failure
+        // rather than returned as "nobody is subscribed", because the second
+        // is a sentence about the family and this is a sentence about the code.
+        if ($addresses === [] && $rows !== []) {
+            throw new ExchangeFailure(
+                'Get-DistributionGroupMember returned ' . count($rows) . ' member(s) for ' . $list
+                . ' with no readable address among them. The fields it returns are not the ones this module looks in.',
+                true
+            );
+        }
+
         return array_keys($addresses);
     }
 
@@ -403,19 +463,59 @@ class ExchangeOnline
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
 
-        [$status, $payload] = $this->send($url, $body, [
+        $headers = [
             'Authorization: Bearer ' . $token,
             'Content-Type: application/json',
             'Accept: application/json',
             // The endpoint dispatches on this header, not on the body.
             'X-CmdletName: ' . $cmdlet,
-        ]);
+            // Ask for a page big enough that a family's mailing list arrives
+            // whole. The endpoint pages regardless — see the loop below — but
+            // one round trip beats four.
+            'Prefer: odata.maxpagesize=1000',
+        ];
 
-        if ($status >= 200 && $status < 300) {
+        $rows = [];
+        $page = 0;
+
+        while (true) {
+            [$status, $payload] = $this->send($url, $body, $headers);
+
+            if ($status < 200 || $status >= 300) {
+                break;
+            }
+
             $decoded = json_decode($payload, true);
-            $value   = is_array($decoded) ? ($decoded['value'] ?? []) : [];
+            $decoded = is_array($decoded) ? $decoded : [];
+            $value   = $decoded['value'] ?? [];
 
-            return is_array($value) ? array_filter($value, static fn ($row): bool => $row !== null) : [];
+            foreach (is_array($value) ? $value : [] as $row) {
+                if ($row !== null) {
+                    $rows[] = $row;
+                }
+            }
+
+            // OData hands back long answers a page at a time. Reading only the
+            // first page does not fail — it *truncates*, which for a mailing
+            // list means members quietly missing from the middle of the
+            // alphabet and a portal telling them they are not subscribed. The
+            // one thing worse than not asking is asking and believing half the
+            // answer.
+            $next = $decoded['@odata.nextLink'] ?? null;
+
+            if (!is_string($next) || $next === '' || $next === $url) {
+                return $rows;
+            }
+
+            if (++$page >= self::MAX_PAGES) {
+                throw new ExchangeFailure(
+                    $cmdlet . ' returned more than ' . self::MAX_PAGES . ' pages. The answer is being truncated, '
+                    . 'and a truncated list is indistinguishable from members who are not on it.',
+                    true
+                );
+            }
+
+            $url = $next;
         }
 
         $denied = $status === 401 || $status === 403;

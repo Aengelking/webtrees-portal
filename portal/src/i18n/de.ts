@@ -534,6 +534,24 @@ export const de = {
     blocked:
       'Ihr Browser blockiert Benachrichtigungen für diese Seite. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
   },
+  claim: {
+    title: 'Zum Familienportal anmelden',
+    intro:
+      'Sie haben diesen Link über eine Rundmail der Familie bekommen. Geben Sie hier die E-Mail-Adresse ein, an die diese Rundmail gegangen ist — Ihre persönliche Einladung schicken wir dann genau dorthin.',
+    email: 'Ihre E-Mail-Adresse',
+    emailHint:
+      'Die Adresse, unter der Sie die Rundmail bekommen haben. An eine andere können wir nichts schicken.',
+    submit: 'Einladung anfordern',
+    sending: 'Wird gesendet …',
+    missing: 'Bitte geben Sie Ihre E-Mail-Adresse ein.',
+    sent: {
+      title: 'Bitte sehen Sie in Ihr Postfach',
+      body:
+        'Wenn diese Adresse zur Familie gehört, ist Ihre persönliche Einladung unterwegs. Der Link darin gilt nur für Sie und nur einmal — bitte geben Sie ihn nicht weiter. Sehen Sie auch im Spam-Ordner nach.',
+    },
+    haveAccount: 'Sie haben schon einen Zugang?',
+    backToLogin: 'Zur Anmeldung',
+  },
   lists: {
     title: 'Rundmails der Familie',
     intro:
@@ -628,17 +646,37 @@ export const de = {
   },
   ancestors: {
     title: 'Vorfahren',
-    line: {
-      root: 'Ausgangspunkt',
-      paternal: 'Väterliche Linie',
-      maternal: 'Mütterliche Linie',
+    generation: {
+      1: 'Eltern',
+      2: 'Großeltern',
+      3: 'Urgroßeltern',
+      4: 'Ururgroßeltern',
+      nth: '{{n}}. Generation',
+    },
+    path: {
+      your: {
+        father: 'Ihr Vater',
+        mother: 'Ihre Mutter',
+      },
+      possessive: {
+        father: 'Vaters',
+        mother: 'Mutters',
+      },
+      father: 'Vater',
+      mother: 'Mutter',
     },
     none: {
       title: 'Keine Vorfahren hinterlegt',
-      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst — oder sie sind für Sie nicht freigegeben.',
+      body: 'Zu dieser Person sind im Stammbaum keine Eltern erfasst.',
     },
+    private: {
+      name: 'Nicht freigegeben',
+      member: 'Im Mitgliederverzeichnis eingetragen',
+    },
+    truncated:
+      'Der Stammbaum reicht noch weiter zurück, als hier gezeigt werden kann. Über eine der obersten Personen geht es weiter.',
     privacyNote:
-      'Es werden nur Personen angezeigt, die für Sie freigegeben sind. Wo eine Linie endet, kann es sein, dass sie im Stammbaum weitergeht.',
+      'Wo eine Person für Sie nicht freigegeben ist — das sind fast immer die Lebenden — steht nur, dass dort jemand steht: kein Name, keine Daten. Wer sich selbst ins Mitgliederverzeichnis eingetragen hat, wird mit dem Namen aus dem Verzeichnis genannt; aus dem Stammbaum wird auch dann nichts angezeigt.',
   },
   error: {
     title: 'Da ist etwas schiefgelaufen',

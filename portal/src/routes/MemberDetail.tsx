@@ -62,6 +62,27 @@ export function MemberDetail() {
                 */}
                 <Withheld member={data} />
                 <Notice title={t('member.private.title')} body={t('member.private.body')} />
+                {/*
+                  The one way in that is still open. This member's record is
+                  closed to this reader, so there is no `IndividualView` here
+                  and no button of its own — and until §2.77 that meant the
+                  whole family above them was unreachable, though every name in
+                  it would have been either somebody long dead or an unnamed
+                  placeholder.
+
+                  Offered only where there is something above them to show. The
+                  server answers that; the client does not guess.
+                */}
+                {data.ancestors === true && memberId !== undefined && (
+                  <p className="mt-4">
+                    <Link
+                      to={`/members/${memberId}/ancestors`}
+                      className="inline-flex min-h-[44px] w-full items-center justify-center rounded-lg border border-sky-800 px-5 py-3 text-base font-semibold text-sky-900"
+                    >
+                      {t('individual.showAncestors')}
+                    </Link>
+                  </p>
+                )}
               </>
             ) : (
               <IndividualView individual={data.individual_detail} />

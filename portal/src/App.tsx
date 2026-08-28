@@ -7,13 +7,14 @@ import { Loading } from './components/ui'
 import { Connect } from './routes/Connect'
 import { Contacts } from './routes/Contacts'
 import { EditProfile } from './routes/EditProfile'
+import { ClaimInvitation } from './routes/ClaimInvitation'
 import { Invitation } from './routes/Invitation'
 import { Invite } from './routes/Invite'
 import { Login } from './routes/Login'
 import { PasswordRequest } from './routes/PasswordRequest'
 import { PasswordReset } from './routes/PasswordReset'
 import { MemberDetail } from './routes/MemberDetail'
-import { Ancestors } from './routes/Ancestors'
+import { Ancestors, MemberAncestors } from './routes/Ancestors'
 import { Members } from './routes/Members'
 import { Tree } from './routes/Tree'
 import { Conversation } from './routes/Conversation'
@@ -58,6 +59,13 @@ export function App() {
         <Route path="/password/request" element={<PasswordRequest />} />
         <Route path="/password/reset" element={<PasswordReset />} />
         <Route path="/invitation" element={<Invitation />} />
+        {/*
+          Where the letter to a mailing list points. Unauthenticated like the
+          invitation itself: the whole point is that this person has no account
+          yet. German in the path because the address is printed in a letter to
+          the family and read by people, not by machines.
+        */}
+        <Route path="/einladung" element={<ClaimInvitation />} />
 
         <Route
           element={
@@ -86,6 +94,7 @@ export function App() {
           <Route path="/conversations/new" element={<NewConversation />} />
           <Route path="/conversations/:id" element={<Conversation />} />
           <Route path="/members/:id" element={<MemberDetail />} />
+          <Route path="/members/:id/ancestors" element={<MemberAncestors />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>

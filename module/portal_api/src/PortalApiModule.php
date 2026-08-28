@@ -36,6 +36,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualLink;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualUpdate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationAccept;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationClaimCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\InvitationRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MailingListRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MailingListUpdate;
@@ -47,6 +48,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MeRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndexRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberAncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordResetCreate;
@@ -74,6 +76,7 @@ use Engelking\Webtrees\PortalApi\Services\ExchangeOnline;
 use Engelking\Webtrees\PortalApi\Services\ErrorLog;
 use Engelking\Webtrees\PortalApi\Services\GedcomEditor;
 use Engelking\Webtrees\PortalApi\Services\Inbox;
+use Engelking\Webtrees\PortalApi\Services\InvitationCampaigns;
 use Engelking\Webtrees\PortalApi\Services\InvitationService;
 use Engelking\Webtrees\PortalApi\Services\LoginRateLimiter;
 use Engelking\Webtrees\PortalApi\Services\MeAssembler;
@@ -120,6 +123,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
+use function array_key_exists;
 use function error_log;
 use function is_string;
 use function max;
@@ -149,7 +153,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.3.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 14;
+    private const int SCHEMA_VERSION = 16;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -325,8 +329,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $photo_store    = new Photos($portal_trees, $pending);
         $photos         = new PhotoPresenter($photo_store);
         $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers);
-        $ancestors      = new AncestorTree($presenter);
         $members        = new MemberService($user_service);
+        $ancestors      = new AncestorTree($presenter, $members);
         $search_consent = new SearchConsent($members, $portal_trees);
         $tree_search    = new TreeSearch($portal_trees, $container->get(SearchService::class), $search_consent);
         $rate_limiter   = new LoginRateLimiter($this);
@@ -354,6 +358,16 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $me             = new MeAssembler($portal_trees, $presenter, $members, $inbox, $connections, $conversations);
         $exchange       = new ExchangeOnline($this);
         $mailing_lists  = new DistributionLists($this, $exchange);
+        $campaigns      = new InvitationCampaigns(
+            $this,
+            $portal_trees,
+            $mailing_lists,
+            $exchange,
+            $invitations,
+            $tree_search,
+            $user_service,
+            $container->get(EmailService::class),
+        );
         $devices        = new RememberedDevices($this, $user_service);
 
         $container->set(PortalTreeService::class, $portal_trees);
@@ -378,6 +392,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PushSubscriptions::class, $push);
         $container->set(ExchangeOnline::class, $exchange);
         $container->set(DistributionLists::class, $mailing_lists);
+        $container->set(InvitationCampaigns::class, $campaigns);
+        $container->set(InvitationClaimCreate::class, new InvitationClaimCreate($campaigns, $container->get(RateLimitService::class)));
         $container->set(MailingListRead::class, new MailingListRead($mailing_lists));
         $container->set(MailingListUpdate::class, new MailingListUpdate($mailing_lists));
         $container->set(PushRead::class, new PushRead($push));
@@ -408,7 +424,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(SearchList::class, new SearchList($portal_trees, $presenter, $tree_search));
         $container->set(IndexRead::class, new IndexRead($portal_trees, $tree_search));
         $container->set(RelationshipRead::class, new RelationshipRead($sack));
-        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections, $recognition));
+        $container->set(MemberRead::class, new MemberRead($portal_trees, $presenter, $members, $contacts, $member_msgs, $member_invites, $connections, $recognition, $ancestors));
+        $container->set(MemberAncestorsRead::class, new MemberAncestorsRead($portal_trees, $members, $connections, $ancestors));
         $container->set(ContactRead::class, new ContactRead($contacts, $connections));
         $container->set(ContactUpdate::class, new ContactUpdate($contacts, $connections));
         $container->set(MessageCreate::class, new MessageCreate($member_msgs));
@@ -529,6 +546,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             ->extras(['middleware' => $private]);
 
         $map->get(MemberRead::class, self::ROUTE_PREFIX . '/members/{id}', MemberRead::class)
+            ->tokens(['id' => '\d+'])
+            ->extras(['middleware' => $private]);
+
+        // The pedigree of somebody whose record the reader may not open. Keyed
+        // by member id rather than XREF on purpose — see the handler.
+        $map->get(MemberAncestorsRead::class, self::ROUTE_PREFIX . '/members/{id}/ancestors', MemberAncestorsRead::class)
             ->tokens(['id' => '\d+'])
             ->extras(['middleware' => $private]);
 
@@ -714,6 +737,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $map->post(InvitationRead::class, self::ROUTE_PREFIX . '/invitation/preview', InvitationRead::class)
             ->extras(['middleware' => $unsafe]);
 
+        // Phase 15 — answering the letter that went to a mailing list. Grants
+        // nothing on its own; what it can do is send a personal invitation to
+        // an address that is already on one of the family's lists.
+        $map->post(InvitationClaimCreate::class, self::ROUTE_PREFIX . '/invitation/claim', InvitationClaimCreate::class)
+            ->extras(['middleware' => $public]);
+
         $map->post(InvitationAccept::class, self::ROUTE_PREFIX . '/invitation/accept', InvitationAccept::class)
             ->extras(['middleware' => $unsafe]);
     }
@@ -761,6 +790,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'sack_marriages_default' => SackNumbers::DEFAULT_MARRIAGES,
             'sack_branches_default'  => SackNumbers::DEFAULT_BRANCHES,
             'invitations_url'   => $this->invitationsUrl(),
+            'campaigns_url'     => $this->campaignsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
         ]);
     }
@@ -957,6 +987,117 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     private function invitationsUrl(): string
     {
         return route('module', ['module' => $this->name(), 'action' => 'AdminInvitations']);
+    }
+
+    // -----------------------------------------------------------------
+    // Inviting a mailing list (administrators only)
+    //
+    // Same access rule as the invitations screen above: webtrees refuses any
+    // action whose name contains "Admin" to anybody who is not one, before the
+    // method is called. The names must keep the word.
+    // -----------------------------------------------------------------
+
+    /** Start a campaign, see what has come of the ones already sent. */
+    public function getAdminCampaignsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $campaigns = $container->get(InvitationCampaigns::class);
+
+        // Shown once and then forgotten, like an invitation link. Through the
+        // session rather than the redirect, because a token in a URL is a
+        // token in the webserver's access log — even one that grants nothing.
+        $new_link = Session::get('portal_api_new_campaign', '');
+        $new_link = is_string($new_link) ? $new_link : '';
+        Session::forget('portal_api_new_campaign');
+
+        return $this->viewResponse($this->name() . '::campaigns', [
+            'title'        => I18N::translate('Invite a mailing list'),
+            'module'       => $this,
+            'campaigns'    => $campaigns->all(),
+            'lists'        => $container->get(DistributionLists::class)->configured(),
+            'new_link'     => $new_link,
+            'letter'       => $new_link === '' ? '' : $this->suggestedLetter($new_link),
+            'portal_url'   => $this->getPreference(self::SETTING_PORTAL_URL, ''),
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    /** Create one, or call one off, then redirect back to the screen. */
+    public function postAdminCampaignsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = Validator::parsedBody($request);
+
+        if ($body->string('campaign_action', '') === 'revoke') {
+            Registry::container()->get(InvitationCampaigns::class)->revoke($body->integer('campaign_id', 0));
+
+            FlashMessages::addMessage(I18N::translate('The campaign has been called off. The link in the letter no longer does anything.'), 'success');
+
+            return redirect($this->campaignsUrl());
+        }
+
+        $this->createCampaign($body->string('campaign_name', ''), $body->array('campaign_lists'), $body->integer('campaign_days', InvitationCampaigns::DEFAULT_VALIDITY_DAYS));
+
+        return redirect($this->campaignsUrl());
+    }
+
+    /**
+     * @param array<string,mixed> $ticked
+     */
+    private function createCampaign(string $name, array $ticked, int $days): void
+    {
+        $container  = Registry::container();
+        $campaigns  = $container->get(InvitationCampaigns::class);
+        $configured = $container->get(DistributionLists::class)->configured();
+
+        // Only lists that are still configured, and only ones that were
+        // ticked. A campaign naming a list nobody can be on would accept
+        // nobody and say nothing about why.
+        $lists = [];
+
+        foreach ($ticked as $hash => $on) {
+            if ($on && array_key_exists($hash, $configured)) {
+                $lists[] = (string) $hash;
+            }
+        }
+
+        if ($lists === []) {
+            FlashMessages::addMessage(I18N::translate('Tick at least one list, or the campaign can invite nobody.'), 'danger');
+
+            return;
+        }
+
+        if ($this->getPreference(self::SETTING_PORTAL_URL, '') === '') {
+            FlashMessages::addMessage(I18N::translate('The portal address is not set, so a link cannot be built. Set it in the module preferences first.'), 'danger');
+
+            return;
+        }
+
+        Session::put('portal_api_new_campaign', $campaigns->link($campaigns->create($name, $lists, $days, Auth::user())));
+    }
+
+    /**
+     * A letter an administrator can paste into their own mail programme.
+     *
+     * Offered rather than sent. A family distribution list usually refuses
+     * anything posted by an application that is not a member of it, and a
+     * letter that comes from a person reads better than one from a portal —
+     * so the module writes the words and a human presses send.
+     */
+    private function suggestedLetter(string $link): string
+    {
+        return I18N::translate('Dear family,') . "\n\n"
+            . I18N::translate('our family tree now has a portal: your own record, the tree around it, and who else of us is in there. It is not open to the public — only people on this list can get in.') . "\n\n"
+            . I18N::translate('If you would like an account, open this page and enter the address this letter reached you at:') . "\n\n"
+            . $link . "\n\n"
+            . I18N::translate('Your personal invitation is then sent to that address. The link in it is yours alone and works once, so please do not pass it on.') . "\n\n"
+            . I18N::translate('If you would rather not, there is nothing to do.') . "\n";
+    }
+
+    private function campaignsUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminCampaigns']);
     }
 
     /** Is anything wrong, and what should be done about it? */

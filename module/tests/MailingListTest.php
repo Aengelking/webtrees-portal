@@ -448,6 +448,56 @@ class MailingListTest extends PortalTestCase
     }
 
     /**
+     * Every list gets read, not the first one over and over.
+     *
+     * One list is read per request, and the choice used to be "the first stale
+     * one in the administrator's order". Whenever every list was stale at once
+     * — which is every visit more than ten minutes after the last, so nearly
+     * every visit in a family portal — that picked the same list every time
+     * and the others were never read at all. Two thirds of the memberships
+     * simply never arrived.
+     */
+    public function testEveryListIsReadEventuallyAndNotTheFirstOneRepeatedly(): void
+    {
+        $this->exchange->onList = [
+            self::FAMILY  => ['anna@example.test'],
+            self::INVITES => ['anna@example.test'],
+        ];
+
+        // Two visits, and between them enough time that both lists are stale
+        // again — the condition under which this used to stick on the first.
+        $this->read();
+        DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
+        $this->read();
+
+        $body = $this->json($this->read());
+
+        self::assertTrue($body['lists'][0]['subscribed'], 'the first list');
+        self::assertTrue($body['lists'][1]['subscribed'], 'and the second, which used to be starved');
+    }
+
+    /**
+     * A list nobody has ever asked about is more urgent than one with a stale
+     * answer, however old that answer is.
+     */
+    public function testAListThatWasNeverReadGoesFirst(): void
+    {
+        $this->exchange->onList = [self::INVITES => ['anna@example.test']];
+
+        // The first list has an answer, old but present. The second has none.
+        $this->read();
+        DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
+        $this->exchange->calls = [];
+
+        $this->read();
+
+        self::assertSame(['read ' . self::INVITES], array_values(array_filter(
+            $this->exchange->calls,
+            static fn (string $call): bool => str_starts_with($call, 'read ')
+        )));
+    }
+
+    /**
      * The list is read once and the answer kept, or every member opening their
      * settings would put a round trip to Exchange in front of the screen.
      */
@@ -487,6 +537,99 @@ class MailingListTest extends PortalTestCase
         // And still off when the screen is opened again, without waiting for
         // the answer to expire.
         self::assertFalse($this->json($this->read())['lists'][0]['subscribed']);
+    }
+
+    /**
+     * The bug a live tenant found, and the reason `read_at` exists.
+     *
+     * A list that could not be read used to be written down as a list holding
+     * nobody, and the two are indistinguishable once stored. Every member of
+     * that list was then told they were not subscribed — not once, but for
+     * good, because each further failed attempt only moved the timestamp along.
+     *
+     * The distinction under test: an attempt is recorded (so a dead Exchange is
+     * not retried on every page load) and an *answer* is not.
+     */
+    public function testAListThatCouldNotBeReadIsNotRecordedAsEmpty(): void
+    {
+        $this->exchange->unreadable = true;
+
+        $body = $this->json($this->read());
+
+        // Falls back to the portal's own record — nothing recorded, so off —
+        // rather than to an emptiness nobody established.
+        self::assertFalse($body['lists'][0]['subscribed']);
+
+        $row = DB::table('portal_list_snapshot')->first();
+
+        self::assertNotNull($row, 'the attempt is recorded, or a dead Exchange is asked on every page load');
+        self::assertNull($row->read_at, 'but not as an answer');
+    }
+
+    /**
+     * "Never read" on its own is one round trip short of useful.
+     *
+     * The first time a list would not read, the cause was a list address
+     * Exchange had never heard of — sitting in the answer, and nowhere on the
+     * screen. It is kept for the administrator now, and still never shown to a
+     * member.
+     */
+    public function testWhyAListCouldNotBeReadIsKeptForTheAdministrator(): void
+    {
+        $this->exchange->unreadable = true;
+
+        $raw = $this->raw($this->read());
+
+        $row = DB::table('portal_list_snapshot')->first();
+
+        self::assertNotNull($row);
+        self::assertStringContainsString('timeout', (string) $row->read_error);
+
+        // The member is told nothing about somebody else's infrastructure.
+        self::assertStringNotContainsString('timeout', $raw);
+        self::assertStringNotContainsString('Exchange', $raw);
+    }
+
+    /**
+     * And the moment it can be read, the answer arrives — the failed attempt
+     * left nothing behind that has to be cleared out first.
+     */
+    public function testAnAnswerArrivesOnceTheListCanBeReadAgain(): void
+    {
+        $this->exchange->unreadable = true;
+        $this->exchange->onList     = [self::FAMILY => ['anna@example.test']];
+
+        self::assertFalse($this->json($this->read())['lists'][0]['subscribed']);
+
+        $this->exchange->unreadable = false;
+
+        // What the passage of time would do.
+        DB::table('portal_list_snapshot')->update(['fetched_at' => 0]);
+
+        // One list is read per visit and the never-read one goes first, so the
+        // second list is served before this one comes round again. Both, then,
+        // rather than assuming an order this test is not about.
+        $body = $this->json($this->read());
+        $body = $this->json($this->read());
+
+        self::assertTrue($body['lists'][0]['subscribed']);
+    }
+
+    /**
+     * An empty answer is still an answer, and must not be confused with the
+     * absence of one. A list nobody is on says so.
+     */
+    public function testAListThatIsGenuinelyEmptyIsRecordedAsSuch(): void
+    {
+        $this->exchange->onList = [self::FAMILY => []];
+
+        $this->read();
+
+        $row = DB::table('portal_list_snapshot')->first();
+
+        self::assertNotNull($row);
+        self::assertNotNull($row->read_at);
+        self::assertSame('', (string) $row->members);
     }
 
     /**

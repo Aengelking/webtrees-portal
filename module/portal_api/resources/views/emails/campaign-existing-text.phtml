@@ -1,0 +1,26 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\I18N;
+
+/**
+ * Somebody who already has an account asked for an invitation.
+ *
+ * Almost always because they have forgotten they signed up. Sending an
+ * invitation would offer them a second account; what they need is the way back
+ * into the first, so this says where the door is and that the key is
+ * recoverable, and nothing else.
+ *
+ * @var string $url
+ * @var string $name
+ */
+
+?>
+<?= $name === '' ? I18N::translate('Hello…') : I18N::translate('Hello %s…', e($name)) ?>
+
+<?= I18N::translate('You already have an account in the family portal, so there is no need for a new one.') ?>
+
+<?= e($url) ?>
+
+<?= I18N::translate('If you have forgotten your password, “Passwort vergessen?” on that page will send you a new one.') ?>

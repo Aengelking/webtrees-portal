@@ -3954,6 +3954,125 @@ for somebody holding a number, not a place to learn the family's geography —
 and naming the branches there would need the table in the browser, which is a
 second decision and not this one.
 
+### 2.72 An attempt is not an answer
+
+The switches read Exchange (§2.66) and on the first tenant they read nothing:
+members who had been on the family lists for years were shown as not
+subscribed, and no error appeared anywhere.
+
+The cause is one line and the shape of the mistake is worth more than the fix.
+`refresh()` stored a list it could not read as a list holding nobody:
+
+    'members' => $column ?? '',      // $column is null when the read failed
+
+Once written, the two are indistinguishable. `subscribed()` sees a snapshot
+that exists and is empty, concludes that nobody is on the list, and tells every
+member so — for good, because each further failed attempt only moved
+`fetched_at` along and never produced an answer to replace it.
+
+**A cache has to be able to say "I do not know".** That is the whole lesson.
+The row now records the attempt in `fetched_at` and the answer in `read_at`,
+and only a row with the second is believed; without it the screen falls back to
+what the portal itself recorded. Both jobs are still done — a dead Exchange is
+still not asked on every page load, and it no longer asserts anything about the
+family while it is dead.
+
+This is the same error as §2.66's, one layer along, and it is worth naming as a
+pair. There, a refusal to *write* was read as evidence that the write had
+happened. Here, a failure to *read* was written down as the thing read. Both
+times something that was not an answer got filed as one.
+
+**The connector now refuses to hand back an emptiness it cannot vouch for.**
+`members()` throws when rows come back and not one of them holds anything
+shaped like an address — which is not an empty list, since an empty list
+returns no rows, but this module failing to read an answer it was given. That
+is exactly the assumption NOTES §3 flagged as a guess about somebody else's
+product, and it now announces itself instead of quietly emptying a list.
+
+**And the diagnosis screen says what was read.** Per list: how many members, or
+*never read*, with Exchange's own complaint beside it where there is one. The
+whole difficulty of finding this was that "read, and nobody is on it" and
+"never read" looked identical from outside, including to the person who wrote
+it.
+
+**Two more, found by working the live installation instead of reasoning about
+it.** Both were invisible in the same way — a member simply reads as not
+subscribed, and nothing anywhere is wrong.
+
+*One list is read per request, and it was always the first one.* Whenever every
+list was stale at once — which is every visit more than ten minutes after the
+last, so nearly every visit in a family portal — the loop picked the first
+configured list again and the second and third were never read at all. Two
+thirds of the memberships never arrived. It now takes the least recently asked,
+never-asked first.
+
+*The answer is paged, and only the first page was read.* OData hands back a long
+answer a page at a time. Not asking would have been a failure; asking and
+believing the first page is a truncation, which for a mailing list means
+members quietly missing from the middle of the answer. The family this was
+built for is already at three hundred on one list. `@odata.nextLink` is
+followed now, `Prefer: odata.maxpagesize=1000` keeps it to one round trip in
+practice, and running past a hundred pages throws rather than returning half a
+list — because half a list is indistinguishable from members who are not on
+it, which is the mistake this whole section is about.
+
+### 2.73 Phase 15: a letter to three hundred people cannot carry a credential
+
+The request was *"eine Einladung an diese Verteillisten mit einem persönlichen
+Einladungslink zum direkten Anmelden"*, and the first thing to do with it was
+say that it cannot be built as written.
+
+An invitation in this portal is a credential: one-time, hashed, and it names a
+person (§2.22). A distribution list is one address that fans out to three
+hundred people, so a letter to it carries one link. Put a personal invitation in
+it and you have not invited three hundred people — you have invited one, and
+whoever opens the letter first spends it on somebody else's account. The
+feature as asked for is a hole, and a quiet one: it works perfectly for the
+first reader.
+
+**What the letter carries instead grants nothing.** A campaign link opens a page
+with one field on it: your own address. If that address is on one of the lists
+the campaign covers, the personal invitation is made then and sent *to that
+address*. So the thing that proves who you are is the one thing a forwarded
+round-robin letter cannot pass on, which is access to your own mailbox — the
+same proof `/password/request` has always relied on, used one step earlier.
+
+That also keeps §1.3 intact rather than quietly repealing it. Self-registration
+was rejected because it puts a form on the internet that anybody can fill in and
+asks it to decide whether somebody is family. This form decides nothing: being
+on the family's mailing list is the asking, and it happened years ago.
+
+**One answer, whatever was found.** On a list, on no list, already an account,
+mail server down, campaign called off — one body, one status, a broadly similar
+delay. `CampaignTest` asserts it byte for byte rather than by description,
+because a difference of a single word is enough to turn this into a way of
+asking whether a person belongs to this family. Same rule as §2.0.2's password
+reset, and the screen is deliberately almost word for word the same one: two
+pages that keep a secret should not look like one of them is trying harder.
+
+**The archive number does the linking, and the fixture corrected me about what
+one looks like.** These contacts are named `22/1a32.124 Antje Beispiel`, so the
+name carries the fact that ties an account to a record. The first attempt gated
+on `SackNumbers::path()` — the parser for the descent form — and the test tree
+promptly failed, because half this archive's numbers are plain `4711` with no
+oblique in them. The gate is now the same one `TreeSearch::byReference()` uses,
+which is that the token contains a digit; the safety is not in the gate but in
+`individualByNumber()`, which answers only when exactly one record carries the
+number. Two records under one number is an archive to be corrected, not a coin
+to be tossed.
+
+**The module does not send the letter, and that is not laziness.** A family
+distribution list usually refuses anything posted by an application that is not
+a member of it, and a letter that comes from a person reads better than one from
+a portal. So the screen writes the words and puts them beside the link, and an
+administrator presses send from their own mailbox.
+
+---
+
+
+---
+
+
 ---
 
 ### 2.72 A card said "no record" and meant "not yours to see"
@@ -4156,7 +4275,401 @@ said "off".
 
 ---
 
-### 2.75 A door out of an app with no way back in
+### 2.75 The pedigree stopped at the living, and the family are the living
+
+A member opened *Vorfahren* on their own record and read four rows: themselves,
+their parents, and one grandfather. The archive has that line back to 1780. It
+was not a bug, it was §2.20 working exactly as written — a person the member
+may not see was absent, and so was everyone above them — and it had quietly
+stopped being the right rule the day Phase 8 (§2.25) put a relationship path
+length on member accounts. From then on almost every line ran into a living
+person within two or three rungs and ended there. A genealogy portal whose
+genealogy ends at the reader's grandparents is not a genealogy portal.
+
+**The new rule: the shape is shown, the people in it are not.** Every rung the
+walk reaches is in the answer. Where the member may read the record, the entry
+is the full `IndividualRef` it always was. Where they may not, it is a
+placeholder — a position, `private: true`, and nothing else — and the walk
+carries on above it. The dead the archive exists to keep are reachable again,
+through the living, without any of the living being named.
+
+The old argument against a placeholder was that "a pedigree with a labelled
+hole in it tells the reader what fills the hole". That was true of a *labelled*
+hole, and it is the reason this one carries no label. What a placeholder says
+is that somebody occupies the position — which is what a pedigree is, and what
+the reader can work out anyway from the fact that they have a great-grandmother
+at all. What it does not say is anything about that person: no name, no dates,
+no picture, no archive number, and **no XREF**, so it is not a link and cannot
+be turned into a question to any other endpoint.
+
+**And it never says why.** A living person outside the member's reach and a
+record carrying `1 RESN confidential` produce the byte-identical entry. That
+was the one thing worth being careful about: "hidden" must not become readable
+as "alive", or the placeholder would answer a question about a person that
+nobody asked it. It is the same discipline `individualRef()` has kept since
+§2.5 — one null, two meanings, and the reader cannot tell which.
+
+**The root is the exception, and stays one.** A record the member may not read
+is still a 404 from `/individuals/{xref}/ancestors`, byte for byte the one an
+XREF that names nobody gets. Placeholders carry no XREF, so nothing in the
+portal can link to such a pedigree; what the refusal is for is somebody trying
+XREFs by hand to find out which of them name a real person. The endpoint
+answers about somebody the reader already reached and says nothing about
+anybody else.
+
+#### The one thing a placeholder may carry is that person's own decision
+
+Where the record belongs to a member who put themselves in the member
+directory, the rung carries the name they publish there and the member id
+behind it, and the portal links it to their member page.
+
+**That is consent being honoured, not privacy being widened.** Listing oneself
+in the directory is a decision that every other member may read that name and
+open that page; `Members` has published exactly that since Phase 2. Saying it
+again on a rung of a pedigree adds one fact — that this listed member stands at
+this position — which is the fact the family asked this screen for.
+
+**No genealogy data crosses.** The record stays shut: `individualRef()` refused
+it and nothing goes back to ask it a second question. The name comes from
+`portal_member_profile`, which is what `Member` was built to keep apart from
+the tree ("appearing in the directory ... must not turn into a way to read
+genealogy data that privacy rules would otherwise hide"), and no birth year, no
+place and no photograph travels beside it. It is the same switch `SearchConsent`
+already reads, so a member who turns the directory off in Settings disappears
+from the pedigree and from the search together — one switch, one meaning.
+
+**An explicit restriction on the record outranks it.** `1 RESN confidential`,
+`1 RESN privacy`, or a per-record privacy level set in webtrees' control panel
+is somebody who keeps the archive saying that *this record* is not to be shown,
+and that is a different question from what a person publishes about themselves
+in the portal. Such a rung stays a bare placeholder even for a listed member —
+who is still in the directory, where their name has been all along.
+`RESN locked` is deliberately not among them: it forbids editing, not reading,
+and treating it as a privacy notice would hide people the archive never meant
+to hide. The test mirrors `GedcomRecord::canShowRecord()` line for line so that
+it changes when webtrees does rather than growing a second opinion.
+
+#### Two things about webtrees that the walk had to stop trusting
+
+**The structure is now read at `Auth::PRIV_HIDE`, and that is the absence of a
+privacy decision rather than one.** Which family, and which two people are in
+it, is what this screen shows in every case; whether either of them may be
+*read* is decided one level up, in `rung()`, where the module's single gate
+is. Asking webtrees for the structure at the member's own level gives a worse
+answer, not a safer one: `Family::spouses()` filters on `canShowName()`, which
+turns on the tree's `SHOW_LIVING_NAMES` preference, and `childFamilies()`
+silently escalates to `PRIV_HIDE` anyway whenever `SHOW_PRIVATE_RELATIONSHIPS`
+is on — which is webtrees' default. The shape of a pedigree would otherwise
+move with two settings that have nothing to do with it.
+
+**A `RESN` on the family record still ends the branch — but only one that
+restricts reading.** A `confidential` or `privacy` notice on a FAM is somebody
+saying that *this connection* is confidential — not these people, the fact that
+they are joined — and a placeholder in the position it names would say the one
+thing that was asked to stay quiet.
+
+The first version of this refused on **any** `RESN` at all, copying
+`RelationshipNamer::families()` and its "not the place to be clever about
+which". That shipped, and it was wrong in the most expensive way available:
+`RESN locked` forbids *editing* a record, not reading it, and this archive uses
+it. One locked family emptied the entire pedigree above it — nine rungs became
+one, and the screen said *Keine Vorfahren hinterlegt* about a line the family
+has back to 1780.
+
+And then it was wrong a second time, in the same way, which is what makes it
+worth writing down properly. The first fix excluded `locked` and kept asking
+*whether a record carries a restriction*. But a `RESN` is not a flag, it is a
+**level**: `confidential` means "managers may see this", `privacy` means
+"members may see this". Read as flags, both cut the line for exactly the people
+entitled to see past them — a `privacy` notice on a family removed the pedigree
+for every member, which is everybody the portal has, and a `confidential` one
+removed it for the administrator who was looking at the screen wondering where
+the family went.
+
+So the question is not "is this record restricted" but "does its restriction
+hide it **from this reader**", which is webtrees' own question and the one
+`GedcomRecord::canShowRecord()` answers. `restrictedFrom()` mirrors that
+section, with the access level in it, and is asked of a family exactly as it is
+asked of a person.
+
+Deliberately still the record's *own* notice, and not `Family::canShow()`:
+webtrees hides a family whenever any of its members is private (§2.20), so one
+confidential cousin would end a line with nothing confidential about it.
+
+`TreeTest` pins all four corners: a locked family does not truncate; a
+`privacy` family does not truncate for a member; a `confidential` family
+truncates for a member and not for a manager.
+
+The cost of not stopping is bounded and small: the walk now visits every
+position rather than however many happened to be visible, so six generations
+is at most 127 records instead of a handful. The screen asks for four, which
+is at most 31, each of them a record webtrees has already cached for the
+request — and the whole reason this endpoint exists is that 31 records in one
+response beat 31 round trips from a phone.
+
+#### What the tests had to be re-pointed at
+
+`TreeTest` used to assert the opposite of all of this — Ida absent, the walk
+stopping below her — and those two tests are now the other way round: Ida is a
+placeholder that carries nothing, and Otto (X12), her father, dead since 1899
+and restricted by nobody, is reachable at position 14. Four cases were added:
+a living person hidden by the path length produces the identical entry to a
+restricted one; a listed member is named from the directory and not from the
+record; a restricted record is not named even for a listed member; and a member
+who stayed out of the directory is not named either.
+
+The fixture has no living ancestors and cannot grow one — everybody above Anna
+died before 1980, and their dates are what makes them her ancestors — so the
+living case is produced the way a real installation produces it, with
+`KEEP_ALIVE_YEARS_DEATH` and a per-user relationship path length. That is the
+same pair of settings §2.25 is about, which is the point: the test is about the
+configuration the family actually runs.
+
+Those three tests carry `#[RunInSeparateProcess]`, and it is not optional.
+`Individual::isRelated()` keeps its breadth-first walk in a function-level
+`static` keyed by neither user nor tree, and matches with `in_array(…, true)` —
+strict identity, against `Individual` objects from whichever test ran first. A
+second test in the same process is therefore answered from a stranger's
+neighbourhood, against object identities that no longer exist, and *everybody*
+comes out unrelated. It passed alone and failed in the suite, which is exactly
+how that trap presents; `VisibilityTest` had already been bitten by it and says
+so in the same words.
+
+#### The client
+
+One shape on the wire became two, so `Ancestor` is a discriminated union in
+TypeScript rather than an interface with everything optional — a screen that
+forgets to handle a placeholder now fails to compile instead of rendering
+`undefined` as somebody's name. `private` is optional on the placement, because
+the module and the portal deploy separately and a server that predates the
+field never sends a placeholder either, so its absence reads correctly as
+"a person".
+
+A placeholder is not a link and does not look like one: a dashed border, a
+muted ground, no hover state, no tap target. The only placeholder that *is* a
+link is a listed member's, and it goes to `/members/{id}` — their portal page,
+which is what they consented to — with a second line saying so, so that a name
+on a rung is not read as the family tree having opened up.
+
+And the note under the list changed with the rule. It used to say that only
+people you are allowed to see are shown and that a line might continue beyond
+where it ends; both halves are now false. It says what is true instead: the
+dead are shown by name, the living stand in the line unnamed unless they listed
+themselves, and nothing from the tree is shown for them either way.
+
+---
+
+### 2.76 The other house names them
+
+A member opened a deceased great-aunt's page **in webtrees** and read the names
+of the living people in that family — the same people the pedigree in the
+portal had just shown as unnamed placeholders. Nothing was broken. Two
+programs were answering the same question differently, and neither of them
+said so anywhere.
+
+**Why webtrees answers the way it does.** `Individual::canShowName()` is an
+**or**:
+
+```php
+return (int) $this->tree->getPreference('SHOW_LIVING_NAMES') >= $access_level || $this->canShow($access_level);
+```
+
+`SHOW_LIVING_NAMES` defaults to `Auth::PRIV_USER` (`Tree.php:80`), so for a
+signed-in member the first half is true and `canShow()` never gets a vote.
+`chart-box.phtml:135` then prints `fullName()` in both branches of its own
+`canShow()` test — only the *link* is conditional. And with
+`SHOW_PRIVATE_RELATIONSHIPS` on, which is also the default,
+`RelativesTabModule` reads the family's `HUSB`/`WIFE`/`CHIL` links at
+`Auth::PRIV_HIDE`, so every row is listed to begin with.
+
+It is deliberate, and the reasoning is sound on its own terms — webtrees' help
+text says "the names (but no other details)", and a chart of forty boxes
+reading *Private* is not a chart. The disclosure really does stop at the name:
+the thumbnail, the zoom menu and the links menu are all behind `canShow()`, and
+`lifespan()` reaches the dates through `facts()`, which returns nothing at all
+for a record the reader may not see.
+
+**Why it is this module's business anyway.** `IndividualView` puts a link into
+webtrees at the foot of every person's page, for every member — *Stammbaum und
+Diagramme öffnen*. So the placeholder discipline of §2.75 is exactly one tap
+deep. The portal being stricter than webtrees is not a property of the portal;
+it is a property of two tree settings that no screen in either program relates
+to the other.
+
+Which is the same shape of problem as §2.25, and gets the same answer: the
+state is real, it is invisible, and nobody would think to go and look. So
+`Diagnosis::livingNames()` looks.
+
+**What it reports, and what it refuses to.** Both settings, in the third
+column, by the names and values webtrees itself gives them — `I18N::translate(
+'Show names of private individuals')` and `Auth::accessLevelNames()` — so that
+the row can be found on the screen it is about, in the administrator's own
+language. Only `SHOW_LIVING_NAMES` drives the status:
+
+* *Show to managers* — **ok**. The two programs agree.
+* *Show to members* — **warning**. Members read in webtrees what the portal
+  withholds.
+* *Show to visitors* — **problem**, but only where the tree can be read without
+  signing in. Otherwise a visitor cannot open the tree at all, "visitors"
+  behaves as "members", and it is a warning. A diagnosis screen that shouts
+  about something disclosing nothing is a screen that gets ignored on the day
+  it is right.
+
+`SHOW_PRIVATE_RELATIONSHIPS` is reported and never complained about, and that
+is a consequence of §2.75 rather than a shrug: whether a hidden relative's row
+is listed as *Private* or left off the page entirely, the portal's own pedigree
+now says the first of those — somebody stands here. Either value agrees with
+it. It is on the screen as a fact.
+
+**One version fork, in a place that already had one.** Whether the tree can be
+read without signing in was `REQUIRE_AUTHENTICATION` in `gedcom_setting` until
+**2.2.6**, which moved it into a column behind `Tree::private()` and left a
+shim that raises a deprecation notice. So `requiresAuthentication()` asks each
+version by name, exactly as `PortalTreeService::treeFromRow()` does for the
+constructor that moved in the same release. The harness had already met this
+one from the other side: `PortalTestCase::requireAuthentication()` writes the
+flag where the running version keeps it, because the shim both raises a notice
+— which this suite counts as risky — and writes to *every* tree in the table
+rather than to one.
+
+**What this check cannot do is fix it.** Unlike the path length, there is no
+button: these are webtrees' own tree settings, the portal has no business
+writing them behind an administrator's back, and the screen that owns them is
+two clicks away. The advice names the setting, the value to choose and the path
+to it, and stops there.
+
+---
+
+### 2.77 The pedigree had no door on the side it was needed
+
+§2.75 made the pedigree walk *through* people the reader may not read, so that
+the archive's dead stay reachable through the family's living. It did not give
+such a person a door of their own, and that turned out to be the half that
+mattered.
+
+A member opened a contact's page in *Kontakte* — somebody who had agreed to be
+found, whose name and photograph were on the screen — and there was no
+*Vorfahren anzeigen* on it. `MemberDetail` renders `IndividualView` only when
+`individual_detail` is not null, and that button lives inside `IndividualView`.
+A closed genealogy record therefore meant no record view, no button, and no way
+at all into the family above her — though every name in that pedigree would
+have been either an unnamed placeholder or somebody dead for fifty years.
+
+**Two rounds of the wrong bug before that was found**, and the reason is worth
+keeping: the report was "I see no ancestors", and it was read as a fault in the
+walk. The walk did have two faults (§2.75), both real and both measured, and
+neither was this. What settled it was asking which *screen* the reader was on,
+which should have been the first question rather than the fourth.
+
+#### Why a second endpoint rather than a looser first one
+
+`/individuals/{xref}/ancestors` refuses a root the reader may not see, and has
+to: an XREF is a guessable string, so answering differently for one would turn
+the endpoint into a way of finding out which XREFs name a real person. That
+refusal was a deliberate decision in §2.75 and it stands.
+
+A portal member id is not a guessable string in that sense — it is the
+portal's own key, and `GET /members/{id}` already gates it. So
+`/members/{id}/ancestors` opens exactly where the member page opens:
+`readableMember()`, which means the member listed themselves in the directory,
+or the two of them connected — the narrower consent of the two, because both
+gave it. Anything else is a 404, and so is a member the tree has no record for:
+which of the two it is stays the sentence §2.66 keeps to itself, and the two
+refusals are byte-identical.
+
+Nothing new is disclosed about a *record*. The pedigree is `AncestorTree`'s,
+unchanged, at the reader's own access level: the root is very often a
+placeholder — a closed record is the reason for coming here at all — and what
+the reader gains is the shape of a family above somebody who agreed to be
+found, with the dead in it named because they always were.
+
+#### The one sentence the family chose to spend
+
+The button is offered only where there is something behind it, which needs the
+server to say whether anybody stands above this member: `MemberDetail.ancestors`.
+That discloses that this member has a record in the tree, and §2.66 exists
+because the portal otherwise keeps exactly that to itself.
+
+It was put to the family and they chose it, knowing the trade. What makes it a
+small coin rather than a large one: it is shown only to somebody who may
+already open that member's page, on a screen that may already be carrying that
+person's archive number from `Recognition`, about a person who is in a family
+portal — where being in the family tree is close to a given. The alternative
+was a button that leads to an empty room about as often as not.
+
+`AncestorTree::hasParents()` answers it, and deliberately by asking `parents()`
+— the same first child family, the same restriction test, the same reader — so
+the button and the screen behind it cannot come to disagree.
+
+---
+
+### 2.78 Four generations is not a pedigree, and an indent is not a shape
+
+Two complaints in one sentence from the family, and they turn out to be the
+same complaint: *es sollte immer bis zur Basis als Georg Sack zurückgehen. Und
+die Darstellung ist nicht intuitiv verständlich.*
+
+#### The depth was bounded by the wrong quantity
+
+`MAX_GENERATIONS` was six and the screen asked for four, on the reasoning that
+more than that "stops being something a phone renders". That reasoning bounded
+the wrong thing. A pedigree grows by doubling, so *generations* is a terrible
+proxy for size — and this archive is measured from one man: every SB number is
+a path down from Georg Sack, which is what `GS` means (§2.58). He is about a
+dozen rungs up. Stopping at four stops in the nineteenth century, in the middle
+of the thing the family keeps the archive for.
+
+So the limit moved to where the cost actually is. `MAX_GENERATIONS` is 20,
+which reaches the base with room to spare, and the walk stops the moment a
+generation turns up empty — which on a real line is after three or four,
+because only the one the archive was built to follow goes further. What bounds
+the response now is `MAX_PEOPLE`, 400, and it exists for the tree that
+surprises us rather than for any tree we expect.
+
+**Reaching that cap is reported, not hidden.** `build()` returns a `Pedigree`
+— the rungs *and* whether they are all of them — because "the archive ends
+here" and "we stopped reading here" are different sentences, and a line that
+simply stops reads as the first. The screen says the second out loud when it is
+true.
+
+#### The indent had stopped carrying anything
+
+The list was indented one step per generation and each row was labelled
+*Väterliche* or *Mütterliche Linie*. That was legible at four generations and
+meaningless at twelve, for two reasons that only appear once the tree is deep:
+
+* the indent capped at three steps, so that deep rows would not run off a
+  phone. The fourth generation and the twelfth therefore sat at the same
+  margin — the one thing the indent was there to distinguish;
+* "väterliche Linie" says which of two halves somebody is in. In the fourth
+  generation that is one of eight positions; by the tenth it is one of five
+  hundred. It is not a location, it is a coin toss.
+
+What replaced them are two things that stay true at any depth, and both are
+read straight out of the Ahnentafel number, so the payload still needs no
+nesting:
+
+**A heading per generation** — Eltern, Großeltern, Urgroßeltern,
+Ururgroßeltern, then *N. Generation*. The family words run out after three, and
+"Ur-ur-ur-urgroßeltern" is a word a reader has to count on their fingers; past
+that the number is what somebody reading a deep pedigree actually wants.
+
+**The path, on every card.** An Ahnentafel number *is* the path in binary:
+strip the leading 1 and each remaining bit is a step, 0 to a father and 1 to a
+mother. Position 14 is 1110 — mother, mother, father — which is exactly how
+somebody would say where Otto stands. Written as a German possessive chain
+while that is readable ("Vaters Vaters Mutter") and with arrows once it is not
+("Vater › Mutter › Mutter › Vater › Vater"), which is the fourth generation
+onwards.
+
+**And the root is no longer in the list.** It is the person being looked at,
+not one of their own ancestors, and the page heading already names them. It
+had been sitting at the top labelled *Ausgangspunkt*, which is a word for a
+thing that does not need one.
+
+---
+
+### 2.79 A door out of an app with no way back in
 
 Both links into webtrees — the member's *Stammbaum und Diagramme öffnen* and
 the editor's *In webtrees öffnen und bearbeiten* — opened in place. In a
@@ -4254,7 +4767,16 @@ Flagging these so they get a second look rather than being inherited as fact.
     address somewhere in each member object — as `PrimarySmtpAddress`, or as an
     `SMTP:`-prefixed `ExternalEmailAddress` — so every string in the answer is
     searched rather than a chosen few. The exclusion for `401` and `403` is not
-    a guess: it is what the first live tenant cost. See §2.66.
+    a guess: it is what the first live tenant cost. See §2.66. Since §2.72 the
+    assumption announces itself: members coming back with no readable address
+    among them is reported as a failure rather than returned as an empty list.
+
+    **No longer a guess.** A member object from the live tenant is a fixture in
+    `ExchangeConnectorTest` now. A mail contact carries the address three
+    times — `PrimarySmtpAddress` bare, `ExternalEmailAddress` and
+    `EmailAddresses[]` with an `SMTP:` prefix — which is why searching every
+    string and de-duplicating is right, and why trusting one chosen field would
+    have been a coin toss between three.
 15. **Three attempts, ten minutes apart, one row per request.** All arbitrary,
     all in `Services/DistributionLists.php`. They exist to keep an Exchange
     outage from being felt as a slow portal, and the numbers matter less than

@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\I18N;
+
+/**
+ * The same, for mail readers that show HTML. See the text version.
+ *
+ * @var string $url
+ * @var string $name
+ */
+
+?>
+<div dir="<?= I18N::locale()->direction() ?>" lang="<?= I18N::locale()->languageTag() ?>">
+    <p>
+        <?= $name === '' ? I18N::translate('Hello…') : I18N::translate('Hello %s…', '<bdi>' . e($name) . '</bdi>') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('You already have an account in the family portal, so there is no need for a new one.') ?>
+    </p>
+
+    <p>
+        <a href="<?= e($url) ?>"><?= e($url) ?></a>
+    </p>
+
+    <p>
+        <?= I18N::translate('If you have forgotten your password, “Passwort vergessen?” on that page will send you a new one.') ?>
+    </p>
+</div>

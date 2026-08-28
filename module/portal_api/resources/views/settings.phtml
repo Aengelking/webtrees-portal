@@ -23,6 +23,7 @@ use Illuminate\Support\Collection;
  * @var string               $rate_limit_window
  * @var string               $invitation_days
  * @var string               $invitations_url
+ * @var string               $campaigns_url
  * @var string               $diagnosis_url
  * @var string               $member_invites
  * @var string               $member_invite_steps
@@ -69,6 +70,9 @@ foreach ($trees as $a_tree) {
 <p>
     <a class="btn btn-outline-primary" href="<?= e($invitations_url) ?>">
         <?= I18N::translate('Invitations') ?>
+    </a>
+    <a class="btn btn-outline-primary" href="<?= e($campaigns_url) ?>">
+        <?= I18N::translate('Invite a mailing list') ?>
     </a>
     <a class="btn btn-outline-primary" href="<?= e($diagnosis_url) ?>">
         <?= I18N::translate('Diagnosis') ?>

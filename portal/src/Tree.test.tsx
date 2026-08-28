@@ -73,11 +73,17 @@ const ME = {
 const ANCESTORS = {
   generations: 4,
   people: [
-    { position: 1, generation: 0, xref: 'X1', name: 'Anna Beispiel', sex: 'F', is_deceased: false, lifespan: '1985–' },
-    { position: 2, generation: 1, xref: 'X5', name: 'Emil Beispiel', sex: 'M', is_deceased: true, lifespan: '1884–1961' },
-    { position: 3, generation: 1, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
-    // 6 without 7: Bertha's mother is confidential, so she is simply absent.
-    { position: 6, generation: 2, xref: 'X10', name: 'Konrad Beispiel', sex: 'M', is_deceased: true, lifespan: '1858–1929' },
+    { position: 1, generation: 0, private: false, xref: 'X1', name: 'Anna Beispiel', sex: 'F', is_deceased: false, lifespan: '1985–' },
+    { position: 2, generation: 1, private: false, xref: 'X5', name: 'Emil Beispiel', sex: 'M', is_deceased: true, lifespan: '1884–1961' },
+    { position: 3, generation: 1, private: false, xref: 'X2', name: 'Bertha Beispiel', sex: 'F', is_deceased: true, lifespan: '1889–1976' },
+    // Emil's mother is alive and out of reach, and she is in the member
+    // directory — so she is named from there, and from nowhere else.
+    { position: 5, generation: 2, private: true, member: { id: 9, display_name: 'Helene Beispiel' } },
+    { position: 6, generation: 2, private: false, xref: 'X10', name: 'Konrad Beispiel', sex: 'M', is_deceased: true, lifespan: '1858–1929' },
+    // Bertha's mother is confidential: a position, and nothing else.
+    { position: 7, generation: 2, private: true, member: null },
+    // And the line carries on above her, which is the point of the placeholder.
+    { position: 14, generation: 3, private: false, xref: 'X12', name: 'Otto Fernab', sex: 'M', is_deceased: true, lifespan: '1830–1899' },
   ],
 }
 
@@ -173,22 +179,136 @@ describe('the ancestors view', () => {
       expect(screen.getByRole('link', { name: new RegExp(name) })).toBeDefined()
     }
 
-    // Father's and mother's lines are told apart, which is what the indent
-    // alone cannot say to a screen reader.
-    expect(screen.getAllByText('Väterliche Linie').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Mütterliche Linie').length).toBeGreaterThan(0)
+    // The structure is carried by a heading per generation and, on each card,
+    // the path that reaches that person — both of which stay true however deep
+    // the tree goes, which an indent capped at three steps does not.
+    expect(screen.getByRole('heading', { name: 'Eltern' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Großeltern' })).toBeDefined()
+
+    expect(screen.getByText('Ihr Vater')).toBeDefined()
+    expect(screen.getByText('Ihre Mutter')).toBeDefined()
+    expect(screen.getByText('Mutters Vater')).toBeDefined()
   })
 
   /**
-   * A gap in a pedigree invites the reader to wonder what is missing. Saying
-   * it outright is better than letting them guess — and better than implying
-   * the tree simply ends there.
+   * The root is the person being looked at, not one of their own ancestors,
+   * and the page already says who that is.
    */
-  it('says that some people may not be shown', async () => {
+  it('does not list the person themselves among their ancestors', async () => {
     stub()
     renderAt('/individuals/X1/ancestors')
 
-    expect(await screen.findByText(/nur Personen angezeigt, die für Sie freigegeben sind/)).toBeDefined()
+    expect(await screen.findByRole('heading', { name: 'Eltern' })).toBeDefined()
+    expect(screen.queryByRole('link', { name: /Anna Beispiel/ })).toBeNull()
+  })
+
+  /**
+   * Deep is the case the old design fell over on: the indent capped at three,
+   * so the fourth generation and the twelfth sat at the same margin. A counted
+   * heading and an arrow path both keep working.
+   */
+  it('names a deep generation by its number and spells out the path', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : String(input).includes('/ancestors')
+            ? jsonResponse({
+                generations: 20,
+                truncated: false,
+                people: [
+                  ANCESTORS.people[0],
+                  {
+                    position: 44,
+                    generation: 5,
+                    private: false,
+                    xref: 'X99',
+                    name: 'Georg Sack',
+                    sex: 'M',
+                    is_deceased: true,
+                    lifespan: '1621–1689',
+                  },
+                ],
+              })
+            : jsonResponse(ME),
+      ),
+    )
+
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByRole('heading', { name: '5. Generation' })).toBeDefined()
+
+    // 44 is 0b101100. Strip the leading 1 and every bit is a step, 0 to a
+    // father and 1 to a mother: 01100 is father, mother, mother, father,
+    // father.
+    expect(screen.getByText('Vater › Mutter › Mutter › Vater › Vater')).toBeDefined()
+  })
+
+  /** And a walk that stopped at its own limit says so, rather than looking finished. */
+  it('says when the archive goes back further than it showed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : String(input).includes('/ancestors')
+            ? jsonResponse({ ...ANCESTORS, truncated: true })
+            : jsonResponse(ME),
+      ),
+    )
+
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByText(/reicht noch weiter zurück/)).toBeDefined()
+  })
+
+  /**
+   * A row the reader cannot open invites them to wonder what is behind it.
+   * Saying it outright is better than letting them guess.
+   */
+  it('says why some rows cannot be opened', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByText(/das sind fast immer die Lebenden/)).toBeDefined()
+  })
+
+  /**
+   * The placeholder, and what makes it one: it is a position and not a
+   * person, so there is nothing to open and no link to offer.
+   */
+  it('shows a rung the reader may not see as a row that does not open', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    const placeholder = await screen.findByText('Nicht freigegeben')
+
+    expect(placeholder.closest('a')).toBeNull()
+  })
+
+  it('carries the line on above a rung it may not show', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByRole('link', { name: /Otto Fernab/ })).toBeDefined()
+  })
+
+  /**
+   * The one thing a placeholder may carry, and it is that person's own doing.
+   *
+   * The link goes to their member page rather than to a record, because the
+   * member page is what they consented to publish — and the row says so, so
+   * that a name here is not mistaken for the family tree opening up.
+   */
+  it('names a rung whose member listed themselves, and links to their member page', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    const listed = await screen.findByRole('link', { name: /Helene Beispiel/ })
+
+    expect(listed.getAttribute('href')).toBe('/members/9')
+    expect(screen.getByText('Im Mitgliederverzeichnis eingetragen')).toBeDefined()
   })
 
   it('explains an empty pedigree rather than showing an empty list', async () => {
@@ -208,7 +328,7 @@ describe('the ancestors view', () => {
     expect(await screen.findByText('Keine Vorfahren hinterlegt')).toBeDefined()
   })
 
-  it('is reachable from a person, and asks for four generations', async () => {
+  it('is reachable from a person, and asks for the whole line', async () => {
     stub()
     renderAt('/me')
 
@@ -218,7 +338,8 @@ describe('the ancestors view', () => {
 
     const asked = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
 
-    expect(asked.some((url) => url.includes('/ancestors') && url.includes('generations=4'))).toBe(true)
+    // As deep as the archive goes; the server clamps it to its own maximum.
+    expect(asked.some((url) => url.includes('/ancestors') && url.includes('generations=20'))).toBe(true)
   })
 })
 

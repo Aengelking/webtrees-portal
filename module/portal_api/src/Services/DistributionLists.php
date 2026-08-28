@@ -16,6 +16,7 @@ use function array_key_exists;
 use function array_map;
 use function array_slice;
 use function array_values;
+use function count;
 use function error_log;
 use function explode;
 use function hash;
@@ -301,6 +302,44 @@ class DistributionLists
     }
 
     /**
+     * What Exchange last said about each list, for an administrator.
+     *
+     * The question this answers is the one nobody could answer when a list
+     * silently read as empty: *is it being read at all*. A list that has never
+     * been read is a different problem from one that was read and holds
+     * nobody, and until this they looked the same from outside.
+     *
+     * @return array<int,array{name:string,members:int|null,read_at:int|null,tried_at:int|null,error:string}>
+     */
+    public function readings(): array
+    {
+        $rows = [];
+
+        foreach (DB::table('portal_list_snapshot')->get() as $row) {
+            $rows[(string) $row->list_hash] = $row;
+        }
+
+        $readings = [];
+
+        foreach ($this->configured() as $hash => $list) {
+            $row = $rows[$hash] ?? null;
+            $read = $row !== null && $row->read_at !== null;
+
+            $readings[] = [
+                'name'     => $list['name'],
+                'members'  => $read ? count(array_filter(explode("\n", (string) $row->members))) : null,
+                'read_at'  => $read ? (int) $row->read_at : null,
+                'tried_at' => $row === null ? null : (int) $row->fetched_at,
+                // Exchange's own words about why there is no answer, for the
+                // administrator and never for a member.
+                'error'    => $row === null || $row->read_error === null ? '' : (string) $row->read_error,
+            ];
+        }
+
+        return $readings;
+    }
+
+    /**
      * Let everything that has given up try once more. The admin screen's button.
      *
      * @return int how many rows were woken
@@ -511,6 +550,32 @@ class DistributionLists
     }
 
     /**
+     * Is this address on any of these lists, as far as anybody here knows?
+     *
+     * Answered from the snapshots and never from Exchange directly, so it
+     * costs nothing and cannot be used to make somebody else's cloud busy. A
+     * list with no answer counts as no — see `subscribed()` for why an absent
+     * snapshot must never be read as an emptiness, and note that here it errs
+     * the safe way round: it withholds an invitation rather than handing one
+     * to somebody who is on no list at all.
+     *
+     * @param array<int,string> $lists list hashes
+     */
+    public function holds(string $address, array $lists): bool
+    {
+        $snapshots = $this->snapshots();
+        $mine      = self::hash($address);
+
+        foreach ($lists as $list) {
+            if (in_array($mine, $snapshots[$list] ?? [], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The address hashes on each list, as last read.
      *
      * @return array<string,array<int,string>>
@@ -519,7 +584,12 @@ class DistributionLists
     {
         $snapshots = [];
 
-        foreach (DB::table('portal_list_snapshot')->get() as $row) {
+        // `read_at` is what separates an answer from an attempt. A row without
+        // one records only that Exchange was asked and did not say — see
+        // `Schema/Migration14.php` — and must not be read as "this list is
+        // empty", which is what the screen would otherwise tell every member
+        // of a list it could not read.
+        foreach (DB::table('portal_list_snapshot')->whereNotNull('read_at')->get() as $row) {
             $snapshots[(string) $row->list_hash] = array_values(array_filter(
                 explode("\n", (string) $row->members),
                 static fn (string $hash): bool => $hash !== ''
@@ -543,18 +613,39 @@ class DistributionLists
      */
     private function refresh(): void
     {
-        $stale = null;
         $known = [];
 
         foreach (DB::table('portal_list_snapshot')->get() as $row) {
             $known[(string) $row->list_hash] = (int) $row->fetched_at;
         }
 
-        foreach ($this->configured() as $hash => $list) {
-            if (!array_key_exists($hash, $known) || $known[$hash] < time() - self::SNAPSHOT_TTL) {
-                $stale = [$hash, $list['address'], array_key_exists($hash, $known)];
+        // The *least recently* asked, never-asked first — not the first in the
+        // administrator's list, which is the bug this replaced. Only one list
+        // is read per request, so taking them in configuration order meant
+        // that whenever every list was stale at once — which is every visit
+        // more than `SNAPSHOT_TTL` after the last one, so nearly every visit
+        // in a family portal — the first list was read again and the second
+        // and third never were at all.
+        $stale = null;
+        $oldest = null;
 
-                break;
+        foreach ($this->configured() as $hash => $list) {
+            $tried = $known[$hash] ?? null;
+
+            if ($tried !== null && $tried >= time() - self::SNAPSHOT_TTL) {
+                continue;
+            }
+
+            // Nothing held yet, or what is held has been asked about and this
+            // one either never has been or was asked about longer ago. A
+            // never-asked list, once held, is never displaced: it sorts before
+            // every timestamp.
+            $better = $stale === null
+                || ($oldest !== null && ($tried === null || $tried < $oldest));
+
+            if ($better) {
+                $stale  = [$hash, $list['address'], $tried !== null];
+                $oldest = $tried;
             }
         }
 
@@ -564,10 +655,14 @@ class DistributionLists
 
         [$hash, $address, $exists] = $stale;
 
+        $why = null;
+
         try {
             $members = $this->exchange->members($address);
             $column  = implode("\n", array_map(self::hash(...), $members));
-        } catch (ExchangeFailure) {
+        } catch (ExchangeFailure $failure) {
+            $why = mb_substr($failure->getMessage(), 0, 500);
+
             // Keep whatever was there. An answer from ten minutes ago beats no
             // answer at all, and the only thing this attempt has established is
             // that it is not worth repeating for a while.
@@ -575,21 +670,36 @@ class DistributionLists
         } catch (Throwable $exception) {
             error_log('portal_api: reading a mailing list failed. ' . $exception::class . ': ' . $exception->getMessage());
 
+            $why    = mb_substr($exception::class . ': ' . $exception->getMessage(), 0, 500);
             $column = null;
         }
+
+        // The attempt is always recorded, so a list that cannot be read is not
+        // tried again on every page load. The *answer* is recorded only when
+        // there is one, and that distinction is the whole of this method's
+        // correctness: a row with no `read_at` means "asked, no answer", and
+        // the screen then falls back to what the portal itself recorded.
+        //
+        // Writing an empty membership on failure is what this used to do, and
+        // the screen could not tell it apart from "read, and nobody is on this
+        // list" — so every member of an unreadable list was told they were not
+        // subscribed, for good, because each further failure only moved
+        // `fetched_at` along.
+        $answer = $column === null ? [] : ['members' => $column, 'read_at' => time()];
 
         if ($exists) {
             DB::table('portal_list_snapshot')
                 ->where('list_hash', '=', $hash)
-                ->update($column === null ? ['fetched_at' => time()] : ['members' => $column, 'fetched_at' => time()]);
+                ->update($answer + ['fetched_at' => time(), 'read_error' => $why]);
 
             return;
         }
 
-        DB::table('portal_list_snapshot')->insert([
+        DB::table('portal_list_snapshot')->insert($answer + [
             'list_hash'  => $hash,
-            'members'    => $column ?? '',
+            'members'    => '',
             'fetched_at' => time(),
+            'read_error' => $why,
         ]);
     }
 
