@@ -145,6 +145,7 @@ use function min;
 use function rawurlencode;
 use function rtrim;
 use function str_replace;
+use function str_starts_with;
 use function strip_tags;
 use function trim;
 
@@ -353,6 +354,34 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      * settings. webtrees' container auto-wires constructor arguments by type,
      * and it has no way to supply that, so we build them here.
      */
+    /**
+     * The few phrases this module says that webtrees has no word for.
+     *
+     * Almost everything here reaches a member already translated — webtrees
+     * names the relationships and the fact labels, the portal translates its
+     * own interface in the browser. This is the small remainder: wording the
+     * *server* assembles around those names, which therefore has to be
+     * translated on the server.
+     *
+     * Deliberately tiny, and it should stay that way. A string that belongs to
+     * the portal's own screens belongs in the portal's own catalogue, where a
+     * translator can see it beside the words around it.
+     *
+     * @return array<string,string>
+     */
+    public function customTranslations(string $language): array
+    {
+        if (!str_starts_with($language, 'de')) {
+            return [];
+        }
+
+        return [
+            // The other ways one person is related to another, after the
+            // nearest one — "Ihr Cousin · auch Ihr Cousin 3. Grades".
+            'also %s' => 'auch %s',
+        ];
+    }
+
     private function registerServices(): void
     {
         $container = Registry::container();

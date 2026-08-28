@@ -5370,6 +5370,62 @@ never shown would be a translation nobody could find the absence of.
 
 ---
 
+### 2.87 Related twice over, and the card picked one
+
+Asked: does the relationship calculation use the shortest path, and could we
+show both degrees for people who are related more than once?
+
+Yes to the first, and it was worth checking rather than assuming. The walk in
+`RelationshipNamer` is breadth-first and marks a person visited **on arrival**,
+so exactly one path survives per person and it is the shortest. Where several
+are equally short the winner is whichever `families()` returned first — nobody
+chose that, and nothing depended on it until now.
+
+**The second answer turned out to be already in the data.** A record carrying
+several archive numbers is a record that descends from the family by several
+lines; Dieter's fixture carries three usable ones for exactly that reason. The
+code saw all of them and deliberately took one: `ownNumber()` returned `[0]`,
+the loop over the target's numbers stopped at the first that answered, and the
+whole calculation only ran where the tree had already failed. Three separate
+places quietly choosing.
+
+So the tree's answer leads — it knows wives, stepfathers and adopted children,
+which a descent number cannot — and every distinct answer the numbers give
+follows it, nearest first, measured as the walk up to the shared ancestor plus
+the walk back down (`2 · distance − generations`, from `between()`).
+
+**Extending the *tree* walk was not attempted, and that is a decision.** Taking
+the `$visited` marking away to find second paths makes a bounded search
+combinatorial, on a query that runs once per card of a twenty-five row
+directory. The numbers reach further, cost a handful of string comparisons, and
+are where multiple descent actually lives.
+
+**The interesting part is what the change nearly broke.** Two existing tests
+went red, and the honest reading of the first was not "update the expectation".
+Their comment said it: a bare two-digit number is the head of a line *and* is
+what the archive's older, unrelated numbering looks like at two digits (§2.57).
+Sorting explicit numbers first and then reading only one made the ambiguous one
+unreachable. Crossing every number with every number handed that protection
+back, and the first thing it produced was a confident *auch Urgroßneffe* resting
+on a bare `9` that may be nothing at all.
+
+So a record carrying an explicit number is now compared only on those, and a
+record carrying nothing else is still read exactly as before. The rule is not
+"prefer the good number" but something narrower: **a doubtful answer may stand
+alone, where it is the only answer and reads as one, but not beside a sound one,
+where it reads as corroboration.** The old test now asserts what it always
+meant — the explicit number leads *and* the bare one is not heard from —
+which it could not distinguish while only one number was ever read.
+
+A footnote on the joining word. `also %s` is the first string this module says
+that webtrees has no translation for, so it is the first entry in
+`customTranslations()`. That facility should stay nearly empty: a phrase
+belonging to the portal's own screens belongs in the portal's own catalogue,
+where a translator sees it beside the words around it. This one cannot, because
+the sentence is assembled on the server around names the server made.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

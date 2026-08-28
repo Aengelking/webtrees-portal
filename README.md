@@ -1327,9 +1327,17 @@ The portal uses this in two places:
 
 * **On every card.** Where the family tree can name the relationship, it does —
   the tree knows about wives, stepfathers and adoptions, and a number does not.
-  Where it cannot, the numbers answer instead. That covers the case the tree is
-  worst at: relatives too distant for a four-step walk, and relatives whose
-  connecting ancestors the reader is not allowed to see.
+  The numbers answer alongside it, which covers the case the tree is worst at:
+  relatives too distant for a four-step walk, and relatives whose connecting
+  ancestors the reader is not allowed to see.
+
+  **A person can be related to you more than once**, and in this family that is
+  ordinary rather than exotic. The card says so: *Ihr Cousin · auch Ihr Cousin
+  3. Grades*, closest first. The tree finds the nearest way — its walk is
+  breadth-first, so the path it keeps is the shortest — and each further way
+  comes from a second line of descent, which is what a record carrying more
+  than one archive number *is*. Where there is only one answer the card reads
+  exactly as it always did.
 * **On the calculator** (*Stammbaum → Rechner*), which is the family's own tool
   from 2009 brought inside. Two numbers in, a relationship out. It reads no
   records at all, so it answers about people who are not in the tree — the
@@ -1344,8 +1352,11 @@ The portal uses this in two places:
 **The oblique is optional when nothing follows it.** "24" and "24/" both mean
 the head of line 24, and the archive writes both. "24b6" is not read, because a
 two-digit line makes it ambiguous. Where a record carries both a bare number
-and one with an oblique, the second is used — a bare two-digit number is also
-what an older numbering looks like once it reaches two digits.
+and one with an oblique, only the explicit ones are compared — a bare two-digit
+number is also what an older numbering looks like once it reaches two digits,
+so an answer resting on one must not appear beside a sound answer as though it
+confirmed it. A record carrying nothing but a bare number is still read: there
+the doubtful answer is the only answer, and it reads as one.
 
 **Not everybody sits inside a line.** The ancestors *above* the lines have
 none to belong to, and neither does a branch that was numbered and then died
