@@ -72,10 +72,28 @@ const STRIPPED_REQUEST_HEADERS = [
  * time the module looks, so the module answers 401 to a perfectly good
  * credential and nothing anywhere says why.
  *
- * Copying it under a name nobody strips fixes it for every host, without
+ * Carrying it under a name nobody strips fixes it for every host, without
  * anybody needing access to the webserver's configuration — which on shared
  * hosting is the difference between a fix and a wish. `RequireMcpToken` reads
- * `Authorization` first and falls back to this.
+ * `Authorization` first and falls back to this, so a client talking straight
+ * to webtrees — local development, no proxy — still works the ordinary way.
+ *
+ * **The original is removed rather than sent alongside**, and that is not
+ * tidiness. It was sent alongside at first, and the request came back `302` to
+ * the very URL this proxy had just asked for: identical requests, the header
+ * the only difference, and a `Location` in the ugly-URL form that nothing but
+ * `buildTargetUrl` produces. Something between here and PHP — a WAF, a rewrite
+ * rule, whatever a shared host has in it — answers the presence of an
+ * `Authorization` header with a redirect, and a redirect is fatal to a `POST`:
+ * the body is dropped or the method turns into `GET`, and the client sees
+ * nonsense instead of an answer.
+ *
+ * It could not be reproduced with a plain `curl` at the same origin, so what
+ * exactly reacts is still unknown. What is known is that the header correlates
+ * with the redirect and that nothing here needs to send it: the portal
+ * authenticates with a cookie, and the module reads the copy. A credential
+ * that provokes a redirect and is not read at the other end is one to stop
+ * sending.
  */
 const AUTHORIZATION_COPY = 'X-Portal-Authorization'
 
@@ -171,12 +189,12 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
     headers.set('X-Portal-Proxy-Secret', secret)
   }
 
-  // See AUTHORIZATION_COPY. The original is forwarded too — on a host that
-  // does pass it through, the module reads that one and this is ignored.
+  // Moved, not copied — see AUTHORIZATION_COPY.
   const authorization = request.headers.get('authorization')
 
   if (authorization !== null && authorization !== '') {
     headers.set(AUTHORIZATION_COPY, authorization)
+    headers.delete('authorization')
   }
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD'

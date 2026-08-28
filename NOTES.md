@@ -4981,6 +4981,21 @@ The middleware also trims now. A credential refused over a stray space is a
 credential refused for no reason anybody can see, and this class had already
 cost one evening of exactly that.
 
+**And the original is removed rather than sent alongside**, which took a
+second attempt to learn. Sent alongside — on the reasoning that a host which
+passes `Authorization` through should go on using it — the request came back
+`302` to the very URL the proxy had just asked for. Identical requests, the
+header the only difference, and a `Location` in the ugly-URL form that nothing
+but `buildTargetUrl` produces, so the redirect was the origin's answer to the
+proxy's own subrequest. A plain `curl` at the same origin with the same header
+did *not* reproduce it, so what exactly reacts — a WAF, a rewrite rule,
+whatever a shared host has in it — is still unknown.
+
+It did not need to be known. Nothing downstream reads that header: the portal
+authenticates with a cookie and the module reads the copy. A credential that
+provokes a redirect and is not read at the other end is one to stop sending,
+and a redirect is fatal to a `POST` in a way it is not to a browser.
+
 #### And the error that hid it
 
 The client's log said:

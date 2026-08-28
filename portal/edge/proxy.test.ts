@@ -84,13 +84,16 @@ describe('carrying the MCP token past a webserver that eats it', () => {
   })
 
   /**
-   * Both, not one. A host that does pass `Authorization` through should go on
-   * using it; the module reads that one first.
+   * And takes the original off, which is the half that took a second attempt.
+   * Sent alongside, it came back `302` to the very URL this proxy had just
+   * asked for — something between the Worker and PHP answers the presence of
+   * an `Authorization` header with a redirect, and a redirect destroys a
+   * `POST`. Nothing downstream reads it, so nothing is lost by not sending it.
    */
-  it('forwards the original as well', async () => {
+  it('does not send the original alongside it', async () => {
     const headers = await forwarded({ Authorization: 'Bearer wtmcp_abc' })
 
-    expect(headers.get('authorization')).toBe('Bearer wtmcp_abc')
+    expect(headers.get('authorization')).toBeNull()
   })
 
   it('adds nothing when the client offered nothing', async () => {
