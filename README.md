@@ -1978,14 +1978,24 @@ same way. **Clients that insist on OAuth cannot connect** — this server
 authenticates with a bearer token and does not implement an OAuth
 authorisation server. See NOTES.md §2.80 for why, and for what that costs.
 
-**The token does not travel under its own name, and it cannot.** Apache does
-not pass `Authorization` to PHP under CGI or FastCGI unless `CGIPassAuth On` is
-set, which on shared hosting is nobody's to set — so the header is simply
-absent by the time the module looks, and a perfectly good token is answered
-with 401. The Worker therefore forwards a copy as `X-Portal-Authorization`, and
-the module reads whichever arrives. Nothing to configure; it is worth knowing
-only if you ever put something other than this Worker in front of webtrees, in
-which case that something has to carry the copy too.
+**The token does not travel under its own name, and it cannot.** Two separate
+things are in the way.
+
+Apache does not pass `Authorization` to PHP under CGI or FastCGI unless
+`CGIPassAuth On` is set, which on shared hosting is nobody's to set — so the
+header is simply absent by the time the module looks, and a perfectly good
+token is answered with 401.
+
+And where it *is* passed on, something between the Worker and PHP answers its
+mere presence with a `302` — which is fatal to a `POST`, since the body is
+dropped or the method turns into `GET`.
+
+So the Worker **moves** it: out of `Authorization`, into
+`X-Portal-Authorization`, which nothing strips and nothing reacts to. The
+module reads `Authorization` first and that second, so a client talking
+straight to webtrees still works the ordinary way. Nothing to configure; it is
+worth knowing only if you ever put something other than this Worker in front of
+webtrees, in which case that something has to carry the header too.
 
 Check it by hand with:
 
@@ -2869,6 +2879,13 @@ code rather than the message.
 A client that reports "authentication required" and offers to open a browser
 window is asking for OAuth, which this server does not implement. It needs one
 that can send a plain `Authorization` header; see NOTES.md §1.7.
+
+**A `302` whose `Location` is the webtrees host with `index.php?route=…` on
+it** is the redirect described above. That URL form is built by the proxy and
+by nothing else, so seeing it means the origin answered the proxy's own request
+with a redirect. It should not happen any more; if it does, the request is
+carrying an `Authorization` header the Worker did not move — check that the
+deployed Worker is current.
 
 **A 401 with a token you know is good** means the token is not reaching PHP.
 That is what `X-Portal-Authorization` exists for, so the first question is
