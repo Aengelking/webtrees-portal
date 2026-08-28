@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Tree;
+
+/**
+ * @var array<int,array{xref:string,title:string,sort_order:int,name:string|null,url:string|null}> $offices
+ * @var PortalApiModule $module
+ * @var Tree            $tree
+ * @var string          $settings_url
+ * @var string          $title
+ */
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('Who holds an office in the foundation. An office named here is shown beside that person wherever the portal names them — in the member directory and on the cards in the family tree — so a member can see at a glance whom to write to.') ?>
+</p>
+
+<p>
+    <?= I18N::translate('This is the portal’s own list, not part of the family tree: nothing here is written into the archive, and an office stays legible to a member who may not read that person’s record. Nothing else about them becomes visible.') ?>
+</p>
+
+<?php if ($offices === []) : ?>
+    <div class="alert alert-info">
+        <?= I18N::translate('Nobody has been given an office yet.') ?>
+    </div>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Individual') ?></th>
+                    <th scope="col"><?= I18N::translate('Office') ?></th>
+                    <th scope="col"><?= I18N::translate('Order') ?></th>
+                    <th scope="col"><span class="visually-hidden"><?= I18N::translate('Remove') ?></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($offices as $office) : ?>
+                    <tr>
+                        <td>
+                            <?php if ($office['name'] === null) : ?>
+                                <span class="text-muted"><?= e($office['xref']) ?></span>
+                                <br>
+                                <small class="text-muted">
+                                    <?= I18N::translate('This record is no longer in the family tree, so this office is shown to nobody.') ?>
+                                </small>
+                            <?php else : ?>
+                                <a href="<?= e((string) $office['url']) ?>"><?= e($office['name']) ?></a>
+                                <br>
+                                <small class="text-muted"><?= e($office['xref']) ?></small>
+                            <?php endif ?>
+                        </td>
+                        <td><?= e($office['title']) ?></td>
+                        <td><?= e((string) $office['sort_order']) ?></td>
+                        <td>
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="office_action" value="remove">
+                                <input type="hidden" name="xref" value="<?= e($office['xref']) ?>">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <?= I18N::translate('Remove') ?>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>
+
+<h2><?= I18N::translate('Give somebody an office') ?></h2>
+
+<p>
+    <?= I18N::translate('A person already named above gets their office changed rather than a second one: the card has one line for it, so there is one office each.') ?>
+</p>
+
+<form method="post" class="row g-3">
+    <input type="hidden" name="office_action" value="save">
+
+    <div class="col-md-3">
+        <label class="form-label" for="office-xref"><?= I18N::translate('Record') ?></label>
+        <input class="form-control" id="office-xref" name="xref" type="text" required maxlength="20" placeholder="X123">
+        <div class="form-text">
+            <?= I18N::translate('The record’s identifier in this family tree, as it appears in the address bar when you open the person in webtrees.') ?>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <label class="form-label" for="office-title"><?= I18N::translate('Office') ?></label>
+        <input class="form-control" id="office-title" name="title" type="text" required maxlength="128" placeholder="<?= I18N::translate('Chair of the board') ?>">
+        <div class="form-text">
+            <?= I18N::translate('In the foundation’s own words. This is what members read.') ?>
+        </div>
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label" for="office-order"><?= I18N::translate('Order') ?></label>
+        <input class="form-control" id="office-order" name="sort_order" type="number" value="0" min="0" max="999">
+        <div class="form-text">
+            <?= I18N::translate('Lowest first, for lists. Leave at zero if the order does not matter.') ?>
+        </div>
+    </div>
+
+    <div class="col-md-2 d-flex align-items-end">
+        <?= csrf_field() ?>
+        <button type="submit" class="btn btn-primary"><?= I18N::translate('save') ?></button>
+    </div>
+</form>
+
+<p class="mt-4">
+    <a class="btn btn-outline-secondary" href="<?= e($settings_url) ?>">
+        <?= I18N::translate('back') ?>
+    </a>
+</p>

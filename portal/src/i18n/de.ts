@@ -702,6 +702,7 @@ export const de = {
     },
   },
   common: {
+    office: 'Amt in der Stiftung',
     loading: 'Wird geladen …',
     newWindow: 'öffnet in einem neuen Fenster',
   },

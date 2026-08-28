@@ -9,6 +9,7 @@ import {
 } from '../api/queries'
 import type { ContactKind, MemberDetail as Member } from '../api/types'
 import { IndividualView } from '../components/IndividualView'
+import { Office } from '../components/PersonCard'
 import { Portrait } from '../components/Photos'
 import { referenceLabel } from '../components/reference'
 import {
@@ -49,6 +50,22 @@ export function MemberDetail() {
       {data !== undefined && (
         <>
           <PageHeading>{data.display_name}</PageHeading>
+
+          {/*
+            Directly under the name, because the office is the answer to "is
+            this the right person to write to" and that question is asked
+            before anything else on the page. Both ways it can arrive, read
+            the same way as on the row in Kontakte.
+          */}
+          {(() => {
+            const office = data.individual_detail?.office ?? data.office ?? null
+
+            return office !== null && office !== '' ? (
+              <p className="mt-2">
+                <Office title={office} />
+              </p>
+            ) : null
+          })()}
 
           <div className="mt-6">
             {data.individual_detail === null ? (

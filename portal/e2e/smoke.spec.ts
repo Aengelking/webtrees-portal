@@ -779,3 +779,28 @@ test.describe('phase 12', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Nachrichten' })).toBeVisible()
   })
 })
+
+test.describe('offices', () => {
+  /**
+   * Both ways an office reaches a row, on one screen: Dieter's record is
+   * readable and carries it inside, Nora's is closed and it arrives beside
+   * the name. A directory that shows one and not the other would tell some
+   * members whom to write to and leave the rest guessing.
+   */
+  test('an office is shown whether or not the record can be read', async ({ page }) => {
+    test.skip(REAL_BACKEND, 'Depends on the stubbed directory.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+
+    await page.goto('/members')
+
+    await expect(page.getByText('Vorsitzender des Vorstands')).toBeVisible()
+    await expect(page.getByText('Schriftführerin')).toBeVisible()
+
+    // And nothing else came with it: Nora's record is still closed.
+    await expect(page.getByText('Keine Angaben aus dem Stammbaum sichtbar')).toBeVisible()
+  })
+})

@@ -700,6 +700,7 @@ export const en: Translations = {
     },
   },
   common: {
+    office: 'Office in the foundation',
     loading: 'Loading …',
     newWindow: 'opens in a new window',
   },

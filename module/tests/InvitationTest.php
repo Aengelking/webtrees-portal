@@ -528,6 +528,7 @@ class InvitationTest extends PortalTestCase
             'campaigns_url'     => '/campaigns',
             'diagnosis_url'     => '/diagnosis',
             'accounts_url'      => '/accounts',
+            'offices_url'       => '/offices',
             'member_invites'      => '1',
             'member_invite_steps' => '2',
             'member_invite_quota' => '3',
@@ -566,6 +567,7 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('/invitations', $html);
         self::assertStringContainsString('/diagnosis', $html);
         self::assertStringContainsString('/accounts', $html);
+        self::assertStringContainsString('/offices', $html);
         self::assertStringContainsString('member_invite_steps', $html);
         self::assertStringContainsString('member_path_length', $html);
         self::assertStringContainsString('member_show_number', $html);

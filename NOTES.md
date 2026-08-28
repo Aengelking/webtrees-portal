@@ -5007,6 +5007,81 @@ the next time HTML turns up where JSON was expected.
 
 ---
 
+### 2.82 An office is what the foundation says, not what the archive holds
+
+Asked for: show, on the card, that this person holds an office in the
+foundation — in Kontakte and in the tree.
+
+The whole design turns on one distinction, and it is worth stating before the
+mechanics, because getting it backwards would have produced something that
+looked right in testing and failed in exactly the case it exists for.
+
+**A GEDCOM fact is the archive's account of a person. An office is the
+foundation's statement about one of its officers.** They are different kinds
+of claim, made by different people, and they answer to different rules. The
+tempting implementation — a custom fact on the record, maintained in webtrees
+with everything else — would have inherited the archive's privacy: for a
+living member outside the reader's few steps of the tree the record is withheld
+whole (§2.25), so the chairwoman's office would have been invisible to precisely
+the relative trying to work out whom to write to about the family magazine. The
+feature would have worked for the dead and for close family, which is to say it
+would have worked where nobody needed it.
+
+So `portal_office` sits beside the display name: portal data, not genealogy
+(§2.7). `Recognition` gains a third thing that may cross the line a closed
+record draws, on the same reasoning as the second — the portrait somebody
+uploaded themselves ("A name and white space is not an address book"; the
+number that section carries is one of the duplicated ones, so it is named
+rather than pointed at). The office is not the archive's to withhold.
+
+**And it is one field wide.** The test that matters most here is the one that
+asserts what did *not* come with it: not the name from the record, not the
+years, not the nickname, not how the reader is related. An office must not
+become a keyhole. Nothing in `Offices` reads a record, so there is no path by
+which it could.
+
+**Keyed by the person in the tree, not by the account.** Two reasons, and the
+second only became obvious while writing it down. An officer need not have a
+portal account — a Stiftungsrat who has never signed in still belongs on the
+card of the person somebody is looking at. And one key reaches both screens:
+the directory finds a member's xref through webtrees' own `gedcomid` user
+setting, which is the member's own account data rather than anything read out
+of a record, so the office survives a closed record there too.
+
+**One office per person**, enforced by a unique index. The card has one line
+for it and the honest thing is for there to be one answer; `sort_order` is
+already in the schema so that the day a *Gremien* page wants an order, the
+order is not decided by whoever typed fastest.
+
+The office reaches a member's row two ways — inside `individual` where the
+record is readable, beside it where it is not — which is the shape `portrait`
+and `references` already have, and it is read the same way:
+`individual?.office ?? office`. A screen that reads only one of them shows the
+office to some members and not others. That is what the frontend tests pin,
+and three of the five fail without the fix.
+
+A footnote on the badge: colour and a box say "this is a different kind of
+thing" to a reader who can see them and nothing at all to a reader who cannot,
+so the words *Amt in der Stiftung* are in the accessible name. The same
+argument as §2.79's window hint, one screen over.
+
+**What went wrong while building it**, kept because the mechanism is general.
+I created `Migration16` — and `Migration16` already existed on `main`, added by
+#56 an hour earlier. Writing the file destroyed it. Nothing complained: the
+schema version had been bumped past it, the class it named was simply gone, and
+`boot()` catches every `Throwable` on purpose — a broken portal must not break
+the family's genealogy site, which is the older and more important of the two —
+and writes it to the server log. So the
+symptom was every routed test failing with `RouteNotFound`, twenty files away
+from the cause, with the real error — `Class "Migration17" not found` —
+swallowed by the very safety net that exists to protect the site. Making
+`boot()` rethrow behind an environment variable turned twenty minutes of
+guessing into one line. The lesson is not "check before writing a file",
+though I should have; it is that a catch-all that logs somewhere you are not
+looking is, during development, an error-shaped hole.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

@@ -41,6 +41,14 @@ use function trim;
  * read the record. Showing it is a smaller step than it looks: it makes
  * legible what is already searchable.
  *
+ * **An office in the foundation.** Read from the portal's own table rather
+ * than the record (see `Offices`), and for the same reason the portrait is:
+ * it is the foundation's statement about one of its officers, not the
+ * archive's account of a person. A member looking for whom to write to about
+ * the family magazine should not be defeated by the fact that the chairwoman's
+ * record happens to be closed to them. Note that this adds no *genealogy* —
+ * it is a job title beside a name the card was already showing.
+ *
  * **A number the record marks confidential is still withheld.** `Fact::canShow()`
  * asks about the `RESN` on the fact rather than the privacy of the record
  * around it, which is exactly the half that belongs here — the same split
@@ -57,6 +65,7 @@ class Recognition
         private readonly PortalTreeService $trees,
         private readonly PhotoPresenter $photos,
         private readonly SackNumbers $sack_numbers,
+        private readonly Offices $offices,
     ) {
     }
 
@@ -74,7 +83,7 @@ class Recognition
      * copy of anything: where the record *is* readable, both of these live
      * inside it and are answered by its own rules.
      *
-     * @return array{portrait:array<string,mixed>|null,references:array<int,array<string,string|null>>}
+     * @return array{portrait:array<string,mixed>|null,references:array<int,array<string,string|null>>,office:string|null}
      */
     public function of(UserInterface $subject, int $access_level): array
     {
@@ -83,6 +92,7 @@ class Recognition
         return [
             'portrait'   => $this->photos->consentedPortrait($subject, $tree),
             'references' => $this->numbersShown() ? $this->references($subject, $tree, $access_level) : [],
+            'office'     => $this->offices->titleForMember($subject),
         ];
     }
 
