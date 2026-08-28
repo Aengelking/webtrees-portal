@@ -23,6 +23,7 @@ use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use Psr\Http\Message\ResponseInterface;
+use stdClass;
 
 use function array_column;
 use function json_decode;
@@ -225,6 +226,31 @@ class McpTest extends PortalTestCase
         self::assertSame(Server::NAME, $result['serverInfo']['name']);
         self::assertArrayHasKey('tools', $result['capabilities']);
         self::assertStringContainsString('only people who have died', $result['instructions']);
+    }
+
+    /**
+     * Asserted on the encoded body, and it has to be.
+     *
+     * PHP has one array type for both a list and a map, so `json_encode`
+     * guesses from the keys: an empty one becomes `[]`. Both of these are
+     * empty objects in the specification's schemas, and a client that
+     * validates against them — mcp-remote does, with zod — rejects the
+     * message. Decoding the response back into a PHP array, which is what
+     * every other test here does, cannot see the difference: `[]` and `{}`
+     * both arrive as an empty array. So these two read the JSON as objects.
+     */
+    public function testTheToolsCapabilityIsAnEmptyObjectAndNotAnEmptyList(): void
+    {
+        $body = $this->decodeAsObjects($this->rpc('initialize', ['protocolVersion' => Server::LATEST_PROTOCOL]));
+
+        self::assertInstanceOf(stdClass::class, $body->result->capabilities->tools);
+    }
+
+    public function testPingIsAnsweredWithAnEmptyObjectAndNotAnEmptyList(): void
+    {
+        $body = $this->decodeAsObjects($this->call(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping']));
+
+        self::assertEquals(new stdClass(), $body->result);
     }
 
     public function testAVersionThisServerDoesNotKnowIsAnsweredWithOneItDoes(): void
@@ -691,5 +717,15 @@ class McpTest extends PortalTestCase
             headers: ['Authorization' => 'Bearer ' . $this->token],
             raw_body: $body,
         );
+    }
+
+    /**
+     * The response body decoded with objects left as objects, so that a test
+     * can tell `{}` from `[]`. `json()` cannot: it decodes to associative
+     * arrays, where both are `[]`.
+     */
+    private function decodeAsObjects(ResponseInterface $response): stdClass
+    {
+        return json_decode($this->raw($response), false, 32, JSON_THROW_ON_ERROR);
     }
 }
