@@ -404,6 +404,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors, $mailing_lists));
+        $container->set(AccountOverview::class, new AccountOverview($user_service, $portal_trees));
         $container->set(RememberedDevices::class, $devices);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
@@ -1248,7 +1249,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $container = Registry::container();
         $overview  = $container->get(AccountOverview::class);
-        $tree      = $container->get(PortalTreeService::class)->tree();
+        $trees     = $container->get(PortalTreeService::class);
+        $tree      = $trees->tree();
         $accounts  = $overview->all($tree);
 
         return $this->viewResponse($this->name() . '::accounts', [
@@ -1257,7 +1259,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'tree'                    => $tree,
             'accounts'                => $accounts,
             'blocked'                 => $overview->blocked($accounts),
-            'requires_authentication' => $tree->getPreference('REQUIRE_AUTHENTICATION') === '1',
+            'requires_authentication' => $trees->requiresAuthentication($tree),
             'settings_url'            => $this->getConfigLink(),
         ]);
     }

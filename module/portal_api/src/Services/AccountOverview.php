@@ -39,8 +39,10 @@ use function mb_strtolower;
  */
 class AccountOverview
 {
-    public function __construct(private readonly UserService $user_service)
-    {
+    public function __construct(
+        private readonly UserService $user_service,
+        private readonly PortalTreeService $trees,
+    ) {
     }
 
     /**
@@ -56,7 +58,10 @@ class AccountOverview
      */
     public function all(Tree $tree): Collection
     {
-        $requires_authentication = $tree->getPreference('REQUIRE_AUTHENTICATION') === '1';
+        // Through `PortalTreeService`, not `getPreference()`: webtrees 2.2.6
+        // moved this into a column, and reading it as a preference works there
+        // only through a deprecation shim.
+        $requires_authentication = $this->trees->requiresAuthentication($tree);
 
         return $this->user_service->all()
             ->map(fn (User $user): PortalAccount => $this->describe($user, $tree, $requires_authentication))

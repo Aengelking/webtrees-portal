@@ -87,7 +87,7 @@ class AccountsTest extends PortalTestCase
      */
     public function testAVisitorOnATreeThatRequiresAuthenticationIsNamedAsBlocked(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
         $this->createUser('bert', 'Bert Besucher', 'pw-long-enough-here', UserInterface::ROLE_VISITOR);
 
         $bert = $this->byUsername()['bert'];
@@ -99,7 +99,9 @@ class AccountsTest extends PortalTestCase
 
     public function testTheSameAccountIsFineWhereTheTreeDoesNotRequireAuthentication(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '0');
+        // Left at the default rather than set to '0': a tree is public until
+        // somebody says otherwise, and `Tree::setPreference()` is deprecated
+        // in webtrees 2.2.6 — it writes to every tree in the table.
         $this->createUser('bert', 'Bert Besucher', 'pw-long-enough-here', UserInterface::ROLE_VISITOR);
 
         self::assertTrue($this->byUsername()['bert']->canUsePortal());
@@ -107,7 +109,7 @@ class AccountsTest extends PortalTestCase
 
     public function testAMemberIsFineEitherWay(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
         $this->createUser('mona', 'Mona Mitglied', 'pw-long-enough-here', UserInterface::ROLE_MEMBER);
 
         self::assertTrue($this->byUsername()['mona']->canUsePortal());
@@ -116,7 +118,7 @@ class AccountsTest extends PortalTestCase
     /** An administrator sees every tree whatever their role on it says. */
     public function testAnAdministratorIsNeverBlockedByARole(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         $admin = $this->createUser('adam', 'Adam Admin', 'pw-long-enough-here', UserInterface::ROLE_VISITOR);
         $admin->setPreference(UserInterface::PREF_IS_ADMINISTRATOR, '1');
@@ -168,7 +170,7 @@ class AccountsTest extends PortalTestCase
      */
     public function testTheAccountsThatCannotGetInComeFirst(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
 
         $this->createUser('anna', 'Anna Aktiv', 'pw-long-enough-here', UserInterface::ROLE_MEMBER);
         $this->createUser('bert', 'Bert Besucher', 'pw-long-enough-here', UserInterface::ROLE_VISITOR);
@@ -220,7 +222,7 @@ class AccountsTest extends PortalTestCase
      */
     public function testTheScreenRenders(): void
     {
-        $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
+        $this->requireAuthentication();
         $this->createUser('bert', 'Bert Besucher', 'pw-long-enough-here', UserInterface::ROLE_VISITOR);
         $this->createUser('anna', 'Anna Beispiel', 'pw-long-enough-here', UserInterface::ROLE_MEMBER, 'X1');
 
