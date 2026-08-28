@@ -656,12 +656,21 @@ export const en: Translations = {
         father: 'Your father',
         mother: 'Your mother',
       },
+      // Lower case: these sit in the middle of a chain, and the component
+      // raises the first letter of the whole phrase.
       possessive: {
-        father: "Father's",
-        mother: "Mother's",
+        father: "father's",
+        mother: "mother's",
       },
-      father: 'father',
-      mother: 'mother',
+      final: {
+        father: 'father',
+        mother: 'mother',
+      },
+      // A list of steps rather than a phrase, so each one takes a capital.
+      step: {
+        father: 'Father',
+        mother: 'Mother',
+      },
     },
     none: {
       title: 'No ancestors recorded',

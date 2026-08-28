@@ -7,8 +7,10 @@ namespace Engelking\Webtrees\PortalApi\Tests;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\RelationshipRead;
 use Engelking\Webtrees\PortalApi\Services\SackNumbers;
+use Engelking\Webtrees\PortalApi\Services\SackRelationship;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
 /**
@@ -68,7 +70,8 @@ class SackRelationshipTest extends PortalTestCase
         self::assertSame('father/mother', $this->named('24/11', '24/1'));
         self::assertSame('grandfather/grandmother', $this->named('24/111', '24/1'));
         self::assertSame('great-grandfather/great-grandmother', $this->named('24/1111', '24/1'));
-        self::assertSame('2x great-grandfather/2x great-grandmother', $this->named('24/11111', '24/1'));
+        // English repeats the word where German counts the "Ur"s.
+        self::assertSame('great-great-grandfather/great-great-grandmother', $this->named('24/11111', '24/1'));
     }
 
     public function testTheLineDownwardsIsNamedTheSameWayRound(): void
@@ -93,22 +96,25 @@ class SackRelationshipTest extends PortalTestCase
         $this->signIn();
 
         self::assertSame('uncle/aunt', $this->named('24/3111', '24/312'));
-        self::assertSame('great-uncle/great-aunt', $this->named('24/31111', '24/312'));
+        self::assertSame('grand-uncle/grand-aunt', $this->named('24/31111', '24/312'));
     }
 
     /**
      * The degree, which is what a family actually argues about.
      *
-     * A first cousin is just "cousin" — the family does not say "first
-     * degree" — and everything beyond it counts.
+     * A first cousin is just "cousin" in both languages — neither says "first"
+     * — and everything beyond it counts. Where German appends the degree
+     * ("Cousine 2. Grades"), English puts an ordinal in front of the word
+     * itself, which is the same fact said in the shape the language has for
+     * it.
      */
     public function testCousinsAreCountedByHowFarBackTheyShare(): void
     {
         $this->signIn();
 
         self::assertSame('cousin', $this->named('24/3111', '24/3121'));
-        self::assertSame('cousin (second degree)', $this->named('24/31111', '24/31211'));
-        self::assertSame('cousin (third degree)', $this->named('24/311111', '24/312111'));
+        self::assertSame('second cousin', $this->named('24/31111', '24/31211'));
+        self::assertSame('third cousin', $this->named('24/311111', '24/312111'));
     }
 
     /**
@@ -151,7 +157,9 @@ class SackRelationshipTest extends PortalTestCase
         // One row, which does not mention either of them.
         $this->module()->setPreference(SackNumbers::SETTING_MARRIAGES, '09/23 = 09/32');
 
-        self::assertSame('nephew/niece (second degree)', $this->named('24/b61', '24/3132'));
+        // And in English a nephew of some degree is not a nephew at all:
+        // the language turns him into a cousin, counted and removed.
+        self::assertSame('second cousin once removed', $this->named('24/b61', '24/3132'));
     }
 
     /**
@@ -424,5 +432,121 @@ class SackRelationshipTest extends PortalTestCase
         $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X12']);
 
         self::assertNull($this->json($response)['relationship']);
+    }
+
+    // -----------------------------------------------------------------
+    // English is a different system, not a translation
+    // -----------------------------------------------------------------
+
+    /**
+     * **The family's own calculator, run beside this one over every shape.**
+     *
+     * German counts a collateral relative by degree and keeps the near word —
+     * *Großneffe 2. Grades*, *Onkel 3. Grades*. English has no such phrase: it
+     * turns both into cousins, counted by how far back the shared ancestor is
+     * and how many generations apart the two people stand. Translating word
+     * for word produced "nephew (second degree)", which is not English, and a
+     * member said so.
+     *
+     * So the rule is not read off the German. It is `rechner.php`'s
+     * `$relation_en`, transcribed here and run against the module over a grid
+     * of every generation distance the classifier can produce. The shapes are
+     * read back out of `between()` rather than assumed, so the comparison is
+     * of two namings of the same measured relationship and not of two guesses.
+     *
+     * Compared in the male form only: the calculator writes its pairs
+     * inconsistently ("father/mother" but "grandson/daughter"), and pair
+     * formatting is not what this is about.
+     */
+    public function testEveryShapeIsNamedAsTheFamilysCalculatorNamesIt(): void
+    {
+        $this->signIn();
+
+        $sack     = Registry::container()->get(SackRelationship::class);
+        $compared = 0;
+
+        for ($generations = -4; $generations <= 4; $generations++) {
+            for ($distance = max(0, $generations); $distance <= 6; $distance++) {
+                $a = '24/' . '1' . ($distance >= 1 ? '2' . str_repeat('1', $distance - 1) : '');
+                $b = '24/' . '1' . ($distance - $generations >= 1
+                    ? '3' . str_repeat('1', $distance - $generations - 1)
+                    : '');
+
+                $shape = $sack->between($a, $b);
+
+                if ($shape === null || $shape['kind'] === 'self') {
+                    continue;
+                }
+
+                self::assertSame(
+                    $this->calculator($shape['generations'], $shape['distance']),
+                    $sack->describe($shape, 'M'),
+                    $a . ' → ' . $b . ' (' . $shape['kind'] . ', generations '
+                        . $shape['generations'] . ', distance ' . $shape['distance'] . ')'
+                );
+
+                $compared++;
+            }
+        }
+
+        self::assertGreaterThan(30, $compared, 'The grid produced almost nothing to compare.');
+    }
+
+    /**
+     * `rechner.php`, `$relation_en`, in the male form.
+     *
+     * Transcribed rather than imported: the calculator is one PHP file with a
+     * form in it, and what is worth keeping is the rule, not the page.
+     */
+    private function calculator(int $generations, int $distance): string
+    {
+        $removed = false;
+
+        if ($generations === 0 && $distance === 1) {
+            $name = 'brother';
+        } elseif ($distance === $generations) {
+            $name = ($generations > 2 ? str_repeat('great-', $generations - 2) : '')
+                . ($generations > 1 ? 'grand' : '') . 'father';
+        } elseif ($distance === 0) {
+            $name = $generations === -1
+                ? 'son'
+                : ($generations < -2 ? str_repeat('great-', -$generations - 2) : '') . 'grandson';
+        } elseif ($generations < 0) {
+            $name = ($generations < -2 ? str_repeat('great-', -$generations - 2) : '')
+                . ($generations < -1 ? 'grand-' : '') . 'nephew';
+            $removed = $distance > 1;
+        } elseif ($generations === 0) {
+            $name = $distance > 2 ? $this->countName($distance - 1) . ' cousin' : 'cousin';
+        } else {
+            $name = ($generations > 2 ? str_repeat('great-', $generations - 2) : '')
+                . ($generations > 1 ? 'grand-' : '') . 'uncle';
+            $removed = $distance - $generations > 1;
+        }
+
+        if ($removed) {
+            $name = ($distance > 2 ? $this->countName($distance - 1) . ' ' : '') . 'cousin';
+
+            if (abs($generations) > 0) {
+                $name .= ' ' . $this->multiName(abs($generations)) . ' removed';
+            }
+        }
+
+        return $name;
+    }
+
+    private function countName(int $number): string
+    {
+        // "fith" in the original is a typo, and copying a typo into a portal
+        // is not fidelity.
+        $words = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
+
+        return $words[$number - 1] ?? $number . 'th';
+    }
+
+    private function multiName(int $number): string
+    {
+        $words = ['once', 'twice', 'thrice', 'four times', 'five times'];
+
+        return $words[$number - 1] ?? $number . ' times';
     }
 }

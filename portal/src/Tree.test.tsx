@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import i18n from './i18n'
 import { App } from './App'
 import { AuthProvider } from './auth/AuthProvider'
 import './i18n'
@@ -116,6 +117,10 @@ function renderAt(path: string) {
     </QueryClientProvider>,
   )
 }
+
+afterEach(async () => {
+  await i18n.changeLanguage('de')
+})
 
 describe('walking the tree', () => {
   it('a relative is a link, and following it opens them', async () => {
@@ -326,6 +331,61 @@ describe('the ancestors view', () => {
     renderAt('/individuals/X1/ancestors')
 
     expect(await screen.findByText('Keine Vorfahren hinterlegt')).toBeDefined()
+  })
+
+  /**
+   * **English is not the German phrase with English words in it.** German
+   * capitalises its nouns wherever they stand, so "Vaters Vaters Mutter" is
+   * right as written; composing English the same way gave "Father's Father's
+   * mother", which is nobody's English. The chain is lower case with one
+   * capital at the front, and the arrow path is a list of steps that each take
+   * one.
+   */
+  it('composes the path as English rather than as translated German', async () => {
+    await i18n.changeLanguage('en')
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : String(input).includes('/ancestors')
+            ? jsonResponse({
+                generations: 20,
+                truncated: false,
+                people: [
+                  ANCESTORS.people[0],
+                  ANCESTORS.people[1],
+                  ANCESTORS.people[4],
+                  {
+                    position: 44,
+                    generation: 5,
+                    private: false,
+                    xref: 'X99',
+                    name: 'Georg Sack',
+                    sex: 'M',
+                    is_deceased: true,
+                    lifespan: '1621–1689',
+                  },
+                ],
+              })
+            // The signed-in member's account carries the language, and it
+            // wins over anything set here — see LanguageTest.
+            : jsonResponse({ ...ME, user: { ...ME.user, language: 'en' } }),
+      ),
+    )
+
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByRole('heading', { name: 'Parents' })).toBeDefined()
+    expect(screen.getByText('Your father')).toBeDefined()
+
+    // Position 6 is 0b110: mother, then father. One capital, at the front,
+    // and the possessive in the middle stays lower case.
+    expect(screen.getByText("Mother's father")).toBeDefined()
+
+    // The arrow path is a list, so every step takes one.
+    expect(screen.getByText('Father › Mother › Mother › Father › Father')).toBeDefined()
   })
 
   it('is reachable from a person, and asks for the whole line', async () => {

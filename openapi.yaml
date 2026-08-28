@@ -3493,6 +3493,16 @@ components:
             Named in the request's language. Where the sex is not known — and
             two bare numbers never say — both forms are given, joined:
             "Bruder/Schwester".
+
+            **The languages do not name the same thing the same way**, and this
+            is not a translation of one into the other. German counts a
+            collateral relative by degree and keeps the near word — *Großneffe
+            2. Grades*, *Onkel 3. Grades*. English has no such phrase: anything
+            that is not a plain nephew or a plain uncle becomes a cousin,
+            counted by the shared ancestor and removed by the generations
+            between — *second cousin once removed*. So the same pair of numbers
+            can come back as `Neffe 2. Grades` in German and
+            `second cousin once removed` in English, and both are right.
           example: Cousin/Cousine 2. Grades
         detail:
           description: |
@@ -3523,6 +3533,11 @@ components:
           description: |
             How far out a collateral relative sits — "2. Grades". `null` for
             the near ones, which the family names without a degree.
+
+            A measurement rather than a word: German spends it as a degree,
+            English as the ordinal in front of "cousin" and the removal after
+            it. A client that renders this itself should not assume the German
+            shape.
 
     SearchPage:
       type: object
