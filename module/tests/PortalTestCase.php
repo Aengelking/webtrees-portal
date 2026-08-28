@@ -318,6 +318,12 @@ abstract class PortalTestCase extends TestCase
      * @param array<string,string> $headers
      * @param array<string,mixed>  $files       Uploads, as PSR-7 sees them.
      * @param array<string,string> $cookies     What the browser is offering.
+     * @param string|null          $raw_body    A body that is not an array —
+     *                                          which for this module means one
+     *                                          that is not valid JSON. Only the
+     *                                          MCP endpoint has anything to say
+     *                                          about such a request, and what it
+     *                                          says is part of its protocol.
      */
     protected function api(
         string $route_name,
@@ -327,7 +333,8 @@ abstract class PortalTestCase extends TestCase
         array|null $body = null,
         array $headers = [],
         array $files = [],
-        array $cookies = []
+        array $cookies = [],
+        string|null $raw_body = null
     ): ResponseInterface {
         $route = Registry::routeFactory()->routeMap()->getRoute($route_name);
 
@@ -359,10 +366,10 @@ abstract class PortalTestCase extends TestCase
             $request = $request->withCookieParams($cookies);
         }
 
-        if ($body !== null) {
+        if ($body !== null || $raw_body !== null) {
             $stream = Registry::container()
                 ->get(StreamFactoryInterface::class)
-                ->createStream(json_encode($body, JSON_THROW_ON_ERROR));
+                ->createStream($raw_body ?? json_encode($body, JSON_THROW_ON_ERROR));
 
             // Mirror a real JSON request: a body that core's form-decoding
             // middleware would not have parsed.

@@ -28,6 +28,8 @@
 1 EVEN Vertrauliche Notiz zur Person
 2 TYPE Vertraulich
 2 RESN confidential
+1 NOTE Anna ist am Leben; ueber sie sagt das Archiv nach aussen nichts.
+1 NOTE @N2@
 1 FAMC @F1@
 0 @X2@ INDI
 1 NAME Bertha /Beispiel/
@@ -38,12 +40,18 @@
 1 BIRT
 2 DATE 4 JUN 1889
 2 PLAC Celle, Niedersachsen, Deutschland
+2 NOTE Der Geburtsort ist im Kirchenbuch nachgetragen worden.
+3 CONT Die Taufe fand in derselben Woche statt.
 1 DEAT
 2 DATE 17 NOV 1976
 2 PLAC Hannover, Niedersachsen, Deutschland
 1 OCCU Hebamme
 1 OCCU Geheimniskraemerin
 2 RESN confidential
+2 NOTE Diese Angabe ist vertraulich und darf nirgends erscheinen.
+1 NOTE Die Lebensdaten stammen aus dem Familienstammbuch.
+2 CONT Das Sterbedatum ist durch die Traueranzeige belegt.
+1 NOTE @N1@
 1 OBJE @M3@
 1 REFN 4712
 1 REFN 47C12
@@ -96,6 +104,7 @@
 1 DEAT
 2 DATE 3 FEB 1961
 2 PLAC Celle, Niedersachsen, Deutschland
+1 NOTE @N1@
 1 FAMS @F1@
 1 FAMC @F2@
 0 @X6@ INDI
@@ -200,6 +209,10 @@
 0 @F5@ FAM
 1 HUSB @X12@
 1 CHIL @X9@
+0 @N1@ NOTE Bertha war Hebamme in Celle und hat dort viele Kinder auf die Welt geholt.
+1 CONT
+1 CONT Ihr Mann Emil arbeitete als Stellmacher in derselben Strasse.
+0 @N2@ NOTE Was hier steht, betrifft eine lebende Person und geht niemanden etwas an.
 0 @M1@ OBJE
 1 FILE anna.png
 2 FORM png

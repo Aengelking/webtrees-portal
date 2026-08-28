@@ -468,7 +468,7 @@ class OperationsTest extends PortalTestCase
 
         $checks = $this->diagnose();
 
-        self::assertCount(11, $checks);
+        self::assertCount(12, $checks);
         self::assertSame(Diagnosis::PROBLEM, Registry::container()->get(Diagnosis::class)->worst($checks));
     }
 

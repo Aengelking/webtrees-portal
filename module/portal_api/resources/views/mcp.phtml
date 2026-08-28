@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\McpToken;
+use Engelking\Webtrees\PortalApi\Services\McpTokens;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<int,McpToken> $tokens
+ * @var array<int,string>        $accounts    user id => how to name them
+ * @var array<int,string>        $issuers
+ * @var PortalApiModule          $module
+ * @var bool                     $enabled
+ * @var bool                     $notes
+ * @var int                      $valid_days
+ * @var string                   $new_token
+ * @var string                   $mcp_url
+ * @var string                   $settings_url
+ * @var string                   $title
+ */
+
+$action = route('module', ['module' => $module->name(), 'action' => 'AdminMcp']);
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('A token lets one assistant read the family archive. It is a credential in a configuration file on somebody’s computer, so treat it the way you would treat a password: one per device, named so that you can withdraw the right one, and withdrawn the moment the device is out of your hands.') ?>
+</p>
+
+<p>
+    <?= I18N::translate('A token grants nothing of its own. It names a webtrees account, and the archive is read at that account’s access level — and then narrowed to people who have died, which no account can widen. Change the account’s role, or delete it, and the token changes with it.') ?>
+</p>
+
+<?php if (!$enabled) : ?>
+    <div class="alert alert-warning">
+        <?= I18N::translate('The archive is not published to assistants, so no token will work. Switch it on in the module’s preferences.') ?>
+        <a href="<?= e($settings_url) ?>"><?= I18N::translate('Preferences') ?></a>
+    </div>
+<?php endif ?>
+
+<?php if ($new_token !== '') : ?>
+    <div class="alert alert-success">
+        <h2 class="h5"><?= I18N::translate('The token is ready') ?></h2>
+        <p>
+            <?= I18N::translate('Copy it now. It is shown once and is not stored anywhere it can be read back — if you lose it, withdraw it below and issue another.') ?>
+        </p>
+        <input class="form-control font-monospace" type="text" readonly value="<?= e($new_token) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Token') ?>">
+        <p class="mt-3 mb-1">
+            <?= I18N::translate('The assistant needs two things: the address below, and this token as a bearer token.') ?>
+        </p>
+        <input class="form-control font-monospace" type="text" readonly value="<?= e($mcp_url) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Address') ?>">
+        <p class="mt-3 mb-1"><?= I18N::translate('In Claude Code, that is one line:') ?></p>
+        <input class="form-control font-monospace" type="text" readonly value="<?= e('claude mcp add --transport http familienarchiv ' . $mcp_url . ' --header "Authorization: Bearer ' . $new_token . '"') ?>" onclick="this.select()" aria-label="<?= I18N::translate('Command') ?>">
+    </div>
+<?php endif ?>
+
+<h2 class="h5 mt-4"><?= I18N::translate('Issue a token') ?></h2>
+
+<form method="post" action="<?= e($action) ?>">
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="token_name">
+            <?= I18N::translate('What this token is for') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="text" id="token_name" name="token_name" maxlength="128" autocomplete="off" placeholder="<?= I18N::translate('Claude on the study computer') ?>">
+            <div class="form-text">
+                <?= I18N::translate('For your own screen. Name the device and the program, so that withdrawing one does not mean guessing which.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="reads_as">
+            <?= I18N::translate('Reads as') ?>
+        </label>
+        <div class="col-sm-9">
+            <?= view('components/select', ['name' => 'reads_as', 'id' => 'reads_as', 'selected' => '', 'options' => $accounts]) ?>
+            <div class="form-text">
+                <?= I18N::translate('An account that can see everything the archive holds about the dead is what makes this useful; an account that sees less is what makes it cautious. Whichever you choose, the living are out of reach.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label" for="valid_days">
+            <?= I18N::translate('Valid for (days)') ?>
+        </label>
+        <div class="col-sm-9">
+            <input class="form-control" type="number" min="1" max="<?= McpTokens::MAX_VALIDITY_DAYS ?>" id="valid_days" name="valid_days" value="<?= (int) $valid_days ?>">
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="offset-sm-3 col-sm-9">
+            <button type="submit" class="btn btn-primary">
+                <?= I18N::translate('Issue a token') ?>
+            </button>
+        </div>
+    </div>
+
+    <?= csrf_field() ?>
+</form>
+
+<h2 class="h5 mt-5"><?= I18N::translate('Tokens') ?></h2>
+
+<?php if ($tokens->isEmpty()) : ?>
+    <p class="text-muted"><?= I18N::translate('No assistant has been given access.') ?></p>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('What this token is for') ?></th>
+                    <th scope="col"><?= I18N::translate('Reads as') ?></th>
+                    <th scope="col"><?= I18N::translate('Created by') ?></th>
+                    <th scope="col"><?= I18N::translate('Expires') ?></th>
+                    <th scope="col"><?= I18N::translate('Last used') ?></th>
+                    <th scope="col"><?= I18N::translate('Requests') ?></th>
+                    <th scope="col"><span class="visually-hidden"><?= I18N::translate('Withdraw') ?></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($tokens as $token) : ?>
+                    <tr class="<?= $token->isUsable() ? '' : 'text-muted' ?>">
+                        <td><?= e($token->name) ?></td>
+                        <td><?= e($accounts[$token->wt_user_id] ?? I18N::translate('Unknown')) ?></td>
+                        <td><?= e($issuers[$token->created_by] ?? I18N::translate('Unknown')) ?></td>
+                        <td>
+                            <?php if ($token->isRevoked()) : ?>
+                                <?= I18N::translate('Withdrawn') ?>
+                            <?php else : ?>
+                                <?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make($token->expires_at)]) ?>
+                            <?php endif ?>
+                        </td>
+                        <td>
+                            <?php if ($token->last_used_at === null) : ?>
+                                <?= I18N::translate('Never') ?>
+                            <?php else : ?>
+                                <?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make($token->last_used_at)]) ?>
+                            <?php endif ?>
+                        </td>
+                        <td><?= I18N::number($token->uses) ?></td>
+                        <td>
+                            <?php if (!$token->isRevoked()) : ?>
+                                <form method="post" action="<?= e($action) ?>">
+                                    <input type="hidden" name="token_action" value="revoke">
+                                    <input type="hidden" name="token_id" value="<?= (int) $token->id ?>">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <?= I18N::translate('Withdraw') ?>
+                                    </button>
+                                    <?= csrf_field() ?>
+                                </form>
+                            <?php endif ?>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>
+
+<h2 class="h5 mt-5"><?= I18N::translate('What an assistant can read') ?></h2>
+
+<ul>
+    <li><?= I18N::translate('People who have died: their names, the archive’s reference numbers and the branch they belong to, and the dated and placed events on their record.') ?></li>
+    <li><?= I18N::translate('Their parents, siblings, spouses and children who have also died — and, for the living, only how many were left out.') ?></li>
+    <li><?= I18N::translate('The line above and the line below a person, walking past living relatives without naming them so that the older generations stay reachable.') ?></li>
+    <?php if ($notes) : ?>
+        <li><?= I18N::translate('The notes the family wrote, on a record and under an event, and a search across them.') ?></li>
+    <?php else : ?>
+        <li class="text-muted"><?= I18N::translate('Not the notes the family wrote: that is switched off in the preferences.') ?></li>
+    <?php endif ?>
+    <li><?= I18N::translate('The surnames and places the archive’s dead are filed under, with counts.') ?></li>
+</ul>
+
+<p>
+    <?= I18N::translate('It cannot write anything, and there is no tool here that changes a record. What it reads is recorded as a date and a count against the token — never which questions were asked, and never about whom.') ?>
+</p>

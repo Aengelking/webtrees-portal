@@ -93,6 +93,33 @@ host is reachable over HTTPS from Cloudflare's network and that it can set
 cookies for its own hostname. Moving it means changing the `WEBTREES_ORIGIN`
 secret on the Worker.
 
+### 1.7 Should the MCP server speak OAuth?
+
+**Open, and the one thing about §2.80 worth revisiting.**
+
+The MCP specification would rather an HTTP server were an OAuth 2.1 resource:
+protected-resource metadata, dynamic client registration, an authorisation
+endpoint with a consent screen, PKCE, refresh tokens. What is built instead is
+a bearer token an administrator issues in the control panel — which is the
+whole of the authentication, and is honest about being that.
+
+The case for leaving it: the entire population of assistants is the handful of
+devices one family owns, an OAuth authorisation server is a phase of work in
+its own right, and it would have to sit beside webtrees' own login without the
+two confusing each other. A token in a configuration file, revocable from a
+screen, with an expiry, is proportionate to that.
+
+The case for building it: **clients that only speak OAuth cannot connect at
+all.** Anything configured by hand, and anything that can send a header —
+Claude Code among them — is fine. Some hosted connector interfaces are not, and
+that list is more likely to grow than to shrink.
+
+If it is ever built, the shape is clear enough: the authorisation endpoint
+signs in through webtrees' own `Auth`, the consent screen names the archive and
+says "the dead only", and `portal_mcp_token` becomes the access-token table it
+already nearly is. `Services\DeceasedOnly` does not change, because it is not
+about who is asking.
+
 ---
 
 ## 2. Decisions taken
@@ -4740,6 +4767,187 @@ read at all on a telephone.
 Which broke six tests, all of them looking the link up by its exact name. That
 is the right kind of breakage: the name is what a member hears, it changed, and
 the tests said so.
+
+---
+
+### 2.80 The archive can be asked questions, and only about the dead
+
+The family archive is a thing people ask questions of, and the questions are
+not the shape of a search box: *who was my great-grandmother's brother, and
+what does the archive actually say about him*. The portal answers that in four
+or five taps if you already know where to tap. An assistant could answer it in
+a sentence, if something would let it read the archive.
+
+So there is an MCP server: `POST /api/mcp`, JSON-RPC, seven read-only tools.
+
+#### It lives in the module, and that was not obvious
+
+The alternative was a small Node server beside the portal, talking to the API.
+It would have been easier to write and it would have been wrong, for one
+reason: **privacy filtering is not a layer you can put in front of webtrees.**
+It is `GedcomRecord::canShow()` at an access level, `Fact::canShow()` on every
+fact, `Note::canShowByType()` following every link out of a shared note, and a
+per-tree table of settings behind all three. A second process would either
+re-implement that — a second opinion about who may see what, which is the one
+thing this module must never grow (§2.20) — or call the portal's REST API,
+which does not publish notes and was never meant to.
+
+Inside the module it is a route, a middleware and a presenter, and every record
+it hands over has been through `RecordPresenter` like everything else.
+
+#### The rule: the dead, and nobody else
+
+`Services/DeceasedOnly` is four lines and the whole design rests on it.
+`canShow()` at the token's access level first, `isDead()` second, on every
+record on its way out. There is no path through the MCP server that does not
+go past it, which is meant to be checkable by reading rather than by trusting.
+
+It is **stricter than the portal's own search rule** (§2.47, `SearchConsent`),
+and deliberately so. That rule lets a living member be found if they put
+themselves in the family directory — they consented to be listed *to the
+family*, which is not the same as consenting to be summarised by somebody's
+assistant. There is no equivalent consent here, so there is no equivalent
+exception. It is also the first rule in this module with **no exemption for
+editors**: an editor who wants the living has webtrees, where the record is,
+and where reading it is an act with their name on it.
+
+The reason for being unfashionably strict is what happens to the answer. Every
+other endpoint hands a record to a person looking at a screen. This one hands
+it to a program that will put it into a language model's context — off this
+server, into a system that keeps its own copies and answers its own questions
+with them. That is a different disclosure, and the living are the part of a
+family tree that people are entitled to have opinions about.
+
+**Where `isDead()` cannot tell, it says alive**, which is the direction worth
+being wrong in: a record with no death event, no dates and no datable relatives
+is withheld.
+
+#### `withheld`: the shape of a family is not a secret, the living in it are
+
+A dead woman with three living children came back with an empty `children`
+list, and a model reading that will write "she had no children". So the counts
+travel with the record — how many, never who. It is the same choice §2.75 made
+when the pedigree started walking *past* a living rung instead of stopping at
+it, and for the same reason: an archive whose dead are reachable only through
+its living is an archive nobody can reach.
+
+The counts are of people **webtrees would have shown**. Somebody the token's
+account may not see at all was gone before this rule was asked, and is not
+counted — otherwise `withheld` would quietly become a way to measure what
+privacy is hiding. Bertha in the fixture has three living children and a
+`withheld.children` of two, and the missing one is the confidential record.
+
+#### The notes, which had never left this module before
+
+`PUBLISHED_TAGS` has never had `NOTE` on it, for the good reason that a note is
+written by a researcher for other researchers and is not a thing to put on a
+member's telephone unannounced.
+
+The MCP server is the caller that changes that calculation, because reading the
+prose is the entire point of pointing a model at a family archive. The dates it
+can get anywhere; what somebody did in the war, why a family left a village,
+which of two Berthas the photograph shows, why a date is a guess — that is in
+`NOTE` and nowhere else.
+
+Both spellings are read, because the difference is how the archive was typed
+and no business of the caller's: inline (`1 NOTE …` with `2 CONT`) and shared
+(`1 NOTE @N1@`, a record several people link to). Text as written, CONT lines
+rejoined, no Markdown rendering — a model reads text better than it reads HTML.
+webtrees' own strictness comes for free and is stricter than expected: a shared
+note linked to *any* record the reader may not see is hidden outright.
+
+**And there is a second switch.** A note about a dead man is quite often also a
+note about his living children, and a family happy to publish its dates may not
+be happy to publish its commentary. So notes are a separate setting from the
+one that opens the server; with it off, notes are absent from every record and
+`search_notes` is **not offered at all** rather than offered and answering
+nothing — a model told a tool exists will keep trying it, and will read an empty
+answer as "the archive says nothing about her".
+
+A note is only ever returned **with the dead person it belongs to**. A note
+that reaches nobody this server may name does not come back: the rule is about
+what may be said, not only about whose record may be opened, and a paragraph of
+family history detached from its subject is no safer for being anonymous.
+
+#### The lock is a bearer token, and not OAuth
+
+Everything else here is opened by a person — a password, or a cookie standing
+for one. An assistant has a configuration file, so it carries
+`Authorization: Bearer wtmcp_…` on every request and holds no session.
+
+The MCP specification would rather this were OAuth 2.1, with dynamic client
+registration, an authorisation endpoint, a consent screen and PKCE. That is a
+phase of work in its own right, for a portal whose entire assistant population
+is the handful of devices one family owns, and it would have to live beside
+webtrees' own login without confusing it. **Not built, and it is the one thing
+here worth revisiting** — see §1. What it costs today is that clients which
+only speak OAuth (some hosted connector UIs) cannot connect; clients that can
+send a header (Claude Code, and anything configured by hand) can.
+
+The token is a `wtmcp_` prefix and 32 random bytes, stored as SHA-256, shown
+once. The prefix is not decoration: it makes the string recognisable in a
+configuration file and to the secret scanners that read repositories for
+credentials somebody committed by accident.
+
+**A token is not an identity.** It names a webtrees account; `Auth::login()`
+makes that account the signed-in user for the rest of the request, and from
+there everything is webtrees' own privacy code at that account's access level.
+Three gates, in order: the proxy secret, the token's account, the deceased-only
+rule. Changing the account's role changes what the token can see, at once; a
+manager's token reaches the confidential records a member's does not, and
+neither reaches anybody living.
+
+The one cost of that design is a webtrees session created and abandoned per
+request, since the client keeps no cookie. It is the right way round: a second
+permission system would be worse than a few rows for the session garbage
+collector.
+
+**What is recorded is when and how often, and nothing else.** Not which
+questions were asked and not about whom — a log of the questions somebody's
+assistant asked about their family is a more sensitive thing than the archive
+it was asking about, and this portal has no business keeping one.
+
+#### `/api/mcp`, not `/api/v1/mcp`
+
+Everything under `/api/v1` is `openapi.yaml`: REST, versioned by this portal,
+spoken by this portal's client and nothing else. MCP is a different protocol
+that versions itself, per connection, in `initialize`. Putting it beside the
+portal's endpoints would suggest the two move together. It still begins
+`/api/`, which is what the Cloudflare Worker proxies — so an assistant is
+pointed at the portal's own address, the Worker forwards the `Authorization`
+header and adds the proxy secret on the way through, and the MCP server is
+reachable exactly where the portal is and nowhere else.
+
+It is deliberately **not in `openapi.yaml`**. That file is the contract between
+the two halves of this repository, kept in step by `contract.test.ts`; a
+JSON-RPC endpoint with a protocol version of its own is not part of it.
+
+#### Stateless, and no stream
+
+No `Mcp-Session-Id`, no SSE. `GET` and `DELETE` on the endpoint answer `405,
+Allow: POST`, which the transport specification names for a server that offers
+no stream — better than webtrees' HTML 404, which a client cannot read. Nothing
+here ever has anything to say unprompted, so the stream would be an open
+connection that never carried a message, and the server survives being
+restarted mid-conversation without anybody noticing.
+
+Version negotiation is the specification's own: a version we speak is echoed
+back, and anything else is answered with the newest we do speak, for the client
+to accept or refuse. `MCP-Protocol-Version` on later requests is read and not
+enforced — this server behaves identically under every revision it has been
+shown, and refusing a client for announcing a newer number than the code knows
+about would break it for no benefit to anybody.
+
+#### The descriptions are part of the interface
+
+A model chooses a tool by reading its description, and a model that has not
+been told the archive holds only the dead will report that a search found
+nothing and conclude the person never existed. So every description says what
+it covers and what it does not, `withheld` is explained wherever it can appear,
+and the `initialize` instructions say the three things a model has to know: only
+the dead, German throughout, and this is one family's record of itself rather
+than a reference work — so say when the archive does not contain something
+instead of filling the gap.
 
 ---
 

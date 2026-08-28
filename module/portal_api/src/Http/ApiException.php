@@ -115,6 +115,25 @@ class ApiException extends RuntimeException
         return new self($error, StatusCodeInterface::STATUS_CONFLICT, $message);
     }
 
+    /**
+     * The MCP server exists in the code and is switched off in the settings.
+     *
+     * A 404 rather than a 403, because "there is no such endpoint here" is the
+     * truth about an installation that has not turned it on, and it is the
+     * answer that leaves nothing to probe at. The message is plain enough for
+     * the administrator who has just pointed an assistant at it and is
+     * wondering why — they are the only person who will ever see it, since the
+     * proxy secret stands in front of this.
+     */
+    public static function mcpDisabled(): self
+    {
+        return new self(
+            'not_found',
+            StatusCodeInterface::STATUS_NOT_FOUND,
+            I18N::translate('This installation does not publish the family archive to assistants.')
+        );
+    }
+
     public static function notConfigured(string $message): self
     {
         return new self(
