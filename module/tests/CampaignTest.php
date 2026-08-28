@@ -374,6 +374,17 @@ class CampaignTest extends PortalTestCase
         $this->campaigns->claim($this->token, $email);
     }
 
+    /**
+     * The claim, posted the way the portal's own client posts it.
+     *
+     * **With a CSRF token**, which this route's middleware does not ask for —
+     * it is `$public`, because whoever opens a campaign letter has no account
+     * yet — but webtrees does. `CheckCsrf` is injected into every route's chain
+     * by the router, and answers a `POST` without a matching token with a 302.
+     * `api/client.ts` fetches one before every unsafe request, so the browser
+     * always sends it; a test that did not was testing a request the portal
+     * never makes.
+     */
     private function post(string $campaign, string $email): ResponseInterface
     {
         return $this->api(
@@ -381,7 +392,8 @@ class CampaignTest extends PortalTestCase
             RequestMethodInterface::METHOD_POST,
             [],
             [],
-            ['campaign' => $campaign, 'email' => $email]
+            ['campaign' => $campaign, 'email' => $email],
+            $this->csrfHeader()
         );
     }
 }

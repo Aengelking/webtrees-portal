@@ -2421,6 +2421,13 @@ row goes, the archive number is withheld until the family publishes it and a
 confidential one even then, nothing else from the record travels, and where
 the record *is* readable there is no second copy of either field.
 
+Those requests go through the chain webtrees actually builds, not the one each
+route declares: `CheckCsrf` is injected between a route's middleware and its
+handler, on every route, and the harness dispatches it too. It did not always,
+and the gap cost an evening — see NOTES.md §2.84. It is still not the whole of
+production: the transaction, the session and the theme wrap *around* routing and
+are outside any test here.
+
 A note on the harness behind those: `PortalTestCase::login()` resets webtrees'
 in-memory cache, because `canShow()` is cached per record and access level and
 *not* per user. That is sound in production, where the cache lives inside one
@@ -2911,6 +2918,13 @@ by nothing else, so seeing it means the origin answered the proxy's own request
 with a redirect. It should not happen any more; if it does, the request is
 carrying an `Authorization` header the Worker did not move — check that the
 deployed Worker is current.
+
+**A `302` back to the same URL, on a request that carried a good token**, was
+webtrees' own `CheckCsrf`. It is injected into every route's chain — a route
+cannot decline it — and it answers a `POST` whose CSRF token does not match the
+session's with a redirect. `RequireMcpToken` now satisfies it. It only ever
+showed up once a token was *accepted*, which is why the endpoint appeared to
+work for every request except a real one.
 
 **A webtrees error page saying "There is no active transaction"** was the
 endpoint signing itself in with `Auth::login()`, whose session regeneration
