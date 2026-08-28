@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { isOAuthDiscoveryRequest, noOAuthHere, proxyToWebtrees } from './proxy'
+import { isApiRequest, isOAuthDiscoveryRequest, noOAuthHere, proxyToWebtrees } from './proxy'
 
 /**
  * The proxy is the only thing between webtrees' headers and a CDN, so the one
@@ -135,5 +137,48 @@ describe('OAuth metadata this server does not have', () => {
     expect(response.status).toBe(404)
     expect(response.headers.get('content-type')).toContain('application/json')
     await expect(response.json()).resolves.toMatchObject({ error: 'not_found' })
+  })
+})
+
+
+/**
+ * Code in the Worker only runs for paths `run_worker_first` names. Everything
+ * else is answered by the asset layer *before the Worker starts*, with
+ * index.html and a 200 — so a handler for an unlisted path is written, shipped
+ * and never reached, and the only symptom is a caller parsing a web page as
+ * JSON.
+ *
+ * That happened once, to the OAuth 404 below. This is the check that would
+ * have caught it: whatever the Worker claims to handle, wrangler.jsonc has to
+ * let through.
+ */
+describe('wrangler.jsonc lets through what the Worker handles', () => {
+  function runWorkerFirst(): string[] {
+    const jsonc = readFileSync(resolve(process.cwd(), 'wrangler.jsonc'), 'utf-8')
+    const json = jsonc.replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1')
+
+    return JSON.parse(json).assets.run_worker_first
+  }
+
+  /** One example per path the Worker answers rather than passing to the assets. */
+  const handled: Array<[string, (url: URL) => boolean]> = [
+    ['/api/v1/me', isApiRequest],
+    ['/api/mcp', isApiRequest],
+    ['/.well-known/oauth-protected-resource', isOAuthDiscoveryRequest],
+  ]
+
+  it.each(handled)('reaches the Worker at all: %s', (path, handler) => {
+    const url = new URL('https://portal.example' + path)
+
+    // The premise: this really is a path the Worker means to answer.
+    expect(handler(url)).toBe(true)
+
+    const matched = runWorkerFirst().some((pattern) =>
+      new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$').test(
+        url.pathname,
+      ),
+    )
+
+    expect(matched, path + ' is handled in the Worker but never reaches it').toBe(true)
   })
 })

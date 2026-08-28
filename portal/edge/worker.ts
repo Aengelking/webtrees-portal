@@ -17,9 +17,12 @@ import {
  *           single-page-application` in wrangler.jsonc turning an unmatched
  *           path into index.html so the client-side router can take it.
  *
- * That SPA fallback is why `run_worker_first: ["/api/*"]` is set: without it
- * the asset layer would answer `/api/v1/me` with index.html before this Worker
- * ever saw the request, and every API call would quietly return HTML.
+ * That SPA fallback is why `run_worker_first` is set in wrangler.jsonc: without
+ * it the asset layer answers *before this Worker runs*, so a path missing from
+ * that list cannot be handled here at all. `/api/*` is the obvious entry —
+ * every API call would otherwise quietly return HTML. `/.well-known/*` is the
+ * one that was forgotten once, which made the OAuth answer below live and dead
+ * at the same time.
  */
 
 interface Env extends ProxyEnv {

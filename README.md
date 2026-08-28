@@ -2028,10 +2028,15 @@ thing that fails quietly:
   rule is a loop by construction. `not_found_handling` is the Workers way to
   say the same thing. (Cloudflare *Pages* still wants the `_redirects` file;
   see below.)
-* **`run_worker_first: ["/api/*"]`.** Without it the SPA fallback would answer
-  `/api/v1/me` with `index.html` before the Worker ever ran, and every API
-  call would return HTML instead of JSON — a deploy that looks successful and
-  a portal that does not work.
+* **`run_worker_first: ["/api/*", "/.well-known/*"]`.** This is the list of
+  paths that reach the Worker *at all* — anything missing from it is answered
+  by the asset layer before the Worker runs, so code in `edge/worker.ts` for
+  such a path never executes and the caller gets index.html with a 200 on it.
+  That is how the OAuth 404 shipped live and dead at the same time. And
+  without the `/api/*` entry the SPA fallback would answer `/api/v1/me` with
+  `index.html` before the Worker ever ran, and every API call would return
+  HTML instead of JSON — a deploy that looks successful and a portal that does
+  not work.
 
 ### Environment variables
 
