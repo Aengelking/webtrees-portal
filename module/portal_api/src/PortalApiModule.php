@@ -168,7 +168,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.4.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 18;
+    private const int SCHEMA_VERSION = 19;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -1536,7 +1536,14 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             return redirect($this->officesUrl());
         }
 
-        if ($offices->set($xref, $body->string('title', ''), $body->integer('sort_order', 0))) {
+        if (
+            $offices->set(
+                $xref,
+                $body->string('title', ''),
+                $body->integer('sort_order', 0),
+                $body->string('translations', ''),
+            )
+        ) {
             FlashMessages::addMessage(I18N::translate('The office has been saved.'), 'success');
         }
 
@@ -1551,7 +1558,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      * column of xrefs. This is the control panel, which webtrees has already
      * decided they may open.
      *
-     * @return array<int,array{xref:string,title:string,sort_order:int,name:string|null,url:string|null}>
+     * @return array<int,array{xref:string,title:string,translations:string,sort_order:int,name:string|null,url:string|null}>
      */
     private function officeRows(Tree $tree): array
     {
@@ -1561,11 +1568,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $individual = Registry::individualFactory()->make($office['xref'], $tree);
 
             $rows[] = [
-                'xref'       => $office['xref'],
-                'title'      => $office['title'],
-                'sort_order' => $office['sort_order'],
-                'name'       => $individual instanceof Individual ? strip_tags($individual->fullName()) : null,
-                'url'        => $individual instanceof Individual ? $individual->url() : null,
+                'xref'         => $office['xref'],
+                'title'        => $office['title'],
+                'translations' => $office['translations'],
+                'sort_order'   => $office['sort_order'],
+                'name'         => $individual instanceof Individual ? strip_tags($individual->fullName()) : null,
+                'url'          => $individual instanceof Individual ? $individual->url() : null,
             ];
         }
 

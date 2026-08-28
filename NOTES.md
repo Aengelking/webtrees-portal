@@ -5322,6 +5322,54 @@ least one assertion has to be on the bytes.
 
 ---
 
+### 2.86 The one German phrase in an English page
+
+Reported: the office should be translatable.
+
+It was the one thing on the card that was not. The portal answers fact labels,
+dates and branch names in the language the member is reading (§2.17); §2.83 had
+just gone to some length over relationship names being *English* rather than
+German with English words in it. And beside all that sat *Vorsitzende des
+Vorstands*, in every language, because "An office is what the foundation says"
+gave the foundation a place to write an office and, without meaning to, gave
+each one exactly one language.
+
+**It cannot live in the portal's translation files.** That is the whole reason
+the office is free text: a statute that renames a body must not need a
+deployment. So the family writes the translations too — which is a problem the
+branch table had already solved, in a notation an administrator here has
+already met:
+
+    Vorsitzende des Vorstands | en: Chair of the board
+
+**So the parser moved rather than being copied.** `SackNumbers::names()` and
+its fallback rule are now `TranslatedText`, used by both. They were one
+notation the moment the second caller existed; being one *parser* is what stops
+them drifting into two notations that are nearly the same — the same argument
+§2.71 makes about two services building one shape. The 44 branch-name tests
+went green unchanged after the move, which is the only evidence worth having
+that an extraction was faithful.
+
+**The fallback is the point.** Exact tag, then bare language, then the words it
+was typed in. A family that has half-translated its list shows a French reader
+German rather than nothing, and every office written before this existed keeps
+working in every language without anybody touching it. Two of the tests exist
+only to hold that down, because it is the case that would otherwise rot
+quietly: nobody notices a missing translation, everybody notices a blank badge.
+
+**Stored in a column of its own** rather than a widened `title`. Adding a
+column is the additive change every other migration here makes; altering a
+type is the one that behaves differently on different databases. It also
+leaves the written name in a field the control panel can show without first
+taking a sentence apart — and lets the screen list the translations underneath
+it, so what is stored is visible rather than inferred.
+
+An untagged part is dropped when it is *saved*, not when it is read. The
+administrator is still looking at the screen at that moment; a part kept but
+never shown would be a translation nobody could find the absence of.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

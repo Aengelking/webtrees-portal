@@ -8,6 +8,7 @@ use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Individual;
 
+use function implode;
 use function mb_substr;
 use function preg_replace;
 use function time;
@@ -35,8 +36,17 @@ use function trim;
  */
 class Offices
 {
-    /** The office of every person who holds one, by xref. @var array<string,string>|null */
-    private ?array $titles = null;
+    /**
+     * Every office as written, by xref — the name and its translations, not
+     * yet resolved to a language.
+     *
+     * Resolved per call rather than per read, because one request can be
+     * answered in one language and the next in another, and a cache keyed by
+     * nothing would hand the second reader the first one's words.
+     *
+     * @var array<string,array{title:string,translations:array<string,string>}>|null
+     */
+    private ?array $rows = null;
 
     /** As long as `title` in the schema. Longer is a paragraph, not an office. */
     public const int MAX_TITLE = 128;
@@ -52,13 +62,19 @@ class Offices
      * nothing looks the same either way, and there is nothing here worth
      * telling the two apart for.
      */
-    public function titleFor(?string $xref): ?string
+    public function titleFor(?string $xref, string|null $language = null): ?string
     {
         if ($xref === null || $xref === '') {
             return null;
         }
 
-        return $this->all()[$xref] ?? null;
+        $row = $this->rows()[$xref] ?? null;
+
+        if ($row === null) {
+            return null;
+        }
+
+        return TranslatedText::pick($row['title'], $row['translations'], $language);
     }
 
     /**
@@ -69,7 +85,7 @@ class Offices
      * answers for a member whose record the reader may not open, which is the
      * case the directory needs it for.
      */
-    public function titleForMember(UserInterface $user): ?string
+    public function titleForMember(UserInterface $user, string|null $language = null): ?string
     {
         $individual = $this->trees->linkedIndividual($this->trees->tree(), $user);
 
@@ -77,35 +93,60 @@ class Offices
             return null;
         }
 
-        return $this->titleFor($individual->xref());
+        return $this->titleFor($individual->xref(), $language);
     }
 
     /**
-     * Every office, by xref.
+     * Every office in the language this request is being answered in, by xref.
+     *
+     * @return array<string,string>
+     */
+    public function all(string|null $language = null): array
+    {
+        $titles = [];
+
+        foreach ($this->rows() as $xref => $row) {
+            $titles[$xref] = TranslatedText::pick($row['title'], $row['translations'], $language);
+        }
+
+        return $titles;
+    }
+
+    /**
+     * Every office as written, by xref.
      *
      * Read once per request. The table holds a handful of rows — a board, not
      * a membership list — so reading all of it beats a query per card by a
      * wide margin, and by more the longer the directory gets.
      *
-     * @return array<string,string>
+     * @return array<string,array{title:string,translations:array<string,string>}>
      */
-    public function all(): array
+    private function rows(): array
     {
-        if ($this->titles === null) {
-            $this->titles = DB::table('portal_office')
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->pluck('title', 'xref')
-                ->all();
+        if ($this->rows === null) {
+            $this->rows = [];
+
+            $records = DB::table('portal_office')->orderBy('sort_order')->orderBy('id')->get();
+
+            foreach ($records as $record) {
+                $this->rows[(string) $record->xref] = [
+                    'title'        => (string) $record->title,
+                    'translations' => TranslatedText::tags((string) ($record->translations ?? '')),
+                ];
+            }
         }
 
-        return $this->titles;
+        return $this->rows;
     }
 
     /**
      * Every office in the order they should be listed, for the control panel.
      *
-     * @return array<int,array{id:int,xref:string,title:string,sort_order:int}>
+     * As written, translations and all: this is the screen an administrator
+     * edits on, so it must show what is stored rather than what this request
+     * happens to resolve to.
+     *
+     * @return array<int,array{id:int,xref:string,title:string,translations:string,sort_order:int}>
      */
     public function listed(): array
     {
@@ -113,10 +154,11 @@ class Offices
 
         foreach (DB::table('portal_office')->orderBy('sort_order')->orderBy('id')->get() as $row) {
             $rows[] = [
-                'id'         => (int) $row->id,
-                'xref'       => (string) $row->xref,
-                'title'      => (string) $row->title,
-                'sort_order' => (int) $row->sort_order,
+                'id'           => (int) $row->id,
+                'xref'         => (string) $row->xref,
+                'title'        => (string) $row->title,
+                'translations' => (string) ($row->translations ?? ''),
+                'sort_order'   => (int) $row->sort_order,
             ];
         }
 
@@ -132,10 +174,11 @@ class Offices
      *
      * @return bool Whether anything changed.
      */
-    public function set(string $xref, string $title, int $sort_order = 0): bool
+    public function set(string $xref, string $title, int $sort_order = 0, string $translations = ''): bool
     {
-        $xref  = trim($xref);
-        $title = $this->clean($title);
+        $xref         = trim($xref);
+        $title        = $this->clean($title);
+        $translations = $this->cleanTranslations($translations);
 
         if ($xref === '') {
             return false;
@@ -150,27 +193,37 @@ class Offices
 
         if ($existing === null) {
             DB::table('portal_office')->insert([
-                'xref'       => $xref,
-                'title'      => $title,
-                'sort_order' => $sort_order,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'xref'         => $xref,
+                'title'        => $title,
+                'translations' => $translations,
+                'sort_order'   => $sort_order,
+                'created_at'   => $now,
+                'updated_at'   => $now,
             ]);
 
-            $this->titles = null;
+            $this->rows = null;
 
             return true;
         }
 
-        if ((string) $existing->title === $title && (int) $existing->sort_order === $sort_order) {
+        if (
+            (string) $existing->title === $title
+            && (int) $existing->sort_order === $sort_order
+            && (string) ($existing->translations ?? '') === $translations
+        ) {
             return false;
         }
 
         DB::table('portal_office')
             ->where('xref', '=', $xref)
-            ->update(['title' => $title, 'sort_order' => $sort_order, 'updated_at' => $now]);
+            ->update([
+                'title'        => $title,
+                'translations' => $translations,
+                'sort_order'   => $sort_order,
+                'updated_at'   => $now,
+            ]);
 
-        $this->titles = null;
+        $this->rows = null;
 
         return true;
     }
@@ -180,7 +233,7 @@ class Offices
     {
         $deleted = DB::table('portal_office')->where('xref', '=', trim($xref))->delete();
 
-        $this->titles = null;
+        $this->rows = null;
 
         return $deleted > 0;
     }
@@ -199,5 +252,24 @@ class Offices
         $title = (string) preg_replace('/\s+/u', ' ', $title);
 
         return mb_substr(trim($title), 0, self::MAX_TITLE);
+    }
+
+    /**
+     * The translations as they will be stored.
+     *
+     * Parsed and written back out rather than kept as typed, so that what is
+     * stored is what will actually be read: a part with no language tag is
+     * dropped here, where the administrator is still looking at the screen,
+     * instead of silently never appearing on anybody's card.
+     */
+    private function cleanTranslations(string $list): string
+    {
+        $parts = [];
+
+        foreach (TranslatedText::tags($list) as $tag => $text) {
+            $parts[] = $tag . ': ' . $this->clean($text);
+        }
+
+        return implode(' | ', $parts);
     }
 }

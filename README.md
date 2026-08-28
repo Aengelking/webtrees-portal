@@ -1877,6 +1877,17 @@ that renames a body should not need a deployment. One office per person; typing
 a second for the same person replaces the first, and clearing the field takes
 the office away.
 
+**In other languages**, beside it, in the same notation the branch names use:
+
+    en: Chair of the board | fr: Président du conseil
+
+One per language, separated by `|`, each beginning with its language code. A
+member reading the portal in a language named there sees that wording; everyone
+else sees the office as it was typed. Leaving the field empty is fine and is
+what every office had before this existed — the written words then answer in
+every language, which is better than a blank. A part with no language code in
+front of it is dropped when you save, so if one disappears, that is why.
+
 **This is the portal's own list, not part of the family tree.** Nothing here is
 written into the archive, and that is deliberate rather than incidental. An
 office is what the *foundation* says about one of its officers; a fact on a
@@ -2818,6 +2829,14 @@ replaces it rather than joining it, an emptied title takes it away, saving the
 same office twice reports that nothing changed, titles are tidied and capped,
 and an office on a record that is gone names nobody without disturbing the
 directory.
+
+The translations have their own six: the office is read in the language of the
+request, `en-GB` falls back to the `en:` wording where the family wrote no
+`en-GB:` one and prefers the exact tag where they did, a language nobody
+translated still reads the office in the words it was typed in, an office with
+no translations at all answers everywhere, an untagged part is not kept, and
+the reader's own `Accept-Language` — not the server's default — is what reaches
+the card. Four of the six fail if the language is ignored.
 
 On the screen, five tests hold the reading rule — the office reaches a row two
 ways and a screen that reads only one of them would show it to some members and
