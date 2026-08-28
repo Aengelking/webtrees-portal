@@ -1164,6 +1164,24 @@ portal appears. A record carrying `RESN confidential`, `RESN privacy` or a
 per-record privacy level set in *Control panel → Privacy* is never named this
 way, even for a listed member.
 
+#### The two languages name relationships differently
+
+Not a translation, and not a choice: German and English put the same fact in
+different shapes, so the module computes each from the measurement rather than
+from the other.
+
+German counts a collateral relative by degree and keeps the near word —
+*Großneffe 2. Grades*, *Onkel 3. Grades*. English has no such phrase: anything
+that is not a plain nephew or a plain uncle becomes a **cousin**, counted by
+how far back the shared ancestor is and removed by the generations between —
+*second cousin once removed*. The same pair of archive numbers therefore comes
+back as `Neffe 2. Grades` in German and `second cousin once removed` in
+English, and both are right.
+
+The rules are the family's own calculator's, and `SackRelationshipTest` runs
+that calculator's English branch beside the module's over every shape the
+classifier can produce, so the two cannot drift apart.
+
 #### How deep the pedigree goes, and how it reads
 
 *Vorfahren* walks as far as the archive does — up to twenty generations, which
@@ -2446,6 +2464,13 @@ member id, with her own rung a placeholder and her dead parents named; a member
 who is neither listed nor connected and a member the tree has no record for
 give byte-identical 404s; and the button is offered only where somebody stands
 above them.
+
+**Relationships in two languages** (`module/tests/SackRelationshipTest.php`) —
+the family's own calculator is transcribed and run beside the module over a
+grid of every generation and distance, comparing what each names the same
+measured relationship; the English side collapses nephews and uncles of some
+degree into cousins removed, repeats "great-" where German counts, and starts
+its ordinals at the second cousin.
 
 **Names** (`module/tests/NameDecorationTest.php`) — a module that decorates
 `Individual::fullName()` (the Vesta "Classic Look & Feel" badge, for one) does
