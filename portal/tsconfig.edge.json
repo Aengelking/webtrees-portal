@@ -11,7 +11,16 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["@cloudflare/workers-types"]
+    // "node" is for the tests only — `proxy.test.ts` reads wrangler.jsonc to
+    // check that every path the Worker handles is one `run_worker_first` lets
+    // through. `src/api/contract.test.ts` reads openapi.yaml the same way, for
+    // the same reason: a file that has to agree with the code is worth
+    // asserting against rather than remembering.
+    //
+    // Nothing in edge/ or functions/ may actually import a node builtin — the
+    // Worker runs without nodejs_compat, so it would typecheck and then fail
+    // at runtime.
+    "types": ["@cloudflare/workers-types", "node"]
   },
   "include": ["edge", "functions"]
 }

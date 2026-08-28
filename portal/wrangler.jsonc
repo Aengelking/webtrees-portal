@@ -14,10 +14,23 @@
     // loop by construction.
     "not_found_handling": "single-page-application",
 
-    // Without this, the fallback above would answer `/api/v1/me` with
-    // index.html before the Worker ever ran, and every API call would quietly
+    // Which paths reach the Worker at all.
+    //
+    // Without this, the fallback above answers *before the Worker runs*, so a
+    // path listed nowhere here can never be handled in `edge/worker.ts` — it
+    // gets index.html with a 200 on it, whatever the code says.
+    //
+    // `/api/*` is the obvious one: without it every API call would quietly
     // return HTML instead of JSON.
-    "run_worker_first": ["/api/*"]
+    //
+    // `/.well-known/*` is here for a subtler reason. An MCP client that is
+    // refused goes looking for OAuth metadata there, and the Worker answers
+    // with a JSON 404 — see `noOAuthHere` in edge/proxy.ts. That answer was
+    // written and then never reached, because this list did not mention the
+    // path: the fix was live and dead at the same time, and the client went on
+    // parsing a web page as JSON. The Worker passes anything it does not
+    // recognise here — an ACME challenge, say — straight back to the assets.
+    "run_worker_first": ["/api/*", "/.well-known/*"]
   },
 
   "observability": {
