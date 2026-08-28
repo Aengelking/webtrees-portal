@@ -120,9 +120,15 @@ class PhotoTest extends PortalTestCase
 
         $response = $this->api(MeRead::class);
 
-        self::assertStringNotContainsString('M2', $this->raw($response));
-        self::assertStringNotContainsString('vertraulich', $this->raw($response));
-        self::assertStringNotContainsString('Nicht fuer alle', $this->raw($response));
+        // Without the token: it is 32 random characters, and one run in a
+        // hundred or so contains "M2" by chance — which is the hazard
+        // `rawWithoutCsrfToken()` was written for. Seen in the wild here,
+        // with a token beginning "PN5iTM2QXkr".
+        $body = $this->rawWithoutCsrfToken($response);
+
+        self::assertStringNotContainsString('M2', $body);
+        self::assertStringNotContainsString('vertraulich', $body);
+        self::assertStringNotContainsString('Nicht fuer alle', $body);
     }
 
     /**
