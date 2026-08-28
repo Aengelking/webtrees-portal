@@ -52,6 +52,27 @@ use function preg_match;
  */
 class RequireMcpToken implements MiddlewareInterface
 {
+    /**
+     * Where the portal's proxy puts a copy of the `Authorization` header.
+     *
+     * **`Authorization` does not reliably arrive.** Apache does not pass it to
+     * PHP under CGI or FastCGI unless `CGIPassAuth On` is set, and on shared
+     * hosting that is not somebody's to set. The header is simply absent by
+     * the time this middleware looks, so a perfectly good token is answered
+     * with 401 and nothing anywhere says why — which is exactly how this was
+     * found, with a token that worked in the database and not on the wire.
+     *
+     * Nothing else in this module ever noticed, because everything else
+     * authenticates with a cookie.
+     *
+     * So the Worker copies it under a name no webserver strips (see
+     * `edge/proxy.ts`), and this reads whichever arrives. The copy is *not* a
+     * second credential: it carries the same bearer token, is stripped from
+     * anything a client sends, and is only trusted at all because the proxy
+     * secret has already established that the request came through the portal.
+     */
+    public const string FALLBACK_HEADER = 'X-Portal-Authorization';
+
     public function __construct(
         private readonly PortalApiModule $module,
         private readonly McpTokens $tokens,
@@ -88,16 +109,38 @@ class RequireMcpToken implements MiddlewareInterface
     /**
      * The token the client is offering, or an empty string.
      *
-     * `Bearer` only. The other schemes a client might reach for — Basic, an
-     * `?access_token=` query parameter — are deliberately not accepted: the
-     * first invites somebody to put a password where a token belongs, and the
-     * second puts a credential in the webserver's access log.
+     * `Authorization` first, and the proxy's copy of it second — see
+     * `FALLBACK_HEADER` for why there are two places to look.
+     *
+     * `Bearer` only, in both. The other schemes a client might reach for —
+     * Basic, an `?access_token=` query parameter — are deliberately not
+     * accepted: the first invites somebody to put a password where a token
+     * belongs, and the second puts a credential in the webserver's access log.
      */
     private function offered(ServerRequestInterface $request): string
     {
-        $header = $request->getHeaderLine('Authorization');
+        foreach (['Authorization', self::FALLBACK_HEADER] as $name) {
+            $token = $this->bearer($request->getHeaderLine($name));
 
-        if (preg_match('/^Bearer[ \t]+(\S+)$/i', $header, $match) === 1) {
+            if ($token !== '') {
+                return $token;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * The token out of one header value.
+     *
+     * Trimmed before matching, and the pattern tolerates the whitespace a
+     * proxy may add on either side. A credential refused over a stray space is
+     * a credential refused for no reason anybody can see, and this class has
+     * already cost one evening of exactly that.
+     */
+    private function bearer(string $header): string
+    {
+        if (preg_match('/^Bearer[ \t]+(\S+)$/i', trim($header), $match) === 1) {
             return $match[1];
         }
 

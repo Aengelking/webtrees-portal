@@ -57,7 +57,43 @@ const STRIPPED_REQUEST_HEADERS = [
   'x-forwarded-host',
   // Never let a client set the secret itself — that is the whole point of it.
   'x-portal-proxy-secret',
+  // Nor the copy of its own Authorization header, which this proxy writes
+  // below. A client that could set it directly could set it to anything.
+  'x-portal-authorization',
 ]
+
+/**
+ * Where the MCP server's bearer token is carried instead.
+ *
+ * `Authorization` does not survive the trip. Apache does not pass it to PHP
+ * under CGI or FastCGI unless `CGIPassAuth On` is set — a detail that never
+ * came up while the portal authenticated with cookies, and that silently ate
+ * every token the moment it did not. The header simply is not there by the
+ * time the module looks, so the module answers 401 to a perfectly good
+ * credential and nothing anywhere says why.
+ *
+ * Copying it under a name nobody strips fixes it for every host, without
+ * anybody needing access to the webserver's configuration — which on shared
+ * hosting is the difference between a fix and a wish. `RequireMcpToken` reads
+ * `Authorization` first and falls back to this.
+ */
+const AUTHORIZATION_COPY = 'X-Portal-Authorization'
+
+/**
+ * OAuth metadata this server does not have.
+ *
+ * An MCP client that gets a 401 goes looking for these, and what it found here
+ * was the portal itself: the asset layer answers any unmatched path with
+ * `index.html` and **HTTP 200**, so a client asking for JSON got a web page and
+ * died with `JSON.parse` on `<!doctype`. That is a confusing way to say "your
+ * token is wrong", which is what had actually happened.
+ *
+ * 404 is the truthful answer — see NOTES.md §1.7 for why there is no OAuth
+ * here — and it is the one the MCP SDK handles, because "no metadata" is a
+ * case it expects. It does not make an OAuth-only client work; it makes the
+ * failure legible.
+ */
+const OAUTH_DISCOVERY = /^\/\.well-known\/(oauth-authorization-server|oauth-protected-resource|openid-configuration)(\/|$)/
 
 const STRIPPED_RESPONSE_HEADERS = [
   'connection',
@@ -71,6 +107,22 @@ const STRIPPED_RESPONSE_HEADERS = [
 
 export function isApiRequest(url: URL): boolean {
   return url.pathname === '/api' || url.pathname.startsWith('/api/')
+}
+
+/** See `OAUTH_DISCOVERY`. */
+export function isOAuthDiscoveryRequest(url: URL): boolean {
+  return OAUTH_DISCOVERY.test(url.pathname)
+}
+
+export function noOAuthHere(): Response {
+  return json(
+    {
+      error: 'not_found',
+      message:
+        'This server has no OAuth metadata. The MCP endpoint at /api/mcp takes a bearer token issued in webtrees.',
+    },
+    404,
+  )
 }
 
 export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<Response> {
@@ -117,6 +169,14 @@ export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<
 
   if (secret !== undefined && secret !== '') {
     headers.set('X-Portal-Proxy-Secret', secret)
+  }
+
+  // See AUTHORIZATION_COPY. The original is forwarded too — on a host that
+  // does pass it through, the module reads that one and this is ignored.
+  const authorization = request.headers.get('authorization')
+
+  if (authorization !== null && authorization !== '') {
+    headers.set(AUTHORIZATION_COPY, authorization)
   }
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
