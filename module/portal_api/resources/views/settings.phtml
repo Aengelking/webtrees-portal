@@ -37,6 +37,10 @@ use Illuminate\Support\Collection;
  * @var string               $member_connections
  * @var string               $connection_code_minutes
  * @var string               $remember_days
+ * @var string               $mcp
+ * @var string               $mcp_notes
+ * @var string               $mcp_url
+ * @var string               $mcp_tokens_url
  * @var string               $mailing_lists
  * @var string               $mailing_list_addresses
  * @var string               $exchange_tenant
@@ -76,6 +80,9 @@ foreach ($trees as $a_tree) {
     </a>
     <a class="btn btn-outline-primary" href="<?= e($diagnosis_url) ?>">
         <?= I18N::translate('Diagnosis') ?>
+    </a>
+    <a class="btn btn-outline-primary" href="<?= e($mcp_tokens_url) ?>">
+        <?= I18N::translate('Assistant access') ?>
     </a>
 </p>
 
@@ -337,6 +344,52 @@ foreach ($trees as $a_tree) {
             <div class="form-text">
                 <?= I18N::translate('Connection codes need the portal address above, because the code is a link to the portal. Without it a member is told to contact an administrator instead of being handed a code nobody can scan.') ?>
             </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-4"><?= I18N::translate('The archive, read by an assistant') ?></h2>
+
+    <p class="form-text">
+        <?= I18N::translate('An MCP server, which is how a program such as Claude is given something to read. Switched on, it lets an assistant search the archive, open a record, walk a line up or down, and name a relationship — so that “who was my great-grandmother’s brother, and what does the archive say about him” can be asked in words rather than clicked through.') ?>
+    </p>
+
+    <p class="form-text">
+        <?= I18N::translate('It answers about the dead and nobody else. A living person is never named, never listed and never counted individually, whatever the account behind the token would be allowed to see in webtrees — the record simply says how many relatives were left out. That is stricter than the portal itself, on purpose: what goes out here goes into somebody’s assistant, which keeps its own copies.') ?>
+    </p>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Publish the archive’s dead to assistants over MCP'), 'name' => PortalApiModule::SETTING_MCP, 'checked' => $mcp === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('With this off the endpoint is not there at all, and any token issued for it stops working. Tokens are not deleted, so switching it back on restores exactly the access that was withdrawn.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Include the notes the family wrote'), 'name' => PortalApiModule::SETTING_MCP_NOTES, 'checked' => $mcp_notes === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('The prose in the archive — occupations, migrations, wartime service, why a date is uncertain — is where most of what the family knows actually lives, and an assistant with the dates but not the notes can do very little. It is also a bigger disclosure than the dates: a note about a dead man is quite often also a note about his living children.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('With this off, notes are left out of every record and the tool that searches them is not offered.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <label class="col-sm-3 col-form-label"><?= I18N::translate('Address') ?></label>
+        <div class="col-sm-9">
+            <input class="form-control font-monospace" type="text" value="<?= e($mcp_url) ?>" readonly onclick="this.select()">
+            <div class="form-text">
+                <?= I18N::translate('What to give the assistant, together with a token from “Assistant access”. It is the portal’s own address, not this server’s: the portal proxies it, which is what puts the proxy secret in front of it.') ?>
+            </div>
+            <?php if ($portal_url === '') : ?>
+                <div class="form-text text-danger">
+                    <?= I18N::translate('Set the portal address above first — without it there is no address to give out.') ?>
+                </div>
+            <?php endif ?>
         </div>
     </div>
 

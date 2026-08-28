@@ -7,6 +7,7 @@ namespace Engelking\Webtrees\PortalApi;
 use Engelking\Webtrees\PortalApi\Http\Middleware\ApiEnvelope;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireAuthentication;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireCsrfToken;
+use Engelking\Webtrees\PortalApi\Http\Middleware\RequireMcpToken;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
 use Engelking\Webtrees\PortalApi\Http\Middleware\ResumeRememberedSession;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
@@ -49,6 +50,8 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MediaRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndexRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberAncestorsRead;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\McpCreate;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\McpRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\PasswordResetCreate;
@@ -63,7 +66,14 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\RelationshipRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SearchList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
+use Engelking\Webtrees\PortalApi\Mcp\ArchiveTools;
+use Engelking\Webtrees\PortalApi\Mcp\Server as McpServer;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
+use Engelking\Webtrees\PortalApi\Services\ArchiveNotes;
+use Engelking\Webtrees\PortalApi\Services\ArchivePresenter;
+use Engelking\Webtrees\PortalApi\Services\ArchiveReader;
+use Engelking\Webtrees\PortalApi\Services\DeceasedOnly;
+use Engelking\Webtrees\PortalApi\Services\McpTokens;
 use Engelking\Webtrees\PortalApi\Services\CloseFamily;
 use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\Conversations;
@@ -109,6 +119,7 @@ use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\EmailService;
 use Fisharebest\Webtrees\Services\MessageService;
 use Fisharebest\Webtrees\Services\MigrationService;
+use Fisharebest\Webtrees\Services\LinkedRecordService;
 use Fisharebest\Webtrees\Services\ModuleService;
 use Fisharebest\Webtrees\Services\RateLimitService;
 use Fisharebest\Webtrees\Services\RelationshipService;
@@ -150,10 +161,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     use ModuleConfigTrait;
     use ViewResponseTrait;
 
-    public const string CUSTOM_VERSION = '1.3.0';
+    public const string CUSTOM_VERSION = '1.4.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 16;
+    private const int SCHEMA_VERSION = 17;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -224,6 +235,18 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string SETTING_EXCHANGE_HIDE_CONTACTS  = 'exchange_hide_contacts';
 
     /**
+     * The family archive, published to assistants over MCP.
+     *
+     * Off by default and deliberately two switches rather than one. The first
+     * opens the endpoint at all; the second decides whether the family's own
+     * prose goes out with the dates, which is a materially bigger disclosure
+     * and a separate decision. See `Services\DeceasedOnly` for the rule that
+     * governs both, and `Services\ArchiveNotes` for what the second one costs.
+     */
+    public const string SETTING_MCP       = 'mcp_server';
+    public const string SETTING_MCP_NOTES = 'mcp_notes';
+
+    /**
      * How far a member may *see*, as opposed to how far they may invite.
      *
      * Zero means "do not restrict", which is webtrees' own default and means
@@ -250,6 +273,17 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      * to handle).
      */
     private const string LINK_PREFIX = '/portal';
+
+    /**
+     * Where the MCP server answers.
+     *
+     * Under `/api/` so that the portal's Cloudflare Worker proxies it — an
+     * assistant is pointed at the portal's own address and the proxy secret
+     * still applies — and *not* under `/api/v1`, which is the REST contract in
+     * `openapi.yaml`. MCP versions itself, per connection, in `initialize`.
+     * See `Http\RequestHandlers\McpCreate`.
+     */
+    private const string MCP_PREFIX = '/api/mcp';
 
     public function title(): string
     {
@@ -370,6 +404,25 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         );
         $devices        = new RememberedDevices($this, $user_service);
 
+        // The family archive over MCP. Everything below reads it and nothing
+        // writes to it; `DeceasedOnly` is the rule the whole of it exists to
+        // enforce, and it is built here once so that there is visibly one of it.
+        $mcp_tokens     = new McpTokens($user_service);
+        $deceased_only  = new DeceasedOnly();
+        $archive_notes  = new ArchiveNotes($this);
+        $archive_shape  = new ArchivePresenter($presenter, $archive_notes, $deceased_only);
+        $archive        = new ArchiveReader(
+            $portal_trees,
+            $archive_shape,
+            $archive_notes,
+            $deceased_only,
+            $tree_search,
+            $container->get(SearchService::class),
+            $container->get(LinkedRecordService::class),
+            $relationships,
+        );
+        $mcp_server     = new McpServer(new ArchiveTools($archive, $archive_notes), $this);
+
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
         $container->set(RelationshipNamer::class, $relationships);
@@ -393,6 +446,15 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(ExchangeOnline::class, $exchange);
         $container->set(DistributionLists::class, $mailing_lists);
         $container->set(InvitationCampaigns::class, $campaigns);
+        $container->set(McpTokens::class, $mcp_tokens);
+        $container->set(DeceasedOnly::class, $deceased_only);
+        $container->set(ArchiveNotes::class, $archive_notes);
+        $container->set(ArchivePresenter::class, $archive_shape);
+        $container->set(ArchiveReader::class, $archive);
+        $container->set(McpServer::class, $mcp_server);
+        $container->set(McpCreate::class, new McpCreate($mcp_server));
+        $container->set(McpRead::class, new McpRead());
+        $container->set(RequireMcpToken::class, new RequireMcpToken($this, $mcp_tokens));
         $container->set(InvitationClaimCreate::class, new InvitationClaimCreate($campaigns, $container->get(RateLimitService::class)));
         $container->set(MailingListRead::class, new MailingListRead($mailing_lists));
         $container->set(MailingListUpdate::class, new MailingListUpdate($mailing_lists));
@@ -402,7 +464,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PushCreate::class, new PushCreate($push));
         $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
-        $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors, $mailing_lists));
+        $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors, $mailing_lists, $mcp_tokens));
         $container->set(RememberedDevices::class, $devices);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
@@ -745,6 +807,40 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $map->post(InvitationAccept::class, self::ROUTE_PREFIX . '/invitation/accept', InvitationAccept::class)
             ->extras(['middleware' => $unsafe]);
+
+        // The family archive, over MCP.
+        //
+        // Its own chain, and shorter than any of the others. No CSRF token,
+        // because a CSRF token defends a browser that sends a cookie without
+        // being asked and there is neither here. No remembered-session resume,
+        // because the credential is on the request. No `RequireAuthentication`,
+        // because `RequireMcpToken` is the authentication — it turns a bearer
+        // token into a signed-in webtrees account, and everything downstream
+        // is filtered at that account's access level like any other request.
+        //
+        // The envelope, the language and the proxy secret stay: an assistant's
+        // failures should be JSON like everybody else's, its fact labels and
+        // dates should read in the archive's own language, and it should reach
+        // the portal by the same door the portal's own client does.
+        $mcp = [
+            ApiEnvelope::class,
+            UsePortalLanguage::class,
+            RequireProxySecret::class,
+            RequireMcpToken::class,
+        ];
+
+        $map->post(McpCreate::class, self::MCP_PREFIX, McpCreate::class)
+            ->extras(['middleware' => $mcp]);
+
+        // Answered rather than left to fall through, so that a client trying
+        // to open the stream gets "405, Allow: POST" instead of webtrees' own
+        // HTML 404. Same chain: a method this server does not offer is still
+        // not something to say to an unauthenticated stranger.
+        $map->get(McpRead::class, self::MCP_PREFIX, McpRead::class)
+            ->extras(['middleware' => $mcp]);
+
+        $map->delete('portal-api-mcp-delete', self::MCP_PREFIX, McpRead::class)
+            ->extras(['middleware' => $mcp]);
     }
 
     /** The administrator's settings page. */
@@ -777,6 +873,10 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'member_connections'  => $this->getPreference(self::SETTING_MEMBER_CONNECTIONS, '1'),
             'connection_code_minutes' => $this->getPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) Connections::DEFAULT_CODE_MINUTES),
             'remember_days'       => $this->getPreference(self::SETTING_REMEMBER_DAYS, (string) RememberedDevices::DEFAULT_DAYS),
+            'mcp'                    => $this->getPreference(self::SETTING_MCP, '0'),
+            'mcp_notes'              => $this->getPreference(self::SETTING_MCP_NOTES, '1'),
+            'mcp_url'                => $this->mcpUrl(),
+            'mcp_tokens_url'         => $this->mcpTokensUrl(),
             'mailing_lists'          => $this->getPreference(self::SETTING_MAILING_LISTS, '0'),
             'mailing_list_addresses' => $this->getPreference(self::SETTING_MAILING_LIST_ADDRESSES, ''),
             'exchange_tenant'        => $this->getPreference(self::SETTING_EXCHANGE_TENANT, ''),
@@ -818,6 +918,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $this->setPreference(self::SETTING_MEMBER_CONNECTIONS, $body->boolean(self::SETTING_MEMBER_CONNECTIONS, false) ? '1' : '0');
         $this->setPreference(self::SETTING_CONNECTION_CODE_MINUTES, (string) max(1, min(Connections::MAX_CODE_MINUTES, $body->integer(self::SETTING_CONNECTION_CODE_MINUTES, Connections::DEFAULT_CODE_MINUTES))));
         $this->setPreference(self::SETTING_REMEMBER_DAYS, (string) max(0, min(RememberedDevices::MAX_DAYS, $body->integer(self::SETTING_REMEMBER_DAYS, RememberedDevices::DEFAULT_DAYS))));
+
+        $this->setPreference(self::SETTING_MCP, $body->boolean(self::SETTING_MCP, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_MCP_NOTES, $body->boolean(self::SETTING_MCP_NOTES, false) ? '1' : '0');
 
         $this->setPreference(self::SETTING_MAILING_LISTS, $body->boolean(self::SETTING_MAILING_LISTS, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MAILING_LIST_ADDRESSES, trim(str_replace("\r\n", "\n", $body->string(self::SETTING_MAILING_LIST_ADDRESSES, ''))));
@@ -1229,6 +1332,117 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     private function diagnosisUrl(): string
     {
         return route('module', ['module' => $this->name(), 'action' => 'AdminDiagnosis']);
+    }
+
+    // -----------------------------------------------------------------
+    // Assistant access (administrators only)
+    //
+    // Same access rule as every other screen here: webtrees refuses an action
+    // whose name contains "Admin" to anybody who is not one, before the method
+    // is called. The name must keep the word.
+    // -----------------------------------------------------------------
+
+    /** Where the archive's MCP tokens are issued and withdrawn. */
+    public function getAdminMcpAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $tokens    = $container->get(McpTokens::class);
+
+        // Shown once and then forgotten, through the session rather than
+        // through the redirect: a token in a URL is a token in the
+        // webserver's access log. The invitations screen does the same with
+        // its link, for the same reason.
+        $new_token = Session::get('portal_api_new_mcp_token', '');
+        Session::forget('portal_api_new_mcp_token');
+
+        return $this->viewResponse($this->name() . '::mcp', [
+            'title'        => I18N::translate('Assistant access'),
+            'module'       => $this,
+            'tokens'       => $tokens->all(),
+            'accounts'     => $this->accountNames(),
+            'issuers'      => $this->issuerNames(),
+            'enabled'      => $this->getPreference(self::SETTING_MCP, '0') === '1',
+            'notes'        => $this->getPreference(self::SETTING_MCP_NOTES, '1') === '1',
+            'valid_days'   => McpTokens::DEFAULT_VALIDITY_DAYS,
+            'new_token'    => is_string($new_token) ? $new_token : '',
+            'mcp_url'      => $this->mcpUrl(),
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    /** Issue or withdraw one token, then redirect back to the screen. */
+    public function postAdminMcpAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = Validator::parsedBody($request);
+
+        if ($body->string('token_action', '') === 'revoke') {
+            Registry::container()->get(McpTokens::class)->revoke($body->integer('token_id', 0));
+            FlashMessages::addMessage(I18N::translate('The token has been withdrawn.'), 'success');
+
+            return redirect($this->mcpTokensUrl());
+        }
+
+        $user = Registry::container()->get(UserService::class)->find($body->integer('reads_as', 0));
+
+        if ($user === null) {
+            FlashMessages::addMessage(I18N::translate('Choose the account this token reads the archive as.'), 'danger');
+
+            return redirect($this->mcpTokensUrl());
+        }
+
+        $token = Registry::container()->get(McpTokens::class)->create(
+            $body->string('token_name', ''),
+            $user,
+            Auth::check() ? Auth::user() : null,
+            $body->integer('valid_days', McpTokens::DEFAULT_VALIDITY_DAYS),
+        );
+
+        Session::put('portal_api_new_mcp_token', $token);
+
+        return redirect($this->mcpTokensUrl());
+    }
+
+    private function mcpTokensUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminMcp']);
+    }
+
+    /**
+     * The address to give an assistant.
+     *
+     * The portal's address rather than this server's, because that is the one
+     * that works: the Cloudflare Worker proxies `/api/*` and adds the proxy
+     * secret on the way through, and a client that goes straight to webtrees
+     * has no secret to add. Empty when the portal address has not been set, and
+     * the screen says so rather than printing half a URL.
+     */
+    private function mcpUrl(): string
+    {
+        $portal = rtrim(trim($this->getPreference(self::SETTING_PORTAL_URL, '')), '/');
+
+        return $portal === '' ? '' : $portal . self::MCP_PREFIX;
+    }
+
+    /**
+     * Every account a token could read the archive as.
+     *
+     * All of them, deliberately, rather than administrators only: an account
+     * with a member's role is the cautious choice here and should be offered
+     * first, not hidden.
+     *
+     * @return array<int|string,string>
+     */
+    private function accountNames(): array
+    {
+        $names = ['' => I18N::translate('Choose an account')];
+
+        foreach (Registry::container()->get(UserService::class)->all() as $user) {
+            $names[$user->id()] = $user->realName() . ' (' . $user->userName() . ')';
+        }
+
+        return $names;
     }
 
     /** The configured visibility limit, clamped. Zero means "do not restrict". */

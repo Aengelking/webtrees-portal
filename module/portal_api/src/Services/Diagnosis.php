@@ -49,6 +49,7 @@ class Diagnosis
         private readonly MemberService $members,
         private readonly ErrorLog $errors,
         private readonly DistributionLists $lists,
+        private readonly McpTokens $mcp_tokens,
     ) {
     }
 
@@ -68,6 +69,7 @@ class Diagnosis
             $this->visibility(),
             $this->livingNames(),
             $this->mailingLists(),
+            $this->assistantAccess(),
             $this->recentErrors(),
         ]);
     }
@@ -548,6 +550,59 @@ class Diagnosis
         }
 
         return new DiagnosisCheck('mailing_lists', self::OK, $label, $detail, '');
+    }
+
+    /**
+     * The MCP server, when it is switched on.
+     *
+     * Two things go wrong here and neither announces itself. An installation
+     * that has switched the archive on and issued no token has an endpoint
+     * that refuses everybody, which looks exactly like a broken one; and an
+     * installation that has issued tokens and then let the portal address go
+     * empty has no address to give anybody, because the address an assistant
+     * uses is the portal's own.
+     */
+    private function assistantAccess(): DiagnosisCheck
+    {
+        $label = I18N::translate('Assistant access');
+
+        if ($this->module->getPreference(PortalApiModule::SETTING_MCP, '0') !== '1') {
+            return new DiagnosisCheck('mcp', self::OK, $label, I18N::translate('Switched off.'), '');
+        }
+
+        $tokens = $this->mcp_tokens->usableCount();
+
+        if ($tokens === 0) {
+            return new DiagnosisCheck(
+                'mcp',
+                self::WARNING,
+                $label,
+                I18N::translate('Switched on, and no token will open it.'),
+                I18N::translate('Issue one on the “Assistant access” screen, or switch it off again.')
+            );
+        }
+
+        if ($this->module->getPreference(PortalApiModule::SETTING_PORTAL_URL, '') === '') {
+            return new DiagnosisCheck(
+                'mcp',
+                self::PROBLEM,
+                $label,
+                I18N::translate('Switched on, with no portal address to reach it at.'),
+                I18N::translate('An assistant is pointed at the portal’s address, not at this server. Set it above.')
+            );
+        }
+
+        $notes = $this->module->getPreference(PortalApiModule::SETTING_MCP_NOTES, '1') === '1'
+            ? I18N::translate('with the family’s notes')
+            : I18N::translate('without the family’s notes');
+
+        return new DiagnosisCheck(
+            'mcp',
+            self::OK,
+            $label,
+            I18N::plural('%s token, %s.', '%s tokens, %s.', $tokens, I18N::number($tokens), $notes),
+            ''
+        );
     }
 
     private function recentErrors(): DiagnosisCheck

@@ -47,6 +47,16 @@ own, be told on their telephone that something arrived, join and leave the
 family's mailing lists, and — where an administrator has allowed it — stay
 signed in on their own telephone instead of typing a password every visit.
 
+**The archive can also be read by an assistant.** An MCP server at
+`POST /api/mcp`, off until an administrator switches it on, lets a program such
+as Claude search the archive, open a record, walk a line up or down and read the
+notes the family wrote — **about people who have died and nobody else**. A
+living person is never named, listed or individually counted, whatever the
+account behind the token could see in webtrees; a record says only how many
+relatives were left out. Each assistant carries a bearer token issued in the
+control panel, which names the webtrees account it reads as. See *Letting an
+assistant read the archive* below.
+
 **No edit writes to the tree.** A member's change goes to webtrees' pending
 changes list with a `CHAN` entry naming them, and an editor approves it in
 webtrees exactly as they would any other edit.
@@ -65,6 +75,9 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `DELETE /me/connection-links/{id}`, `GET|PATCH /me/mailing-lists`,
 `POST /invitation/claim`, `GET /search`, `GET /index`, `GET /relationship`,
 `GET /health`.
+
+Outside that contract, and outside `openapi.yaml` with it: `POST /api/mcp`,
+which speaks JSON-RPC rather than REST and versions itself per connection.
 
 Screens: login, accept an invitation, forgotten password, set a new password,
 My profile, edit my details, person, ancestors, Stammbaum (search the archive,
@@ -166,6 +179,11 @@ itself and nothing about anybody — see *Installing it on a phone* below.
 Settings are stored in webtrees' `module_setting` table under the module name
 `_portal_api_`. The schema version is in `site_setting` as
 `PORTAL_API_SCHEMA_VERSION`.
+
+Two of them are worth knowing by name because they are off by default and
+nothing prompts for them: `mcp_server` opens the assistant endpoint at all, and
+`mcp_notes` decides whether the family's own prose goes out with the dates. See
+*Letting an assistant read the archive*.
 
 ### Linking a webtrees user to a member profile
 
@@ -1780,6 +1798,141 @@ a line goes into webtrees' authentication log. Two requests that left one
 telephone together are not that: the token one step back stays usable for a
 minute, so a flaky connection is not mistaken for a theft.
 
+### Letting an assistant read the archive
+
+*Control panel → Modules → Member portal API → Assistant access.*
+
+The archive is a thing people ask questions of, and the questions are rarely
+the shape of a search box: *who was my great-grandmother's brother, and what
+does the archive actually say about him.* The portal answers that in four or
+five taps if you already know where to tap. This is the other way to ask it —
+an **MCP server**, which is the standard way of giving a program such as Claude
+something to read.
+
+It is off until an administrator switches it on, and it answers about **people
+who have died and nobody else**.
+
+#### What it will and will not say
+
+| It will | It will not |
+| --- | --- |
+| Find a dead person by name, nickname or SB number | Name, list or individually count anybody living |
+| Read a whole record: names, reference numbers and branch, dated and placed events | Return a photograph, an address, an email or a telephone number |
+| List parents, siblings, spouses and children who have also died | Say who the living relatives are — only *how many* were left out |
+| Walk the line above or below somebody, past living relatives without naming them | Write anything at all: there is no tool here that changes a record |
+| Give the notes the family wrote, on a record and under an event, and search across them | Hand out a note that belongs to nobody it may name |
+| List the surnames and places the archive's dead are filed under, with counts | Tell you which questions an assistant asked, or about whom — that is not recorded |
+
+**Why stricter than the portal itself.** A member's search will find a living
+member who put themselves in the family directory; this will not. What goes out
+here goes into a language model's context — off this server, into a system that
+keeps its own copies — and the living are the part of a family tree that people
+are entitled to have opinions about. There is no exemption for editors either:
+an editor who wants the living has webtrees.
+
+**Where `isDead()` cannot tell, the answer is "alive"**, so a record with no
+death event, no dates and no datable relatives is withheld.
+
+**The `withheld` counts.** A dead woman with three living children comes back
+with an empty `children` list, and a model reading that will write "she had no
+children". So each record says how many relatives this rule kept back — how
+many, never who. Relatives that webtrees' own privacy had already hidden are
+not counted, so the number cannot be read as a measure of what privacy is
+hiding.
+
+#### The notes
+
+Notes are the prose in the archive: occupations, migrations, wartime service,
+which of two Berthas the photograph shows, why a date is a guess. They have
+never been published anywhere else in this portal — a note is written by a
+researcher for other researchers — and they are published here because reading
+them is the entire point of pointing a model at a family archive.
+
+They are also the bigger disclosure of the two, because a note about a dead man
+is quite often also a note about his living children. So they have **a switch
+of their own**, next to the one that opens the server. With it off, notes are
+absent from every record and the tool that searches them is not offered at all.
+
+Both GEDCOM spellings are read — inline `NOTE` with its `CONT` lines, and a
+pointer to a shared `NOTE` record — and returned as text, as written. webtrees'
+own rule comes with them, and it is stricter than most people expect: a shared
+note linked to *any* record the reader may not see is hidden outright.
+
+#### Issuing a token
+
+An assistant carries a bearer token. On the *Assistant access* screen:
+
+1. **Name it** after the device and the program — "Claude on the study Mac".
+   The name exists so that withdrawing the right one later is not guesswork.
+2. **Choose the account it reads as.** The token grants nothing of its own: it
+   names a webtrees account, and the archive is read at that account's access
+   level and then narrowed to the dead. A manager's token reaches records
+   marked `RESN confidential`; a member's does not; neither reaches anybody
+   living. Change the account's role and the token changes with it; delete the
+   account and the token goes too.
+3. **Set how long it is good for.** A year by default.
+
+The token is shown **once**. It is stored as a SHA-256 and cannot be recovered
+— if it is lost, withdraw it and issue another. Withdrawing takes effect on the
+next request, and so does switching the whole server off; tokens are not
+deleted when it is off, so switching it back on restores exactly the access
+that was withdrawn.
+
+What is recorded against a token is when it was last used and how many requests
+it has made. Not which questions were asked, and not about whom.
+
+#### Connecting a client
+
+The address is the **portal's** address with `/api/mcp` on the end —
+`https://portal.example.org/api/mcp` — and not the webtrees host. The Worker
+proxies it, forwards the `Authorization` header untouched and adds the proxy
+secret on the way through, which is what keeps the MCP server reachable exactly
+where the portal is and nowhere else.
+
+In Claude Code that is one line:
+
+```bash
+claude mcp add --transport http familienarchiv https://portal.example.org/api/mcp \
+  --header "Authorization: Bearer wtmcp_..."
+```
+
+Anything that can be configured with an HTTP URL and a header will work the
+same way. **Clients that insist on OAuth cannot connect** — this server
+authenticates with a bearer token and does not implement an OAuth
+authorisation server. See NOTES.md §2.79 for why, and for what that costs.
+
+Check it by hand with:
+
+```bash
+curl -s https://portal.example.org/api/mcp \
+  -H "Authorization: Bearer wtmcp_..." \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+A 404 means the server is switched off. A 401 means the token is unknown,
+expired or withdrawn — the four are one answer on purpose. A 403 means the
+proxy secret did not arrive, which means the request did not come through the
+portal.
+
+#### The tools
+
+| Tool | What it answers |
+| --- | --- |
+| `search_people` | A name, a nickname or an SB number → the dead who match |
+| `get_person` | One record in full, with its notes and its relatives |
+| `get_ancestors` | The line above somebody, in Ahnentafel order, walking past the living |
+| `get_descendants` | The line below somebody, generation by generation |
+| `get_relationship` | How two of the archive's dead stand to one another |
+| `search_notes` | Text inside the family's notes, each with the person it belongs to |
+| `list_index` | Every surname and place the archive's dead are filed under, with counts |
+
+The endpoint speaks JSON-RPC over `POST` and nothing else: it is stateless,
+issues no session id, and opens no event stream, so `GET` and `DELETE` answer
+`405, Allow: POST`. It is deliberately **not** in `openapi.yaml` — that file is
+the REST contract between the two halves of this repository, and MCP versions
+itself, per connection, in `initialize`.
+
 ### webtrees' own login is untouched
 
 `/login` on the webtrees host still works exactly as before, for editors,
@@ -2474,6 +2627,35 @@ walking two screens of family data, nothing under `/api/` is in the browser's
 cache storage — while the portal still opens, and says why it is empty, with
 the network switched off.
 
+**The archive over MCP** (`module/tests/McpTest.php`) — the endpoint is not
+there at all until an administrator switches it on, and a missing, unknown,
+withdrawn and expired token are one 401 with a `WWW-Authenticate` on it; the
+token is stored as a hash and its use is recorded as a date and a count; `GET`
+answers `405, Allow: POST` rather than webtrees' HTML; `initialize` agrees a
+protocol version and answers an unknown one with the newest it speaks, a
+notification is accepted without a body, an unknown method is `-32601` and an
+unparseable body is `-32700` with a 400; every tool says it only reads.
+
+And then the rule the whole thing exists for: a dead person is readable and a
+living one is not; a living child is absent from her dead mother's record and
+is *counted* instead — two, not three, because the third was hidden by webtrees
+before this rule was asked, which is what stops the count becoming a measure of
+what privacy hides; a living member who put herself in the family directory is
+findable by the portal's own search and not by this one; the surname index
+counts the dead and only the dead; a pedigree walks *past* a confidential
+ancestor and reaches the visible one above her; a token reads at its account's
+access level and no higher — a manager's reaches a `RESN confidential` record
+where a member's does not — and neither reaches anybody living. In each case
+the assertion is against the whole response text, so an answer that leaked in
+a differently-shaped field would still fail.
+
+The notes have their own half: an inline note and a shared one both travel with
+the record, a note under an event travels with the event, a note under a fact
+marked `RESN confidential` stays where it is, the search finds a shared note
+through both of the dead people who link it and never finds the one that only a
+living person links, and with the setting off the notes are absent and the tool
+that searches them is not offered.
+
 ## Troubleshooting
 
 ### The API returns 503
@@ -2544,6 +2726,28 @@ webtrees' own address bar shows `index.php?route=…`, set
 host is named exactly `portal_api` and sits inside webtrees' `modules_v4/` —
 not beside it, and not in the SFTP login directory — then Control panel →
 Modules → All modules.
+
+### An assistant cannot connect
+
+The MCP endpoint is deliberately terse about why it refused, so read the status
+code rather than the message.
+
+| Result | Meaning |
+| --- | --- |
+| `404 not_found` | The archive is not published to assistants. *Control panel → Modules → Member portal API* → switch it on. |
+| `401 unauthenticated` | Unknown, expired or withdrawn token, or no `Authorization` header reached the server. The four are one answer on purpose. |
+| `403 proxy_secret_invalid` | The request did not come through the portal. Point the client at the **portal's** address with `/api/mcp` on it, not at the webtrees host. |
+| `405` with `Allow: POST` | The client tried to open an event stream. This server is stateless and has none; a client that insists on one cannot use it. |
+| HTML rather than JSON | The request never reached the module — see *The API returns 404 for every endpoint* above. |
+
+A client that reports "authentication required" and offers to open a browser
+window is asking for OAuth, which this server does not implement. It needs one
+that can send a plain `Authorization` header; see NOTES.md §1.7.
+
+If the connection works but every question comes back empty, check that the
+person being asked about is dead in the archive's own terms — a record with no
+death event, no dates and no datable relatives counts as living, and the server
+will not name them.
 
 ### Which layer is broken?
 

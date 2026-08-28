@@ -539,6 +539,10 @@ class InvitationTest extends PortalTestCase
             'member_connections'  => '1',
             'connection_code_minutes' => '15',
             'remember_days'       => '30',
+            'mcp'                     => '1',
+            'mcp_notes'               => '1',
+            'mcp_url'                 => 'https://portal.example.test/api/mcp',
+            'mcp_tokens_url'          => '/mcp',
             'mailing_lists'           => '1',
             'mailing_list_addresses'  => 'familie@example.de | Familiennachrichten',
             'exchange_tenant'         => 'example.onmicrosoft.com',
@@ -566,6 +570,10 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('message_limit', $html);
         self::assertStringContainsString('push_notifications', $html);
         self::assertStringContainsString('remember_days', $html);
+        self::assertStringContainsString('mcp_server', $html);
+        self::assertStringContainsString('mcp_notes', $html);
+        self::assertStringContainsString('https://portal.example.test/api/mcp', $html);
+        self::assertStringContainsString('/mcp', $html);
 
         // The three tables the family maintains, pre-filled with what is
         // shipped: an empty box would look like "we have no lines".

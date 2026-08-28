@@ -36,6 +36,13 @@ use const ENT_QUOTES;
  * `individuals`, `families`, `link` or `dates` tables — everything goes
  * through GedcomRecord and the factories at an explicit access level.
  *
+ * That includes the MCP server, which is the newest and least trusted caller
+ * of the lot: `ArchivePresenter` reshapes what this class hands it and reads
+ * no record itself. The one thing it needs that no member's screen does is the
+ * family's prose, so `individualDetail()` takes an optional `ArchiveNotes` and
+ * attaches notes to the record and to each event when it is given one. Nothing
+ * in the portal passes it, so nothing in the portal changed.
+ *
  * The contract of every method here: given an access level, a record the
  * caller may not see comes back as `null`, never as a redacted object. The
  * callers drop nulls out of lists, so a hidden person does not show up as a
@@ -141,12 +148,21 @@ class RecordPresenter
      * @param Individual|null $viewer     The member's own record, when they
      *                                    have one. Used only to say how they
      *                                    are related to this person.
+     * @param ArchiveNotes|null $notes    Supplied only by the MCP server. When
+     *                                    it is, the record's `NOTE` facts and
+     *                                    the notes under each event travel
+     *                                    with the record; when it is not, the
+     *                                    response has no `notes` key at all
+     *                                    and is byte-for-byte what it always
+     *                                    was. See `ArchiveNotes` for why the
+     *                                    portal itself does not ask.
      */
     public function individualDetail(
         Individual $individual,
         int $access_level,
         bool $own_record = false,
-        Individual|null $viewer = null
+        Individual|null $viewer = null,
+        ArchiveNotes|null $notes = null
     ): array|null {
         $ref = $this->individualRef($individual, $access_level, $viewer);
 
@@ -163,16 +179,18 @@ class RecordPresenter
         $death  = $this->firstEvent($facts, Gedcom::DEATH_EVENTS);
         $events = $facts
             ->filter(static fn (Fact $fact): bool => in_array($fact->tag(), $published, true))
-            ->map(fn (Fact $fact): array => $this->event($fact))
+            ->map(fn (Fact $fact): array => $this->event($fact, $access_level, $notes))
             ->values()
             ->all();
 
-        return $ref + [
+        $prose = $notes === null ? [] : ['notes' => $notes->forRecord($individual, $access_level)];
+
+        return $ref + $prose + [
             'name_alternative' => $this->alternateName($individual, $access_level),
             'photos'           => $this->photos->gallery($individual, $access_level),
             'references'       => $this->references($facts),
-            'birth'            => $birth === null ? null : $this->event($birth),
-            'death'            => $death === null ? null : $this->event($death),
+            'birth'            => $birth === null ? null : $this->event($birth, $access_level, $notes),
+            'death'            => $death === null ? null : $this->event($death, $access_level, $notes),
             'events'           => $events,
             'parents'          => $this->parents($individual, $access_level, $viewer),
             'siblings'         => $this->siblings($individual, $access_level, $viewer),
@@ -386,7 +404,7 @@ class RecordPresenter
     /**
      * @return array<string,mixed>
      */
-    private function event(Fact $fact): array
+    private function event(Fact $fact, int $access_level, ArchiveNotes|null $notes): array
     {
         $date  = $fact->date();
         $place = $fact->place()->gedcomName();
@@ -399,13 +417,19 @@ class RecordPresenter
             $value = '';
         }
 
-        return [
+        $event = [
             'tag'   => $fact->tag(),
             'label' => $this->text($fact->label()),
             'value' => $value === '' ? null : $value,
             'date'  => $date->isOK() ? $this->date($date, $fact) : null,
             'place' => $place === '' ? null : $place,
         ];
+
+        if ($notes !== null) {
+            $event['notes'] = $notes->forFact($fact, $access_level);
+        }
+
+        return $event;
     }
 
     /**
