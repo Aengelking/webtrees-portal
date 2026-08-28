@@ -4716,7 +4716,7 @@ casual look at the screen.
 
 ---
 
-### 2.79 A door out of an app with no way back in
+### 2.80 A door out of an app with no way back in
 
 Both links into webtrees — the member's *Stammbaum und Diagramme öffnen* and
 the editor's *In webtrees öffnen und bearbeiten* — opened in place. In a
@@ -4740,6 +4740,46 @@ read at all on a telephone.
 Which broke six tests, all of them looking the link up by its exact name. That
 is the right kind of breakage: the name is what a member hears, it changed, and
 the tests said so.
+
+
+### 2.81 A test environment that was reused into being wrong
+
+The accounts screen went red on CI with three failures that were green here,
+and the reason was not in the diff. **CI ran webtrees 2.2.6 and this machine
+ran 2.2.1.** `setup-test-env.sh` had been pointed at 2.2.6 for a while; what it
+did with an existing `module/.webtrees` was print *"Reusing"* and go on using
+whatever was in it. A checkout made before that change kept its version
+forever, silently, and every local run since had been proving the module
+against a release nobody ships.
+
+**The failure mode is the bad kind.** It is not a wrong answer, it is a right
+answer to a question nobody asked: the suite passes, twice over, in two places,
+against two different libraries — and the message when it finally disagrees
+says nothing about a version. What it said instead was that a tree with
+`REQUIRE_AUTHENTICATION` did not require authentication, which sends you
+looking at the flag, then at the query, then at the test, in that order, for
+about an afternoon.
+
+So the script now reads which webtrees is actually in that directory — from
+`Webtrees::VERSION`, because the code is what the tests run against and a tag
+name can be anything — and fetches the wanted one when they differ. A matching
+checkout still says "Reusing", and now names the version while it does, so the
+line is worth reading rather than worth scrolling past.
+
+**Forced, and by name rather than by tag ref.** By name, so a branch works here
+as well as a release; forced, because the working tree of a scratch checkout is
+nobody's work in progress, and `data/` and `vendor/` are ignored by webtrees
+itself and survive it. A mismatch that persists after the switch — which is
+what a branch argument looks like — says so rather than passing silently as a
+version that was never asked for.
+
+**The workflow's cache key stays a hardcoded `webtrees-2.2.6-…`**, which reads
+like a second place to forget and is no longer one: a cache restored under a
+stale key is now repaired by the script rather than used. The key decides how
+often CI has to clone, not what it tests against.
+
+What this cost, for the record: two commits of chasing a bug that was three
+correct programs disagreeing about which webtrees they were written for.
 
 ---
 

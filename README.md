@@ -2141,8 +2141,18 @@ cd module
 .webtrees/vendor/bin/phpunit
 ```
 
+**Run the script again after pulling.** It pins the webtrees release the tests
+are written against — the version is at the top of the script, and CI uses the
+same one — and it now brings an existing `module/.webtrees` up to that version
+rather than reusing whatever is in it. It used to reuse it, which meant a
+checkout made months ago went on testing against that release while CI tested
+against this one: the suite passed in both places, disagreed only occasionally,
+and said nothing about a version when it did. Pass a different one as the first
+argument (`module/tools/setup-test-env.sh 2.2.5`) to check the module against
+another release.
+
 `WEBTREES_DIR=/path/to/existing/webtrees` uses a checkout you already have
-instead. The tests run against an in-memory SQLite database and import a small
+instead — and is yours to keep in step; the script does not touch it. The tests run against an in-memory SQLite database and import a small
 GEDCOM fixture; they touch nothing on disk.
 
 If you point `WEBTREES_DIR` at a *git checkout* rather than a released ZIP, run
