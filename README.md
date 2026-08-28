@@ -2044,8 +2044,10 @@ Text therefore disappears on its own, seemingly at random.
 Two things that do persist:
 
 * **Non-secret settings in `wrangler.jsonc`.** `WEBTREES_ORIGIN` and
-  `WEBTREES_UGLY_URLS` are not sensitive — a hostname and a boolean — so
-  uncomment the `vars` block there and commit them.
+  `WEBTREES_UGLY_URLS` are not sensitive — a hostname and a boolean — so the
+  `vars` block there is where they belong, committed. `WEBTREES_ORIGIN` is set
+  that way in this repository, for exactly the reason above: it had been a
+  dashboard variable, and the first Worker deploy in a while took it away.
 * **Encrypted secrets.** Set with `wrangler secret put`, or by choosing
   *Secret* rather than *Text* in the dashboard. These are preserved across
   deploys.
@@ -2057,9 +2059,22 @@ npx wrangler secret put PORTAL_PROXY_SECRET   # same value as the module setting
 
 | Name | Required | Value |
 | --- | --- | --- |
-| `WEBTREES_ORIGIN` | yes | `https://webtrees.example.org` — scheme and host, no path. |
+| `WEBTREES_ORIGIN` | yes | `https://webtrees.example.org` — scheme and host, no path. **Exactly** webtrees' own `base_url`, `www.` and all; see below. |
 | `PORTAL_PROXY_SECRET` | recommended | A long random string. Set the *same* value as the module's **Proxy secret**. |
 | `WEBTREES_UGLY_URLS` | no | Defaults to `true`, which is what a stock webtrees needs. Set to `false` only if URL rewriting is configured — see below. |
+
+#### It has to be the address webtrees calls itself
+
+Not merely a name that reaches the same server. webtrees redirects anything
+else to its own canonical `base_url`, and the proxy is deliberately built not
+to follow redirects (`redirect: 'manual'` in `edge/proxy.ts`) — so the 302
+travels back to the client instead of being resolved quietly.
+
+A browser survives that. **A `POST` does not**, which is how this was found: an
+MCP client asked for `initialize` and got a redirect, and nothing in the
+response named the missing `www.` as the reason. If a request to `/api/…`
+comes back `302` with a `Location` on the webtrees host, that `Location` is
+telling you what `WEBTREES_ORIGIN` should have been.
 
 #### Does your webtrees have pretty URLs?
 

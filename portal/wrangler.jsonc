@@ -22,29 +22,41 @@
 
   "observability": {
     "enabled": true
-  }
+  },
 
   // Settings.
   //
   // A plain "Text" variable added in the Cloudflare dashboard does NOT
   // survive: this file is the source of truth for plaintext vars, so the next
   // deploy — including an automatic Workers Build from a push to this repo —
-  // removes anything not listed here. That is why a dashboard-set
-  // WEBTREES_ORIGIN disappears on its own.
+  // removes anything not listed here. A dashboard-set WEBTREES_ORIGIN
+  // therefore disappears on its own, seemingly at random, and the portal
+  // starts answering 503 or redirecting somewhere unexpected long after
+  // anybody touched the setting.
   //
-  // So: non-secret settings belong here, in version control. Uncomment and
-  // fill in the host.
+  // So non-secret settings live here, in version control, where a deploy
+  // cannot quietly take them away and a review can see them.
   //
-  // "vars": {
-  //   "WEBTREES_ORIGIN": "https://webtrees.example.org"
-  //   // WEBTREES_UGLY_URLS defaults to true, which is what a stock webtrees
-  //   // needs. Only set it to "false" if URL rewriting is configured on the
-  //   // server and rewrite_urls="1" is in config.ini.php.
-  // },
-  //
-  // PORTAL_PROXY_SECRET is a real secret and must never be committed. Encrypted
-  // secrets are preserved across deploys, so set it once:
+  // PORTAL_PROXY_SECRET is a real secret and must never be committed.
+  // Encrypted secrets are preserved across deploys, so set it once:
   //   npx wrangler secret put PORTAL_PROXY_SECRET
-  // (Setting WEBTREES_ORIGIN as an encrypted secret rather than a var also
-  // works, and survives deploys for the same reason.)
+  "vars": {
+    // **Exactly** the base_url in webtrees' config.ini.php — same scheme, same
+    // host, same presence or absence of "www". Not merely a name that reaches
+    // the same server.
+    //
+    // webtrees redirects anything else to its own canonical address, and the
+    // proxy is deliberately built not to follow redirects
+    // (`redirect: 'manual'` in edge/proxy.ts), so the 302 travels back to the
+    // client instead. A browser survives that; a POST does not, which is how
+    // this was found — an MCP client got a redirect where it expected an
+    // answer, with nothing anywhere naming the missing "www." as the cause.
+    "WEBTREES_ORIGIN": "https://www.sackstiftung.com"
+
+    // WEBTREES_UGLY_URLS defaults to true, which is what a stock webtrees
+    // needs. Set it to "false" only if URL rewriting is configured on the
+    // server *and* rewrite_urls="1" is in config.ini.php. Getting it wrong is
+    // visible either way: wrongly false gives a bare webserver 404, wrongly
+    // true gives a 308 redirect to the pretty form.
+  }
 }
