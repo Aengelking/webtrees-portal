@@ -63,6 +63,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\RelationshipRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SearchList;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
+use Engelking\Webtrees\PortalApi\Services\AccountOverview;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\CloseFamily;
 use Engelking\Webtrees\PortalApi\Services\Connections;
@@ -403,6 +404,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PushDelete::class, new PushDelete($push));
         $container->set(MemberMessages::class, $member_msgs);
         $container->set(Diagnosis::class, new Diagnosis($this, $portal_trees, $members, $errors, $mailing_lists));
+        $container->set(AccountOverview::class, new AccountOverview($user_service, $portal_trees));
         $container->set(RememberedDevices::class, $devices);
 
         $container->set(ApiEnvelope::class, new ApiEnvelope($errors));
@@ -792,6 +794,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'invitations_url'   => $this->invitationsUrl(),
             'campaigns_url'     => $this->campaignsUrl(),
             'diagnosis_url'     => $this->diagnosisUrl(),
+            'accounts_url'      => $this->accountsUrl(),
         ]);
     }
 
@@ -1229,6 +1232,41 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     private function diagnosisUrl(): string
     {
         return route('module', ['module' => $this->name(), 'action' => 'AdminDiagnosis']);
+    }
+
+    // -----------------------------------------------------------------
+    // Accounts (administrators only)
+    //
+    // Same access rule as the screens above: webtrees refuses any action
+    // whose name contains "Admin" to anybody who is not one, before the
+    // method is called. The name must keep the word.
+    // -----------------------------------------------------------------
+
+    /** Who has an account, and whether the portal will let them in. */
+    public function getAdminAccountsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $overview  = $container->get(AccountOverview::class);
+        $trees     = $container->get(PortalTreeService::class);
+        $tree      = $trees->tree();
+        $accounts  = $overview->all($tree);
+
+        return $this->viewResponse($this->name() . '::accounts', [
+            'title'                   => I18N::translate('Accounts'),
+            'module'                  => $this,
+            'tree'                    => $tree,
+            'accounts'                => $accounts,
+            'blocked'                 => $overview->blocked($accounts),
+            'requires_authentication' => $trees->requiresAuthentication($tree),
+            'settings_url'            => $this->getConfigLink(),
+        ]);
+    }
+
+    private function accountsUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminAccounts']);
     }
 
     /** The configured visibility limit, clamped. Zero means "do not restrict". */
