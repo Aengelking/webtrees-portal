@@ -623,7 +623,8 @@ export async function stubApi(page: Page): Promise<void> {
 
     if (path === '/individuals/X1/ancestors') {
       return json(route, {
-        generations: 4,
+        generations: 20,
+        truncated: false,
         people: [
           { position: 1, generation: 0, private: false, ...refOf(ANNA) },
           // Anna's father is alive and out of reach: a rung, and no more.

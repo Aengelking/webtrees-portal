@@ -646,10 +646,24 @@ export const de = {
   },
   ancestors: {
     title: 'Vorfahren',
-    line: {
-      root: 'Ausgangspunkt',
-      paternal: 'Väterliche Linie',
-      maternal: 'Mütterliche Linie',
+    generation: {
+      1: 'Eltern',
+      2: 'Großeltern',
+      3: 'Urgroßeltern',
+      4: 'Ururgroßeltern',
+      nth: '{{n}}. Generation',
+    },
+    path: {
+      your: {
+        father: 'Ihr Vater',
+        mother: 'Ihre Mutter',
+      },
+      possessive: {
+        father: 'Vaters',
+        mother: 'Mutters',
+      },
+      father: 'Vater',
+      mother: 'Mutter',
     },
     none: {
       title: 'Keine Vorfahren hinterlegt',
@@ -659,6 +673,8 @@ export const de = {
       name: 'Nicht freigegeben',
       member: 'Im Mitgliederverzeichnis eingetragen',
     },
+    truncated:
+      'Der Stammbaum reicht noch weiter zurück, als hier gezeigt werden kann. Über eine der obersten Personen geht es weiter.',
     privacyNote:
       'Wo eine Person für Sie nicht freigegeben ist — das sind fast immer die Lebenden — steht nur, dass dort jemand steht: kein Name, keine Daten. Wer sich selbst ins Mitgliederverzeichnis eingetragen hat, wird mit dem Namen aus dem Verzeichnis genannt; aus dem Stammbaum wird auch dann nichts angezeigt.',
   },

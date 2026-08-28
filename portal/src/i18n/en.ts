@@ -644,10 +644,24 @@ export const en: Translations = {
   },
   ancestors: {
     title: 'Ancestors',
-    line: {
-      root: 'Starting point',
-      paternal: "Father's line",
-      maternal: "Mother's line",
+    generation: {
+      1: 'Parents',
+      2: 'Grandparents',
+      3: 'Great-grandparents',
+      4: 'Great-great-grandparents',
+      nth: 'Generation {{n}}',
+    },
+    path: {
+      your: {
+        father: 'Your father',
+        mother: 'Your mother',
+      },
+      possessive: {
+        father: "Father's",
+        mother: "Mother's",
+      },
+      father: 'father',
+      mother: 'mother',
     },
     none: {
       title: 'No ancestors recorded',
@@ -657,6 +671,8 @@ export const en: Translations = {
       name: 'Not shown',
       member: 'Listed in the member directory',
     },
+    truncated:
+      'The archive goes back further than can be shown here. Open one of the people at the top to carry on from there.',
     privacyNote:
       'Where somebody is not shared with you — which is nearly always the living — the row says only that somebody is there: no name, no dates. Anyone who has listed themselves in the member directory is named with the name they publish there; nothing from the family tree is shown for them either.',
   },

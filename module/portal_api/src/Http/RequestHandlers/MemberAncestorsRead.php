@@ -86,11 +86,15 @@ class MemberAncestorsRead implements RequestHandlerInterface
         }
 
         $viewer = $this->trees->linkedIndividual($tree, $viewer_user);
-        $people = $this->ancestors->build($individual, $access_level, $generations, $viewer);
+        $pedigree = $this->ancestors->build($individual, $access_level, $generations, $viewer);
 
         return Json::response([
             'generations' => min(max(1, $generations), AncestorTree::MAX_GENERATIONS),
-            'people'      => $people,
+            'people'      => $pedigree->people,
+            // Said rather than left to be inferred from a line that stops:
+            // "this is where the archive ends" and "this is where we stopped
+            // reading" are different sentences.
+            'truncated'   => $pedigree->truncated,
         ]);
     }
 }

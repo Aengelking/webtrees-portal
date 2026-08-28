@@ -11,6 +11,7 @@ use Fisharebest\Webtrees\GedcomRecord;
 use Fisharebest\Webtrees\Individual;
 
 use function array_key_exists;
+use function count;
 use function preg_match;
 use function str_starts_with;
 
@@ -61,10 +62,40 @@ use function str_starts_with;
  */
 class AncestorTree
 {
-    /** More than this and the response stops being something a phone renders. */
-    public const int MAX_GENERATIONS = 6;
+    /**
+     * How far back the walk will go, and why it is not a small number.
+     *
+     * It used to be six, on the reasoning that more than that stops being
+     * something a phone renders. That was the wrong quantity to bound. This
+     * archive is measured from one man — every SB number is a path down from
+     * Georg Sack, which is what `GS` means (§2.58) — and a pedigree that stops
+     * four generations up stops in the nineteenth century, in the middle of
+     * the thing the family keeps the archive *for*. What a member asked for is
+     * the line back to the base, and the base is roughly a dozen generations
+     * away.
+     *
+     * Twenty covers that with room to spare, and costs nothing where the
+     * archive is shallower: the walk stops the moment a generation turns up
+     * empty, which is nearly always long before this.
+     */
+    public const int MAX_GENERATIONS = 20;
 
-    public const int DEFAULT_GENERATIONS = 4;
+    /** Asked for when the caller does not say: as far back as the archive goes. */
+    public const int DEFAULT_GENERATIONS = self::MAX_GENERATIONS;
+
+    /**
+     * And the bound that actually protects the response.
+     *
+     * Generations are the wrong unit to limit by, because a pedigree grows by
+     * doubling and a *complete* one twenty deep would be a million people. Real
+     * ones are nothing like complete — lines run out within three or four rungs
+     * except the one the archive was built to follow — so in practice this is
+     * never reached. It is here for the tree that surprises us, so that a
+     * strange record cannot turn one screen into a megabyte.
+     *
+     * Reaching it is reported rather than hidden: see `Pedigree::$truncated`.
+     */
+    public const int MAX_PEOPLE = 400;
 
     public function __construct(
         private readonly RecordPresenter $presenter,
@@ -77,27 +108,33 @@ class AncestorTree
      * @param Individual|null $viewer      The reader's own record, so each
      *                                     rung can say how they stand to it.
      *
-     * @return array<int,array<string,mixed>> One entry per ancestor, the root
-     *                                        included, in Ahnentafel order.
-     *                                        Entries the reader may not read
-     *                                        are present as placeholders.
+     * @return Pedigree One entry per ancestor, the root included, in
+     *                  Ahnentafel order. Entries the reader may not read are
+     *                  present as placeholders.
      */
     public function build(
         Individual $root,
         int $access_level,
         int $generations,
         Individual|null $viewer = null
-    ): array
+    ): Pedigree
     {
         $generations = max(1, min($generations, self::MAX_GENERATIONS));
 
-        $people  = [];
-        $pending = [1 => $root];
+        $people    = [];
+        $pending   = [1 => $root];
+        $truncated = false;
 
         for ($generation = 0; $generation <= $generations; $generation++) {
             $next = [];
 
             foreach ($pending as $position => $individual) {
+                if (count($people) >= self::MAX_PEOPLE) {
+                    $truncated = true;
+
+                    break 2;
+                }
+
                 $people[] = ['position' => $position, 'generation' => $generation]
                     + $this->rung($individual, $access_level, $viewer);
 
@@ -110,10 +147,17 @@ class AncestorTree
                 }
             }
 
+            // Every line has run out. Twenty generations of looking at nothing
+            // is twenty generations of doing nothing, and the common tree is
+            // three deep.
+            if ($next === []) {
+                break;
+            }
+
             $pending = $next;
         }
 
-        return $people;
+        return new Pedigree($people, $truncated);
     }
 
     /**
