@@ -4603,6 +4603,72 @@ the button and the screen behind it cannot come to disagree.
 
 ---
 
+### 2.78 Four generations is not a pedigree, and an indent is not a shape
+
+Two complaints in one sentence from the family, and they turn out to be the
+same complaint: *es sollte immer bis zur Basis als Georg Sack zurückgehen. Und
+die Darstellung ist nicht intuitiv verständlich.*
+
+#### The depth was bounded by the wrong quantity
+
+`MAX_GENERATIONS` was six and the screen asked for four, on the reasoning that
+more than that "stops being something a phone renders". That reasoning bounded
+the wrong thing. A pedigree grows by doubling, so *generations* is a terrible
+proxy for size — and this archive is measured from one man: every SB number is
+a path down from Georg Sack, which is what `GS` means (§2.58). He is about a
+dozen rungs up. Stopping at four stops in the nineteenth century, in the middle
+of the thing the family keeps the archive for.
+
+So the limit moved to where the cost actually is. `MAX_GENERATIONS` is 20,
+which reaches the base with room to spare, and the walk stops the moment a
+generation turns up empty — which on a real line is after three or four,
+because only the one the archive was built to follow goes further. What bounds
+the response now is `MAX_PEOPLE`, 400, and it exists for the tree that
+surprises us rather than for any tree we expect.
+
+**Reaching that cap is reported, not hidden.** `build()` returns a `Pedigree`
+— the rungs *and* whether they are all of them — because "the archive ends
+here" and "we stopped reading here" are different sentences, and a line that
+simply stops reads as the first. The screen says the second out loud when it is
+true.
+
+#### The indent had stopped carrying anything
+
+The list was indented one step per generation and each row was labelled
+*Väterliche* or *Mütterliche Linie*. That was legible at four generations and
+meaningless at twelve, for two reasons that only appear once the tree is deep:
+
+* the indent capped at three steps, so that deep rows would not run off a
+  phone. The fourth generation and the twelfth therefore sat at the same
+  margin — the one thing the indent was there to distinguish;
+* "väterliche Linie" says which of two halves somebody is in. In the fourth
+  generation that is one of eight positions; by the tenth it is one of five
+  hundred. It is not a location, it is a coin toss.
+
+What replaced them are two things that stay true at any depth, and both are
+read straight out of the Ahnentafel number, so the payload still needs no
+nesting:
+
+**A heading per generation** — Eltern, Großeltern, Urgroßeltern,
+Ururgroßeltern, then *N. Generation*. The family words run out after three, and
+"Ur-ur-ur-urgroßeltern" is a word a reader has to count on their fingers; past
+that the number is what somebody reading a deep pedigree actually wants.
+
+**The path, on every card.** An Ahnentafel number *is* the path in binary:
+strip the leading 1 and each remaining bit is a step, 0 to a father and 1 to a
+mother. Position 14 is 1110 — mother, mother, father — which is exactly how
+somebody would say where Otto stands. Written as a German possessive chain
+while that is readable ("Vaters Vaters Mutter") and with arrows once it is not
+("Vater › Mutter › Mutter › Vater › Vater"), which is the fourth generation
+onwards.
+
+**And the root is no longer in the list.** It is the person being looked at,
+not one of their own ancestors, and the page heading already names them. It
+had been sitting at the top labelled *Ausgangspunkt*, which is a word for a
+thing that does not need one.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

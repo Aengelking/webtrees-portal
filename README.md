@@ -92,9 +92,9 @@ because this family tells two people of the same name apart by it. It is the
 same list the full record shows, filtered the same way: a confidential number
 appears on neither.
 
-The tree can be walked in the portal: every relative is a link, four
-generations of ancestors are one request, and a record says how the signed-in
-member is related to it. The pedigree does not stop at a living relative it may
+The tree can be walked in the portal: every relative is a link, the whole
+pedigree back to the archive's base is one request, and a record says how the
+signed-in member is related to it. The pedigree does not stop at a living relative it may
 not name — that rung is an unnamed placeholder and the line carries on above it
 — so the archive's dead stay reachable through the family's living. Drawn
 charts (fan, descendancy) are still webtrees' job, and every record still links
@@ -1102,6 +1102,25 @@ them either way — the record stays closed; only what they publish in the
 portal appears. A record carrying `RESN confidential`, `RESN privacy` or a
 per-record privacy level set in *Control panel → Privacy* is never named this
 way, even for a listed member.
+
+#### How deep the pedigree goes, and how it reads
+
+*Vorfahren* walks as far as the archive does — up to twenty generations, which
+reaches Georg Sack with room to spare — and stops the moment a line runs out of
+recorded parents, which on most lines is after three or four. Asking deep costs
+nothing on a shallow line.
+
+What bounds the answer is the number of people, not the number of generations:
+a pedigree grows by doubling, so generations are a poor proxy for size. The cap
+is 400, it is never reached in practice, and where it is the screen says so
+rather than letting a line that stopped read as a family that ended.
+
+The list is grouped under a heading per generation — *Eltern*, *Großeltern*,
+*Urgroßeltern*, *Ururgroßeltern*, then *N. Generation* — and every card says
+the path that reaches that person: *Ihr Vater*, *Vaters Vaters Mutter*, and
+from the fourth generation *Vater › Mutter › Mutter › Vater › Vater*. Both are
+read out of the position number, and both keep working however deep the tree
+goes, which an indent does not.
 
 #### Reaching the pedigree of somebody whose record is closed to you
 

@@ -8,6 +8,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\IndividualRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberAncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\MemberRead;
+use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
@@ -394,7 +395,46 @@ class TreeTest extends PortalTestCase
         // A silly number is clamped rather than refused, and says what it did.
         $response = $this->api(AncestorsRead::class, query: ['generations' => '99'], attributes: ['xref' => 'X1']);
 
-        self::assertSame(6, $this->json($response)['generations']);
+        self::assertSame(AncestorTree::MAX_GENERATIONS, $this->json($response)['generations']);
+    }
+
+    /**
+     * **The depth is the archive's, not a number this module picked.**
+     *
+     * Four generations stopped in the nineteenth century, in the middle of the
+     * thing the family keeps the archive for — every SB number is a path down
+     * from Georg Sack, and he is about a dozen rungs up. So the walk goes as
+     * far as there is anything to walk, and asking for twenty costs nothing on
+     * a line that ends at four: it stops the moment a generation is empty.
+     */
+    public function testTheWalkGoesAsDeepAsTheArchiveAndNoFurther(): void
+    {
+        $this->signInAsAnna();
+
+        $deep    = $this->ancestors('X1', AncestorTree::MAX_GENERATIONS);
+        $shallow = $this->ancestors('X1', 6);
+
+        self::assertSame($shallow, $deep, 'The fixture runs out well before either limit.');
+
+        // Four generations above Anna is all there is, so nothing claims to be
+        // higher — the loop stopped rather than counting to twenty.
+        $highest = 0;
+
+        foreach ($deep as $person) {
+            $highest = max($highest, (int) $person['generation']);
+        }
+
+        self::assertSame(3, $highest, 'Otto is the top of this fixture.');
+    }
+
+    /** And a pedigree that fits says so, so a short one is not read as a cut-off one. */
+    public function testAWholePedigreeIsNotReportedAsTruncated(): void
+    {
+        $this->signInAsAnna();
+
+        $response = $this->api(AncestorsRead::class, attributes: ['xref' => 'X1']);
+
+        self::assertFalse($this->json($response)['truncated']);
     }
 
     public function testAHiddenRootIsANotFound(): void

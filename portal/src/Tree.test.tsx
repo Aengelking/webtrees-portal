@@ -179,10 +179,88 @@ describe('the ancestors view', () => {
       expect(screen.getByRole('link', { name: new RegExp(name) })).toBeDefined()
     }
 
-    // Father's and mother's lines are told apart, which is what the indent
-    // alone cannot say to a screen reader.
-    expect(screen.getAllByText('Väterliche Linie').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Mütterliche Linie').length).toBeGreaterThan(0)
+    // The structure is carried by a heading per generation and, on each card,
+    // the path that reaches that person — both of which stay true however deep
+    // the tree goes, which an indent capped at three steps does not.
+    expect(screen.getByRole('heading', { name: 'Eltern' })).toBeDefined()
+    expect(screen.getByRole('heading', { name: 'Großeltern' })).toBeDefined()
+
+    expect(screen.getByText('Ihr Vater')).toBeDefined()
+    expect(screen.getByText('Ihre Mutter')).toBeDefined()
+    expect(screen.getByText('Mutters Vater')).toBeDefined()
+  })
+
+  /**
+   * The root is the person being looked at, not one of their own ancestors,
+   * and the page already says who that is.
+   */
+  it('does not list the person themselves among their ancestors', async () => {
+    stub()
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByRole('heading', { name: 'Eltern' })).toBeDefined()
+    expect(screen.queryByRole('link', { name: /Anna Beispiel/ })).toBeNull()
+  })
+
+  /**
+   * Deep is the case the old design fell over on: the indent capped at three,
+   * so the fourth generation and the twelfth sat at the same margin. A counted
+   * heading and an arrow path both keep working.
+   */
+  it('names a deep generation by its number and spells out the path', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : String(input).includes('/ancestors')
+            ? jsonResponse({
+                generations: 20,
+                truncated: false,
+                people: [
+                  ANCESTORS.people[0],
+                  {
+                    position: 44,
+                    generation: 5,
+                    private: false,
+                    xref: 'X99',
+                    name: 'Georg Sack',
+                    sex: 'M',
+                    is_deceased: true,
+                    lifespan: '1621–1689',
+                  },
+                ],
+              })
+            : jsonResponse(ME),
+      ),
+    )
+
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByRole('heading', { name: '5. Generation' })).toBeDefined()
+
+    // 44 is 0b101100. Strip the leading 1 and every bit is a step, 0 to a
+    // father and 1 to a mother: 01100 is father, mother, mother, father,
+    // father.
+    expect(screen.getByText('Vater › Mutter › Mutter › Vater › Vater')).toBeDefined()
+  })
+
+  /** And a walk that stopped at its own limit says so, rather than looking finished. */
+  it('says when the archive goes back further than it showed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) =>
+        String(input).endsWith('/csrf')
+          ? jsonResponse({ csrf_token: 'token-1' })
+          : String(input).includes('/ancestors')
+            ? jsonResponse({ ...ANCESTORS, truncated: true })
+            : jsonResponse(ME),
+      ),
+    )
+
+    renderAt('/individuals/X1/ancestors')
+
+    expect(await screen.findByText(/reicht noch weiter zurück/)).toBeDefined()
   })
 
   /**
@@ -250,7 +328,7 @@ describe('the ancestors view', () => {
     expect(await screen.findByText('Keine Vorfahren hinterlegt')).toBeDefined()
   })
 
-  it('is reachable from a person, and asks for four generations', async () => {
+  it('is reachable from a person, and asks for the whole line', async () => {
     stub()
     renderAt('/me')
 
@@ -260,7 +338,8 @@ describe('the ancestors view', () => {
 
     const asked = vi.mocked(fetch).mock.calls.map(([url]) => String(url))
 
-    expect(asked.some((url) => url.includes('/ancestors') && url.includes('generations=4'))).toBe(true)
+    // As deep as the archive goes; the server clamps it to its own maximum.
+    expect(asked.some((url) => url.includes('/ancestors') && url.includes('generations=20'))).toBe(true)
   })
 })
 

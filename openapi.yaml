@@ -2169,13 +2169,19 @@ paths:
           in: query
           required: false
           description: |
-            How many generations above the root to include. Clamped to 1..6
+            How many generations above the root to include. Clamped to 1..20
             rather than refused; the response says what was used.
+
+            The default is the maximum, because that is what a member asks for:
+            this archive is measured from one man about a dozen generations up,
+            and a pedigree that stops at four stops in the nineteenth century.
+            Asking deep costs nothing on a shallow line — the walk stops the
+            moment a generation turns up empty.
           schema:
             type: integer
             minimum: 1
-            maximum: 6
-            default: 4
+            maximum: 20
+            default: 20
       responses:
         '200':
           description: The visible ancestors.
@@ -2575,13 +2581,19 @@ paths:
           in: query
           required: false
           description: |
-            How many generations above the root to include. Clamped to 1..6
+            How many generations above the root to include. Clamped to 1..20
             rather than refused; the response says what was used.
+
+            The default is the maximum, because that is what a member asks for:
+            this archive is measured from one man about a dozen generations up,
+            and a pedigree that stops at four stops in the nineteenth century.
+            Asking deep costs nothing on a shallow line — the walk stops the
+            moment a generation turns up empty.
           schema:
             type: integer
             minimum: 1
-            maximum: 6
-            default: 4
+            maximum: 20
+            default: 20
       responses:
         '200':
           description: The pedigree.
@@ -3822,6 +3834,7 @@ components:
       required:
         - generations
         - people
+        - truncated
       properties:
         generations:
           type: integer
@@ -3834,6 +3847,20 @@ components:
             people the reader may see, and placeholders for those they may not.
           items:
             $ref: '#/components/schemas/Ancestor'
+        truncated:
+          type: boolean
+          description: |
+            True where the walk stopped at its own limit rather than at the top
+            of the archive.
+
+            Generations are the wrong unit to bound a pedigree by, because it
+            grows by doubling; what is bounded is the number of people. Real
+            pedigrees are nothing like complete — lines run out within three or
+            four rungs except the one the archive was built to follow — so this
+            is false in practice. It is reported rather than hidden because "the
+            archive ends here" and "we stopped reading here" are different
+            sentences, and a line that simply stops would be read as the first.
+          example: false
 
     Individual:
       allOf:

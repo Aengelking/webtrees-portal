@@ -379,6 +379,14 @@ export type Ancestor = VisibleAncestor | PrivateAncestor
 export interface AncestorPage {
   generations: number
   people: Ancestor[]
+  /**
+   * True where the walk stopped at its own limit rather than at the top of the
+   * archive — so that a line which simply ends is not read as a cut-off one.
+   *
+   * Optional for the usual reason: a server that predates the field never
+   * truncates either, so its absence reads correctly as `false`.
+   */
+  truncated?: boolean
 }
 
 export interface Individual extends IndividualRef {
