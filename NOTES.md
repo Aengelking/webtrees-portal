@@ -4951,6 +4951,62 @@ instead of filling the gap.
 
 ---
 
+### 2.81 The one header that does not arrive
+
+The MCP server shipped, the token was issued, the endpoint answered — and every
+request with a good token came back `unauthenticated`. `curl` without a token
+gave the same 401, which is what it should give, so for a while the two were
+indistinguishable and the token looked wrong.
+
+**`Authorization` does not reach PHP.** Apache does not pass it to a CGI or
+FastCGI process unless `CGIPassAuth On` is set. That is old and well known, and
+this module had never met it, because everything else here authenticates with a
+cookie — the one endpoint that reaches for a bearer token is the one endpoint
+that walks into it. The header is not mangled or rejected; it is absent, so the
+middleware is telling the truth when it says nobody is signed in.
+
+`CGIPassAuth On` fixes it, and is not available to somebody on shared hosting
+who does not own the vhost. So the fix is in the piece of the chain this
+repository does own: the Worker copies the header to
+`X-Portal-Authorization`, which nothing strips, and `RequireMcpToken` reads
+`Authorization` first and that second.
+
+**It is a copy, not a second credential.** It carries the same bearer token, it
+is stripped from anything a client sends — the same rule the proxy secret has
+always had — and it is only trusted because the proxy secret has already
+established that the request came through the portal. A host that *does* pass
+`Authorization` through goes on using it and never consults the copy.
+
+The middleware also trims now. A credential refused over a stray space is a
+credential refused for no reason anybody can see, and this class had already
+cost one evening of exactly that.
+
+#### And the error that hid it
+
+The client's log said:
+
+    SyntaxError: Unexpected token '<', "<!doctype "... is not valid JSON
+
+which reads like a broken endpoint and is not one. The sequence: 401 → the
+client goes looking for OAuth metadata at `/.well-known/oauth-protected-resource`
+→ that path is not under `/api/`, so the Worker never sees it → the asset layer
+answers it, and `not_found_handling: single-page-application` answers *every*
+unmatched path with index.html and **HTTP 200** → the client parses a web page
+as JSON and dies.
+
+So a wrong token presented as a crash, three layers away from the cause. The
+Worker now answers those paths with a JSON 404, which is the truthful answer —
+there is no OAuth here (§1.7) — and the one the MCP SDK expects, since "no
+metadata" is a case it handles. It does not make an OAuth-only client work. It
+makes the failure legible, which is all a 404 was ever going to do.
+
+**The lower-case `d` is the diagnostic.** The portal's index.html begins
+`<!doctype html>`; every webtrees layout begins `<!DOCTYPE html>`. Which server
+produced a stray page is readable off that one letter, and it is worth knowing
+the next time HTML turns up where JSON was expected.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

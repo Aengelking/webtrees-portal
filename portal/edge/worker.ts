@@ -1,4 +1,10 @@
-import { isApiRequest, proxyToWebtrees, type ProxyEnv } from './proxy'
+import {
+  isApiRequest,
+  isOAuthDiscoveryRequest,
+  noOAuthHere,
+  proxyToWebtrees,
+  type ProxyEnv,
+} from './proxy'
 
 /**
  * The Cloudflare Worker that serves the portal.
@@ -22,8 +28,17 @@ interface Env extends ProxyEnv {
 
 export default {
   async fetch(request, env): Promise<Response> {
-    if (isApiRequest(new URL(request.url))) {
+    const url = new URL(request.url)
+
+    if (isApiRequest(url)) {
       return proxyToWebtrees(request, env)
+    }
+
+    // Answered here rather than left to the asset layer, which would hand an
+    // MCP client the portal's own index.html with a 200 on it. See
+    // `noOAuthHere` in edge/proxy.ts for what that cost.
+    if (isOAuthDiscoveryRequest(url)) {
+      return noOAuthHere()
     }
 
     return env.ASSETS.fetch(request)

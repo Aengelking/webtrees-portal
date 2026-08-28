@@ -1944,6 +1944,15 @@ same way. **Clients that insist on OAuth cannot connect** — this server
 authenticates with a bearer token and does not implement an OAuth
 authorisation server. See NOTES.md §2.80 for why, and for what that costs.
 
+**The token does not travel under its own name, and it cannot.** Apache does
+not pass `Authorization` to PHP under CGI or FastCGI unless `CGIPassAuth On` is
+set, which on shared hosting is nobody's to set — so the header is simply
+absent by the time the module looks, and a perfectly good token is answered
+with 401. The Worker therefore forwards a copy as `X-Portal-Authorization`, and
+the module reads whichever arrives. Nothing to configure; it is worth knowing
+only if you ever put something other than this Worker in front of webtrees, in
+which case that something has to carry the copy too.
+
 Check it by hand with:
 
 ```bash
@@ -2786,6 +2795,20 @@ code rather than the message.
 A client that reports "authentication required" and offers to open a browser
 window is asking for OAuth, which this server does not implement. It needs one
 that can send a plain `Authorization` header; see NOTES.md §1.7.
+
+**A 401 with a token you know is good** means the token is not reaching PHP.
+That is what `X-Portal-Authorization` exists for, so the first question is
+whether the request went through the portal's Worker at all — a client pointed
+straight at the webtrees host has nothing to add the copy. If it did go through
+the Worker and the answer is still 401, the token itself is unknown, expired or
+withdrawn; the *Assistant access* screen shows which.
+
+**`SyntaxError: Unexpected token '<', "<!doctype "`** in a client's log is a
+401 in disguise: the client asked for OAuth metadata after being refused, and
+older deployments answered that with the portal's own index.html and a 200. The
+Worker now returns a JSON 404 there. The lower-case `<!doctype` is the tell —
+webtrees writes `<!DOCTYPE` in capitals, so lower case means the page came from
+the asset layer rather than from webtrees.
 
 If the connection works but every question comes back empty, check that the
 person being asked about is dead in the archive's own terms — a record with no

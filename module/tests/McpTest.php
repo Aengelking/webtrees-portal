@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Tests;
 
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\McpCreate;
+use Engelking\Webtrees\PortalApi\Http\Middleware\RequireMcpToken;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\McpRead;
 use Engelking\Webtrees\PortalApi\Mcp\McpException;
 use Engelking\Webtrees\PortalApi\Mcp\Server;
@@ -140,6 +141,64 @@ class McpTest extends PortalTestCase
 
         self::assertNotNull($row->last_used_at);
         self::assertSame(1, (int) $row->uses);
+    }
+
+    /**
+     * The token under the name the portal's proxy carries it by.
+     *
+     * `Authorization` does not reach PHP on an Apache running CGI or FastCGI
+     * without `CGIPassAuth On`, which on shared hosting is not the
+     * administrator's to set — so a good token was answered with 401 and
+     * nothing said why. The Worker copies it; this reads the copy.
+     */
+    public function testTheTokenIsAcceptedUnderTheProxysOwnHeader(): void
+    {
+        $response = $this->call(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'],
+            token: '',
+            headers: [RequireMcpToken::FALLBACK_HEADER => 'Bearer ' . $this->token],
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+        self::assertSame([], $this->json($response)['result']);
+    }
+
+    /** `Authorization` wins where it arrives; the copy is only a fallback. */
+    public function testTheOriginalHeaderIsPreferred(): void
+    {
+        $response = $this->call(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'],
+            headers: [RequireMcpToken::FALLBACK_HEADER => 'Bearer ' . McpTokens::PREFIX . 'rubbish'],
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
+    }
+
+    /**
+     * A header the proxy did not fill in is not a way past the lock. It holds
+     * a token like any other, and an unknown one is refused like any other.
+     */
+    public function testTheProxysHeaderStillHasToCarryARealToken(): void
+    {
+        $response = $this->call(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'],
+            token: '',
+            headers: [RequireMcpToken::FALLBACK_HEADER => 'Bearer ' . McpTokens::PREFIX . 'rubbish'],
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_UNAUTHORIZED, $response->getStatusCode());
+    }
+
+    /** A proxy that pads the value must not cost a member their credential. */
+    public function testSurroundingWhitespaceIsTolerated(): void
+    {
+        $response = $this->call(
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'],
+            token: '',
+            headers: ['Authorization' => "  Bearer \t" . $this->token . ' '],
+        );
+
+        self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
     }
 
     public function testTheStreamIsNotOffered(): void
@@ -597,14 +656,17 @@ class McpTest extends PortalTestCase
     /**
      * @param array<string,mixed> $message
      */
-    private function call(array $message, string|null $token = null): ResponseInterface
+    /**
+     * @param array<string,mixed>  $message
+     * @param array<string,string> $headers Anything beyond the credential.
+     */
+    private function call(array $message, string|null $token = null, array $headers = []): ResponseInterface
     {
         // A fresh array cache per request, as production has: webtrees caches
         // privacy answers by record and access level and not by user, and
         // these tests ask about the same records as several different ones.
         Registry::cache(new CacheFactory());
 
-        $headers = [];
         $offered = $token ?? $this->token;
 
         if ($offered !== '') {
