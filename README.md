@@ -2887,6 +2887,11 @@ with a redirect. It should not happen any more; if it does, the request is
 carrying an `Authorization` header the Worker did not move — check that the
 deployed Worker is current.
 
+**A webtrees error page saying "There is no active transaction"** was the
+endpoint signing itself in with `Auth::login()`, whose session regeneration
+ended the transaction webtrees wraps every request in. Fixed; if it reappears,
+the module on the host is older than this README.
+
 **A 401 with a token you know is good** means the token is not reaching PHP.
 That is what `X-Portal-Authorization` exists for, so the first question is
 whether the request went through the portal's Worker at all — a client pointed

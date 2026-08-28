@@ -5097,6 +5097,59 @@ looking is, during development, an error-shaped hole.
 
 ---
 
+### 2.82 Anmelden ist mehr, als den Benutzer zu merken
+
+The MCP endpoint answered a valid token with a webtrees **error page**:
+
+    There is no active transaction
+    #1 …/app/Http/Middleware/UseTransaction.php(35)
+
+and the body carried `wt-route-McpRead`, so the route had matched and the
+module had run. webtrees wraps every request in a database transaction, and
+something inside ours was ending it before the commit.
+
+`Auth::login()`. It is two lines — `Session::regenerate()` and then
+`Session::put('wt_user', …)` — and only the second was ever wanted here.
+
+**Regenerating protects nothing on this endpoint.** It exists to stop session
+fixation: a *browser* signing in while carrying a session id somebody else
+planted on it. A bearer-token request sends no cookie, so PHP created this
+session microseconds earlier and nobody else has ever seen its id. There is no
+id to fix.
+
+**And it does real work to get there.** `session_regenerate_id()` destroys the
+old session row and writes a new one *during* the request, through webtrees'
+database session handler, inside that transaction. On the host it ended the
+transaction, and the commit afterwards had nothing to commit.
+
+So the middleware sets `wt_user` and nothing else. A session is still created
+and abandoned per request — `Auth::id()` reads that key and there is no other
+way in — which is the price of using webtrees' privacy code instead of growing
+a second opinion about who may see what.
+
+#### Why no test failed
+
+The suite runs against SQLite with **no active PHP session**: `session_status()`
+is `PHP_SESSION_NONE`, so `Session::regenerate()` returns without doing
+anything. The bug could not exist in the harness. Worse, the harness dispatches
+only this module's own middleware — `UseTransaction` is webtrees' outer stack
+and never runs in a test at all, so even a MySQL fixture would not have shown
+it.
+
+A test was written to reproduce it and passed with the bug in place, which is
+the same as no test. It was deleted rather than committed: a guard that cannot
+fail is worse than an absent one, because it reads like coverage. What the
+suite can honestly assert about this is already asserted — that a good token
+signs the request in as its account — and the rest is written down here.
+
+**The general shape, worth remembering.** This module's tests dispatch through
+the module's routes and middleware, which is more than most module suites do
+and still less than production: everything webtrees wraps around a request —
+the transaction, the session, the theme — is absent. Anything that goes wrong
+in that gap will be found on the host and nowhere else.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
