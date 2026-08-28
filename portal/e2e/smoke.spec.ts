@@ -80,7 +80,15 @@ test.describe('the smoke path', () => {
     await page.getByRole('link', { name: 'Vorfahren anzeigen' }).click()
 
     await expect(page.getByRole('heading', { name: 'Vorfahren' })).toBeVisible()
-    await expect(page.getByText('Mütterliche Linie')).toBeVisible()
+
+    // Grouped by generation, and every card says the path that reaches it.
+    // The fixture's father is a placeholder and the mother is not, so this
+    // covers both shapes of rung in one screen.
+    await expect(page.getByRole('heading', { name: 'Eltern' })).toBeVisible()
+    await expect(page.getByText('Ihre Mutter')).toBeVisible()
+    await expect(page.getByText('Ihr Vater')).toBeVisible()
+    // Exact: the same words appear in the privacy note under the list.
+    await expect(page.getByText('Nicht freigegeben', { exact: true })).toBeVisible()
   })
 
   test('the archive can be searched and read down', async ({ page }) => {
