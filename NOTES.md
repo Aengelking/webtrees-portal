@@ -95,7 +95,7 @@ secret on the Worker.
 
 ### 1.7 Should the MCP server speak OAuth?
 
-**Open, and the one thing about §2.79 worth revisiting.**
+**Open, and the one thing about §2.80 worth revisiting.**
 
 The MCP specification would rather an HTTP server were an OAuth 2.1 resource:
 protected-resource metadata, dynamic client registration, an authorisation
@@ -4694,7 +4694,83 @@ not one of their own ancestors, and the page heading already names them. It
 had been sitting at the top labelled *Ausgangspunkt*, which is a word for a
 thing that does not need one.
 
-### 2.79 The archive can be asked questions, and only about the dead
+
+### 2.79 The screen that would have saved the afternoon
+
+A member could not sign in. The portal said *"the member portal is not
+configured correctly"*, which was true of nothing: the tree was there, the
+module was running, the domain was right. The cause was that the account's role
+on the family tree was still `visitor` — webtrees' default for an account made
+by hand in the control panel — and a tree with `REQUIRE_AUTHENTICATION` hides
+itself from a visitor, so `TreeService::all()` came back empty and the tree
+looked deleted to code that had every reason to believe it.
+
+**Every place that could have said so was answering a different question.**
+webtrees' user list shows the role but knows nothing about the portal. The
+diagnosis screen checks the installation, not the people in it. And
+`POST /session` refuses every kind of failure with the same 401 on purpose
+(§2.22), so *trying it* is the one method guaranteed to teach nobody anything.
+The fact was available in three places and assembled in none.
+
+So: one table, every account, and the column nobody could look up — will this
+person get in, and if not, which of the three reasons it is. Accounts that
+cannot are sorted to the top, because this is a screen people open when
+something is wrong and a list that buries the broken row among forty working
+ones has answered the wrong question.
+
+**It reports and does not repair.** Every name links to webtrees' own user
+editor. A button here that set a role would make this module a second place
+where account permissions are decided, and the first place already has the
+audit trail.
+
+**The verdict mirrors `TreeService::all()` rather than calling it**, which is
+the one uncomfortable thing about this. Calling it would mean impersonating
+each user in turn, since the query reads `Auth::id()` — worse than a comment.
+So the three rules are restated in `blockedReason()` with a note saying where
+they come from: a manager always, anybody at all where the tree does not
+require authentication, and where it does, anybody whose role is not visitor.
+An account that was never given a role is a NULL in that query and fails the
+comparison, so it is refused exactly as a visitor is — but the screen says *No
+role* rather than *Visitor*, because somebody choosing "visitor" and nobody
+choosing anything are different facts about how the account came to be.
+
+One thing found by the test rather than by reading: `Collection::sortBy()` with
+an array of bare closures groups by the first and then leaves the second
+unapplied, so the blocked accounts came first and the names inside each group
+stayed in whatever order the database returned them. A single composed sort key
+is unambiguous, and "nearly sorted" is exactly the kind of wrong that survives a
+casual look at the screen.
+
+---
+
+### 2.79 A door out of an app with no way back in
+
+Both links into webtrees — the member's *Stammbaum und Diagramme öffnen* and
+the editor's *In webtrees öffnen und bearbeiten* — opened in place. In a
+browser tab that is merely inconvenient: Back returns. **In the installed app
+it is a trap.** A standalone PWA has no address bar and no Back button, so
+following the link puts a member inside webtrees with no way home but closing
+and reopening the app. §2.30 went to some trouble to make that door land in the
+right place; it was still a door with no handle on the other side.
+
+So both open in a window of their own. `rel="noopener noreferrer"` was already
+there and stays — a page opened this way must not get a handle on the one that
+opened it.
+
+**And the link says so.** A `target="_blank"` that does not announce itself is
+the standard complaint about the pattern: somebody using a screen reader hears
+a link, follows it, and is somewhere else with no explanation of what happened
+to where they were. The words are in the link's accessible name — a `sr-only`
+span rather than a `title`, because a title is not read reliably and is not
+read at all on a telephone.
+
+Which broke six tests, all of them looking the link up by its exact name. That
+is the right kind of breakage: the name is what a member hears, it changed, and
+the tests said so.
+
+---
+
+### 2.80 The archive can be asked questions, and only about the dead
 
 The family archive is a thing people ask questions of, and the questions are
 not the shape of a search box: *who was my great-grandmother's brother, and

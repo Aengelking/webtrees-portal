@@ -185,6 +185,42 @@ nothing prompts for them: `mcp_server` opens the assistant endpoint at all, and
 `mcp_notes` decides whether the family's own prose goes out with the dates. See
 *Letting an assistant read the archive*.
 
+### Who has an account, and whether they can use the portal
+
+*Control panel → Modules → Member portal API → **Accounts**.*
+
+One table with every account on the installation: real name, username, email
+address, the role webtrees gives them on the portal's family tree, the record
+they are linked to, and the column that is the reason this screen exists —
+**can this person use the portal**.
+
+That last one cannot be worked out from anywhere else. webtrees' own user list
+shows the role but not what the portal makes of it, and `POST /session`
+deliberately answers every kind of failure with the same 401, so trying it
+tells an administrator nothing. Three things are reported:
+
+* **The account is waiting for approval**, or **the email address is not
+  verified.** Both are refused before the password is even compared.
+* **The role on the tree is “Visitor”** (or was never set) **on a tree that
+  requires authentication.** This is the awkward one: signing in *succeeds*,
+  and then fails a moment later, because a tree with
+  `REQUIRE_AUTHENTICATION` hides itself from a visitor and the portal cannot
+  find the tree it is configured for. The member sees "the member portal is
+  not configured correctly", which is true of nothing.
+
+  `Visitor` is webtrees' default for an account created by hand in the control
+  panel. Accounts created by accepting an invitation are given `Member` and are
+  never in this state.
+
+Accounts that cannot get in are sorted to the top and marked, and every name
+links to webtrees' own user editor, which is where a role is changed. This
+screen reports; it does not repair — account permissions are decided in one
+place, and it is not this module.
+
+An administrator is never blocked by a role, because an administrator sees
+every family tree whatever their role on it says. The screen says so on the
+row rather than leaving somebody to wonder.
+
 ### Linking a webtrees user to a member profile
 
 Two separate links, and they do different jobs.
@@ -1017,6 +1053,13 @@ nothing is hidden by it — webtrees decides what the person arriving may do.
 What the distinction buys is that a member is not pointed at an editing screen
 they have no business on, an editor does not hunt for the tree they maintain,
 and neither is shown two links to one page.
+
+**Both open in a window of their own**, and say so for anybody using a screen
+reader. In a browser tab that is a convenience — the record stays where it was
+while the tree is read beside it. In the installed app it is the difference
+between a door and a trap: a standalone web app has no address bar and no Back
+button, so a link followed in place leaves a member inside webtrees with no way
+home but closing and reopening the app.
 
 **Both links go through `/portal/individual/{xref}` on the webtrees host, not
 at the record directly.** The portal and webtrees are separate origins and the
@@ -1899,7 +1942,7 @@ claude mcp add --transport http familienarchiv https://portal.example.org/api/mc
 Anything that can be configured with an HTTP URL and a header will work the
 same way. **Clients that insist on OAuth cannot connect** — this server
 authenticates with a bearer token and does not implement an OAuth
-authorisation server. See NOTES.md §2.79 for why, and for what that costs.
+authorisation server. See NOTES.md §2.80 for why, and for what that costs.
 
 Check it by hand with:
 

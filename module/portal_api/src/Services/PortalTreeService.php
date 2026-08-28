@@ -263,6 +263,29 @@ class PortalTreeService
     }
 
     /**
+     * Whether this tree may only be read by somebody signed in.
+     *
+     * Asked through two doors, because webtrees moved it between them.
+     * **2.2.6** took `REQUIRE_AUTHENTICATION` out of `gedcom_setting` and made
+     * it a column with `Tree::private()` in front of it; reading it as a
+     * preference still works there, and raises a deprecation notice while
+     * doing so. Same reasoning and the same shape as `treeFromRow()` below:
+     * neither version's answer is assumed, and each is asked for by name.
+     *
+     * It lives here rather than in the three places that want it, because
+     * three copies of a version shim is three places to forget when the next
+     * release moves it again.
+     */
+    public function requiresAuthentication(Tree $tree): bool
+    {
+        if (method_exists($tree, 'private')) {
+            return $tree->private();
+        }
+
+        return $tree->getPreference('REQUIRE_AUTHENTICATION') === '1';
+    }
+
+    /**
      * Build the tree object the way *this* webtrees builds it.
      *
      * `new Tree(...)` is not an option, and the reason is worth writing down

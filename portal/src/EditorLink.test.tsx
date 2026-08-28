@@ -95,9 +95,40 @@ describe('the link to webtrees', () => {
     stub('editor')
     renderMe()
 
-    const link = await screen.findByRole('link', { name: 'In webtrees öffnen und bearbeiten' })
+    const link = await screen.findByRole('link', { name: /In webtrees öffnen und bearbeiten/ })
 
     expect(link.getAttribute('href')).toBe(ANNA.webtrees_url)
+  })
+
+  /**
+   * In a window of its own, and said out loud.
+   *
+   * The installed app has no Back button: followed in place, this link puts a
+   * member inside webtrees with no way home. The name carries the warning
+   * because a link that opens a new window without saying so is the standard
+   * complaint about `target="_blank"`, and `rel` keeps the new page from
+   * getting a handle on this one.
+   */
+  it('opens webtrees in a window of its own, and says so', async () => {
+    stub('editor')
+    renderMe()
+
+    const link = await screen.findByRole('link', { name: /In webtrees öffnen und bearbeiten/ })
+
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+    expect(link.textContent).toMatch(/öffnet in einem neuen Fenster/)
+  })
+
+  /** The member's own link is the same link, and gets the same treatment. */
+  it('does the same for the link a member gets', async () => {
+    stub('member')
+    renderMe()
+
+    const link = await screen.findByRole('link', { name: /Stammbaum und Diagramme öffnen/ })
+
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
   })
 
   it.each<Role>(['moderator', 'manager', 'administrator'])(
@@ -107,7 +138,7 @@ describe('the link to webtrees', () => {
       renderMe()
 
       expect(
-        await screen.findByRole('link', { name: 'In webtrees öffnen und bearbeiten' }),
+        await screen.findByRole('link', { name: /In webtrees öffnen und bearbeiten/ }),
       ).toBeDefined()
     },
   )
@@ -118,8 +149,8 @@ describe('the link to webtrees', () => {
 
     // The member's own link is still there — this is about wording and
     // destination, not about taking anything away.
-    expect(await screen.findByRole('link', { name: 'Stammbaum und Diagramme öffnen' })).toBeDefined()
-    expect(screen.queryByRole('link', { name: 'In webtrees öffnen und bearbeiten' })).toBeNull()
+    expect(await screen.findByRole('link', { name: /Stammbaum und Diagramme öffnen/ })).toBeDefined()
+    expect(screen.queryByRole('link', { name: /In webtrees öffnen und bearbeiten/ })).toBeNull()
   })
 
   /** The same address twice, worded differently, is a question nobody needs. */
@@ -127,9 +158,9 @@ describe('the link to webtrees', () => {
     stub('manager')
     renderMe()
 
-    await screen.findByRole('link', { name: 'In webtrees öffnen und bearbeiten' })
+    await screen.findByRole('link', { name: /In webtrees öffnen und bearbeiten/ })
 
-    expect(screen.queryByRole('link', { name: 'Stammbaum und Diagramme öffnen' })).toBeNull()
+    expect(screen.queryByRole('link', { name: /Stammbaum und Diagramme öffnen/ })).toBeNull()
   })
 
   /** An editor is told why they see something the rest of the family does not. */

@@ -427,21 +427,14 @@ class Diagnosis
     /**
      * Whether the tree can be read without signing in.
      *
-     * Asked through two doors, because webtrees moved it between them.
-     * **2.2.6** took `REQUIRE_AUTHENTICATION` out of `gedcom_setting` and made
-     * it a column with `Tree::private()` in front of it; reading it as a
-     * preference still works there and raises a deprecation notice while doing
-     * so. Same reasoning, and the same `method_exists` shape, as
-     * `PortalTreeService::treeFromRow()` — neither version's answer is assumed
-     * and each is asked for by name.
+     * webtrees moved this between two doors in 2.2.6, and the shim that asks
+     * both now lives in `PortalTreeService` — one copy, because three places
+     * wanted the same answer and a version shim in three places is three
+     * places to forget when the next release moves it again.
      */
     private function requiresAuthentication(Tree $tree): bool
     {
-        if (method_exists($tree, 'private')) {
-            return $tree->private();
-        }
-
-        return $tree->getPreference('REQUIRE_AUTHENTICATION') === '1';
+        return $this->trees->requiresAuthentication($tree);
     }
 
     /**

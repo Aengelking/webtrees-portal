@@ -247,9 +247,23 @@ abstract class PortalTestCase extends TestCase
         if ($row !== null && property_exists($row, 'private')) {
             DB::table('gedcom')->where('gedcom_id', '=', $this->tree->id())->update(['private' => 1]);
 
+            // And read it back, because in 2.2.6 a `Tree` is hydrated from its
+            // row: the flag is a property of the object, not a lookup it makes
+            // when asked. `$this->tree` was built before this update and would
+            // go on answering `private() === false` for the rest of the test —
+            // which is a test asserting the opposite of what it set up, and
+            // passes only where nothing looks at the object. Anything that
+            // goes through the API re-resolves the tree per request and never
+            // noticed; anything handed `$this->tree` directly did.
+            $this->tree = Tree::fromDB(
+                DB::table('gedcom')->where('gedcom_id', '=', $this->tree->id())->first()
+            );
+
             return;
         }
 
+        // 2.2.5 and earlier read their preferences lazily, so the object in
+        // hand picks this up on its own.
         $this->tree->setPreference('REQUIRE_AUTHENTICATION', '1');
     }
 
