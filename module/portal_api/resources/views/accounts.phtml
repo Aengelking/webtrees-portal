@@ -1,0 +1,113 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\PortalAccount;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\Http\RequestHandlers\UserEditPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
+
+/**
+ * @var Collection<int,PortalAccount> $accounts
+ * @var int                           $blocked
+ * @var bool                          $requires_authentication
+ * @var PortalApiModule               $module
+ * @var Tree                          $tree
+ * @var string                        $settings_url
+ * @var string                        $title
+ */
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('Everybody with an account, and what the portal makes of them. The role is webtrees’ own role on the family tree “%s” — this screen only reports it; it is changed in webtrees’ user editor, which every name below links to.', e($tree->title())) ?>
+</p>
+
+<?php if ($requires_authentication) : ?>
+    <p>
+        <?= I18N::translate('This family tree requires authentication, so an account needs a role above “Visitor” to see anything in it. That is the usual setting for a portal about living people, and it is the one that quietly turns a working password into a portal that refuses to open.') ?>
+    </p>
+<?php else : ?>
+    <p>
+        <?= I18N::translate('This family tree does not require authentication, so every role can read it — including “Visitor”. Nothing below is blocked by its role.') ?>
+    </p>
+<?php endif ?>
+
+<?php if ($blocked === 0) : ?>
+    <div class="alert alert-success">
+        <?= I18N::translate('Every account can use the portal.') ?>
+    </div>
+<?php else : ?>
+    <div class="alert alert-warning">
+        <?= I18N::plural('%s account cannot use the portal as it stands. It is at the top of the list.', '%s accounts cannot use the portal as they stand. They are at the top of the list.', $blocked, I18N::number($blocked)) ?>
+    </div>
+<?php endif ?>
+
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th scope="col"><?= I18N::translate('Real name') ?></th>
+                <th scope="col"><?= I18N::translate('Username') ?></th>
+                <th scope="col"><?= I18N::translate('Email address') ?></th>
+                <th scope="col"><?= I18N::translate('Role') ?></th>
+                <th scope="col"><?= I18N::translate('Individual') ?></th>
+                <th scope="col"><?= I18N::translate('Can use the portal') ?></th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($accounts as $account) : ?>
+                <tr<?= $account->canUsePortal() ? '' : ' class="table-warning"' ?>>
+                    <td>
+                        <a href="<?= e(route(UserEditPage::class, ['user_id' => $account->user->id()])) ?>">
+                            <?= e($account->user->realName()) ?>
+                        </a>
+                    </td>
+                    <td><?= e($account->user->userName()) ?></td>
+                    <td><?= e($account->user->email()) ?></td>
+                    <td>
+                        <?= e($account->role_name) ?>
+                        <?php if ($account->is_administrator) : ?>
+                            <br><small class="text-muted"><?= I18N::translate('Administrator — sees every family tree whatever this says.') ?></small>
+                        <?php endif ?>
+                    </td>
+                    <td>
+                        <?php if ($account->xref === null) : ?>
+                            <span class="text-muted"><?= I18N::translate('Not linked to a record') ?></span>
+                        <?php else : ?>
+                            <?php $individual = Registry::individualFactory()->make($account->xref, $tree) ?>
+                            <?php if ($individual === null) : ?>
+                                <span class="text-muted"><?= e($account->xref) ?></span>
+                            <?php else : ?>
+                                <a href="<?= e($individual->url()) ?>"><?= $individual->fullName() ?></a>
+                            <?php endif ?>
+                        <?php endif ?>
+                    </td>
+                    <td>
+                        <?php if ($account->canUsePortal()) : ?>
+                            <?= I18N::translate('Yes') ?>
+                        <?php else : ?>
+                            <strong><?= I18N::translate('No') ?></strong><br>
+                            <small><?= e((string) $account->blocked) ?></small>
+                        <?php endif ?>
+                    </td>
+                </tr>
+            <?php endforeach ?>
+        </tbody>
+    </table>
+</div>
+
+<p>
+    <a class="btn btn-outline-secondary" href="<?= e($settings_url) ?>">
+        <?= I18N::translate('back') ?>
+    </a>
+</p>
