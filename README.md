@@ -1333,14 +1333,23 @@ The portal uses this in two places:
   ancestors the reader is not allowed to see.
 
   **A person can be related to you more than once**, and in this family that is
-  ordinary rather than exotic. The card says so: *Ihr Cousin · auch Ihr Cousin
-  3. Grades*, closest first. The tree finds the nearest way — its walk is
-  breadth-first, so the path it keeps is the shortest — and each further way
-  comes from a second line of descent, which is what a record carrying more
-  than one archive number *is*. Where there is only one answer the card reads
-  exactly as it always did.
+  ordinary rather than exotic. The card says so: *Cousin 3. Grades, einmal
+  entfernt · auch Cousin 5. Grades*, closest first. The tree finds the nearest
+  way through the records; the further ways come from the numbers.
+
+  **Where the second line of descent comes from.** Not from a record carrying
+  two numbers — from the marriage table. When two people who both have a number
+  marry, the archive files their children under one of them, so a descendant
+  has more than one true number even though only one is written down:
+  `24/313` and `24/b6` married, which makes `24/3133.42` equally `24/b63.42`.
+  Every such writing is worked out and measured, and the **nearest** answer
+  leads. That matters beyond the extra line: against `24/B521.12` the stored
+  writing reads as fifth cousins and the derived one as third cousins once
+  removed, and until this was built the portal named the first.
 * **On the calculator** (*Stammbaum → Rechner*), which is the family's own tool
-  from 2009 brought inside. Two numbers in, a relationship out. It reads no
+  from 2009 brought inside. Two numbers in, a relationship out — and, where a
+  marriage inside the family gives one of them a second writing, the other ways
+  they are related underneath it. It reads no
   records at all, so it answers about people who are not in the tree — the
   number written on the back of a photograph, or read off a cousin's card. The
   member's own number is filled in already.
@@ -2867,6 +2876,14 @@ replaces it rather than joining it, an emptied title takes it away, saving the
 same office twice reports that nothing changed, titles are tidied and capped,
 and an office on a record that is gone names nobody without disturbing the
 directory.
+
+**Every way two people are related** is pinned from the numbers up: a path
+expands into its equivalent writings through the marriage table, the nearest
+answer leads, and a pair with no marriage above either of them still has
+exactly one. Two of those tests exist for failures the building actually hit —
+that two descendants of one couple must not collapse into one person when both
+are re-rooted at the same marriage, and that the expansion stays small (two to
+six writings) against the family's own table of sixty marriages.
 
 The translations have their own six: the office is read in the language of the
 request, `en-GB` falls back to the `en:` wording where the family wrote no

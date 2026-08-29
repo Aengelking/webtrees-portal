@@ -5784,6 +5784,68 @@ wieder, ohne dass irgendjemand etwas gewonnen hätte.
 
 ---
 
+### 2.94 A number is one line of descent, and a person has several
+
+Reported: the double relationships do not work. They did not, and the reason
+was that §2.87 solved the wrong problem — carefully, with tests, in the wrong
+place.
+
+**Where I looked.** I assumed multiple descent was recorded as several `REFN`
+lines on one record, crossed those, and pinned it down. The assumption came
+from the test fixture, where one person carries four numbers. I never checked
+it against the archive, and it is not how this family works.
+
+**Where it actually lives.** In the marriage table. When two people who both
+have a number marry, the archive files their children under **one** of the two.
+So a descendant has more than one true number: `24/313` and `24/b6` married,
+which makes `24/3133.42` equally `24/b63.42`. Nothing on the record says so —
+the second writing is *derived*, and the table is what derives it.
+
+**And the bug was worse than a missing line.** Against `24/B521.12` the stored
+writing reads as fifth cousins and the derived one as third cousins once
+removed. The nearer answer is the one a family would give, and the portal — and
+the calculator, since 2009 — had been naming whichever writing the archive
+happened to file. Not one answer short: frequently the *wrong* answer.
+
+`merge()` already understood the problem, but pairwise: it re-roots one side
+when the other happens to descend from the partner, which is the right move
+when one answer is wanted and there is no enumeration. So `SackNumbers` now has
+`writings()`, which expands a path into every equivalent form, and
+`SackRelationship::relations()` crosses them and keeps the distinct answers,
+nearest first. `between()` returns the first of those, so every existing caller
+silently gets the *better* answer rather than a different one.
+
+**Two things the building taught, both the hard way.**
+
+*A path that is all digits becomes an integer array key.* `marriages()` carries
+a comment saying exactly this, and I keyed the expansion set by the path
+anyway. `writings('7243215')` handed back an `int`, which cannot be passed to
+`merge()`'s string-by-reference parameters, and ten tests went red at once. The
+lesson is not about PHP: a warning written down in the file you are editing is
+worth reading before you repeat the mistake it describes.
+
+*Never re-root both sides.* The join character `-` replaces the child index, so
+re-rooting two different people at the same marriage erases the very thing that
+told them apart — and they arrive at the identical string. `24/b61` and
+`24/3132` are siblings; crossed alternative-against-alternative they came out
+as **one person**. One side is therefore always the number as stored, which is
+also what `merge()` had been doing all along and the reason it does it. A test
+now holds that down, because a silent "these are the same person" is the worst
+shape this failure can take.
+
+Measured against the family's own sixty marriages, a number affected at all has
+two to six writings. The cap of 64 is a guard against a table edited into a
+cycle, not a limit anybody meets.
+
+**Left alone, and worth a decision.** The naming is asymmetric: `24/311` and
+`24/3221` are *cousin once removed* one way and *second cousin once removed*
+the other. That is faithful — `rechner.php` computes the cousin degree from
+whichever person the question starts at, and the test grid transcribed from it
+passes — so it predates all of this and is not mine to change quietly. It is
+more visible now, because the nearest answer is more often the removed kind.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
