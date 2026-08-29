@@ -29,6 +29,7 @@ export const de = {
     rememberHint_other:
       'Sie bleiben auf diesem Gerät {{count}} Tage angemeldet und müssen Ihr Passwort so lange nicht wieder eingeben. Wer das Gerät entsperrt in die Hand bekommt, ist dann Sie — schalten Sie das also nur auf Ihrem eigenen Telefon ein. „Abmelden“ in den Einstellungen beendet es sofort.',
     forgotten: 'Passwort vergessen?',
+    noAccount: 'Noch keinen Zugang? Hier beantragen',
     failed: 'Benutzername oder Passwort ist falsch. Bitte versuchen Sie es noch einmal.',
     missing: 'Bitte füllen Sie beide Felder aus.',
   },
@@ -537,10 +538,10 @@ export const de = {
   claim: {
     title: 'Zum Familienportal anmelden',
     intro:
-      'Sie haben diesen Link über eine Rundmail der Familie bekommen. Geben Sie hier die E-Mail-Adresse ein, an die diese Rundmail gegangen ist — Ihre persönliche Einladung schicken wir dann genau dorthin.',
+      'Sie haben diesen Link aus einem Rundschreiben der Familie — einer Rundmail oder der Familienzeitschrift. Geben Sie hier die E-Mail-Adresse ein, unter der die Familie Sie erreicht; Ihre persönliche Einladung schicken wir dann genau dorthin.',
     email: 'Ihre E-Mail-Adresse',
     emailHint:
-      'Die Adresse, unter der Sie die Rundmail bekommen haben. An eine andere können wir nichts schicken.',
+      'Die Adresse, unter der Sie Post von der Familie bekommen. An eine andere können wir nichts schicken.',
     submit: 'Einladung anfordern',
     sending: 'Wird gesendet …',
     missing: 'Bitte geben Sie Ihre E-Mail-Adresse ein.',
@@ -548,6 +549,33 @@ export const de = {
       title: 'Bitte sehen Sie in Ihr Postfach',
       body:
         'Wenn diese Adresse zur Familie gehört, ist Ihre persönliche Einladung unterwegs. Der Link darin gilt nur für Sie und nur einmal — bitte geben Sie ihn nicht weiter. Sehen Sie auch im Spam-Ordner nach.',
+    },
+    noMail: 'Sie bekommen keine Post von der Familie an eine E-Mail-Adresse?',
+    askInstead: 'Zugang beantragen',
+    haveAccount: 'Sie haben schon einen Zugang?',
+    backToLogin: 'Zur Anmeldung',
+  },
+  request: {
+    title: 'Zugang zum Familienportal beantragen',
+    intro:
+      'Sagen Sie uns kurz, wer Sie sind. Wir legen nichts an und verschicken nichts — Ihre Angaben landen bei der Familienverwaltung, und ein Mensch entscheidet und schreibt Ihnen.',
+    name: 'Ihr Name',
+    nameHint: 'So, wie die Familie Sie kennt.',
+    email: 'Ihre E-Mail-Adresse',
+    emailHint: 'Dorthin ginge Ihre Einladung, wenn eine ausgestellt wird.',
+    reference: 'Ihre SB-Nummer (wenn Sie sie kennen)',
+    referenceHint:
+      'Die Nummer, die in der Familienzeitschrift neben Ihrem Namen steht, zum Beispiel 22/1a32.124. Passt sie zu genau einem Eintrag, ist Ihr Zugang gleich mit ihm verknüpft. Ohne geht es auch.',
+    note: 'Wie gehören Sie zur Familie? (freiwillig)',
+    noteHint:
+      'Zwei Sätze genügen — etwa die Eltern oder Großeltern, über die Sie dazugehören. Das hilft der Person, die Ihren Antrag liest.',
+    submit: 'Antrag absenden',
+    sending: 'Wird gesendet …',
+    missing: 'Bitte geben Sie Ihren Namen und Ihre E-Mail-Adresse ein.',
+    sent: {
+      title: 'Ihr Antrag ist angekommen',
+      body:
+        'Die Familienverwaltung sieht ihn sich an und meldet sich bei Ihnen. Das kann ein paar Tage dauern — es liest ein Mensch, keine Maschine. Sie müssen nichts weiter tun.',
     },
     haveAccount: 'Sie haben schon einen Zugang?',
     backToLogin: 'Zur Anmeldung',

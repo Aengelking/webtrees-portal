@@ -108,7 +108,24 @@ export function ClaimInvitation() {
             {sending ? t('claim.sending') : t('claim.submit')}
           </Button>
 
+          {/*
+            The way on for somebody this page cannot help.
+
+            An address on none of the family's lists gets the same answer as
+            one that is on them, which is the point — but it also means this
+            screen is a dead end for a reader the lists have never held, and a
+            notice in the family magazine reaches plenty of those. Offered to
+            everybody, before they try and hear nothing: who it is *for* is
+            exactly what this page must not appear to know.
+          */}
           <p className="mt-6 text-base text-slate-700">
+            {t('claim.noMail')}{' '}
+            <Link to="/zugang" className="font-semibold text-sky-800 underline">
+              {t('claim.askInstead')}
+            </Link>
+          </p>
+
+          <p className="mt-4 text-base text-slate-700">
             {t('claim.haveAccount')}{' '}
             <Link to="/login" className="font-semibold text-sky-800 underline">
               {t('claim.backToLogin')}

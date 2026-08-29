@@ -600,6 +600,23 @@ export const api = {
     })
   },
 
+  /**
+   * Ask for a way in, when no list holds this address.
+   *
+   * Nothing is created and nothing is sent: this writes a line into a queue an
+   * administrator reads. The answer is the same whatever the server made of
+   * it — including "nothing", for a request with no address in it — so there
+   * is nothing here for the screen to branch on.
+   */
+  requestAccess(details: {
+    name: string
+    email: string
+    reference: string
+    note: string
+  }): Promise<{ status: string }> {
+    return request<{ status: string }>('/access-request', { method: 'POST', body: details })
+  },
+
   previewInvitation(token: string): Promise<InvitationPreview> {
     return request<InvitationPreview>('/invitation/preview', { method: 'POST', body: { token } })
   },

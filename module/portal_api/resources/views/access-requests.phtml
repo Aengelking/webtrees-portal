@@ -1,0 +1,187 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Tree;
+
+/**
+ * @var array<int,array<string,mixed>> $open
+ * @var array<int,array<string,mixed>> $handled
+ * @var array<int,string>              $issuers
+ * @var string                         $form_url
+ * @var string                         $form_qr
+ * @var PortalApiModule                $module
+ * @var string                         $new_link
+ * @var string                         $settings_url
+ * @var string                         $title
+ * @var Tree                           $tree
+ */
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('A campaign can invite somebody automatically because the mailing list has already answered the hard question: an address on it belongs to the family. A notice in the family magazine reaches further than any list does, and for a reader who is on none of them the campaign page is a dead end on purpose — it must not become a way of asking who belongs here.') ?>
+</p>
+
+<p>
+    <?= I18N::translate('So they can write instead, and this is where that arrives. Nothing was created and nothing was sent: what follows is what somebody typed, and whether it becomes an invitation is your decision. Where they gave an archive number that names exactly one record, it is shown beside them, and the invitation can be issued against it so the account arrives already linked.') ?>
+</p>
+
+<?php if ($form_url === '') : ?>
+    <div class="alert alert-danger">
+        <?= I18N::translate('The portal address is not set, so the page they would write from has no address. Set it in the module preferences first.') ?>
+    </div>
+<?php else : ?>
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h5"><?= I18N::translate('What to print in the magazine') ?></h2>
+
+            <p>
+                <?= I18N::translate('This address opens the form. It grants nothing and may be printed anywhere — beside it is the same address as a square to point a telephone at, because nobody types a link out of a magazine.') ?>
+            </p>
+
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <input class="form-control" type="text" readonly value="<?= e($form_url) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Address of the form') ?>">
+                </div>
+                <?php if ($form_qr !== '') : ?>
+                    <div class="col-md-4 text-center mt-3 mt-md-0">
+                        <?= $form_qr /* Drawn here from the address above; see Services/QrCode.php. */ ?>
+                    </div>
+                <?php endif ?>
+            </div>
+        </div>
+    </div>
+<?php endif ?>
+
+<?php if ($new_link !== '') : ?>
+    <div class="alert alert-success">
+        <h2 class="h5"><?= I18N::translate('The invitation is ready') ?></h2>
+
+        <p>
+            <?= I18N::translate('Send this link to the address that asked for it, and to nobody else. It is shown once — only a hash of it is kept — so copy it now. If it is lost, withdraw the invitation on the invitations screen and issue another.') ?>
+        </p>
+
+        <input class="form-control" type="text" readonly value="<?= e($new_link) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Invitation link') ?>">
+    </div>
+<?php endif ?>
+
+<h2 class="h5 mt-4"><?= I18N::translate('Waiting for an answer') ?></h2>
+
+<?php if ($open === []) : ?>
+    <p class="text-muted"><?= I18N::translate('Nobody is waiting.') ?></p>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th><?= I18N::translate('Asked') ?></th>
+                    <th><?= I18N::translate('Name') ?></th>
+                    <th><?= I18N::translate('In the archive') ?></th>
+                    <th><?= I18N::translate('Email') ?></th>
+                    <th><?= I18N::translate('What they wrote') ?></th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($open as $entry) : ?>
+                    <?php $individual = $entry['individual']; ?>
+                    <tr>
+                        <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make((int) $entry['created_at'])]) ?></td>
+                        <td><?= e($entry['name']) ?></td>
+                        <td>
+                            <?php if ($individual instanceof Individual) : ?>
+                                <a href="<?= e($individual->url()) ?>"><?= $individual->fullName() ?></a>
+                            <?php elseif ($entry['reference'] !== '') : ?>
+                                <span class="text-muted"><?= I18N::translate('%s names no single record', e($entry['reference'])) ?></span>
+                            <?php else : ?>
+                                <span class="text-muted"><?= I18N::translate('No number given') ?></span>
+                            <?php endif ?>
+                        </td>
+                        <td><?= e($entry['email']) ?></td>
+                        <td><?= e($entry['note']) ?></td>
+                        <td class="text-end text-nowrap">
+                            <?php if ($individual instanceof Individual) : ?>
+                                <form method="post" class="d-inline">
+                                    <input type="hidden" name="request_id" value="<?= (int) $entry['id'] ?>">
+                                    <input type="hidden" name="xref" value="<?= e($individual->xref()) ?>">
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        <?= I18N::translate('Invite and link') ?>
+                                    </button>
+                                    <?= csrf_field() ?>
+                                </form>
+                            <?php endif ?>
+
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="request_id" value="<?= (int) $entry['id'] ?>">
+                                <input type="hidden" name="xref" value="">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <?= I18N::translate('Invite without a record') ?>
+                                </button>
+                                <?= csrf_field() ?>
+                            </form>
+
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="request_action" value="decline">
+                                <input type="hidden" name="request_id" value="<?= (int) $entry['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <?= I18N::translate('Put aside') ?>
+                                </button>
+                                <?= csrf_field() ?>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="text-muted">
+        <?= I18N::translate('“Put aside” tells nobody anything. There is no refusal to send, because there is nothing here anybody was promised — and an answer would say that this address reached the family, which is what the form is careful not to say.') ?>
+    </p>
+<?php endif ?>
+
+<?php if ($handled !== []) : ?>
+    <h2 class="h5 mt-5"><?= I18N::translate('Already answered') ?></h2>
+
+    <p class="text-muted">
+        <?= I18N::translate('Kept for ninety days, because “who let this person in, and on what grounds” is asked afterwards.') ?>
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th><?= I18N::translate('Answered') ?></th>
+                    <th><?= I18N::translate('Name') ?></th>
+                    <th><?= I18N::translate('Email') ?></th>
+                    <th><?= I18N::translate('Decision') ?></th>
+                    <th><?= I18N::translate('By') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($handled as $entry) : ?>
+                    <tr class="text-muted">
+                        <td><?= view('components/datetime', ['timestamp' => Registry::timestampFactory()->make((int) $entry['handled_at'])]) ?></td>
+                        <td><?= e($entry['name']) ?></td>
+                        <td><?= e($entry['email']) ?></td>
+                        <td>
+                            <?= $entry['outcome'] === 'invited' ? I18N::translate('Invited') : I18N::translate('Put aside') ?>
+                        </td>
+                        <td><?= e($issuers[$entry['handled_by']] ?? '') ?></td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>

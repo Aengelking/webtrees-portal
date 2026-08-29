@@ -73,16 +73,17 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
 `DELETE /me/connection-links/{id}`, `GET|PATCH /me/mailing-lists`,
-`POST /invitation/claim`, `GET /search`, `GET /index`, `GET /relationship`,
-`GET /health`.
+`POST /invitation/claim`, `POST /access-request`, `GET /search`,
+`GET /index`, `GET /relationship`, `GET /health`.
 
 Outside that contract, and outside `openapi.yaml` with it: `POST /api/mcp`,
 which speaks JSON-RPC rather than REST and versions itself per connection.
 
-Screens: login, accept an invitation, forgotten password, set a new password,
-My profile, edit my details, person, ancestors, Stammbaum (search the archive,
-the surname and place indexes, and the archive-number calculator), Contacts
-(with the directory search in it), the member directory, member detail,
+Screens: login, accept an invitation, ask for access, forgotten password,
+set a new password, My profile, edit my details, person, ancestors,
+Stammbaum (search the archive, the surname and place indexes, and the
+archive-number calculator), Contacts (with the directory search in it),
+the member directory, member detail,
 Messages, connect (where a scanned code lands), invite close family, Settings.
 
 What a member may change about themselves: given names, surname, date and

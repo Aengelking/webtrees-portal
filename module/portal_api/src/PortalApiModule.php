@@ -11,6 +11,7 @@ use Engelking\Webtrees\PortalApi\Http\Middleware\RequireMcpToken;
 use Engelking\Webtrees\PortalApi\Http\Middleware\RequireProxySecret;
 use Engelking\Webtrees\PortalApi\Http\Middleware\ResumeRememberedSession;
 use Engelking\Webtrees\PortalApi\Http\Middleware\UsePortalLanguage;
+use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AccessRequestCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\AncestorsRead;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeCreate;
 use Engelking\Webtrees\PortalApi\Http\RequestHandlers\ConnectionCodeDelete;
@@ -69,6 +70,7 @@ use Engelking\Webtrees\PortalApi\Http\RequestHandlers\SessionDelete;
 use Engelking\Webtrees\PortalApi\Mcp\ArchiveTools;
 use Engelking\Webtrees\PortalApi\Mcp\Server as McpServer;
 use Engelking\Webtrees\PortalApi\Services\AccountOverview;
+use Engelking\Webtrees\PortalApi\Services\AccessRequests;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\ArchiveNotes;
 use Engelking\Webtrees\PortalApi\Services\ArchivePresenter;
@@ -98,6 +100,7 @@ use Engelking\Webtrees\PortalApi\Services\PendingChanges;
 use Engelking\Webtrees\PortalApi\Services\PhotoPresenter;
 use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
+use Engelking\Webtrees\PortalApi\Services\QrCode;
 use Engelking\Webtrees\PortalApi\Services\Recognition;
 use Engelking\Webtrees\PortalApi\Services\Offices;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
@@ -169,7 +172,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.4.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 19;
+    private const int SCHEMA_VERSION = 20;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -436,6 +439,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $user_service,
             $container->get(EmailService::class),
         );
+        $access_requests = new AccessRequests($tree_search);
         $devices        = new RememberedDevices($this, $user_service);
 
         // The family archive over MCP. Everything below reads it and nothing
@@ -491,6 +495,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(McpRead::class, new McpRead());
         $container->set(RequireMcpToken::class, new RequireMcpToken($this, $mcp_tokens));
         $container->set(InvitationClaimCreate::class, new InvitationClaimCreate($campaigns, $container->get(RateLimitService::class)));
+        $container->set(AccessRequests::class, $access_requests);
+        $container->set(AccessRequestCreate::class, new AccessRequestCreate($access_requests, $container->get(RateLimitService::class)));
         $container->set(MailingListRead::class, new MailingListRead($mailing_lists));
         $container->set(MailingListUpdate::class, new MailingListUpdate($mailing_lists));
         $container->set(PushRead::class, new PushRead($push));
@@ -844,6 +850,15 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $map->post(InvitationAccept::class, self::ROUTE_PREFIX . '/invitation/accept', InvitationAccept::class)
             ->extras(['middleware' => $unsafe]);
 
+        // The way in for somebody no list holds — a notice in the family
+        // magazine reaches further than any of them. It creates nothing and
+        // sends nothing; an administrator reads what it wrote down. CSRF
+        // applies (unlike the campaign's page, which is answering a letter the
+        // family sent): this one leaves something behind for a person to read,
+        // so a little friction in front of it is the right price.
+        $map->post(AccessRequestCreate::class, self::ROUTE_PREFIX . '/access-request', AccessRequestCreate::class)
+            ->extras(['middleware' => $unsafe]);
+
         // The family archive, over MCP.
         //
         // Its own chain, and shorter than any of the others. No CSRF token,
@@ -927,6 +942,8 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'sack_branches_default'  => SackNumbers::DEFAULT_BRANCHES,
             'invitations_url'   => $this->invitationsUrl(),
             'campaigns_url'     => $this->campaignsUrl(),
+            'requests_url'      => $this->accessRequestsUrl(),
+            'requests_open'     => Registry::container()->get(AccessRequests::class)->openCount(),
             'diagnosis_url'     => $this->diagnosisUrl(),
             'accounts_url'      => $this->accountsUrl(),
             'offices_url'       => $this->officesUrl(),
@@ -1159,7 +1176,9 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'campaigns'    => $campaigns->all(),
             'lists'        => $container->get(DistributionLists::class)->configured(),
             'new_link'     => $new_link,
+            'new_qr'       => QrCode::svg($new_link),
             'letter'       => $new_link === '' ? '' : $this->suggestedLetter($new_link),
+            'requests_url' => $this->accessRequestsUrl(),
             'portal_url'   => $this->getPreference(self::SETTING_PORTAL_URL, ''),
             'settings_url' => $this->getConfigLink(),
         ]);
@@ -1216,6 +1235,125 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         }
 
         Session::put('portal_api_new_campaign', $campaigns->link($campaigns->create($name, $lists, $days, Auth::user())));
+    }
+
+    // -----------------------------------------------------------------
+    // Answering the people no list holds (administrators only)
+    //
+    // Same access rule as the screens above: webtrees refuses any action whose
+    // name contains "Admin" to anybody who is not one, before the method is
+    // called. The names must keep the word.
+    // -----------------------------------------------------------------
+
+    /** Who has asked for a way in, and what came of the ones already answered. */
+    public function getAdminAccessRequestsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $requests  = $container->get(AccessRequests::class);
+        $tree      = $container->get(PortalTreeService::class)->tree();
+
+        // Shown once and then forgotten, exactly as on the invitations screen
+        // and for the same reason: a token in a URL is a token in the
+        // webserver's access log.
+        $new_link = Session::get('portal_api_new_invitation', '');
+        $new_link = is_string($new_link) ? $new_link : '';
+        Session::forget('portal_api_new_invitation');
+
+        $portal_url = rtrim($this->getPreference(self::SETTING_PORTAL_URL, ''), '/');
+        $form_url   = $portal_url === '' ? '' : $portal_url . '/zugang';
+
+        return $this->viewResponse($this->name() . '::access-requests', [
+            'title'        => I18N::translate('Requests for access'),
+            'module'       => $this,
+            'tree'         => $tree,
+            'open'         => $requests->open($tree),
+            'handled'      => $requests->handled($tree),
+            'issuers'      => $this->issuerNames(),
+            'new_link'     => $new_link,
+            'form_url'     => $form_url,
+            'form_qr'      => QrCode::svg($form_url),
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    /** Invite one of them, or put one aside, then redirect back. */
+    public function postAdminAccessRequestsAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body = Validator::parsedBody($request);
+        $id   = $body->integer('request_id', 0);
+
+        if ($body->string('request_action', '') === 'decline') {
+            $this->declineAccessRequest($id);
+        } else {
+            $this->inviteAccessRequest($id, $body->string('xref', ''));
+        }
+
+        return redirect($this->accessRequestsUrl());
+    }
+
+    /**
+     * Turn a request into an invitation.
+     *
+     * The record is what the screen offered — the one its archive number
+     * names, or none — and it is posted back rather than looked up again, so
+     * that an administrator who saw "nobody" and decided to invite anyway gets
+     * what they decided rather than what the number does today.
+     */
+    private function inviteAccessRequest(int $id, string $xref): void
+    {
+        $container = Registry::container();
+        $requests  = $container->get(AccessRequests::class);
+        $row       = $requests->find($id);
+
+        if ($row === null) {
+            FlashMessages::addMessage(I18N::translate('That request has already been answered.'), 'danger');
+
+            return;
+        }
+
+        $before = Session::get('portal_api_new_invitation', '');
+
+        $this->issueInvitation($xref, (string) $row->email);
+
+        // `issueInvitation()` puts the link in the session and says nothing on
+        // failure but a flash message. If it did not get that far — no portal
+        // address, a record that has gone — the request stays open, because
+        // marking it answered when nothing was sent is how somebody waits for
+        // a letter that was never written.
+        if (Session::get('portal_api_new_invitation', '') === $before) {
+            return;
+        }
+
+        $requests->close($id, 'invited', Auth::user());
+
+        // Cleared out here rather than by a scheduled job, as the invitations
+        // screen does with old invitations: this is a page where somebody is
+        // already thinking about who has been let in.
+        $requests->prune();
+
+        FlashMessages::addMessage(I18N::translate('The invitation has been issued. Send the link below to the address that asked for it.'), 'success');
+    }
+
+    private function declineAccessRequest(int $id): void
+    {
+        $container = Registry::container();
+        $requests  = $container->get(AccessRequests::class);
+
+        if ($requests->find($id) === null) {
+            return;
+        }
+
+        $requests->close($id, 'declined', Auth::user());
+        $requests->prune();
+
+        FlashMessages::addMessage(I18N::translate('The request has been put aside. Nobody was told anything.'), 'success');
+    }
+
+    private function accessRequestsUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminAccessRequests']);
     }
 
     /**
