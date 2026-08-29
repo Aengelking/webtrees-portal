@@ -83,7 +83,7 @@ describe('answering the letter that went to a mailing list', () => {
     await userEvent.type(await screen.findByLabelText(/E-Mail-Adresse/), 'anna@example.test')
     await userEvent.click(screen.getByRole('button', { name: 'Einladung anfordern' }))
 
-    expect(await screen.findByText(/Bitte sehen Sie in Ihr Postfach/)).toBeDefined()
+    expect(await screen.findByText(/Bitte sieh in dein Postfach/)).toBeDefined()
     expect(posted).toEqual([{ campaign: 'abc123', email: 'anna@example.test' }])
   })
 
@@ -99,7 +99,7 @@ describe('answering the letter that went to a mailing list', () => {
     await userEvent.type(await screen.findByLabelText(/E-Mail-Adresse/), 'fremder@example.test')
     await userEvent.click(screen.getByRole('button', { name: 'Einladung anfordern' }))
 
-    await screen.findByText(/Bitte sehen Sie in Ihr Postfach/)
+    await screen.findByText(/Bitte sieh in dein Postfach/)
 
     expect(container.textContent).toMatch(/Wenn diese Adresse zur Familie gehört/)
     expect(container.textContent).not.toMatch(/nicht gefunden|unbekannt|steht nicht/i)
@@ -128,7 +128,7 @@ describe('answering the letter that went to a mailing list', () => {
     await userEvent.type(await screen.findByLabelText(/E-Mail-Adresse/), 'anna@example.test')
     await userEvent.click(screen.getByRole('button', { name: 'Einladung anfordern' }))
 
-    expect(await screen.findByText(/Bitte sehen Sie in Ihr Postfach/)).toBeDefined()
+    expect(await screen.findByText(/Bitte sieh in dein Postfach/)).toBeDefined()
     expect(posted).toEqual([{ campaign: '', email: 'anna@example.test' }])
   })
 })
@@ -176,7 +176,7 @@ describe('choosing the language on the way in', () => {
     await userEvent.type(await screen.findByLabelText(/E-Mail-Adresse/), 'anna@example.test')
     await userEvent.click(screen.getByRole('button', { name: 'Einladung anfordern' }))
 
-    await screen.findByText(/Bitte sehen Sie in Ihr Postfach/)
+    await screen.findByText(/Bitte sieh in dein Postfach/)
 
     await userEvent.click(screen.getByRole('button', { name: 'English' }))
 

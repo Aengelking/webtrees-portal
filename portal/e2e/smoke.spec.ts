@@ -73,7 +73,7 @@ test.describe('the smoke path', () => {
     await page.getByRole('link', { name: /Bertha Beispiel/ }).first().click()
 
     await expect(page.getByRole('heading', { name: 'Bertha Beispiel' })).toBeVisible()
-    await expect(page.getByText('Für Sie: Ihre Mutter')).toBeVisible()
+    await expect(page.getByText('Für dich: Mutter')).toBeVisible()
 
     // And the pedigree, which is one request rather than fifteen.
     await page.goBack()
@@ -85,8 +85,8 @@ test.describe('the smoke path', () => {
     // The fixture's father is a placeholder and the mother is not, so this
     // covers both shapes of rung in one screen.
     await expect(page.getByRole('heading', { name: 'Eltern' })).toBeVisible()
-    await expect(page.getByText('Ihre Mutter')).toBeVisible()
-    await expect(page.getByText('Ihr Vater')).toBeVisible()
+    await expect(page.getByText('Deine Mutter')).toBeVisible()
+    await expect(page.getByText('Dein Vater')).toBeVisible()
     // Exact: the same words appear in the privacy note under the list.
     await expect(page.getByText('Nicht freigegeben', { exact: true })).toBeVisible()
   })
@@ -110,7 +110,7 @@ test.describe('the smoke path', () => {
     const card = page.getByRole('link', { name: /Bertha Beispiel/ })
     await expect(card).toBeVisible()
     await expect(card).toContainText('SB 4712')
-    await expect(card).toContainText('Für Sie: Ihre Großmutter')
+    await expect(card).toContainText('Für dich: Großmutter')
 
     // The archive number finds her too, which is how this family quotes
     // people to each other.
@@ -148,7 +148,7 @@ test.describe('the smoke path', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click()
 
     await expect(page.getByRole('alert')).toHaveText(
-      'Benutzername oder Passwort ist falsch. Bitte versuchen Sie es noch einmal.',
+      'Benutzername oder Passwort ist falsch. Bitte versuche es noch einmal.',
     )
   })
 
@@ -220,7 +220,7 @@ test.describe('the smoke path', () => {
 
     // The address the post goes to is on the screen; the list's own address is
     // not, and never leaves the server.
-    await expect(page.getByText(/Sie bekommen diese Rundmails an anna@example\.test/)).toBeVisible()
+    await expect(page.getByText(/Du bekommst diese Rundmails an anna@example\.test/)).toBeVisible()
   })
 
   test('signing out closes the door', async ({ page }) => {
@@ -262,7 +262,7 @@ test.describe('phase 2', () => {
 
     // Back on the profile, told the change is not live yet.
     await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
-    await expect(page.getByText('Ihre Änderung wird geprüft')).toBeVisible()
+    await expect(page.getByText('Deine Änderung wird geprüft')).toBeVisible()
 
     // And the form is not offered again while one is outstanding.
     await expect(page.getByRole('link', { name: 'Meine Daten ändern' })).toBeHidden()
@@ -287,7 +287,7 @@ test.describe('phase 2', () => {
     await page.getByLabel('E-Mail-Adresse').fill('niemand@example.test')
     await page.getByRole('button', { name: 'Link anfordern' }).click()
 
-    await expect(page.getByText('Bitte sehen Sie in Ihr Postfach')).toBeVisible()
+    await expect(page.getByText('Bitte sieh in dein Postfach')).toBeVisible()
   })
 
   test('a reset link with no token explains itself', async ({ page }) => {
@@ -357,7 +357,7 @@ test.describe('phase 7', () => {
     // be picked — and picked by value, because that is what the form sends.
     const chooser = page.getByLabel('Person auswählen')
 
-    await expect(chooser.getByRole('option', { name: /Ihr Bruder — Dieter Beispiel/ })).toHaveCount(1)
+    await expect(chooser.getByRole('option', { name: /Bruder — Dieter Beispiel/ })).toHaveCount(1)
     await chooser.selectOption('X4')
     await page.getByRole('button', { name: 'Einladung erstellen' }).click()
 
@@ -507,7 +507,7 @@ test.describe('phase 9', () => {
     await expect(page).toHaveURL(/\/conversations\//)
 
     // And again next to the box, for everybody who never came this way.
-    await expect(page.getByText(/weder Ihr Name noch der Text/)).toBeVisible()
+    await expect(page.getByText(/weder dein Name noch der Text/)).toBeVisible()
   })
 
   test('each contact detail has its own audience', async ({ page }) => {
@@ -552,7 +552,7 @@ test.describe('phase 9', () => {
 
     // Saved, and back to the reading view with the address on one card and
     // its lines in the order an envelope would have them.
-    await expect(page.getByText('Ihre Kontaktdaten sind gespeichert.')).toBeVisible()
+    await expect(page.getByText('Deine Kontaktdaten sind gespeichert.')).toBeVisible()
     await expect(page.getByText('Musterstraße 12', { exact: false })).toBeVisible()
     await expect(page.getByText('29223 Celle', { exact: false })).toBeVisible()
   })
@@ -599,7 +599,7 @@ test.describe('phase 10', () => {
     // Before the button, not after it.
     await expect(page.getByText(/als Absenderadresse mitgeschickt/)).toBeVisible()
 
-    await page.getByLabel('Ihre Antwort').fill('Ja, sehr gern.')
+    await page.getByLabel('Deine Antwort').fill('Ja, sehr gern.')
     await page.getByRole('button', { name: 'Antwort senden' }).click()
 
     await expect(page.getByText(/Eine Kopie wird hier nicht aufbewahrt/)).toBeVisible()
@@ -688,11 +688,11 @@ test.describe('phase 11', () => {
 
     // Nothing is issued until it is asked for: this one travels through
     // somebody else's inbox.
-    await expect(page.getByLabel('Ihr Link')).toBeHidden()
+    await expect(page.getByLabel('Dein Link')).toBeHidden()
 
     await page.getByRole('button', { name: 'Link erzeugen' }).click()
 
-    await expect(page.getByLabel('Ihr Link')).toHaveValue(
+    await expect(page.getByLabel('Dein Link')).toHaveValue(
       'https://portal.example.test/connect?code=link-fuer-anna',
     )
     await expect(page.getByText(/funktioniert genau einmal/)).toBeVisible()
@@ -711,7 +711,7 @@ test.describe('phase 11', () => {
     await expect(page.getByRole('heading', { name: 'Verbinden' })).toBeVisible()
     await page.getByRole('button', { name: 'Jetzt verbinden' }).click()
 
-    await expect(page.getByText(/Sie sind jetzt mit Emil Beispiel verbunden/)).toBeVisible()
+    await expect(page.getByText(/Du bist jetzt mit Emil Beispiel verbunden/)).toBeVisible()
   })
 })
 
@@ -739,7 +739,7 @@ test.describe('phase 12', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Dieter Beispiel' })).toBeVisible()
     await expect(page.getByText('Hast du die Fotos von Oma gesehen?')).toBeVisible()
 
-    await page.getByLabel('Ihre Nachricht').fill('Ja, ich komme!')
+    await page.getByLabel('Deine Nachricht').fill('Ja, ich komme!')
     await page.getByRole('button', { name: 'Senden' }).click()
 
     await expect(page.getByText('Ja, ich komme!')).toBeVisible()
@@ -768,7 +768,7 @@ test.describe('phase 12', () => {
     await page.getByRole('button', { name: 'Dieter Beispiel' }).click()
 
     await expect(page).toHaveURL(/\/conversations\/3$/)
-    await page.getByLabel('Ihre Nachricht').fill('Sehen wir uns Sonntag?')
+    await page.getByLabel('Deine Nachricht').fill('Sehen wir uns Sonntag?')
     await page.getByRole('button', { name: 'Senden' }).click()
 
     await expect(page.getByText('Sehen wir uns Sonntag?')).toBeVisible()

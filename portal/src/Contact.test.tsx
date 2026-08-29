@@ -262,7 +262,7 @@ describe('my own contact details', () => {
     renderAt('/settings')
     await openTheForm()
 
-    expect(await screen.findByText(/Zum endgültigen Löschen leeren Sie das Feld/)).toBeDefined()
+    expect(await screen.findByText(/Zum endgültigen Löschen leere das Feld/)).toBeDefined()
   })
 
   /**
@@ -419,7 +419,7 @@ describe('writing to another member', () => {
     renderAt('/members/7')
 
     expect(await screen.findByText(/nur, dass eine Nachricht im Portal wartet/)).toBeDefined()
-    expect(screen.getByText(/Ihre E-Mail-Adresse wird nicht mitgeschickt/)).toBeDefined()
+    expect(screen.getByText(/Deine E-Mail-Adresse wird nicht mitgeschickt/)).toBeDefined()
   })
 
   /**

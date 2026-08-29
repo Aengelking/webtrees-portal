@@ -78,7 +78,7 @@ const DIETER: Connection = {
       image_url: '/api/v1/media/M9/1/large',
     },
     references: [{ number: '4714', type: 'SB', branch: null }],
-    relationship: 'Ihr Bruder',
+    relationship: 'Bruder',
   },
   since: '2026-08-01T10:00:00+00:00',
 }
@@ -281,7 +281,7 @@ describe('my contacts', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Link erzeugen' }))
 
-    const field = await screen.findByLabelText('Ihr Link')
+    const field = await screen.findByLabelText('Dein Link')
 
     expect(field).toHaveProperty('value', 'https://portal.example.test/connect?code=post-link')
 
@@ -580,8 +580,8 @@ describe('my contacts', () => {
     await userEvent.type(screen.getByLabelText('Nummer'), '1335.21')
     await userEvent.click(screen.getByRole('button', { name: 'Anfrage senden' }))
 
-    expect(await screen.findByText(/Sie sind bereits verbunden/)).toBeDefined()
-    expect(screen.queryByText(/Ihre Anfrage ist bei/)).toBeNull()
+    expect(await screen.findByText(/du bist bereits verbunden/)).toBeDefined()
+    expect(screen.queryByText(/Deine Anfrage ist bei/)).toBeNull()
   })
 
   /**
@@ -1106,7 +1106,7 @@ describe('what a contact’s row says', () => {
 
     const row = await screen.findByRole('link', { name: /Dieter Beispiel/ })
 
-    expect(row.textContent).toContain('Für Sie: Ihr Bruder')
+    expect(row.textContent).toContain('Für dich: Bruder')
     expect(row.textContent).toContain('SB 4714')
   })
 
@@ -1118,7 +1118,7 @@ describe('what a contact’s row says', () => {
     const row = await screen.findByRole('link', { name: /Karla Beispiel/ })
 
     expect(row.querySelector('img')).toBeNull()
-    expect(row.textContent).not.toContain('Für Sie:')
+    expect(row.textContent).not.toContain('Für dich:')
   })
 })
 
@@ -1134,7 +1134,7 @@ describe('connecting by archive number', () => {
     await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '24')
     await userEvent.type(screen.getByLabelText('Nummer'), 'b6')
 
-    expect(await screen.findByText('Für Sie: Cousin/Cousine 2. Grades')).toBeDefined()
+    expect(await screen.findByText('Für dich: Cousin/Cousine 2. Grades')).toBeDefined()
   })
 
   /**
@@ -1148,7 +1148,7 @@ describe('connecting by archive number', () => {
     await userEvent.selectOptions(await screen.findByLabelText('Zweig'), '24')
     await userEvent.type(screen.getByLabelText('Nummer'), 'b6')
 
-    await screen.findByText('Für Sie: Cousin/Cousine 2. Grades')
+    await screen.findByText('Für dich: Cousin/Cousine 2. Grades')
 
     expect(screen.getByText(/sagt nichts darüber, ob diese Nummer vergeben ist/)).toBeDefined()
   })

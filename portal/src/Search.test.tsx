@@ -71,7 +71,7 @@ const BERTHA = {
   is_deceased: true,
   lifespan: '1889–1976',
   references: [{ number: '4712', type: 'SB', branch: null }],
-  relationship: 'Ihre Großmutter',
+  relationship: 'Großmutter',
 }
 
 const CALCULATION = {
@@ -167,7 +167,7 @@ describe('searching the archive', () => {
 
     expect(card.textContent).toContain('1889–1976')
     expect(card.textContent).toContain('SB 4712')
-    expect(card.textContent).toContain('Für Sie: Ihre Großmutter')
+    expect(card.textContent).toContain('Für dich: Großmutter')
   })
 
   it('opens the person it found', async () => {

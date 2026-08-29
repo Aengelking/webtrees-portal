@@ -71,7 +71,7 @@ const READABLE = {
     lifespan: '1990–',
     portrait: null,
     references: [],
-    relationship: 'Ihr Bruder',
+    relationship: 'Bruder',
     office: 'Vorsitzender des Vorstands',
   },
 }
