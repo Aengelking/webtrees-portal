@@ -13,6 +13,12 @@ import { forgetCsrfToken, setUnauthenticatedHandler } from '../api/client'
  *
  * It costs nothing when a test passes, and a test that is genuinely broken
  * still fails — four seconds later.
+ *
+ * **This number is half of a pair.** vitest's `testTimeout` governs the whole
+ * test and has to stay comfortably above it, or the permission granted here is
+ * not real: for a while both were five seconds, and a `findBy…` that needed
+ * four left one second for everything else. See `vite.config.ts` and NOTES
+ * §2.90 — raising one without the other is not a change.
  */
 configure({ asyncUtilTimeout: 5000 })
 
