@@ -73,6 +73,7 @@ use Engelking\Webtrees\PortalApi\Services\AccountOverview;
 use Engelking\Webtrees\PortalApi\Services\AccessRequests;
 use Engelking\Webtrees\PortalApi\Services\AncestorTree;
 use Engelking\Webtrees\PortalApi\Services\ArchiveNotes;
+use Engelking\Webtrees\PortalApi\Services\ArchivePhotos;
 use Engelking\Webtrees\PortalApi\Services\ArchivePresenter;
 use Engelking\Webtrees\PortalApi\Services\ArchiveReader;
 use Engelking\Webtrees\PortalApi\Services\DeceasedOnly;
@@ -253,6 +254,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      */
     public const string SETTING_MCP       = 'mcp_server';
     public const string SETTING_MCP_NOTES = 'mcp_notes';
+    public const string SETTING_MCP_PHOTOS = 'mcp_photos';
 
     /**
      * How far a member may *see*, as opposed to how far they may invite.
@@ -448,7 +450,14 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $mcp_tokens     = new McpTokens($user_service);
         $deceased_only  = new DeceasedOnly();
         $archive_notes  = new ArchiveNotes($this);
-        $archive_shape  = new ArchivePresenter($presenter, $archive_notes, $deceased_only);
+        $archive_photos = new ArchivePhotos(
+            $this,
+            $portal_trees,
+            $photos,
+            $deceased_only,
+            $container->get(LinkedRecordService::class),
+        );
+        $archive_shape  = new ArchivePresenter($presenter, $archive_notes, $deceased_only, $archive_photos);
         $archive        = new ArchiveReader(
             $portal_trees,
             $archive_shape,
@@ -459,7 +468,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $container->get(LinkedRecordService::class),
             $relationships,
         );
-        $mcp_server     = new McpServer(new ArchiveTools($archive, $archive_notes), $this);
+        $mcp_server     = new McpServer(new ArchiveTools($archive, $archive_notes, $archive_photos), $this);
 
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
@@ -488,6 +497,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(McpTokens::class, $mcp_tokens);
         $container->set(DeceasedOnly::class, $deceased_only);
         $container->set(ArchiveNotes::class, $archive_notes);
+        $container->set(ArchivePhotos::class, $archive_photos);
         $container->set(ArchivePresenter::class, $archive_shape);
         $container->set(ArchiveReader::class, $archive);
         $container->set(McpServer::class, $mcp_server);
@@ -926,6 +936,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'remember_days'       => $this->getPreference(self::SETTING_REMEMBER_DAYS, (string) RememberedDevices::DEFAULT_DAYS),
             'mcp'                    => $this->getPreference(self::SETTING_MCP, '0'),
             'mcp_notes'              => $this->getPreference(self::SETTING_MCP_NOTES, '1'),
+            'mcp_photos'             => $this->getPreference(self::SETTING_MCP_PHOTOS, '0'),
             'mcp_url'                => $this->mcpUrl(),
             'mcp_tokens_url'         => $this->mcpTokensUrl(),
             'mailing_lists'          => $this->getPreference(self::SETTING_MAILING_LISTS, '0'),
@@ -976,6 +987,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $this->setPreference(self::SETTING_MCP, $body->boolean(self::SETTING_MCP, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MCP_NOTES, $body->boolean(self::SETTING_MCP_NOTES, false) ? '1' : '0');
+        $this->setPreference(self::SETTING_MCP_PHOTOS, $body->boolean(self::SETTING_MCP_PHOTOS, false) ? '1' : '0');
 
         $this->setPreference(self::SETTING_MAILING_LISTS, $body->boolean(self::SETTING_MAILING_LISTS, false) ? '1' : '0');
         $this->setPreference(self::SETTING_MAILING_LIST_ADDRESSES, trim(str_replace("\r\n", "\n", $body->string(self::SETTING_MAILING_LIST_ADDRESSES, ''))));
@@ -1541,6 +1553,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'issuers'      => $this->issuerNames(),
             'enabled'      => $this->getPreference(self::SETTING_MCP, '0') === '1',
             'notes'        => $this->getPreference(self::SETTING_MCP_NOTES, '1') === '1',
+            'photos'       => $this->getPreference(self::SETTING_MCP_PHOTOS, '0') === '1',
             'valid_days'   => McpTokens::DEFAULT_VALIDITY_DAYS,
             'new_token'    => is_string($new_token) ? $new_token : '',
             'mcp_url'      => $this->mcpUrl(),

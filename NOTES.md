@@ -5698,6 +5698,45 @@ wenn gar nichts erzwungen wird.
 
 ---
 
+### 2.93 Ein Foto ist kein Datensatz
+
+`get_photo` hands an assistant a picture. Three decisions are worth keeping.
+
+**The permission is borrowed, not written.** A photograph leaves only if
+`PhotoPresenter::visibleMedia()` put it on the record of somebody
+`DeceasedOnly` may name — the same call the portal's own gallery makes. That
+method went from private to public rather than being copied, which is the whole
+point: two opinions about who is in a photograph, kept in two places, agree
+until the day they don't, and the day they don't is not a day anybody notices.
+Everything behind it comes along unchanged — webtrees' privacy on the media
+object, the `RESN` on the link, and the consent a living person gave for a
+picture of themselves (`Schema/Migration9.php`).
+
+**And it is not enough, which is why the setting exists.** Every other answer
+this server gives is reasoned about a *record*, and the rule holds because a
+record belongs to one person. A photograph does not. A group picture on
+Bertha's page can show her living grandchildren; no code here knows that, and
+none can be written that would. So photographs are a separate preference,
+**default off**, described on the settings screen in those words rather than as
+a feature — and `Diagnosis` names them in its summary line only when they are
+on, because silence there should not be the thing that means "off".
+
+**Scaled down, and never up.** webtrees' `contain` fit is
+`ImageInterface::scale()`, which *enlarges* an image handed a box bigger than
+itself. A 200x150 scan asked to fill 1200x1200 would come back as 1200x900 —
+around 1400 visual tokens instead of 48, thirty times the cost for no
+information at all, spent on exactly the pictures that carry the least. So the
+box handed to webtrees is capped at the file's own dimensions, which takes one
+`getimagesizefromstring` on the original and is asserted directly: the test
+fetches a 448x88 fixture and requires 448x88 back.
+
+**Addressed `M3/<fact id>`**, the portal's own scheme. A media record may hold
+several files and an id naming only the record would make all but the first
+unreachable. The model never builds one — `get_person` hands them out — so the
+compound id costs nothing and reaches everything.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

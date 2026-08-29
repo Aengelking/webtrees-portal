@@ -13,21 +13,28 @@ use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\Diagnosis;
 use Engelking\Webtrees\PortalApi\Services\DiagnosisCheck;
 use Engelking\Webtrees\PortalApi\Services\McpTokens;
+use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Factories\CacheFactory;
 use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Media;
+use Fisharebest\Webtrees\MediaFile;
 use Fisharebest\Webtrees\Session;
+use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use Psr\Http\Message\ResponseInterface;
 use stdClass;
 
 use function array_column;
-use function array_filter;
-use function array_values;
+use function base64_decode;
+use function file_get_contents;
+use function getimagesizefromstring;
+use function str_repeat;
 use function json_decode;
 use function str_contains;
 use function time;
@@ -68,6 +75,7 @@ class McpTest extends PortalTestCase
 
         $this->module()->setPreference(PortalApiModule::SETTING_MCP, '1');
         $this->module()->setPreference(PortalApiModule::SETTING_MCP_NOTES, '1');
+        $this->writeMediaFiles();
 
         // A member, not a manager: the cautious end of what a token can be
         // issued for, and the level most of these assertions are about.
@@ -299,32 +307,108 @@ class McpTest extends PortalTestCase
         self::assertContains('list_index', $names);
     }
 
-    /**
-     * TEMPORARY — goes when `debug_test_image` goes.
-     *
-     * Two things, and the second is the one a decoded-to-arrays assertion
-     * would miss: the tool answers with an image block, and its argument
-     * schema says `"properties":{}` rather than `"properties":[]`. The schema
-     * has no arguments in it, which is exactly the shape PHP encodes wrong.
-     */
-    public function testTheImageProbeAnswersWithAnImage(): void
-    {
-        $result = $this->rawTool('debug_test_image', []);
-
-        self::assertSame('image', $result['content'][0]['type']);
-        self::assertSame('image/png', $result['content'][0]['mimeType']);
-        self::assertStringStartsWith('iVBORw0KGgo', $result['content'][0]['data']);
-
-        $listed = $this->decodeAsObjects($this->rpc('tools/list', []))->result->tools;
-        $probe  = array_values(array_filter($listed, static fn (object $tool): bool => $tool->name === 'debug_test_image'));
-
-        self::assertInstanceOf(stdClass::class, $probe[0]->inputSchema->properties);
-    }
-
     public function testEveryToolSaysItOnlyReads(): void
     {
         foreach ($this->rpcResult('tools/list', [])['tools'] as $tool) {
             self::assertTrue($tool['annotations']['readOnlyHint'], $tool['name'] . ' does not say it only reads');
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Photographs
+    // -----------------------------------------------------------------
+
+    public function testPhotographsAreOffUntilTheyAreSwitchedOn(): void
+    {
+        self::assertNotContains('get_photo', array_column($this->rpcResult('tools/list', [])['tools'], 'name'));
+        self::assertSame([], $this->tool('get_person', ['id' => 'X2'])['photos']);
+
+        $body = $this->json($this->call([
+            'jsonrpc' => '2.0',
+            'id'      => 9,
+            'method'  => 'tools/call',
+            'params'  => ['name' => 'get_photo', 'arguments' => ['id' => $this->photoId('M3')]],
+        ]));
+
+        self::assertSame(McpException::INVALID_PARAMS, $body['error']['code']);
+    }
+
+    public function testADeadWomansPhotographIsHandedOverAsAnImage(): void
+    {
+        $this->publishPhotos();
+
+        $listed = $this->tool('get_person', ['id' => 'X2'])['photos'];
+
+        self::assertCount(1, $listed);
+        self::assertSame($this->photoId('M3'), $listed[0]['id']);
+        self::assertSame('Bertha 1935', $listed[0]['title']);
+
+        $result = $this->rawTool('get_photo', ['id' => $listed[0]['id']]);
+
+        self::assertFalse($result['isError']);
+        self::assertSame('image', $result['content'][0]['type']);
+        self::assertSame('image/png', $result['content'][0]['mimeType']);
+        // Real image bytes, of the size the original is: 448x88 is under the
+        // cap, so nothing was scaled — least of all *up*, which is the thing
+        // webtrees' `contain` fit would do if it were handed the cap blindly.
+        $decoded = getimagesizefromstring((string) base64_decode($result['content'][0]['data'], true));
+
+        self::assertNotFalse($decoded);
+        self::assertSame([448, 88], [$decoded[0], $decoded[1]]);
+        self::assertSame('image/png', $decoded['mime']);
+        self::assertStringContainsString('Bertha 1935', $result['content'][1]['text']);
+        self::assertStringContainsString('448x88 pixels', $result['content'][1]['text']);
+    }
+
+    /**
+     * The caption names the dead the picture hangs on, and nobody else.
+     *
+     * Anna is alive and is linked to M1 and M2, not to M3 — but this asserts
+     * against the whole response text rather than the names list, because a
+     * leak that put her anywhere in it would be just as bad.
+     */
+    public function testAPhotographNamesOnlyTheDeadItHangsOn(): void
+    {
+        $this->publishPhotos();
+
+        $response = $this->call([
+            'jsonrpc' => '2.0',
+            'id'      => 10,
+            'method'  => 'tools/call',
+            'params'  => ['name' => 'get_photo', 'arguments' => ['id' => $this->photoId('M3')]],
+        ]);
+
+        $text = $this->raw($response);
+
+        self::assertStringContainsString('Bertha', $text);
+        self::assertStringNotContainsString('Anna', $text);
+    }
+
+    /**
+     * M1 hangs on Anna alone, who is alive, and M2 is confidential on top of
+     * that. Neither is listed anywhere and neither can be fetched by naming
+     * it — which is the whole rule, tested from the outside.
+     */
+    public function testALivingWomansPhotographsAreNeitherListedNorHandedOver(): void
+    {
+        $this->publishPhotos();
+
+        foreach (['M1', 'M2'] as $xref) {
+            $result = $this->rawTool('get_photo', ['id' => $this->photoId($xref)]);
+
+            self::assertTrue($result['isError'], $xref . ' was handed over');
+            self::assertStringContainsString('No such photograph', $result['content'][0]['text']);
+        }
+    }
+
+    public function testAPhotographIdThatIsNotOneIsRefusedTheSameWay(): void
+    {
+        $this->publishPhotos();
+
+        foreach (['M3', 'M3/zzz', '../../etc/passwd', 'M999/' . str_repeat('a', 32)] as $id) {
+            $result = $this->rawTool('get_photo', ['id' => $id]);
+
+            self::assertTrue($result['isError'], $id . ' was answered with something');
         }
     }
 
@@ -578,6 +662,7 @@ class McpTest extends PortalTestCase
             'issuers'      => [],
             'enabled'      => true,
             'notes'        => true,
+            'photos'       => true,
             'valid_days'   => McpTokens::DEFAULT_VALIDITY_DAYS,
             'new_token'    => McpTokens::PREFIX . 'abc',
             'mcp_url'      => 'https://portal.example.test/api/mcp',
@@ -751,5 +836,57 @@ class McpTest extends PortalTestCase
     private function decodeAsObjects(ResponseInterface $response): stdClass
     {
         return json_decode($this->raw($response), false, 32, JSON_THROW_ON_ERROR);
+    }
+
+    // -----------------------------------------------------------------
+    // Photographs
+    // -----------------------------------------------------------------
+
+    private function publishPhotos(): void
+    {
+        $this->module()->setPreference(PortalApiModule::SETTING_MCP_PHOTOS, '1');
+    }
+
+    /**
+     * The id `get_person` would hand out for a media record's first image.
+     *
+     * Built here through webtrees rather than hard-coded, because a fact id is
+     * a hash of the fact's own text and would change the moment somebody
+     * edited a line of the fixture.
+     */
+    private function archiveTree(): Tree
+    {
+        return Registry::container()->get(PortalTreeService::class)->tree();
+    }
+
+    private function photoId(string $xref): string
+    {
+        $media = Registry::mediaFactory()->make($xref, $this->archiveTree());
+
+        if (!$media instanceof Media) {
+            self::fail('the fixture has no ' . $xref);
+        }
+
+        foreach ($media->facts(['FILE'], false, Auth::PRIV_HIDE) as $fact) {
+            return $xref . '/' . (new MediaFile($fact->gedcom(), $media))->factId();
+        }
+
+        self::fail($xref . ' has no file in it');
+    }
+
+    /**
+     * The fixture's GEDCOM names three image files; nothing has ever put them
+     * on disk, because until now no test asked for bytes. These are the bytes:
+     * the same small PNG under all three names, which is enough — what is
+     * being tested is which pictures leave, never which picture is which.
+     */
+    private function writeMediaFiles(): void
+    {
+        $filesystem = $this->archiveTree()->mediaFilesystem();
+        $png        = (string) file_get_contents(__DIR__ . '/data/probe.png');
+
+        foreach (['anna.png', 'vertraulich.png', 'bertha.png'] as $name) {
+            $filesystem->write($name, $png);
+        }
     }
 }

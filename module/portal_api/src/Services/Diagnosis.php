@@ -585,15 +585,25 @@ class Diagnosis
             );
         }
 
-        $notes = $this->module->getPreference(PortalApiModule::SETTING_MCP_NOTES, '1') === '1'
-            ? I18N::translate('with the family’s notes')
-            : I18N::translate('without the family’s notes');
+        $reads = [
+            $this->module->getPreference(PortalApiModule::SETTING_MCP_NOTES, '1') === '1'
+                ? I18N::translate('with the family’s notes')
+                : I18N::translate('without the family’s notes'),
+        ];
+
+        // Named only when it is on. Photographs are the one thing here that
+        // can show a living person without any record saying so, and an
+        // administrator reading this line should see that it is switched on
+        // without having to know that silence would have meant off.
+        if ($this->module->getPreference(PortalApiModule::SETTING_MCP_PHOTOS, '0') === '1') {
+            $reads[] = I18N::translate('and photographs');
+        }
 
         return new DiagnosisCheck(
             'mcp',
             self::OK,
             $label,
-            I18N::plural('%s token, %s.', '%s tokens, %s.', $tokens, I18N::number($tokens), $notes),
+            I18N::plural('%s token, %s.', '%s tokens, %s.', $tokens, I18N::number($tokens), implode(' ', $reads)),
             ''
         );
     }

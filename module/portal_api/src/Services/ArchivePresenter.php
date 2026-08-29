@@ -18,12 +18,16 @@ use function is_array;
  * use for, applies `DeceasedOnly` to what is left, and renames `xref` to `id`
  * because that is what the tools' arguments are called.
  *
- * **Three things are dropped, and it is worth saying why.** Photographs go,
- * because their URLs need a portal session that no MCP client has and because
- * a picture is not what a model came for. The relationship line goes, because
- * it is computed against a reader and here there is no reader — a token is not
- * a cousin. The pending-change flag goes, because it is a member's own
- * business with their own record.
+ * **Two things are dropped, and it is worth saying why.** The relationship
+ * line goes, because it is computed against a reader and here there is no
+ * reader — a token is not a cousin. The pending-change flag goes, because it
+ * is a member's own business with their own record.
+ *
+ * **Photographs are rebuilt rather than passed through.** `RecordPresenter`
+ * gives each one a URL, and a URL needs a portal session that no MCP client
+ * has. What goes out instead is an id and a title, which cost a few words and
+ * let a model ask for the picture itself; the bytes come from `ArchivePhotos`,
+ * which also decides whether any of this is offered at all.
  *
  * **One thing is added: `withheld`.** A dead woman with three living children
  * comes back with an empty `children` list, and a model reading that will
@@ -45,6 +49,7 @@ class ArchivePresenter
         private readonly RecordPresenter $records,
         private readonly ArchiveNotes $notes,
         private readonly DeceasedOnly $rule,
+        private readonly ArchivePhotos $photos,
     ) {
     }
 
@@ -108,6 +113,7 @@ class ArchivePresenter
             'death'            => $detail['death'],
             'events'           => $detail['events'],
             'notes'            => $detail['notes'] ?? [],
+            'photos'           => $this->photos->forRecord($individual, $access_level),
             'parents'          => $relatives['parents'],
             'siblings'         => $relatives['siblings'],
             'spouses'          => $relatives['spouses'],

@@ -2063,6 +2063,24 @@ portal.
 | `get_relationship` | How two of the archive's dead stand to one another |
 | `search_notes` | Text inside the family's notes, each with the person it belongs to |
 | `list_index` | Every surname and place the archive's dead are filed under, with counts |
+| `get_photo` | One photograph, scaled down, as something the assistant can look at |
+
+`search_notes` is offered only while the notes are switched on, and `get_photo`
+only while photographs are — a tool a model is told about and then answered
+nothing by is worse than one it never saw, because it reads the empty answer as
+a fact about the family.
+
+Photographs are **off by default**, and that is not timidity. Every other
+answer here is reasoned about a *record*, and the deceased-only rule holds
+because a record belongs to one person. A photograph does not: a picture on a
+dead woman's page can show her living grandchildren, and nothing in this module
+can know it. What the rule does guarantee is that a picture leaves only if the
+portal would show it on the page of somebody the archive may name — the same
+`PhotoPresenter::visibleMedia()` the portal's own gallery uses, including the
+consent a living person gave or did not give for a photograph of themselves.
+Pictures are scaled to 1200 pixels on the longest edge before they are sent,
+and carry whatever watermark webtrees would put on them for the account the
+token reads as.
 
 The endpoint speaks JSON-RPC over `POST` and nothing else: it is stateless,
 issues no session id, and opens no event stream, so `GET` and `DELETE` answer
