@@ -24,6 +24,8 @@ use Illuminate\Support\Collection;
  * @var string               $invitation_days
  * @var string               $invitations_url
  * @var string               $campaigns_url
+ * @var string               $requests_url
+ * @var int                  $requests_open
  * @var string               $diagnosis_url
  * @var string               $accounts_url
  * @var string               $offices_url
@@ -79,6 +81,12 @@ foreach ($trees as $a_tree) {
     </a>
     <a class="btn btn-outline-primary" href="<?= e($campaigns_url) ?>">
         <?= I18N::translate('Invite a mailing list') ?>
+    </a>
+    <a class="btn btn-outline-primary" href="<?= e($requests_url) ?>">
+        <?= I18N::translate('Requests for access') ?>
+        <?php if ($requests_open > 0) : ?>
+            <span class="badge bg-primary"><?= I18N::number($requests_open) ?></span>
+        <?php endif ?>
     </a>
     <a class="btn btn-outline-primary" href="<?= e($accounts_url) ?>">
         <?= I18N::translate('Accounts') ?>

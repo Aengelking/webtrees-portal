@@ -156,7 +156,7 @@ describe('OAuth metadata this server does not have', () => {
  * let through.
  */
 describe('wrangler.jsonc lets through what the Worker handles', () => {
-  function runWorkerFirst(): string[] {
+  function runWorkerFirst(): string[] | boolean {
     const jsonc = readFileSync(resolve(process.cwd(), 'wrangler.jsonc'), 'utf-8')
     const json = jsonc.replace(/^\s*\/\/.*$/gm, '').replace(/,(\s*[}\]])/g, '$1')
 
@@ -176,12 +176,26 @@ describe('wrangler.jsonc lets through what the Worker handles', () => {
     // The premise: this really is a path the Worker means to answer.
     expect(handler(url)).toBe(true)
 
-    const matched = runWorkerFirst().some((pattern) =>
-      new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$').test(
-        url.pathname,
-      ),
-    )
+    const first = runWorkerFirst()
+    const matched =
+      first === true ||
+      (Array.isArray(first) &&
+        first.some((pattern) =>
+          new RegExp(
+            '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$',
+          ).test(url.pathname),
+        ))
 
     expect(matched, path + ' is handled in the Worker but never reaches it').toBe(true)
+  })
+
+  /**
+   * And the page itself, which the Worker does not *answer* but does harden.
+   * Left off this list, the portal is served straight off the asset layer with
+   * no Content-Security-Policy and no HSTS on it — the headers exist in the
+   * repository and nowhere else. See edge/security.ts.
+   */
+  it('lets the portal itself through, so its headers are the Worker’s to set', () => {
+    expect(runWorkerFirst()).toBe(true)
   })
 })

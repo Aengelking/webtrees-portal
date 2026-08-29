@@ -8,6 +8,7 @@ import { Connect } from './routes/Connect'
 import { Contacts } from './routes/Contacts'
 import { EditProfile } from './routes/EditProfile'
 import { ClaimInvitation } from './routes/ClaimInvitation'
+import { RequestAccess } from './routes/RequestAccess'
 import { Invitation } from './routes/Invitation'
 import { Invite } from './routes/Invite'
 import { Login } from './routes/Login'
@@ -66,6 +67,13 @@ export function App() {
           the family and read by people, not by machines.
         */}
         <Route path="/einladung" element={<ClaimInvitation />} />
+        {/*
+          And where the notice in the family magazine points. German in the
+          path for the same reason: it is printed on paper and read by people.
+          It creates nothing — see `RequestAccess` — so it is as public as the
+          login screen, and no more.
+        */}
+        <Route path="/zugang" element={<RequestAccess />} />
 
         <Route
           element={

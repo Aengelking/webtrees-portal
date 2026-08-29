@@ -171,7 +171,7 @@ describe('a conversation', () => {
     renderAt('/conversations/3')
 
     const user = userEvent.setup()
-    const box = await screen.findByLabelText('Ihre Nachricht')
+    const box = await screen.findByLabelText('Deine Nachricht')
 
     await user.type(box, 'Bis dann')
     await user.click(screen.getByRole('button', { name: 'Senden' }))
@@ -192,7 +192,7 @@ describe('a conversation', () => {
     renderAt('/conversations/3')
 
     const user = userEvent.setup()
-    const box = await screen.findByLabelText('Ihre Nachricht')
+    const box = await screen.findByLabelText('Deine Nachricht')
 
     await user.type(box, 'Bis dann')
     await user.click(screen.getByRole('button', { name: 'Senden' }))
@@ -237,7 +237,7 @@ describe('a conversation', () => {
     renderAt('/conversations/3')
 
     expect(await screen.findByText(/nur, dass eine Nachricht im Portal wartet/)).toBeDefined()
-    expect(screen.getByText(/weder Ihr Name noch der Text/)).toBeDefined()
+    expect(screen.getByText(/weder dein Name noch der Text/)).toBeDefined()
   })
 
   it('offers the other person’s profile, because a name is not a link', async () => {

@@ -149,6 +149,20 @@ export function Login() {
         </Link>
       </p>
 
+      {/*
+        Somebody who has read about the portal and typed its address lands
+        here, and until now this screen had nothing to say to them. It offers a
+        form, not an account: what it leads to is a request a person answers.
+      */}
+      <p className="mt-2">
+        <Link
+          to="/zugang"
+          className="inline-flex min-h-[44px] items-center text-base font-semibold text-sky-800 underline underline-offset-4"
+        >
+          {t('login.noAccount')}
+        </Link>
+      </p>
+
       <div className="mt-10">
         <LanguageSwitcher />
       </div>

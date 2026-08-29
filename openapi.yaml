@@ -526,6 +526,79 @@ paths:
                     type: string
                     enum: [sent]
 
+  /access-request:
+    post:
+      tags: [invitations]
+      summary: Ask for a way in, when no mailing list holds this address
+      description: |
+        A campaign can invite somebody automatically because the family's
+        mailing list has already answered the only hard question: an address on
+        it belongs to the family. A notice in the family magazine reaches
+        further than any list does — people this portal has never had an
+        address for — and for them `/invitation/claim` is a dead end by design.
+
+        This is the other half, and it decides nothing. It writes down what
+        somebody typed; **no account is created, no invitation is issued and no
+        mail is sent.** An administrator reads the queue and decides, which is
+        the same decision they make on the invitations screen — only now it
+        starts with somebody saying who they are.
+
+        `reference` is the archive number the family magazine prints beside
+        every name. Where it names exactly one record, the administrator's
+        screen offers to issue the invitation against it, so the account
+        arrives already linked. It is optional, and nothing is guessed from a
+        name alone.
+
+        **The answer is always the same.** Written down, ignored for want of an
+        address, rate-limited, database unreachable — one body, one status.
+        Anything else would make this a way of reading the family's index from
+        outside, by typing numbers into it.
+      security: []
+      operationId: requestAccess
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - $ref: '#/components/parameters/CsrfHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                  description: What this person calls themselves. Checked against nothing.
+                email:
+                  type: string
+                  description: Where an invitation would go, if one is issued.
+                reference:
+                  type: string
+                  description: Their archive number, if they know it. Optional.
+                note:
+                  type: string
+                  description: Two sentences on how they belong, for whoever reads the queue.
+      responses:
+        '202':
+          description: |
+            Accepted, and deliberately nothing more. Not `201`: nothing was
+            necessarily created, and a status that varied with the outcome
+            would say what the body refuses to.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/CacheControl'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [received]
+
   /invitation/accept:
     post:
       tags: [session]
@@ -3664,6 +3737,23 @@ components:
             is otherwise names and years, and this is the line that turns one
             of them into the person the reader was looking for.
 
+            **Every way they are related, not only the nearest.** In a family
+            that has married within itself for centuries two people are
+            routinely related twice over, so this can read
+            `Ihr Cousin · auch Ihr Cousin 3. Grades`: the closest answer, then
+            the others after a separator, nearest first. One string rather than
+            a list because the names and the word joining them are made and
+            translated on the server, and a portal that predates this reads the
+            longer line without knowing anything changed.
+
+            The first answer is the tree's where the tree has one — it knows
+            wives, stepfathers and adopted children, which a descent number
+            cannot — and the rest come from the archive numbers on the two
+            records. A record carrying an explicit number is compared only on
+            those: a bare two-digit number is also what the archive's older,
+            unrelated numbering looks like, and a doubtful answer must not
+            stand beside a sound one as though it corroborated it.
+
             `null` whenever there is nothing safe or useful to say: the
             member's account is not linked to a record, this *is* their
             record, no relationship was found within four steps, or — the one
@@ -3685,6 +3775,11 @@ components:
             privacy: it is the foundation's statement about one of its
             officers, not the archive's account of a person. See `Offices` and
             NOTES §2.82. Nothing else about the person becomes visible with it.
+
+            Answered in the language of the request, like fact labels, dates
+            and branch names (§2.17): the foundation writes the office and its
+            translations, and a language nobody wrote a wording for reads the
+            office in the words it was typed in rather than reading nothing.
           example: Vorsitzende des Vorstands
 
     Reference:

@@ -21,6 +21,7 @@ const client = readFileSync(resolve(process.cwd(), 'src/api/client.ts'), 'utf-8'
 describe('openapi.yaml and the API client agree', () => {
   it('documents exactly the endpoints the portal uses', () => {
     expect(specPaths()).toEqual([
+      '/access-request',
       '/connections',
       '/connections/{id}',
       '/conversations',

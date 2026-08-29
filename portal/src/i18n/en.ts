@@ -31,6 +31,7 @@ export const en: Translations = {
     rememberHint_other:
       'This device stays signed in for {{count}} days, so you will not have to type your password again in that time. Whoever picks the device up unlocked is then you — so switch this on only on your own phone. "Sign out" in Settings ends it at once.',
     forgotten: 'Forgotten your password?',
+    noAccount: 'No account yet? Ask for one',
     failed: 'That username or password is not right. Please try again.',
     missing: 'Please fill in both fields.',
   },
@@ -535,10 +536,10 @@ export const en: Translations = {
   claim: {
     title: 'Join the family portal',
     intro:
-      'You were sent this link in one of the family’s round-robin letters. Enter the email address that letter arrived at, and your personal invitation will be sent there.',
+      'You have this link from something the family sent round — a round-robin letter or the family magazine. Enter the email address the family reaches you at, and your personal invitation will be sent there.',
     email: 'Your email address',
     emailHint:
-      'The address the letter arrived at. We cannot send an invitation anywhere else.',
+      'The address you get the family’s post at. We cannot send an invitation anywhere else.',
     submit: 'Ask for an invitation',
     sending: 'Sending…',
     missing: 'Please enter your email address.',
@@ -546,6 +547,33 @@ export const en: Translations = {
       title: 'Please check your inbox',
       body:
         'If this address belongs to the family, your personal invitation is on its way. The link in it is yours alone and works once — please do not pass it on. Have a look in the spam folder too.',
+    },
+    noMail: 'The family has no email address for you?',
+    askInstead: 'Ask for access',
+    haveAccount: 'Already have an account?',
+    backToLogin: 'Go to sign in',
+  },
+  request: {
+    title: 'Ask for access to the family portal',
+    intro:
+      'Tell us briefly who you are. Nothing is created and nothing is sent — what you write goes to the people who keep the family tree, and a person decides and writes back to you.',
+    name: 'Your name',
+    nameHint: 'As the family knows you.',
+    email: 'Your email address',
+    emailHint: 'Where your invitation would go, if one is issued.',
+    reference: 'Your archive number (if you know it)',
+    referenceHint:
+      'The number printed beside your name in the family magazine, for example 22/1a32.124. Where it names exactly one record, your account arrives already linked to it. It is fine without.',
+    note: 'How do you belong to the family? (optional)',
+    noteHint:
+      'Two sentences are enough — the parents or grandparents you come through, say. It helps the person reading your request.',
+    submit: 'Send the request',
+    sending: 'Sending…',
+    missing: 'Please enter your name and your email address.',
+    sent: {
+      title: 'Your request has arrived',
+      body:
+        'The people who keep the family tree will look at it and write back to you. It may take a few days — a person reads it, not a machine. There is nothing else for you to do.',
     },
     haveAccount: 'Already have an account?',
     backToLogin: 'Go to sign in',

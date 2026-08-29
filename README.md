@@ -73,16 +73,17 @@ Endpoints: `GET /csrf`, `POST|DELETE /session`, `GET /me`,
 `GET|POST /connections`, `PATCH|DELETE /connections/{id}`,
 `POST|DELETE /me/connection-code`, `POST /me/connection-link`,
 `DELETE /me/connection-links/{id}`, `GET|PATCH /me/mailing-lists`,
-`POST /invitation/claim`, `GET /search`, `GET /index`, `GET /relationship`,
-`GET /health`.
+`POST /invitation/claim`, `POST /access-request`, `GET /search`,
+`GET /index`, `GET /relationship`, `GET /health`.
 
 Outside that contract, and outside `openapi.yaml` with it: `POST /api/mcp`,
 which speaks JSON-RPC rather than REST and versions itself per connection.
 
-Screens: login, accept an invitation, forgotten password, set a new password,
-My profile, edit my details, person, ancestors, Stammbaum (search the archive,
-the surname and place indexes, and the archive-number calculator), Contacts
-(with the directory search in it), the member directory, member detail,
+Screens: login, accept an invitation, ask for access, forgotten password,
+set a new password, My profile, edit my details, person, ancestors,
+Stammbaum (search the archive, the surname and place indexes, and the
+archive-number calculator), Contacts (with the directory search in it),
+the member directory, member detail,
 Messages, connect (where a scanned code lands), invite close family, Settings.
 
 What a member may change about themselves: given names, surname, date and
@@ -1327,9 +1328,17 @@ The portal uses this in two places:
 
 * **On every card.** Where the family tree can name the relationship, it does —
   the tree knows about wives, stepfathers and adoptions, and a number does not.
-  Where it cannot, the numbers answer instead. That covers the case the tree is
-  worst at: relatives too distant for a four-step walk, and relatives whose
-  connecting ancestors the reader is not allowed to see.
+  The numbers answer alongside it, which covers the case the tree is worst at:
+  relatives too distant for a four-step walk, and relatives whose connecting
+  ancestors the reader is not allowed to see.
+
+  **A person can be related to you more than once**, and in this family that is
+  ordinary rather than exotic. The card says so: *Ihr Cousin · auch Ihr Cousin
+  3. Grades*, closest first. The tree finds the nearest way — its walk is
+  breadth-first, so the path it keeps is the shortest — and each further way
+  comes from a second line of descent, which is what a record carrying more
+  than one archive number *is*. Where there is only one answer the card reads
+  exactly as it always did.
 * **On the calculator** (*Stammbaum → Rechner*), which is the family's own tool
   from 2009 brought inside. Two numbers in, a relationship out. It reads no
   records at all, so it answers about people who are not in the tree — the
@@ -1344,8 +1353,11 @@ The portal uses this in two places:
 **The oblique is optional when nothing follows it.** "24" and "24/" both mean
 the head of line 24, and the archive writes both. "24b6" is not read, because a
 two-digit line makes it ambiguous. Where a record carries both a bare number
-and one with an oblique, the second is used — a bare two-digit number is also
-what an older numbering looks like once it reaches two digits.
+and one with an oblique, only the explicit ones are compared — a bare two-digit
+number is also what an older numbering looks like once it reaches two digits,
+so an answer resting on one must not appear beside a sound answer as though it
+confirmed it. A record carrying nothing but a bare number is still read: there
+the doubtful answer is the only answer, and it reads as one.
 
 **Not everybody sits inside a line.** The ancestors *above* the lines have
 none to belong to, and neither does a branch that was numbered and then died
@@ -1877,6 +1889,17 @@ that renames a body should not need a deployment. One office per person; typing
 a second for the same person replaces the first, and clearing the field takes
 the office away.
 
+**In other languages**, beside it, in the same notation the branch names use:
+
+    en: Chair of the board | fr: Président du conseil
+
+One per language, separated by `|`, each beginning with its language code. A
+member reading the portal in a language named there sees that wording; everyone
+else sees the office as it was typed. Leaving the field empty is fine and is
+what every office had before this existed — the written words then answer in
+every language, which is better than a blank. A part with no language code in
+front of it is dropped when you save, so if one disappears, that is why.
+
 **This is the portal's own list, not part of the family tree.** Nothing here is
 written into the archive, and that is deliberate rather than incidental. An
 office is what the *foundation* says about one of its officers; a fact on a
@@ -2362,6 +2385,14 @@ npm run build       # typecheck + production build
 npm run test:e2e    # Playwright smoke path
 ```
 
+**Two timeouts govern the same wait, and they are set together.**
+`asyncUtilTimeout` in `src/test/setup.ts` is how long a `findBy…` may wait for
+a screen to settle; `testTimeout` in `vite.config.ts` is how long the whole
+test may live. The second has to stay comfortably above the first. While both
+were five seconds the suite failed about one run in seven — in a different file
+each time, because thirty files run in parallel and whichever worker drew the
+slow core was the one that lost. Raising one without the other changes nothing.
+
 The Playwright run builds the app, serves it with `vite preview` on
 `127.0.0.1:4173` and stubs the API in the browser, so it needs no webtrees
 host. When it fails in CI, the job uploads the Playwright report and traces as
@@ -2818,6 +2849,14 @@ replaces it rather than joining it, an emptied title takes it away, saving the
 same office twice reports that nothing changed, titles are tidied and capped,
 and an office on a record that is gone names nobody without disturbing the
 directory.
+
+The translations have their own six: the office is read in the language of the
+request, `en-GB` falls back to the `en:` wording where the family wrote no
+`en-GB:` one and prefers the exact tag where they did, a language nobody
+translated still reads the office in the words it was typed in, an office with
+no translations at all answers everywhere, an untagged part is not kept, and
+the reader's own `Accept-Language` — not the server's default — is what reaches
+the card. Four of the six fail if the language is ignored.
 
 On the screen, five tests hold the reading rule — the office reaches a row two
 ways and a screen that reads only one of them would show it to some members and

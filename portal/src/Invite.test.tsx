@@ -46,7 +46,7 @@ const OVERVIEW: InvitationOverview = {
       is_deceased: false,
       lifespan: '1990–',
       portrait: null,
-      relationship: 'Ihr Bruder',
+      relationship: 'Bruder',
     },
   ],
   invitations: [],
@@ -100,7 +100,7 @@ function stub(
         lifespan: '1990–',
         portrait: null,
         name_alternative: null,
-        relationship: 'Ihr Bruder',
+        relationship: 'Bruder',
         birth: null,
         death: null,
         events: [],
@@ -153,7 +153,7 @@ describe('inviting close family', () => {
 
     const chooser = await screen.findByLabelText('Person auswählen')
 
-    expect(within(chooser).getByRole('option', { name: 'Ihr Bruder — Dieter Beispiel (1990–)' })).toBeDefined()
+    expect(within(chooser).getByRole('option', { name: 'Bruder — Dieter Beispiel (1990–)' })).toBeDefined()
 
     // Nobody is chosen until somebody chooses.
     expect((chooser as HTMLSelectElement).value).toBe('')
@@ -209,14 +209,14 @@ describe('inviting close family', () => {
     await user.selectOptions(await screen.findByLabelText('Person auswählen'), 'X4')
     await user.click(screen.getByRole('button', { name: 'Einladung erstellen' }))
 
-    expect((await screen.findByRole('alert')).textContent).toMatch(/können Sie nicht einladen/)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/kannst du nicht einladen/)
   })
 
   it('explains the quota rather than showing a form that will be rejected', async () => {
     stub({ remaining: 0 })
     renderInvite()
 
-    expect(await screen.findByText('Sie haben schon genug offene Einladungen')).toBeDefined()
+    expect(await screen.findByText('Du hast schon genug offene Einladungen')).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Einladung erstellen' })).toBeNull()
   })
 
@@ -241,7 +241,7 @@ describe('inviting close family', () => {
     stub({ linked: false, candidates: [] })
     renderInvite()
 
-    expect(await screen.findByText('Ihr Konto ist noch nicht verknüpft')).toBeDefined()
+    expect(await screen.findByText('Dein Konto ist noch nicht verknüpft')).toBeDefined()
   })
 
   it('lists an outstanding invitation and can withdraw it', async () => {
@@ -401,7 +401,7 @@ describe('inviting from the person’s own page', () => {
     renderAt('/individuals/X4')
 
     // The person is on screen; the offer is not.
-    expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
+    expect(await screen.findByText(/Bruder/)).toBeDefined()
     expect(screen.queryByText('Noch nicht im Portal')).toBeNull()
     expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
   })
@@ -427,7 +427,7 @@ describe('inviting from the person’s own page', () => {
             lifespan: '1990–',
             portrait: null,
             name_alternative: null,
-            relationship: 'Ihr Bruder',
+            relationship: 'Bruder',
             birth: null,
             death: null,
             events: [],
@@ -446,7 +446,7 @@ describe('inviting from the person’s own page', () => {
 
     renderAt('/individuals/X4')
 
-    expect(await screen.findByText(/Ihr Bruder/)).toBeDefined()
+    expect(await screen.findByText(/Bruder/)).toBeDefined()
     expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
   })
 
@@ -673,7 +673,7 @@ describe('the standing offer to invite somebody', () => {
     renderAt('/me')
 
     // The screen says there is no record — and still offers the invitation.
-    expect(await screen.findByText('Ihr Eintrag im Stammbaum fehlt noch')).toBeDefined()
+    expect(await screen.findByText('Dein Eintrag im Stammbaum fehlt noch')).toBeDefined()
     expect(screen.getByRole('link', { name: 'Jemanden einladen' })).toBeDefined()
   })
 

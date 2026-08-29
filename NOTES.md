@@ -5322,6 +5322,382 @@ least one assertion has to be on the bytes.
 
 ---
 
+### 2.86 The one German phrase in an English page
+
+Reported: the office should be translatable.
+
+It was the one thing on the card that was not. The portal answers fact labels,
+dates and branch names in the language the member is reading (§2.17); §2.83 had
+just gone to some length over relationship names being *English* rather than
+German with English words in it. And beside all that sat *Vorsitzende des
+Vorstands*, in every language, because "An office is what the foundation says"
+gave the foundation a place to write an office and, without meaning to, gave
+each one exactly one language.
+
+**It cannot live in the portal's translation files.** That is the whole reason
+the office is free text: a statute that renames a body must not need a
+deployment. So the family writes the translations too — which is a problem the
+branch table had already solved, in a notation an administrator here has
+already met:
+
+    Vorsitzende des Vorstands | en: Chair of the board
+
+**So the parser moved rather than being copied.** `SackNumbers::names()` and
+its fallback rule are now `TranslatedText`, used by both. They were one
+notation the moment the second caller existed; being one *parser* is what stops
+them drifting into two notations that are nearly the same — the same argument
+§2.71 makes about two services building one shape. The 44 branch-name tests
+went green unchanged after the move, which is the only evidence worth having
+that an extraction was faithful.
+
+**The fallback is the point.** Exact tag, then bare language, then the words it
+was typed in. A family that has half-translated its list shows a French reader
+German rather than nothing, and every office written before this existed keeps
+working in every language without anybody touching it. Two of the tests exist
+only to hold that down, because it is the case that would otherwise rot
+quietly: nobody notices a missing translation, everybody notices a blank badge.
+
+**Stored in a column of its own** rather than a widened `title`. Adding a
+column is the additive change every other migration here makes; altering a
+type is the one that behaves differently on different databases. It also
+leaves the written name in a field the control panel can show without first
+taking a sentence apart — and lets the screen list the translations underneath
+it, so what is stored is visible rather than inferred.
+
+An untagged part is dropped when it is *saved*, not when it is read. The
+administrator is still looking at the screen at that moment; a part kept but
+never shown would be a translation nobody could find the absence of.
+
+---
+
+### 2.87 Related twice over, and the card picked one
+
+Asked: does the relationship calculation use the shortest path, and could we
+show both degrees for people who are related more than once?
+
+Yes to the first, and it was worth checking rather than assuming. The walk in
+`RelationshipNamer` is breadth-first and marks a person visited **on arrival**,
+so exactly one path survives per person and it is the shortest. Where several
+are equally short the winner is whichever `families()` returned first — nobody
+chose that, and nothing depended on it until now.
+
+**The second answer turned out to be already in the data.** A record carrying
+several archive numbers is a record that descends from the family by several
+lines; Dieter's fixture carries three usable ones for exactly that reason. The
+code saw all of them and deliberately took one: `ownNumber()` returned `[0]`,
+the loop over the target's numbers stopped at the first that answered, and the
+whole calculation only ran where the tree had already failed. Three separate
+places quietly choosing.
+
+So the tree's answer leads — it knows wives, stepfathers and adopted children,
+which a descent number cannot — and every distinct answer the numbers give
+follows it, nearest first, measured as the walk up to the shared ancestor plus
+the walk back down (`2 · distance − generations`, from `between()`).
+
+**Extending the *tree* walk was not attempted, and that is a decision.** Taking
+the `$visited` marking away to find second paths makes a bounded search
+combinatorial, on a query that runs once per card of a twenty-five row
+directory. The numbers reach further, cost a handful of string comparisons, and
+are where multiple descent actually lives.
+
+**The interesting part is what the change nearly broke.** Two existing tests
+went red, and the honest reading of the first was not "update the expectation".
+Their comment said it: a bare two-digit number is the head of a line *and* is
+what the archive's older, unrelated numbering looks like at two digits (§2.57).
+Sorting explicit numbers first and then reading only one made the ambiguous one
+unreachable. Crossing every number with every number handed that protection
+back, and the first thing it produced was a confident *auch Urgroßneffe* resting
+on a bare `9` that may be nothing at all.
+
+So a record carrying an explicit number is now compared only on those, and a
+record carrying nothing else is still read exactly as before. The rule is not
+"prefer the good number" but something narrower: **a doubtful answer may stand
+alone, where it is the only answer and reads as one, but not beside a sound one,
+where it reads as corroboration.** The old test now asserts what it always
+meant — the explicit number leads *and* the bare one is not heard from —
+which it could not distinguish while only one number was ever read.
+
+A footnote on the joining word. `also %s` is the first string this module says
+that webtrees has no translation for, so it is the first entry in
+`customTranslations()`. That facility should stay nearly empty: a phrase
+belonging to the portal's own screens belongs in the portal's own catalogue,
+where a translator sees it beside the words around it. This one cannot, because
+the sentence is assembled on the server around names the server made.
+
+---
+
+### 2.88 Ein Aufruf in der Familienzeitschrift ist keine Rundmail
+
+§2.71's campaign invites a mailing list without putting a credential in a
+round-robin letter, and it can be automatic for one reason: **being on the list
+is the asking, and it happened years ago.** An address on it belongs to the
+family, so the software may act on it.
+
+A notice in the family magazine breaks that. The magazine goes further than any
+list — to people this portal has never had an address for — and for them the
+campaign page is a dead end *by design*: an address on no list gets the same
+silence as one that was never family, because the page must not become a way of
+asking who is. Right for a letter, wrong for a notice in print, and the reader
+is left with a page that appears not to work.
+
+**So the other half is a queue, and the queue decides nothing.**
+`POST /access-request` writes down a name, an address, an archive number if
+they know one, and two sentences of "how I belong". It creates no account,
+issues no invitation and sends no mail. An administrator reads it and decides —
+the same decision they already make on the invitations screen, only now it
+starts with somebody saying who they are instead of with an address out of the
+blue. §1.3 is intact: nobody gets in who a person did not decide on.
+
+Four things are worth keeping about how it is built.
+
+**The answer is the same, always.** Written down, ignored for want of an
+address, rate-limited, database unreachable: one body, one status. This
+matters more here than on the claim page, because the form *asks for the
+archive number* — which the magazine prints beside every name. A form that
+said "that number is not one of ours" would let anybody holding a copy read
+the family's index by typing numbers into it.
+
+**The number does the linking, and nothing else does.** Where it names exactly
+one record — `TreeSearch::individualByNumber()`, the same rule the campaign
+uses — the administrator's screen offers to issue the invitation against that
+record, so the account arrives linked. A name alone never resolves to
+anybody: the tree holds more than one Anna Beispiel, and guessing is how the
+wrong person ends up reading a family's living relatives. A number typed into
+the *name* field is still read as the number, because somebody copying a line
+out of the magazine has given the same information in one field instead of two.
+
+**The address is stored in the clear, unlike a claim.** `portal_invitation_claim`
+hashes it, because all that table needs is "this one, again?" and a roster of
+who ignored a letter is nobody's business. A request is the opposite: it is a
+message deliberately sent to the family, and the address *is* the point — it is
+where the invitation would go, and nobody can read a hash and decide. Handled
+rows are kept ninety days, the same as invitations, for the same question:
+who let this person in, and on what grounds.
+
+**"Put aside" tells nobody anything.** There is no refusal to send, because
+nothing was promised — and a refusal would confirm that the address reached the
+family, which is exactly what the form is careful not to say.
+
+#### And two things for the print shop
+
+The campaign link is sixty-four characters of hex on the end of a URL, and the
+magazine is read on paper. So both administration screens now draw the address
+**as a QR code** beside the text — from TCPDF, which webtrees already carries
+for its own reports, so nothing is vendored and nothing is fetched from a CDN
+(an admin page that asked an image service to draw a link to this family's
+portal would be handing that address to a stranger for no reason). Guarded by
+`class_exists()`, §2.70's lesson applied: if that dependency ever goes the way
+of `oscarotero/middleland`, the screen shows the link and no picture.
+
+And the claim page no longer says *"Sie haben diesen Link über eine Rundmail
+bekommen"*. It says a Rundschreiben — a round-robin letter **or** the family
+magazine — because from now on it is reached from both. (In du, since §2.89:
+*"Du hast diesen Link aus einem Rundschreiben der Familie"*.)
+
+---
+
+### 2.89 Die Familie siezt sich nicht
+
+Das deutsche Portal hat die Mitglieder gesiezt — jede Zeile, von der Anmeldung
+bis zur Fehlermeldung. Das ist die Anrede einer Behörde gegenüber einem
+Antragsteller, und hier schreibt die Familie an die Familie: an Leute, die
+einander auf dem Familientreffen duzen und deren Kinder im selben Stammbaum
+stehen. Der Antrag auf Zugang fiel zuerst auf — *"Sagen Sie uns kurz, wer Sie
+sind"* neben einer Zeitschrift, die Vornamen druckt —, aber die Anrede ist
+nichts, was eine Seite für sich entscheidet: eine geduzte Antragsseite und ein
+gesiezter Rest wäre schlimmer als beides einheitlich.
+
+Also alle 745 Zeilen von `src/i18n/de.ts`, nicht die eine Seite. Ersetzt wurde
+Satz für Satz und nicht mit einer Regel: „Sie" → „du" ist keine Ersetzung von
+Wörtern, sondern von Verbformen (*„Melden Sie sich an" → „Melde dich an"*,
+*„Wenn Sie fortfahren, sind Sie und die Person … verbunden" → „Wenn du
+fortfährst, bist du mit der Person … verbunden"* — der zweite Satz musste ganz
+neu gebaut werden, weil das „Sie und die Person" im Du grammatisch nicht
+aufgeht). Zwei „Sie" bleiben stehen, und beide sind richtig: *„Sie wird geprüft
+und danach übernommen"* meint die Änderung, *„Sie öffnet sich dann mit einem
+Tippen"* die App.
+
+**Das Englische ist nicht betroffen**, und das ist kein Versehen: Englisch
+kennt die Unterscheidung nicht, `en.ts` sagt seit jeher *you*. Der Unterschied
+zwischen den beiden Dateien ist damit einer weniger, nicht einer mehr.
+
+**Der Server siezt ohnehin nicht.** Verwandtschaftsbezeichnungen kommen aus
+webtrees (§2.87), und webtrees schreibt *„Bruder"*, *„Mutter"* — ohne
+Possessivpronomen. Die Fixtures behaupteten *„Ihr Bruder"* und haben damit ein
+Portal getestet, das es nicht gibt; sie sagen jetzt, was der Server sagt. Nur
+das Label davor gehört dem Portal, und das heißt jetzt *„Für dich:"*.
+
+**Die Bilder für die Zeitschrift mussten neu.** Sieben deutsche Bildschirmfotos
+zeigten die alte Anrede; sie sind mit `PORTAL_SCREENSHOTS=1` neu aufgenommen.
+Die englischen blieben, wie sie waren.
+
+Nicht umgestellt ist der Text, den **webtrees selbst** schreibt: die
+Kontrollzentrums-Seiten des Moduls und die Einladungs-E-Mails gehen durch
+`I18N::translate()` und damit durch webtrees' eigene Übersetzungen, die siezen.
+Das gehört in §5.
+
+---
+
+### 2.90 One number, several tests, and none of them the culprit
+
+A test failed in roughly one full suite run out of seven and passed on its own
+every time. The first instinct — the one I had, and wrote down at the time as a
+guess rather than a finding — was that the file was at fault: something left on
+`window` by a neighbouring test, since the gesture it tests reads `scrollY` and
+`matchMedia`.
+
+That was wrong, and the thing that showed it was wrong was **running it enough
+times to see the second failure**. It landed in a different file
+(`Notifications.test.tsx`), and it said something the first one had not:
+
+    Error: Test timed out in 5000ms.
+
+`src/test/setup.ts` raises Testing Library's `asyncUtilTimeout` to five seconds,
+with an argument worth keeping: a shared CI core is slower than a laptop, the
+queries that time out first are the expensive ones, and a suite that fails on
+the machine it is meant to gate is worse than a slow one. All true. But
+vitest's own `testTimeout` default is **also five seconds**, for the whole
+test — so the permission to wait longer was never real. A `findBy…` that needed
+four seconds and would have succeeded had one second left for the rest of the
+test; one that needed five killed the test outright.
+
+Thirty test files run in parallel on a container with a couple of cores, so on
+any given run *some* worker is the slow one. Which file it is varies, and that
+is exactly why this looked like several unrelated flaky tests rather than one
+setting. A flake that moves around is a hint about the environment, not about
+the test you happen to be looking at.
+
+`testTimeout` is now 20 seconds — comfortably above the five Testing Library is
+allowed to spend — and the suite ran twenty times in a row without a failure,
+against a rate of about one in seven before.
+
+**What is not claimed.** The very first sighting, in `PullToRefresh.test.tsx`,
+reported a synchronous `getByText` finding nothing rather than a timeout, and I
+saw it twice before it stopped happening. The timeout mismatch is the plausible
+cause — the abort lands wherever execution had reached — but that one is
+consistent with the evidence rather than proven by it. Twenty clean runs say it
+no longer reproduces; they do not say the mechanism was identical.
+
+The general lesson is about the shape of the answer, not the number. Two
+timeouts that govern the same wait must not be equal, and a raise to one of
+them is not a change until the other is above it. The comment in `setup.ts`
+described a safety margin that the configuration did not actually provide.
+
+---
+
+### 2.91 Zwei Sitzungen für einen Klick
+
+Der Einladungslink funktionierte nicht immer. Neu laden half, der Knopf im
+Fehlerbildschirm meistens nicht — und das ist der Hinweis, der die Ursache
+verrät: es lag nicht an der Einladung, sondern daran, wie die Seite startet.
+
+Die Einlöse-Seite stellt beim Öffnen drei Anfragen, gemessen am echten Build:
+
+    303ms  GET  /api/v1/csrf
+    316ms  GET  /api/v1/me
+    324ms  POST /api/v1/invitation/preview
+
+Die ersten beiden sind gleichzeitig unterwegs, und wer aus einer E-Mail kommt,
+hat noch kein Cookie. webtrees legt für **jede** Anfrage ohne Sitzung eine an
+und würfelt die Sitzungs-ID neu (`Session::start`, gegen Session-Fixation) —
+also kommen zwei `Set-Cookie` zurück und der Browser behält das zuletzt
+eingetroffene. Das CSRF-Token aus `/csrf` gehört aber zu *seiner* Sitzung. Hat
+`/me` gewonnen, trägt der POST ein Token, das die Sitzung nicht kennt.
+
+**Und dann wird die klare Antwort unlesbar.** webtrees' eigene `CheckCsrf`
+beantwortet ein falsches Token nicht mit einem Fehler, sondern mit `302` auf
+die URL, die es selbst gesehen hat — und das ist hinter dem Proxy der
+webtrees-Host, eine fremde Origin. Der Browser folgt, CORS blockt, und im
+Client kommt ein Transportfehler an: „Der Server ist nicht erreichbar", auf
+eine Anfrage, die eine vollkommen eindeutige Antwort bekommen hat. Der Knopf
+„Noch einmal versuchen" schickt dasselbe Token noch einmal; erst ein Neuladen
+hilft, weil dann ein Cookie da ist und alle drei Anfragen dieselbe Sitzung
+benutzen.
+
+Zwei Änderungen, beide im Client:
+
+**Die erste Anfrage einer Seite geht allein.** `afterTheFirstRequest()` lässt
+jede weitere warten, bis die erste beantwortet ist — danach steht das Cookie,
+und alles Folgende landet in derselben Sitzung. Kostet eine Rundreise beim
+Kaltstart und danach nichts. Bewusst nicht nach dem Abmelden neu gespannt:
+`DELETE /session` antwortet mit eigener Sitzung und eigenem Token, danach ist
+nichts mehr kalt.
+
+**Und eine Weiterleitung wird als das gelesen, was sie ist.** `redirect:
+'manual'` statt ihr zu folgen: eine `opaqueredirect`-Antwort auf einen
+schreibenden Aufruf kann hier nur eines heißen, nämlich `CheckCsrf`, und mit
+`csrf_token_invalid` läuft sie in die Wiederholung, die dieser Client für
+abgelaufene Token ohnehin schon hatte. Damit heilt der Fall sich selbst, auch
+wo er nicht verhindert wird — bei einer Sitzung, die mitten im Besuch abläuft,
+oder einem zweiten Tab. Auf einer *lesenden* Anfrage heißt eine Weiterleitung
+etwas anderes (falsch konfigurierte `rewrite_urls`, siehe `edge/proxy.ts`), und
+sie wird deshalb nicht Token-Problem genannt.
+
+Der Regressionstest ist der Wettlauf selbst: zwei Aufrufe im selben Tick, und
+die Behauptung, dass nur einer davon das Netz erreicht, bevor der erste
+beantwortet ist.
+
+---
+
+### 2.92 Was die Origin über sich selbst sagt
+
+Das Modul härtet seine eigenen Antworten — `private, no-store`, `nosniff`,
+`noindex`. Zwei Dinge kann aber nur sagen, wer auf dem Hostnamen des Portals
+antwortet, weil es Aussagen über die Origin als Ganzes sind: dass sie
+ausschließlich über HTTPS zu erreichen ist, und was eine von dort ausgelieferte
+Seite laden darf. Die SPA — der Teil, den ein Mitglied tatsächlich offen hat —
+sagte bisher keines von beidem.
+
+**HSTS**, ein Jahr, mit `includeSubDomains` und ohne `preload`: eine
+Preload-Eintragung liegt in Browsern und gilt der ganzen Domain, das ist nicht
+die Entscheidung dieses Deployments. `includeSubDomains` dagegen schon — das
+Sitzungs-Cookie ist zwar host-only (`rescopeCookie`), der Einladungstoken in
+einer URL ist es nicht.
+
+**Die CSP** kann kurz und streng sein, weil das Portal nichts von außen lädt:
+ein Bundle, ein Stylesheet, eigene Icons, eine API auf demselben Host. Nichts
+von einem CDN, an mehr als einer Stelle bewusst so gebaut (§2.88: der QR-Code
+wird selbst gezeichnet, statt einen Bilddienst zu fragen). `'unsafe-inline'`
+gibt es nur für Styles, und das ist keine Formsache: drei Komponenten setzen
+Größe oder Position aus JavaScript, und dafür schreibt React ein
+`style`-Attribut. `style-src-attr` wäre enger, kann aber Safari erst ab 15.4,
+und dieses Portal wird auf alten Telefonen gelesen. Ein Inline-Style kann
+keinen Code ausführen, ein Inline-Skript schon — und `script-src 'self'` sagt
+nein.
+
+Drei Dinge daran waren nicht offensichtlich.
+
+**Die Antwort auf die API bekommt eine andere Politik.** Nur
+`frame-ancestors 'none'`. `default-src 'none'` wäre die naheliegende Wahl für
+eine JSON-Antwort — und bricht das Öffnen eines Fotos in einem eigenen Tab,
+wo das Bild selbst das Dokument ist.
+
+**Vite hätte die Politik gebrochen.** `modulePreload.polyfill` fügt ein
+*Inline-Skript* ein, sobald der Build mehr als einen Chunk hat. Mit
+`script-src 'self'` wäre das ein Portal, das seine eigene erste Zeile nicht
+ausführen darf — auf genau den älteren Browsern, für die der Polyfill da ist.
+Er ist jetzt aus; ein Test liest die gebaute `index.html` und besteht darauf,
+dass jedes `<script>` ein `src` hat.
+
+**Und der Header wäre nie angekommen.** `run_worker_first` in wrangler.jsonc
+listete `/api/*` und `/.well-known/*` — die Pfade, die der Worker *beantwortet*.
+Alles andere beantwortet die Asset-Schicht, **bevor der Worker läuft**: der
+`harden()`-Aufruf für die Seite wäre toter Code gewesen, die Politik hätte im
+Repository gestanden und in keinem Browser. Genau der Fehler, den §2.81 schon
+einmal gekostet hat (die OAuth-404, geschrieben und nie erreicht). Jetzt
+`true` — jede Anfrage geht durch den Worker, eine Invocation je statischer
+Datei, was für das Portal einer Familie nichts ist.
+
+Geprüft wurde beides dort, wo es zählt: `wrangler dev` liefert die Header für
+Seite, Asset und API-Pfad tatsächlich aus (HSTS erwartungsgemäß nicht über
+http — den Zweig deckt der Unit-Test ab). Und ein Playwright-Lauf spielt die
+Politik auf das Dokument zurück und läuft die Bildschirme ab, die ein Mitglied
+benutzt: nichts wird blockiert. Dazu ein zweiter Test, der ein Inline-Skript
+absichtlich einzuschleusen versucht — sonst würde der erste auch bestehen,
+wenn gar nichts erzwungen wird.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
@@ -5434,6 +5810,17 @@ Four, all deliberate.
 
 Written down rather than acted on, per §2 of the handoff.
 
+* **Was webtrees schreibt, siezt weiter.** §2.89 hat das Portal auf „du"
+  umgestellt — aber nur die Strings, die dem Portal gehören. Die
+  Kontrollzentrums-Seiten des Moduls und die Einladungs- und
+  Kampagnen-E-Mails gehen durch `I18N::translate()`; deren deutsche Fassung
+  kommt aus webtrees' `.po`-Dateien und siezt. Für die Admin-Seiten ist das
+  gleichgültig — sie stehen ohnehin mitten in webtrees. Für die E-Mails ist es
+  eine Frage: sie sind das Erste, was ein neu eingeladenes Mitglied vom Portal
+  liest, und dort ist die Anrede plötzlich eine andere als auf der Seite, die
+  der Link öffnet. (Genau genommen fehlt für diese Sätze überhaupt eine
+  deutsche Übersetzung — sie gehen auf Englisch hinaus, was das eigentliche
+  Problem ist und die Anrede zu einem Teilproblem davon macht.)
 * **Linking out to webtrees is the one place the design contradicts itself.**
   Every record carries an "open the family tree and charts" link, per §4 of the
   handoff — which hands a member straight back into the UI the portal exists to

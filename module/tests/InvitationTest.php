@@ -526,6 +526,8 @@ class InvitationTest extends PortalTestCase
             'invitation_days'   => '14',
             'invitations_url'   => '/invitations',
             'campaigns_url'     => '/campaigns',
+            'requests_url'      => '/access-requests',
+            'requests_open'     => 2,
             'diagnosis_url'     => '/diagnosis',
             'accounts_url'      => '/accounts',
             'offices_url'       => '/offices',

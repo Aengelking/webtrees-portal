@@ -5,6 +5,7 @@ import {
   proxyToWebtrees,
   type ProxyEnv,
 } from './proxy'
+import { API_CONTENT_SECURITY_POLICY, CONTENT_SECURITY_POLICY, harden, overHttps } from './security'
 
 /**
  * The Cloudflare Worker that serves the portal.
@@ -34,6 +35,8 @@ export default {
     const url = new URL(request.url)
 
     if (isApiRequest(url)) {
+      // Hardened inside the proxy, so that the Pages entry point in
+      // functions/api gets the same treatment from the same code.
       return proxyToWebtrees(request, env)
     }
 
@@ -41,9 +44,12 @@ export default {
     // MCP client the portal's own index.html with a 200 on it. See
     // `noOAuthHere` in edge/proxy.ts for what that cost.
     if (isOAuthDiscoveryRequest(url)) {
-      return noOAuthHere()
+      return harden(noOAuthHere(), API_CONTENT_SECURITY_POLICY, overHttps(url))
     }
 
-    return env.ASSETS.fetch(request)
+    // The portal itself: the shell, the bundle, the stylesheet, the icons.
+    // This is the response a member's browser reads a policy off, so it is
+    // the one that has to carry it.
+    return harden(await env.ASSETS.fetch(request), CONTENT_SECURITY_POLICY, overHttps(url))
   },
 } satisfies ExportedHandler<Env>

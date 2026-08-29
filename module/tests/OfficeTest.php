@@ -71,9 +71,9 @@ class OfficeTest extends PortalTestCase
         return Registry::container()->get(Offices::class);
     }
 
-    private function giveOffice(string $xref, string $title, int $order = 0): void
+    private function giveOffice(string $xref, string $title, int $order = 0, string $translations = ''): void
     {
-        $this->offices()->set($xref, $title, $order);
+        $this->offices()->set($xref, $title, $order, $translations);
     }
 
     /** One member's row of the directory, as Anna reads it. */
@@ -280,6 +280,89 @@ class OfficeTest extends PortalTestCase
 
         // And the directory is unbothered by it.
         self::assertNotSame([], $this->json($this->api(MemberList::class))['items']);
+    }
+
+    // -----------------------------------------------------------------
+    // The other languages the family reads the portal in
+    // -----------------------------------------------------------------
+
+    /**
+     * The portal answers fact labels, dates and branch names in the reader's
+     * language (§2.17). An office that stayed in the words it was typed in
+     * would be the one German phrase in an English page.
+     */
+    public function testAnOfficeIsReadInTheLanguageTheRequestIsAnsweredIn(): void
+    {
+        $this->giveOffice('X1', 'Vorsitzende des Vorstands', 0, 'en: Chair of the board');
+
+        self::assertSame('Chair of the board', $this->offices()->titleFor('X1', 'en'));
+        self::assertSame('Vorsitzende des Vorstands', $this->offices()->titleFor('X1', 'de'));
+    }
+
+    /** A region falls back to its language: "en-GB" reads the `en:` wording. */
+    public function testARegionalLanguageTakesThePlainOne(): void
+    {
+        $this->giveOffice('X1', 'Vorsitzende des Vorstands', 0, 'en: Chair of the board');
+
+        self::assertSame('Chair of the board', $this->offices()->titleFor('X1', 'en-GB'));
+    }
+
+    /** And an exact tag beats it where the family wrote one. */
+    public function testAnExactTagWinsOverThePlainOne(): void
+    {
+        $this->giveOffice('X1', 'Vorstand', 0, 'en: Chair of the board | en-GB: Chairman of the board');
+
+        self::assertSame('Chairman of the board', $this->offices()->titleFor('X1', 'en-GB'));
+        self::assertSame('Chair of the board', $this->offices()->titleFor('X1', 'en-US'));
+    }
+
+    /**
+     * The half-translated row is the one that matters: a language nobody wrote
+     * a wording for still reads the office, in the words it was typed in.
+     * Showing nothing would be worse than showing German.
+     */
+    public function testALanguageNobodyTranslatedStillReadsTheOffice(): void
+    {
+        $this->giveOffice('X1', 'Vorsitzende des Vorstands', 0, 'en: Chair of the board');
+
+        self::assertSame('Vorsitzende des Vorstands', $this->offices()->titleFor('X1', 'fr'));
+    }
+
+    /** Which is also what every row written before this existed does. */
+    public function testAnOfficeWithNoTranslationsAnswersEverywhere(): void
+    {
+        $this->giveOffice('X1', 'Vorsitzende des Vorstands');
+
+        self::assertSame('Vorsitzende des Vorstands', $this->offices()->titleFor('X1', 'en'));
+    }
+
+    /**
+     * A part with no language tag is dropped where the administrator can still
+     * see it, rather than being stored and then never shown to anybody.
+     */
+    public function testAnUntaggedTranslationIsNotKept(): void
+    {
+        $this->giveOffice('X1', 'Vorstand', 0, 'Chair of the board | en: Chair of the board');
+
+        self::assertSame('en: Chair of the board', $this->offices()->listed()[0]['translations']);
+    }
+
+    /** The reader's own language reaches the card, not the server's default. */
+    public function testTheCardCarriesTheReadersLanguage(): void
+    {
+        $this->giveOffice('X3', 'Schriftführerin', 0, 'en: Secretary');
+
+        $row = $this->json($this->api(MemberList::class, headers: ['Accept-Language' => 'en']))['items'];
+
+        foreach ($row as $item) {
+            if ($item['id'] === $this->clara_id) {
+                self::assertSame('Secretary', $item['office']);
+
+                return;
+            }
+        }
+
+        self::fail('Clara is not in the directory.');
     }
 
     public function testTheListedOrderIsTheOneThatWasAskedFor(): void

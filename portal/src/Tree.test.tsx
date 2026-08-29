@@ -59,7 +59,7 @@ const BERTHA = {
   name: 'Bertha Beispiel',
   lifespan: '1889–1976',
   is_deceased: true,
-  relationship: 'Ihre Mutter',
+  relationship: 'Mutter',
   parents: [],
 }
 
@@ -138,7 +138,7 @@ describe('walking the tree', () => {
     stub()
     renderAt('/individuals/X2')
 
-    expect(await screen.findByText('Für Sie: Ihre Mutter')).toBeDefined()
+    expect(await screen.findByText('Für dich: Mutter')).toBeDefined()
   })
 
   it('says nothing at all when there is no relationship to name', async () => {
@@ -147,7 +147,7 @@ describe('walking the tree', () => {
 
     await screen.findByRole('heading', { name: 'Anna Beispiel' })
 
-    expect(screen.queryByText(/Für Sie:/)).toBeNull()
+    expect(screen.queryByText(/Für dich:/)).toBeNull()
   })
 
   it('survives a server that does not send a relationship yet', async () => {
@@ -166,7 +166,7 @@ describe('walking the tree', () => {
     renderAt('/individuals/X2')
 
     expect(await screen.findByRole('heading', { name: 'Bertha Beispiel' })).toBeDefined()
-    expect(screen.queryByText(/Für Sie:/)).toBeNull()
+    expect(screen.queryByText(/Für dich:/)).toBeNull()
   })
 })
 
@@ -190,8 +190,8 @@ describe('the ancestors view', () => {
     expect(screen.getByRole('heading', { name: 'Eltern' })).toBeDefined()
     expect(screen.getByRole('heading', { name: 'Großeltern' })).toBeDefined()
 
-    expect(screen.getByText('Ihr Vater')).toBeDefined()
-    expect(screen.getByText('Ihre Mutter')).toBeDefined()
+    expect(screen.getByText('Dein Vater')).toBeDefined()
+    expect(screen.getByText('Deine Mutter')).toBeDefined()
     expect(screen.getByText('Mutters Vater')).toBeDefined()
   })
 

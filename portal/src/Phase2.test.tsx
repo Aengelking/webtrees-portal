@@ -148,7 +148,7 @@ describe('the birth date is a calendar', () => {
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Änderung einreichen' }))
 
-    expect(await screen.findByText('Sie haben nichts geändert.')).toBeDefined()
+    expect(await screen.findByText('Du hast nichts geändert.')).toBeDefined()
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/me/individual'))).toHaveLength(0)
   })
 })
@@ -233,7 +233,7 @@ describe('editing my own record', () => {
     await screen.findByLabelText('Beruf')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Änderung einreichen' }))
 
-    expect(await screen.findByText('Sie haben nichts geändert.')).toBeDefined()
+    expect(await screen.findByText('Du hast nichts geändert.')).toBeDefined()
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/me/individual'))).toHaveLength(0)
   })
 
@@ -278,7 +278,7 @@ describe('editing my own record', () => {
 
     renderAt('/me')
 
-    expect(await screen.findByText('Ihre Änderung wird geprüft')).toBeDefined()
+    expect(await screen.findByText('Deine Änderung wird geprüft')).toBeDefined()
     // ...and the edit form is not offered while one is outstanding.
     expect(screen.queryByRole('link', { name: 'Meine Daten ändern' })).toBeNull()
   })
@@ -342,7 +342,7 @@ describe('password reset', () => {
     await user.click(screen.getByRole('button', { name: 'Link anfordern' }))
 
     // Deliberately not "no such address" — that would undo the server's care.
-    expect(await screen.findByText('Bitte sehen Sie in Ihr Postfach')).toBeDefined()
+    expect(await screen.findByText('Bitte sieh in dein Postfach')).toBeDefined()
   })
 
   it('a link with no token explains itself instead of failing', async () => {
@@ -403,7 +403,7 @@ describe('password reset', () => {
     await user.click(screen.getByRole('button', { name: 'Passwort speichern' }))
 
     expect(
-      await screen.findByText('Dieser Link ist abgelaufen oder wurde schon benutzt. Bitte fordern Sie einen neuen an.'),
+      await screen.findByText('Dieser Link ist abgelaufen oder wurde schon benutzt. Bitte fordere einen neuen an.'),
     ).toBeDefined()
     expect((screen.getByLabelText('Neues Passwort') as HTMLInputElement).value).toBe('')
   })
