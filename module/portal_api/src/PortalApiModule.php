@@ -148,6 +148,7 @@ use function min;
 use function rawurlencode;
 use function rtrim;
 use function str_replace;
+use function str_starts_with;
 use function strip_tags;
 use function trim;
 
@@ -171,7 +172,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.4.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 19;
+    private const int SCHEMA_VERSION = 20;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 
@@ -356,6 +357,34 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      * settings. webtrees' container auto-wires constructor arguments by type,
      * and it has no way to supply that, so we build them here.
      */
+    /**
+     * The few phrases this module says that webtrees has no word for.
+     *
+     * Almost everything here reaches a member already translated — webtrees
+     * names the relationships and the fact labels, the portal translates its
+     * own interface in the browser. This is the small remainder: wording the
+     * *server* assembles around those names, which therefore has to be
+     * translated on the server.
+     *
+     * Deliberately tiny, and it should stay that way. A string that belongs to
+     * the portal's own screens belongs in the portal's own catalogue, where a
+     * translator can see it beside the words around it.
+     *
+     * @return array<string,string>
+     */
+    public function customTranslations(string $language): array
+    {
+        if (!str_starts_with($language, 'de')) {
+            return [];
+        }
+
+        return [
+            // The other ways one person is related to another, after the
+            // nearest one — "Ihr Cousin · auch Ihr Cousin 3. Grades".
+            'also %s' => 'auch %s',
+        ];
+    }
+
     private function registerServices(): void
     {
         $container = Registry::container();
@@ -1674,7 +1703,14 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             return redirect($this->officesUrl());
         }
 
-        if ($offices->set($xref, $body->string('title', ''), $body->integer('sort_order', 0))) {
+        if (
+            $offices->set(
+                $xref,
+                $body->string('title', ''),
+                $body->integer('sort_order', 0),
+                $body->string('translations', ''),
+            )
+        ) {
             FlashMessages::addMessage(I18N::translate('The office has been saved.'), 'success');
         }
 
@@ -1689,7 +1725,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
      * column of xrefs. This is the control panel, which webtrees has already
      * decided they may open.
      *
-     * @return array<int,array{xref:string,title:string,sort_order:int,name:string|null,url:string|null}>
+     * @return array<int,array{xref:string,title:string,translations:string,sort_order:int,name:string|null,url:string|null}>
      */
     private function officeRows(Tree $tree): array
     {
@@ -1699,11 +1735,12 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $individual = Registry::individualFactory()->make($office['xref'], $tree);
 
             $rows[] = [
-                'xref'       => $office['xref'],
-                'title'      => $office['title'],
-                'sort_order' => $office['sort_order'],
-                'name'       => $individual instanceof Individual ? strip_tags($individual->fullName()) : null,
-                'url'        => $individual instanceof Individual ? $individual->url() : null,
+                'xref'         => $office['xref'],
+                'title'        => $office['title'],
+                'translations' => $office['translations'],
+                'sort_order'   => $office['sort_order'],
+                'name'         => $individual instanceof Individual ? strip_tags($individual->fullName()) : null,
+                'url'          => $individual instanceof Individual ? $individual->url() : null,
             ];
         }
 

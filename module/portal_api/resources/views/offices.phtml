@@ -9,7 +9,7 @@ use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Tree;
 
 /**
- * @var array<int,array{xref:string,title:string,sort_order:int,name:string|null,url:string|null}> $offices
+ * @var array<int,array{xref:string,title:string,translations:string,sort_order:int,name:string|null,url:string|null}> $offices
  * @var PortalApiModule $module
  * @var Tree            $tree
  * @var string          $settings_url
@@ -61,7 +61,13 @@ use Fisharebest\Webtrees\Tree;
                                 <small class="text-muted"><?= e($office['xref']) ?></small>
                             <?php endif ?>
                         </td>
-                        <td><?= e($office['title']) ?></td>
+                        <td>
+                            <?= e($office['title']) ?>
+                            <?php if ($office['translations'] !== '') : ?>
+                                <br>
+                                <small class="text-muted"><?= e($office['translations']) ?></small>
+                            <?php endif ?>
+                        </td>
                         <td><?= e((string) $office['sort_order']) ?></td>
                         <td>
                             <form method="post" class="d-inline">
@@ -97,11 +103,19 @@ use Fisharebest\Webtrees\Tree;
         </div>
     </div>
 
-    <div class="col-md-5">
+    <div class="col-md-4">
         <label class="form-label" for="office-title"><?= I18N::translate('Office') ?></label>
         <input class="form-control" id="office-title" name="title" type="text" required maxlength="128" placeholder="<?= I18N::translate('Chair of the board') ?>">
         <div class="form-text">
-            <?= I18N::translate('In the foundation’s own words. This is what members read.') ?>
+            <?= I18N::translate('In the foundation’s own words. This is what members read who have no translation below.') ?>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <label class="form-label" for="office-translations"><?= I18N::translate('In other languages') ?></label>
+        <input class="form-control" id="office-translations" name="translations" type="text" placeholder="en: Chair of the board | fr: Président du conseil">
+        <div class="form-text">
+            <?= I18N::translate('One per language, separated by “|”, each beginning with its language code — the same notation the branch names use. A member reading the portal in a language named here sees that wording; everybody else sees the office above.') ?>
         </div>
     </div>
 

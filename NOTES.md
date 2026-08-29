@@ -5322,7 +5322,111 @@ least one assertion has to be on the bytes.
 
 ---
 
-### 2.86 Ein Aufruf in der Familienzeitschrift ist keine Rundmail
+### 2.86 The one German phrase in an English page
+
+Reported: the office should be translatable.
+
+It was the one thing on the card that was not. The portal answers fact labels,
+dates and branch names in the language the member is reading (§2.17); §2.83 had
+just gone to some length over relationship names being *English* rather than
+German with English words in it. And beside all that sat *Vorsitzende des
+Vorstands*, in every language, because "An office is what the foundation says"
+gave the foundation a place to write an office and, without meaning to, gave
+each one exactly one language.
+
+**It cannot live in the portal's translation files.** That is the whole reason
+the office is free text: a statute that renames a body must not need a
+deployment. So the family writes the translations too — which is a problem the
+branch table had already solved, in a notation an administrator here has
+already met:
+
+    Vorsitzende des Vorstands | en: Chair of the board
+
+**So the parser moved rather than being copied.** `SackNumbers::names()` and
+its fallback rule are now `TranslatedText`, used by both. They were one
+notation the moment the second caller existed; being one *parser* is what stops
+them drifting into two notations that are nearly the same — the same argument
+§2.71 makes about two services building one shape. The 44 branch-name tests
+went green unchanged after the move, which is the only evidence worth having
+that an extraction was faithful.
+
+**The fallback is the point.** Exact tag, then bare language, then the words it
+was typed in. A family that has half-translated its list shows a French reader
+German rather than nothing, and every office written before this existed keeps
+working in every language without anybody touching it. Two of the tests exist
+only to hold that down, because it is the case that would otherwise rot
+quietly: nobody notices a missing translation, everybody notices a blank badge.
+
+**Stored in a column of its own** rather than a widened `title`. Adding a
+column is the additive change every other migration here makes; altering a
+type is the one that behaves differently on different databases. It also
+leaves the written name in a field the control panel can show without first
+taking a sentence apart — and lets the screen list the translations underneath
+it, so what is stored is visible rather than inferred.
+
+An untagged part is dropped when it is *saved*, not when it is read. The
+administrator is still looking at the screen at that moment; a part kept but
+never shown would be a translation nobody could find the absence of.
+
+---
+
+### 2.87 Related twice over, and the card picked one
+
+Asked: does the relationship calculation use the shortest path, and could we
+show both degrees for people who are related more than once?
+
+Yes to the first, and it was worth checking rather than assuming. The walk in
+`RelationshipNamer` is breadth-first and marks a person visited **on arrival**,
+so exactly one path survives per person and it is the shortest. Where several
+are equally short the winner is whichever `families()` returned first — nobody
+chose that, and nothing depended on it until now.
+
+**The second answer turned out to be already in the data.** A record carrying
+several archive numbers is a record that descends from the family by several
+lines; Dieter's fixture carries three usable ones for exactly that reason. The
+code saw all of them and deliberately took one: `ownNumber()` returned `[0]`,
+the loop over the target's numbers stopped at the first that answered, and the
+whole calculation only ran where the tree had already failed. Three separate
+places quietly choosing.
+
+So the tree's answer leads — it knows wives, stepfathers and adopted children,
+which a descent number cannot — and every distinct answer the numbers give
+follows it, nearest first, measured as the walk up to the shared ancestor plus
+the walk back down (`2 · distance − generations`, from `between()`).
+
+**Extending the *tree* walk was not attempted, and that is a decision.** Taking
+the `$visited` marking away to find second paths makes a bounded search
+combinatorial, on a query that runs once per card of a twenty-five row
+directory. The numbers reach further, cost a handful of string comparisons, and
+are where multiple descent actually lives.
+
+**The interesting part is what the change nearly broke.** Two existing tests
+went red, and the honest reading of the first was not "update the expectation".
+Their comment said it: a bare two-digit number is the head of a line *and* is
+what the archive's older, unrelated numbering looks like at two digits (§2.57).
+Sorting explicit numbers first and then reading only one made the ambiguous one
+unreachable. Crossing every number with every number handed that protection
+back, and the first thing it produced was a confident *auch Urgroßneffe* resting
+on a bare `9` that may be nothing at all.
+
+So a record carrying an explicit number is now compared only on those, and a
+record carrying nothing else is still read exactly as before. The rule is not
+"prefer the good number" but something narrower: **a doubtful answer may stand
+alone, where it is the only answer and reads as one, but not beside a sound one,
+where it reads as corroboration.** The old test now asserts what it always
+meant — the explicit number leads *and* the bare one is not heard from —
+which it could not distinguish while only one number was ever read.
+
+A footnote on the joining word. `also %s` is the first string this module says
+that webtrees has no translation for, so it is the first entry in
+`customTranslations()`. That facility should stay nearly empty: a phrase
+belonging to the portal's own screens belongs in the portal's own catalogue,
+where a translator sees it beside the words around it. This one cannot, because
+the sentence is assembled on the server around names the server made.
+
+---
+
+### 2.88 Ein Aufruf in der Familienzeitschrift ist keine Rundmail
 
 §2.71's campaign invites a mailing list without putting a credential in a
 round-robin letter, and it can be automatic for one reason: **being on the list

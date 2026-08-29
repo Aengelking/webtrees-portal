@@ -434,24 +434,15 @@ TEXT;
 
     /**
      * The row's name in one language, falling back to the one it was written
-     * with.
-     *
-     * "en-GB" takes an `en-GB:` name where the family wrote one and an `en:`
-     * name otherwise, because a branch name is a place and a phrase — the
-     * difference between two Englishes is not what this table is for. The
-     * untagged name is last and always answers, which is what keeps a row the
-     * family has only half-translated from showing a reader nothing.
+     * with. The rule, and the reasoning for it, live in `TranslatedText` —
+     * branch names are not the only phrase the family writes in more than one
+     * language, and there is one notation rather than two.
      *
      * @param array{name:string,translations:array<string,string>} $row
      */
     private function named(array $row, string $language): string
     {
-        $tag     = strtolower($language);
-        $primary = explode('-', $tag)[0];
-
-        return $row['translations'][$tag]
-            ?? $row['translations'][$primary]
-            ?? $row['name'];
+        return TranslatedText::pick($row['name'], $row['translations'], $language);
     }
 
     /**
@@ -535,26 +526,13 @@ TEXT;
 
     /**
      * One row's names: the one it was written with, then the tagged ones.
-     *
-     * `Name | en: Name | fr: Nom`. A part after the first that carries no tag,
-     * or a tag that is not a language tag, is dropped — a name with nobody to
-     * read it is worse than no name, because it would show up as somebody's
-     * branch in a language they are not reading.
+     * `Name | en: Name | fr: Nom` — see `TranslatedText` for the notation.
      *
      * @return array{name:string,translations:array<string,string>}
      */
     private function names(string $value): array
     {
-        $parts        = explode('|', $value);
-        $name         = trim(array_shift($parts));
-        $translations = [];
-        $matches      = [];
-
-        foreach ($parts as $part) {
-            if (preg_match('/^\s*([a-z]{2}(?:-[a-z]{2,3})?)\s*:\s*(\S.*)$/i', $part, $matches) === 1) {
-                $translations[strtolower($matches[1])] = trim($matches[2]);
-            }
-        }
+        ['text' => $name, 'translations' => $translations] = TranslatedText::parse($value);
 
         return ['name' => $name, 'translations' => $translations];
     }
