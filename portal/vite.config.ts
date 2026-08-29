@@ -10,6 +10,17 @@ const apiTarget = process.env.VITE_API_TARGET ?? 'http://localhost:8080'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    // Off because the polyfill is injected as an **inline script**, and the
+    // portal's Content-Security-Policy allows scripts from this origin only
+    // (see edge/security.ts). Left on, a build that produced more than one
+    // chunk would ship a page that refuses to run its own first line — on
+    // exactly the older browsers the polyfill exists to help.
+    //
+    // Nothing is lost on a browser that understands `modulepreload`, and a
+    // browser that does not simply loads the modules a moment later.
+    modulePreload: { polyfill: false },
+  },
   server: {
     port: 5173,
     proxy: {

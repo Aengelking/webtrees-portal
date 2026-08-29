@@ -5639,6 +5639,65 @@ beantwortet ist.
 
 ---
 
+### 2.92 Was die Origin über sich selbst sagt
+
+Das Modul härtet seine eigenen Antworten — `private, no-store`, `nosniff`,
+`noindex`. Zwei Dinge kann aber nur sagen, wer auf dem Hostnamen des Portals
+antwortet, weil es Aussagen über die Origin als Ganzes sind: dass sie
+ausschließlich über HTTPS zu erreichen ist, und was eine von dort ausgelieferte
+Seite laden darf. Die SPA — der Teil, den ein Mitglied tatsächlich offen hat —
+sagte bisher keines von beidem.
+
+**HSTS**, ein Jahr, mit `includeSubDomains` und ohne `preload`: eine
+Preload-Eintragung liegt in Browsern und gilt der ganzen Domain, das ist nicht
+die Entscheidung dieses Deployments. `includeSubDomains` dagegen schon — das
+Sitzungs-Cookie ist zwar host-only (`rescopeCookie`), der Einladungstoken in
+einer URL ist es nicht.
+
+**Die CSP** kann kurz und streng sein, weil das Portal nichts von außen lädt:
+ein Bundle, ein Stylesheet, eigene Icons, eine API auf demselben Host. Nichts
+von einem CDN, an mehr als einer Stelle bewusst so gebaut (§2.88: der QR-Code
+wird selbst gezeichnet, statt einen Bilddienst zu fragen). `'unsafe-inline'`
+gibt es nur für Styles, und das ist keine Formsache: drei Komponenten setzen
+Größe oder Position aus JavaScript, und dafür schreibt React ein
+`style`-Attribut. `style-src-attr` wäre enger, kann aber Safari erst ab 15.4,
+und dieses Portal wird auf alten Telefonen gelesen. Ein Inline-Style kann
+keinen Code ausführen, ein Inline-Skript schon — und `script-src 'self'` sagt
+nein.
+
+Drei Dinge daran waren nicht offensichtlich.
+
+**Die Antwort auf die API bekommt eine andere Politik.** Nur
+`frame-ancestors 'none'`. `default-src 'none'` wäre die naheliegende Wahl für
+eine JSON-Antwort — und bricht das Öffnen eines Fotos in einem eigenen Tab,
+wo das Bild selbst das Dokument ist.
+
+**Vite hätte die Politik gebrochen.** `modulePreload.polyfill` fügt ein
+*Inline-Skript* ein, sobald der Build mehr als einen Chunk hat. Mit
+`script-src 'self'` wäre das ein Portal, das seine eigene erste Zeile nicht
+ausführen darf — auf genau den älteren Browsern, für die der Polyfill da ist.
+Er ist jetzt aus; ein Test liest die gebaute `index.html` und besteht darauf,
+dass jedes `<script>` ein `src` hat.
+
+**Und der Header wäre nie angekommen.** `run_worker_first` in wrangler.jsonc
+listete `/api/*` und `/.well-known/*` — die Pfade, die der Worker *beantwortet*.
+Alles andere beantwortet die Asset-Schicht, **bevor der Worker läuft**: der
+`harden()`-Aufruf für die Seite wäre toter Code gewesen, die Politik hätte im
+Repository gestanden und in keinem Browser. Genau der Fehler, den §2.81 schon
+einmal gekostet hat (die OAuth-404, geschrieben und nie erreicht). Jetzt
+`true` — jede Anfrage geht durch den Worker, eine Invocation je statischer
+Datei, was für das Portal einer Familie nichts ist.
+
+Geprüft wurde beides dort, wo es zählt: `wrangler dev` liefert die Header für
+Seite, Asset und API-Pfad tatsächlich aus (HSTS erwartungsgemäß nicht über
+http — den Zweig deckt der Unit-Test ab). Und ein Playwright-Lauf spielt die
+Politik auf das Dokument zurück und läuft die Bildschirme ab, die ein Mitglied
+benutzt: nichts wird blockiert. Dazu ein zweiter Test, der ein Inline-Skript
+absichtlich einzuschleusen versucht — sonst würde der erste auch bestehen,
+wenn gar nichts erzwungen wird.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

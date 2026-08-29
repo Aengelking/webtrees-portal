@@ -14,23 +14,26 @@
     // loop by construction.
     "not_found_handling": "single-page-application",
 
-    // Which paths reach the Worker at all.
+    // Every request reaches the Worker.
     //
-    // Without this, the fallback above answers *before the Worker runs*, so a
-    // path listed nowhere here can never be handled in `edge/worker.ts` — it
-    // gets index.html with a 200 on it, whatever the code says.
+    // Whatever is not listed here is answered by the asset layer *before the
+    // Worker runs*, so a path missing from it cannot be handled in
+    // `edge/worker.ts` at all — it gets index.html with a 200 on it, whatever
+    // the code says. That is not hypothetical: the OAuth 404 in
+    // `noOAuthHere` was written, shipped, and never reached, because
+    // `/.well-known/*` was not on the list.
     //
-    // `/api/*` is the obvious one: without it every API call would quietly
-    // return HTML instead of JSON.
+    // It used to be `["/api/*", "/.well-known/*"]` — the two paths the Worker
+    // *answers* itself. It is now everything, because the Worker also has
+    // something to say about the responses it does not write: the security
+    // headers in `edge/security.ts`. A page served straight off the asset
+    // layer carries no Content-Security-Policy and no HSTS, and the portal is
+    // exactly the page that needs both.
     //
-    // `/.well-known/*` is here for a subtler reason. An MCP client that is
-    // refused goes looking for OAuth metadata there, and the Worker answers
-    // with a JSON 404 — see `noOAuthHere` in edge/proxy.ts. That answer was
-    // written and then never reached, because this list did not mention the
-    // path: the fix was live and dead at the same time, and the client went on
-    // parsing a web page as JSON. The Worker passes anything it does not
-    // recognise here — an ACME challenge, say — straight back to the assets.
-    "run_worker_first": ["/api/*", "/.well-known/*"]
+    // The cost is one Worker invocation per static file. For a family's
+    // portal that is nothing; the alternative is a policy that exists in the
+    // repository and not in the browser.
+    "run_worker_first": true
   },
 
   "observability": {
