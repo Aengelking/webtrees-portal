@@ -5538,6 +5538,60 @@ Das gehört in §5.
 
 ---
 
+### 2.90 Zwei Sitzungen für einen Klick
+
+Der Einladungslink funktionierte nicht immer. Neu laden half, der Knopf im
+Fehlerbildschirm meistens nicht — und das ist der Hinweis, der die Ursache
+verrät: es lag nicht an der Einladung, sondern daran, wie die Seite startet.
+
+Die Einlöse-Seite stellt beim Öffnen drei Anfragen, gemessen am echten Build:
+
+    303ms  GET  /api/v1/csrf
+    316ms  GET  /api/v1/me
+    324ms  POST /api/v1/invitation/preview
+
+Die ersten beiden sind gleichzeitig unterwegs, und wer aus einer E-Mail kommt,
+hat noch kein Cookie. webtrees legt für **jede** Anfrage ohne Sitzung eine an
+und würfelt die Sitzungs-ID neu (`Session::start`, gegen Session-Fixation) —
+also kommen zwei `Set-Cookie` zurück und der Browser behält das zuletzt
+eingetroffene. Das CSRF-Token aus `/csrf` gehört aber zu *seiner* Sitzung. Hat
+`/me` gewonnen, trägt der POST ein Token, das die Sitzung nicht kennt.
+
+**Und dann wird die klare Antwort unlesbar.** webtrees' eigene `CheckCsrf`
+beantwortet ein falsches Token nicht mit einem Fehler, sondern mit `302` auf
+die URL, die es selbst gesehen hat — und das ist hinter dem Proxy der
+webtrees-Host, eine fremde Origin. Der Browser folgt, CORS blockt, und im
+Client kommt ein Transportfehler an: „Der Server ist nicht erreichbar", auf
+eine Anfrage, die eine vollkommen eindeutige Antwort bekommen hat. Der Knopf
+„Noch einmal versuchen" schickt dasselbe Token noch einmal; erst ein Neuladen
+hilft, weil dann ein Cookie da ist und alle drei Anfragen dieselbe Sitzung
+benutzen.
+
+Zwei Änderungen, beide im Client:
+
+**Die erste Anfrage einer Seite geht allein.** `afterTheFirstRequest()` lässt
+jede weitere warten, bis die erste beantwortet ist — danach steht das Cookie,
+und alles Folgende landet in derselben Sitzung. Kostet eine Rundreise beim
+Kaltstart und danach nichts. Bewusst nicht nach dem Abmelden neu gespannt:
+`DELETE /session` antwortet mit eigener Sitzung und eigenem Token, danach ist
+nichts mehr kalt.
+
+**Und eine Weiterleitung wird als das gelesen, was sie ist.** `redirect:
+'manual'` statt ihr zu folgen: eine `opaqueredirect`-Antwort auf einen
+schreibenden Aufruf kann hier nur eines heißen, nämlich `CheckCsrf`, und mit
+`csrf_token_invalid` läuft sie in die Wiederholung, die dieser Client für
+abgelaufene Token ohnehin schon hatte. Damit heilt der Fall sich selbst, auch
+wo er nicht verhindert wird — bei einer Sitzung, die mitten im Besuch abläuft,
+oder einem zweiten Tab. Auf einer *lesenden* Anfrage heißt eine Weiterleitung
+etwas anderes (falsch konfigurierte `rewrite_urls`, siehe `edge/proxy.ts`), und
+sie wird deshalb nicht Token-Problem genannt.
+
+Der Regressionstest ist der Wettlauf selbst: zwei Aufrufe im selben Tick, und
+die Behauptung, dass nur einer davon das Netz erreicht, bevor der erste
+beantwortet ist.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.
