@@ -5538,7 +5538,54 @@ Das gehört in §5.
 
 ---
 
-### 2.90 Zwei Sitzungen für einen Klick
+### 2.90 One number, several tests, and none of them the culprit
+
+A test failed in roughly one full suite run out of seven and passed on its own
+every time. The first instinct — the one I had, and wrote down at the time as a
+guess rather than a finding — was that the file was at fault: something left on
+`window` by a neighbouring test, since the gesture it tests reads `scrollY` and
+`matchMedia`.
+
+That was wrong, and the thing that showed it was wrong was **running it enough
+times to see the second failure**. It landed in a different file
+(`Notifications.test.tsx`), and it said something the first one had not:
+
+    Error: Test timed out in 5000ms.
+
+`src/test/setup.ts` raises Testing Library's `asyncUtilTimeout` to five seconds,
+with an argument worth keeping: a shared CI core is slower than a laptop, the
+queries that time out first are the expensive ones, and a suite that fails on
+the machine it is meant to gate is worse than a slow one. All true. But
+vitest's own `testTimeout` default is **also five seconds**, for the whole
+test — so the permission to wait longer was never real. A `findBy…` that needed
+four seconds and would have succeeded had one second left for the rest of the
+test; one that needed five killed the test outright.
+
+Thirty test files run in parallel on a container with a couple of cores, so on
+any given run *some* worker is the slow one. Which file it is varies, and that
+is exactly why this looked like several unrelated flaky tests rather than one
+setting. A flake that moves around is a hint about the environment, not about
+the test you happen to be looking at.
+
+`testTimeout` is now 20 seconds — comfortably above the five Testing Library is
+allowed to spend — and the suite ran twenty times in a row without a failure,
+against a rate of about one in seven before.
+
+**What is not claimed.** The very first sighting, in `PullToRefresh.test.tsx`,
+reported a synchronous `getByText` finding nothing rather than a timeout, and I
+saw it twice before it stopped happening. The timeout mismatch is the plausible
+cause — the abort lands wherever execution had reached — but that one is
+consistent with the evidence rather than proven by it. Twenty clean runs say it
+no longer reproduces; they do not say the mechanism was identical.
+
+The general lesson is about the shape of the answer, not the number. Two
+timeouts that govern the same wait must not be equal, and a raise to one of
+them is not a change until the other is above it. The comment in `setup.ts`
+described a safety margin that the configuration did not actually provide.
+
+---
+
+### 2.91 Zwei Sitzungen für einen Klick
 
 Der Einladungslink funktionierte nicht immer. Neu laden half, der Knopf im
 Fehlerbildschirm meistens nicht — und das ist der Hinweis, der die Ursache
