@@ -29,5 +29,20 @@ export default defineConfig({
     // worker decides what a phone may keep, which are both worth a test.
     include: ['src/**/*.test.{ts,tsx}', 'edge/**/*.test.ts', 'sw/**/*.test.ts'],
     globals: true,
+    // Longer than the `asyncUtilTimeout` in `src/test/setup.ts`, and that
+    // relationship is the whole point of the number.
+    //
+    // Testing Library was given five seconds there to wait for a screen to
+    // settle, with a good argument: a shared CI core is slower than a laptop.
+    // But vitest's own default is also five seconds, for the *whole test* —
+    // so the permission to wait longer was never real. A `findBy…` that took
+    // four seconds and would have succeeded killed the test at five instead,
+    // and it did so in whichever file happened to draw the slowest worker,
+    // which is why this looked like several unrelated flaky tests rather than
+    // one setting. See NOTES §2.90.
+    //
+    // A test that is genuinely stuck still fails; it now says so with the
+    // assertion that failed rather than with an opaque timeout.
+    testTimeout: 20_000,
   },
 })

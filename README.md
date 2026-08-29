@@ -2385,6 +2385,14 @@ npm run build       # typecheck + production build
 npm run test:e2e    # Playwright smoke path
 ```
 
+**Two timeouts govern the same wait, and they are set together.**
+`asyncUtilTimeout` in `src/test/setup.ts` is how long a `findBy…` may wait for
+a screen to settle; `testTimeout` in `vite.config.ts` is how long the whole
+test may live. The second has to stay comfortably above the first. While both
+were five seconds the suite failed about one run in seven — in a different file
+each time, because thirty files run in parallel and whichever worker drew the
+slow core was the one that lost. Raising one without the other changes nothing.
+
 The Playwright run builds the app, serves it with `vite preview` on
 `127.0.0.1:4173` and stubs the API in the browser, so it needs no webtrees
 host. When it fails in CI, the job uploads the Playwright report and traces as
