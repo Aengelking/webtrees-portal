@@ -168,6 +168,6 @@ describe('the link to webtrees', () => {
     stub('editor')
     renderMe()
 
-    expect(await screen.findByText(/weil Sie den Stammbaum bearbeiten dürfen/)).toBeDefined()
+    expect(await screen.findByText(/weil du den Stammbaum bearbeiten darfst/)).toBeDefined()
   })
 })

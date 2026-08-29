@@ -187,7 +187,7 @@ describe('offering notifications', () => {
     stub({ available: true, public_key: 'BKxQ', subscribed: false }, { permission: 'denied' })
     renderIt()
 
-    expect(await screen.findByText(/Ihr Browser blockiert Benachrichtigungen/)).toBeDefined()
+    expect(await screen.findByText(/Dein Browser blockiert Benachrichtigungen/)).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Benachrichtigungen einschalten' })).toBeNull()
   })
 

@@ -83,13 +83,13 @@ describe('asking for access', () => {
 
     const user = userEvent.setup()
 
-    await user.type(await screen.findByLabelText('Ihr Name'), 'Antje Beispiel')
-    await user.type(screen.getByLabelText('Ihre E-Mail-Adresse'), 'antje@example.test')
+    await user.type(await screen.findByLabelText('Dein Name'), 'Antje Beispiel')
+    await user.type(screen.getByLabelText('Deine E-Mail-Adresse'), 'antje@example.test')
     await user.type(screen.getByLabelText(/SB-Nummer/), '22/1a32.124')
-    await user.type(screen.getByLabelText(/Wie gehören Sie zur Familie/), 'Über Bertha.')
+    await user.type(screen.getByLabelText(/Wie gehörst du zur Familie/), 'Über Bertha.')
     await user.click(screen.getByRole('button', { name: 'Antrag absenden' }))
 
-    expect(await screen.findByText('Ihr Antrag ist angekommen')).toBeDefined()
+    expect(await screen.findByText('Dein Antrag ist angekommen')).toBeDefined()
 
     expect(posted).toHaveLength(1)
     expect(posted[0]).toMatchObject({
@@ -111,11 +111,11 @@ describe('asking for access', () => {
 
     const user = userEvent.setup()
 
-    await user.type(await screen.findByLabelText('Ihr Name'), 'Antje Beispiel')
-    await user.type(screen.getByLabelText('Ihre E-Mail-Adresse'), 'antje@example.test')
+    await user.type(await screen.findByLabelText('Dein Name'), 'Antje Beispiel')
+    await user.type(screen.getByLabelText('Deine E-Mail-Adresse'), 'antje@example.test')
     await user.click(screen.getByRole('button', { name: 'Antrag absenden' }))
 
-    expect(await screen.findByText('Ihr Antrag ist angekommen')).toBeDefined()
+    expect(await screen.findByText('Dein Antrag ist angekommen')).toBeDefined()
     expect(posted[0]).toMatchObject({ reference: '', note: '' })
   })
 
@@ -129,10 +129,10 @@ describe('asking for access', () => {
 
     const user = userEvent.setup()
 
-    await user.type(await screen.findByLabelText('Ihr Name'), 'Antje Beispiel')
+    await user.type(await screen.findByLabelText('Dein Name'), 'Antje Beispiel')
     await user.click(screen.getByRole('button', { name: 'Antrag absenden' }))
 
-    expect((await screen.findByRole('alert')).textContent).toMatch(/Namen und Ihre E-Mail-Adresse/)
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Namen und deine E-Mail-Adresse/)
     expect(posted).toHaveLength(0)
   })
 
@@ -146,12 +146,12 @@ describe('asking for access', () => {
 
     const user = userEvent.setup()
 
-    await user.type(await screen.findByLabelText('Ihr Name'), 'Wildfremde Person')
-    await user.type(screen.getByLabelText('Ihre E-Mail-Adresse'), 'fremd@example.test')
+    await user.type(await screen.findByLabelText('Dein Name'), 'Wildfremde Person')
+    await user.type(screen.getByLabelText('Deine E-Mail-Adresse'), 'fremd@example.test')
     await user.type(screen.getByLabelText(/SB-Nummer/), '999999')
     await user.click(screen.getByRole('button', { name: 'Antrag absenden' }))
 
-    const notice = await screen.findByText('Ihr Antrag ist angekommen')
+    const notice = await screen.findByText('Dein Antrag ist angekommen')
 
     expect(notice).toBeDefined()
     expect(screen.queryByText(/nicht gefunden|unbekannt|kein Eintrag/)).toBeNull()

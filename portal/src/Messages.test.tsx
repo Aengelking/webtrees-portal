@@ -193,7 +193,7 @@ describe('the inbox', () => {
     stub()
     renderAt('/messages')
 
-    expect(await screen.findByText(/Was Sie hier löschen, ist auch dort gelöscht/)).toBeDefined()
+    expect(await screen.findByText(/Was du hier löschst, ist auch dort gelöscht/)).toBeDefined()
   })
 
   it('explains an empty inbox rather than showing an empty list', async () => {
@@ -212,7 +212,7 @@ describe('answering', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Familientreffen/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Antworten' }))
 
-    await userEvent.type(screen.getByLabelText('Ihre Antwort'), 'Ja, sehr gern.')
+    await userEvent.type(screen.getByLabelText('Deine Antwort'), 'Ja, sehr gern.')
     await userEvent.click(screen.getByRole('button', { name: 'Antwort senden' }))
 
     await waitFor(() => expect(replied).toEqual([{ body: 'Ja, sehr gern.' }]))
@@ -240,7 +240,7 @@ describe('answering', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: /Familientreffen/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Antworten' }))
-    await userEvent.type(screen.getByLabelText('Ihre Antwort'), 'Danke.')
+    await userEvent.type(screen.getByLabelText('Deine Antwort'), 'Danke.')
     await userEvent.click(screen.getByRole('button', { name: 'Antwort senden' }))
 
     expect(await screen.findByText(/Eine Kopie wird hier nicht aufbewahrt/)).toBeDefined()

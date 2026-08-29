@@ -5491,7 +5491,50 @@ of `oscarotero/middleland`, the screen shows the link and no picture.
 
 And the claim page no longer says *"Sie haben diesen Link über eine Rundmail
 bekommen"*. It says a Rundschreiben — a round-robin letter **or** the family
-magazine — because from now on it is reached from both.
+magazine — because from now on it is reached from both. (In du, since §2.89:
+*"Du hast diesen Link aus einem Rundschreiben der Familie"*.)
+
+---
+
+### 2.89 Die Familie siezt sich nicht
+
+Das deutsche Portal hat die Mitglieder gesiezt — jede Zeile, von der Anmeldung
+bis zur Fehlermeldung. Das ist die Anrede einer Behörde gegenüber einem
+Antragsteller, und hier schreibt die Familie an die Familie: an Leute, die
+einander auf dem Familientreffen duzen und deren Kinder im selben Stammbaum
+stehen. Der Antrag auf Zugang fiel zuerst auf — *"Sagen Sie uns kurz, wer Sie
+sind"* neben einer Zeitschrift, die Vornamen druckt —, aber die Anrede ist
+nichts, was eine Seite für sich entscheidet: eine geduzte Antragsseite und ein
+gesiezter Rest wäre schlimmer als beides einheitlich.
+
+Also alle 745 Zeilen von `src/i18n/de.ts`, nicht die eine Seite. Ersetzt wurde
+Satz für Satz und nicht mit einer Regel: „Sie" → „du" ist keine Ersetzung von
+Wörtern, sondern von Verbformen (*„Melden Sie sich an" → „Melde dich an"*,
+*„Wenn Sie fortfahren, sind Sie und die Person … verbunden" → „Wenn du
+fortfährst, bist du mit der Person … verbunden"* — der zweite Satz musste ganz
+neu gebaut werden, weil das „Sie und die Person" im Du grammatisch nicht
+aufgeht). Zwei „Sie" bleiben stehen, und beide sind richtig: *„Sie wird geprüft
+und danach übernommen"* meint die Änderung, *„Sie öffnet sich dann mit einem
+Tippen"* die App.
+
+**Das Englische ist nicht betroffen**, und das ist kein Versehen: Englisch
+kennt die Unterscheidung nicht, `en.ts` sagt seit jeher *you*. Der Unterschied
+zwischen den beiden Dateien ist damit einer weniger, nicht einer mehr.
+
+**Der Server siezt ohnehin nicht.** Verwandtschaftsbezeichnungen kommen aus
+webtrees (§2.87), und webtrees schreibt *„Bruder"*, *„Mutter"* — ohne
+Possessivpronomen. Die Fixtures behaupteten *„Ihr Bruder"* und haben damit ein
+Portal getestet, das es nicht gibt; sie sagen jetzt, was der Server sagt. Nur
+das Label davor gehört dem Portal, und das heißt jetzt *„Für dich:"*.
+
+**Die Bilder für die Zeitschrift mussten neu.** Sieben deutsche Bildschirmfotos
+zeigten die alte Anrede; sie sind mit `PORTAL_SCREENSHOTS=1` neu aufgenommen.
+Die englischen blieben, wie sie waren.
+
+Nicht umgestellt ist der Text, den **webtrees selbst** schreibt: die
+Kontrollzentrums-Seiten des Moduls und die Einladungs-E-Mails gehen durch
+`I18N::translate()` und damit durch webtrees' eigene Übersetzungen, die siezen.
+Das gehört in §5.
 
 ---
 
@@ -5607,6 +5650,17 @@ Four, all deliberate.
 
 Written down rather than acted on, per §2 of the handoff.
 
+* **Was webtrees schreibt, siezt weiter.** §2.89 hat das Portal auf „du"
+  umgestellt — aber nur die Strings, die dem Portal gehören. Die
+  Kontrollzentrums-Seiten des Moduls und die Einladungs- und
+  Kampagnen-E-Mails gehen durch `I18N::translate()`; deren deutsche Fassung
+  kommt aus webtrees' `.po`-Dateien und siezt. Für die Admin-Seiten ist das
+  gleichgültig — sie stehen ohnehin mitten in webtrees. Für die E-Mails ist es
+  eine Frage: sie sind das Erste, was ein neu eingeladenes Mitglied vom Portal
+  liest, und dort ist die Anrede plötzlich eine andere als auf der Seite, die
+  der Link öffnet. (Genau genommen fehlt für diese Sätze überhaupt eine
+  deutsche Übersetzung — sie gehen auf Englisch hinaus, was das eigentliche
+  Problem ist und die Anrede zu einem Teilproblem davon macht.)
 * **Linking out to webtrees is the one place the design contradicts itself.**
   Every record carries an "open the family tree and charts" link, per §4 of the
   handoff — which hands a member straight back into the UI the portal exists to

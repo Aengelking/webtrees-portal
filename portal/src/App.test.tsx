@@ -300,7 +300,7 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Anmelden' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toBe('Benutzername oder Passwort ist falsch. Bitte versuchen Sie es noch einmal.')
+    expect(alert.textContent).toBe('Benutzername oder Passwort ist falsch. Bitte versuche es noch einmal.')
 
     // The password field is cleared, and nothing about the account leaks.
     expect((screen.getByLabelText('Passwort') as HTMLInputElement).value).toBe('')

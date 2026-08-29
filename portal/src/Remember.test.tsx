@@ -104,7 +104,7 @@ describe('staying signed in', () => {
 
     // The other half of the sentence, which is the reason it is off by
     // default: this is a key left on a device.
-    expect(screen.getByText(/nur auf Ihrem eigenen Telefon/)).toBeDefined()
+    expect(screen.getByText(/nur auf deinem eigenen Telefon/)).toBeDefined()
   })
 
   it('asks for it only when the member did', async () => {
