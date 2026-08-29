@@ -168,9 +168,15 @@ class PhotoPresenter
      * decides whether the media record itself is. A record can be restricted
      * without its links being, and the picture is the thing being protected.
      *
+     * **Public because the MCP server asks the same question.** `ArchivePhotos`
+     * hands pictures to an assistant, and the set it may hand over is exactly
+     * the set the portal would show on the page of somebody the archive may
+     * name — no second opinion about who is in a photograph, kept in a second
+     * place, drifting from this one. See NOTES.md §2.93.
+     *
      * @return array<int,Media>
      */
-    private function visibleMedia(Individual $individual, int $access_level): array
+    public function visibleMedia(Individual $individual, int $access_level): array
     {
         $media = [];
 

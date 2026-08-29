@@ -18,6 +18,7 @@ use Illuminate\Support\Collection;
  * @var PortalApiModule          $module
  * @var bool                     $enabled
  * @var bool                     $notes
+ * @var bool                     $photos
  * @var int                      $valid_days
  * @var string                   $new_token
  * @var string                   $mcp_url
@@ -179,6 +180,11 @@ $action = route('module', ['module' => $module->name(), 'action' => 'AdminMcp'])
         <li><?= I18N::translate('The notes the family wrote, on a record and under an event, and a search across them.') ?></li>
     <?php else : ?>
         <li class="text-muted"><?= I18N::translate('Not the notes the family wrote: that is switched off in the preferences.') ?></li>
+    <?php endif ?>
+    <?php if ($photos) : ?>
+        <li><?= I18N::translate('The photographs on a record, scaled down, for an assistant to look at.') ?></li>
+    <?php else : ?>
+        <li class="text-muted"><?= I18N::translate('Not photographs: those are switched off in the preferences.') ?></li>
     <?php endif ?>
     <li><?= I18N::translate('The surnames and places the archive’s dead are filed under, with counts.') ?></li>
 </ul>

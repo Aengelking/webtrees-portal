@@ -43,6 +43,7 @@ use Illuminate\Support\Collection;
  * @var string               $remember_days
  * @var string               $mcp
  * @var string               $mcp_notes
+ * @var string               $mcp_photos
  * @var string               $mcp_url
  * @var string               $mcp_tokens_url
  * @var string               $mailing_lists
@@ -390,6 +391,18 @@ foreach ($trees as $a_tree) {
             </div>
             <div class="form-text">
                 <?= I18N::translate('With this off, notes are left out of every record and the tool that searches them is not offered.') ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-sm-9 offset-sm-3">
+            <?= view('components/checkbox', ['label' => I18N::translate('Hand over photographs'), 'name' => PortalApiModule::SETTING_MCP_PHOTOS, 'checked' => $mcp_photos === '1']) ?>
+            <div class="form-text">
+                <?= I18N::translate('An assistant can then be shown a picture — to read the caption written on the back, an inscription on a stone, or a page of a register. Only pictures the portal would show on the page of somebody who has died, and scaled down before they are sent.') ?>
+            </div>
+            <div class="form-text">
+                <?= I18N::translate('This one goes further than the rest, and off is the sensible default: the archive reasons about records, and a photograph of somebody who died can still show their living grandchildren. Nothing here can know that.') ?>
             </div>
         </div>
     </div>

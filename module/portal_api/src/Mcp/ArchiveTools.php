@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Engelking\Webtrees\PortalApi\Mcp;
 
 use Engelking\Webtrees\PortalApi\Services\ArchiveNotes;
+use Engelking\Webtrees\PortalApi\Services\ArchivePhotos;
 use Engelking\Webtrees\PortalApi\Services\ArchiveReader;
-use stdClass;
 
 use function array_filter;
 use function array_values;
@@ -46,32 +46,10 @@ use const JSON_UNESCAPED_UNICODE;
  */
 final class ArchiveTools
 {
-    /**
-     * TEMPORARY — a fixed picture, for finding out whether images survive the
-     * trip to a client at all.
-     *
-     * 448x88 PNG, 591 bytes, reading "SACK-4711" in black on white. It comes
-     * from nowhere near the archive: no record, no file on disk, no privacy
-     * decision. That is the point — it separates "this client can carry an
-     * image" from every question about which picture anybody may see.
-     *
-     * Delete this constant, `imageProbe()` and the `debug_test_image` entry
-     * together once the question is answered.
-     */
-    private const string PROBE_PNG =
-        'iVBORw0KGgoAAAANSUhEUgAAAcAAAABYCAIAAADtBbC+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACAUlEQVR42u3dwY6CMBRA'
-        . 'UTvh/3+Z2boQ09r3WmjPWc1iglTJTfOCUs7zfAHQ7s9bACCgAAIKIKAAAgqAgAIIKICAAggogIACIKAAAgogoAACCiCgAAgo'
-        . 'gIACCCiAgAIgoAACCiCgAAIKsIsj46CllJDj9Dyz/uoceo4Ztcarc4g65+y1j9S6lqhrL+qaHPlZrPS524ECCCgAAgoQKGwG'
-        . 'mjG/e/+75jg186/WY0atsWddI9//O8iYL488h+w57KzXwg4UQEABBBTgoY67nVD2XLJ1Fhk1W3z//6i5lbnnnudv7mkHCiCg'
-        . 'AAIKQJPjiSfdM/u7mkVm3JtZcw4j1/7Ez/EOs8XW66rmmBnXj9moHSiAgAIIKAAfhc1Aa2aLPcfc2c6/7+m9xQ4UQEABEFCA'
-        . 'Tin3gUbd5zjy3szdjHx2kLkndqAACCiAgAJMdKy0mFW/C5zx/f07zPuinjvU87wsc0/sQAEEFEBAAZa31Aw06nlK2aJml0+5'
-        . 'Z3bW75+ae2IHCiCgAAIKwCtwBrrqvClq5pj9bBy/IbD2dYgdKICAAiCgAD/zTKQJa8xYl3noXK3XQMb9rRmvhR0ogIACCCjA'
-        . 'Aoo5CIAdKICAAggogIACIKAAAgogoAACCiCgAAgogIACCCiAgAIIKAACCiCgAAIKIKAACCiAgAIIKICAAggoAF/9A7ekz+FL'
-        . 'OJK2AAAAAElFTkSuQmCC';
-
     public function __construct(
         private readonly ArchiveReader $archive,
         private readonly ArchiveNotes $notes,
+        private readonly ArchivePhotos $photos,
     ) {
     }
 
@@ -87,8 +65,11 @@ final class ArchiveTools
         // and answering nothing: a model told a tool exists will keep trying
         // it, and will read an empty answer as "the archive has no notes about
         // her" rather than "this archive does not hand its notes out".
-        return array_values(array_filter($this->all(), fn (array $tool): bool =>
-            $tool['name'] !== 'search_notes' || $this->notes->published()));
+        return array_values(array_filter($this->all(), fn (array $tool): bool => match ($tool['name']) {
+            'search_notes' => $this->notes->published(),
+            'get_photo'    => $this->photos->published(),
+            default        => true,
+        }));
     }
 
     /**
@@ -247,20 +228,26 @@ final class ArchiveTools
                 'annotations' => $this->readOnly(),
             ],
             [
-                'name'        => 'debug_test_image',
-                'title'       => 'Test image (temporary)',
+                'name'        => 'get_photo',
+                'title'       => 'Look at a photograph',
                 'description' =>
-                    'TEMPORARY DIAGNOSTIC. Returns one small fixed picture with a word written on '
-                    . 'it, to find out whether this client can carry an image at all. It reads '
-                    . 'nothing from the family archive and takes no arguments. If asked to use it, '
-                    . 'call it and report the word you can read in the picture.',
+                    'Fetch one photograph from the archive so you can look at it. Take the id from '
+                    . 'the "photos" list on a person from get_person; they cannot be guessed. The '
+                    . 'picture is scaled down before it is sent, so fine detail may be lost — but a '
+                    . 'caption written on the back, an inscription on a stone or a page of a '
+                    . 'register is usually still readable, and that is what this is for. The answer '
+                    . 'names the people in the archive the picture hangs on; a photograph can show '
+                    . 'others besides them, including living relatives the archive does not name, '
+                    . 'so do not describe who is in it beyond what the archive says.',
                 'inputSchema' => [
-                    'type' => 'object',
-                    // An *object* with no properties. PHP would encode `[]`
-                    // as a JSON array and a client validating this schema
-                    // would reject the tool list — the same trap that broke
-                    // `capabilities.tools`; see NOTES.md §2.85.
-                    'properties'           => new stdClass(),
+                    'type'       => 'object',
+                    'properties' => [
+                        'id' => [
+                            'type'        => 'string',
+                            'description' => 'A photograph id from a person\'s "photos" list, e.g. "M12/1a2b...".',
+                        ],
+                    ],
+                    'required'             => ['id'],
                     'additionalProperties' => false,
                 ],
                 'annotations' => $this->readOnly(),
@@ -320,7 +307,9 @@ final class ArchiveTools
                 ))
                 : throw McpException::unknownTool('search_notes'),
             'list_index'       => $this->ok($this->index($this->enum($arguments, 'kind', ['surnames', 'places', 'both'], 'both'))),
-            'debug_test_image' => $this->imageProbe(),
+            'get_photo'        => $this->photos->published()
+                ? $this->photograph($this->string($arguments, 'id'))
+                : throw McpException::unknownTool('get_photo'),
             default            => throw McpException::unknownTool($name),
         };
     }
@@ -344,23 +333,50 @@ final class ArchiveTools
     // -----------------------------------------------------------------
 
     /**
-     * TEMPORARY — see `PROBE_PNG`.
+     * One photograph, as something a model can actually see.
      *
-     * The image block first, then the text: a client that drops the image
-     * still shows the sentence, which makes the failure legible instead of
-     * silent.
+     * The image block first and the caption after it, which is the order the
+     * model reads best. The caption is deliberately plain and deliberately
+     * limited: the title the family gave the picture, who in the archive it
+     * hangs on, and how big the original is — that last one because "is this
+     * good enough to print" is a real question and the answer here is a
+     * scaled-down copy.
      *
      * @return array<string,mixed>
      */
-    private function imageProbe(): array
+    private function photograph(string $id): array
     {
+        $photo = $this->photos->one($id);
+
+        if ($photo === null) {
+            return [
+                'content' => [['type' => 'text', 'text' => 'No such photograph in this archive, or not one it may hand over. Photograph ids come from the "photos" list on a person.']],
+                'isError' => true,
+            ];
+        }
+
         return [
             'content' => [
-                ['type' => 'image', 'data' => self::PROBE_PNG, 'mimeType' => 'image/png'],
-                ['type' => 'text', 'text' => 'Temporary diagnostic. An image block should precede this sentence. Report the word written in it.'],
+                ['type' => 'image', 'data' => $photo['data'], 'mimeType' => $photo['mime']],
+                ['type' => 'text', 'text' => $this->caption($photo)],
             ],
             'isError' => false,
         ];
+    }
+
+    /**
+     * @param array<string,mixed> $photo
+     */
+    private function caption(array $photo): string
+    {
+        $lines = [
+            'Title: ' . ($photo['title'] ?? '(none recorded)'),
+            'On the record of: ' . implode(', ', $photo['people']),
+            'Original size: ' . $photo['width'] . 'x' . $photo['height'] . ' pixels; the copy above is scaled down to fit '
+                . ArchivePhotos::MAX_EDGE . ' pixels on its longest edge.',
+        ];
+
+        return implode("\n", $lines);
     }
 
     /**

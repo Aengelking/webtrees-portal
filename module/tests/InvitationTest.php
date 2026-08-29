@@ -545,6 +545,7 @@ class InvitationTest extends PortalTestCase
             'remember_days'       => '30',
             'mcp'                     => '1',
             'mcp_notes'               => '1',
+            'mcp_photos'              => '0',
             'mcp_url'                 => 'https://portal.example.test/api/mcp',
             'mcp_tokens_url'          => '/mcp',
             'mailing_lists'           => '1',
@@ -578,6 +579,7 @@ class InvitationTest extends PortalTestCase
         self::assertStringContainsString('remember_days', $html);
         self::assertStringContainsString('mcp_server', $html);
         self::assertStringContainsString('mcp_notes', $html);
+        self::assertStringContainsString('mcp_photos', $html);
         self::assertStringContainsString('https://portal.example.test/api/mcp', $html);
         self::assertStringContainsString('/mcp', $html);
 
