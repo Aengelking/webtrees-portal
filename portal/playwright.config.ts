@@ -18,6 +18,16 @@ export default defineConfig({
   forbidOnly: process.env.CI === 'true',
   retries: process.env.CI === 'true' ? 1 : 0,
   reporter: process.env.CI === 'true' ? 'line' : 'list',
+  // The screenshot spec (`e2e/screenshots.spec.ts`) asserts nothing — it takes
+  // pictures of the portal for the family magazine — so it stays out of the
+  // ordinary run, where it would only make the suite slower. Take them with:
+  //
+  //     PORTAL_SCREENSHOTS=1 npx playwright test e2e/screenshots.spec.ts
+  //
+  // Spread rather than `grepInvert: undefined`, which this project's
+  // `exactOptionalPropertyTypes` refuses — the same shape the webServer block
+  // below already uses.
+  ...(process.env.PORTAL_SCREENSHOTS === '1' ? {} : { grepInvert: /@screenshots/ }),
   use: {
     baseURL,
     trace: 'retain-on-failure',
