@@ -101,12 +101,53 @@ function refOf(individual: typeof ANNA) {
   }
 }
 
+/**
+ * The words the *server* would have translated, for a run in English.
+ *
+ * Fact labels and kinship phrases are webtrees', not the portal's: in the real
+ * thing they arrive already in the member's language, and a stub that answers
+ * a signed-in English member in German produces a screen that exists nowhere —
+ * half translated, which is exactly the sort of picture nobody should print.
+ *
+ * Only whole JSON string values are replaced, so a name that happens to
+ * contain one of these words is left alone. Family data — a message about the
+ * Familientreffen, the tree's own title — stays as the family wrote it, which
+ * is what an English-reading member really sees.
+ */
+const AS_THE_SERVER_WOULD_SAY: Record<string, string> = {
+  Geburt: 'Birth',
+  Tod: 'Death',
+  Beruf: 'Occupation',
+  Heirat: 'Marriage',
+  'Ihr Bruder': 'your brother',
+  'Ihre Schwester': 'your sister',
+  'Ihre Mutter': 'your mother',
+  'Ihr Vater': 'your father',
+  'Ihre Großmutter': 'your grandmother',
+  'Ihr Großvater': 'your grandfather',
+  // Dates are webtrees' too — it writes them out in the reader's language,
+  // and a German date under an English label is the half-translated screen
+  // this map exists to avoid. Only the fixture's own dates need an entry.
+  '12. März 1985': '12 March 1985',
+  '4. Juni 1990': '4 June 1990',
+}
+
+let speakEnglish = false
+
 function json(route: Route, body: unknown, status = 200): Promise<void> {
+  let serialised = JSON.stringify(body)
+
+  if (speakEnglish) {
+    for (const [german, english] of Object.entries(AS_THE_SERVER_WOULD_SAY)) {
+      serialised = serialised.split(`"${german}"`).join(`"${english}"`)
+    }
+  }
+
   return route.fulfill({
     status,
     contentType: 'application/json',
     headers: { 'Cache-Control': 'private, no-store' },
-    body: JSON.stringify(body),
+    body: serialised,
   })
 }
 
@@ -133,7 +174,15 @@ export async function installOfferAnswered(page: Page): Promise<void> {
   })
 }
 
-export async function stubApi(page: Page): Promise<void> {
+/**
+ * @param options.language what the account says, and therefore what the portal
+ *   reads in. Defaults to German, which is what the family reads.
+ */
+export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = {}): Promise<void> {
+  const language = options.language ?? 'de'
+
+  speakEnglish = language === 'en'
+
   let signedIn = false
   let pendingChange = false
   let visibleInDirectory = true
@@ -281,6 +330,7 @@ export async function stubApi(page: Page): Promise<void> {
         // badge look broken here and only here.
         return json(route, {
           ...ME,
+          user: { ...ME.user, language },
           unread_messages: inbox.filter((m) => !m.read).length,
           unread_conversations: 0,
           connection_requests: incoming.length,
@@ -328,7 +378,7 @@ export async function stubApi(page: Page): Promise<void> {
 
       signedIn = true
 
-      return json(route, ME, 201)
+      return json(route, { ...ME, user: { ...ME.user, language } }, 201)
     }
 
     if (path === '/session' && method === 'DELETE') {
@@ -472,6 +522,10 @@ export async function stubApi(page: Page): Promise<void> {
     if (path === '/me') {
       return json(route, {
         ...ME,
+        // The account decides what the portal reads in, so this is where a
+        // run in English has to say so — the switcher's stored value only
+        // answers for the moment before the portal knows who is reading.
+        user: { ...ME.user, language },
         unread_messages: inbox.filter((m) => !m.read).length,
         unread_conversations: 0,
         connection_requests: incoming.length,
@@ -596,6 +650,14 @@ export async function stubApi(page: Page): Promise<void> {
     // works it out from a list of candidates, because an editor's list is the
     // whole archive.
     if (path === '/individuals/X4') {
+      const dieterBirth = {
+        tag: 'INDI:BIRT',
+        label: 'Geburt',
+        value: null,
+        date: { display: '4. Juni 1990', gedcom: '4 JUN 1990', year: 1990 },
+        place: 'Celle, Niedersachsen, Deutschland',
+      }
+
       return json(route, {
         ...ANNA,
         xref: 'X4',
@@ -605,6 +667,15 @@ export async function stubApi(page: Page): Promise<void> {
         is_deceased: false,
         relationship: 'Ihr Bruder',
         references: [],
+        // His own facts, not his sister's. Spreading ANNA is a convenience
+        // for the fields nothing here cares about; leaving her birth and her
+        // trade on his page put a man born in 1985 and working as a
+        // Tischlerin in front of a camera.
+        birth: dieterBirth,
+        events: [
+          dieterBirth,
+          { tag: 'INDI:OCCU', label: 'Beruf', value: 'Landwirt', date: null, place: null },
+        ],
         parents: [],
         siblings: [],
         invitable: !invitedDieter,
