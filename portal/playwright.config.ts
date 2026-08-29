@@ -23,7 +23,11 @@ export default defineConfig({
   // ordinary run, where it would only make the suite slower. Take them with:
   //
   //     PORTAL_SCREENSHOTS=1 npx playwright test e2e/screenshots.spec.ts
-  grepInvert: process.env.PORTAL_SCREENSHOTS === '1' ? undefined : /@screenshots/,
+  //
+  // Spread rather than `grepInvert: undefined`, which this project's
+  // `exactOptionalPropertyTypes` refuses — the same shape the webServer block
+  // below already uses.
+  ...(process.env.PORTAL_SCREENSHOTS === '1' ? {} : { grepInvert: /@screenshots/ }),
   use: {
     baseURL,
     trace: 'retain-on-failure',
