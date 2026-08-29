@@ -11,6 +11,8 @@
  * this, so the two deployment models cannot drift apart.
  */
 
+import { API_CONTENT_SECURITY_POLICY, harden, overHttps } from './security'
+
 export interface ProxyEnv {
   /**
    * Where webtrees lives, e.g. https://webtrees.example.org
@@ -143,7 +145,22 @@ export function noOAuthHere(): Response {
   )
 }
 
+/**
+ * Every answer from /api, hardened on the way out — including the two this
+ * file writes itself when it cannot reach webtrees at all.
+ *
+ * Here rather than in the Worker so that the Pages entry point in
+ * functions/api, which calls this and nothing else, cannot end up with a
+ * weaker origin than the Worker's. See edge/security.ts for what is set and
+ * why an API answer gets a shorter policy than a page.
+ */
 export async function proxyToWebtrees(request: Request, env: ProxyEnv): Promise<Response> {
+  const url = new URL(request.url)
+
+  return harden(await answer(request, env), API_CONTENT_SECURITY_POLICY, overHttps(url))
+}
+
+async function answer(request: Request, env: ProxyEnv): Promise<Response> {
   const origin = env.WEBTREES_ORIGIN
 
   if (origin === undefined || origin === '') {
