@@ -12,7 +12,12 @@ use Fisharebest\Webtrees\Services\RelationshipService;
 
 use function array_filter;
 use function array_key_exists;
+use function array_keys;
+use function array_shift;
 use function array_values;
+use function asort;
+use function implode;
+use function in_array;
 use function count;
 use function str_contains;
 use function trim;
@@ -69,7 +74,7 @@ class RelationshipNamer
      */
     private array $reach = [];
 
-    /** The reader's own archive number, looked up once. @var array<string,string|null> */
+    /** The reader's own archive numbers, looked up once. @var array<string,array<int,string>> */
     private array $own_numbers = [];
 
     public function __construct(
@@ -79,11 +84,19 @@ class RelationshipNamer
     }
 
     /**
-     * The name of the relationship from $viewer to $target, or null.
+     * How $viewer is related to $target, in words, or null.
+     *
+     * **Every way they are related, not only the nearest.** In a family that
+     * has married within itself for three hundred years, two people are
+     * routinely related twice over, and a card that names one of the two is a
+     * card that quietly picks. The tree's answer — the shortest path within
+     * four steps, which is also the one a family would actually say aloud —
+     * comes first, and every distinct answer the archive numbers give follows
+     * it, nearest first.
      *
      * Null covers every case where there is nothing safe or useful to say: no
-     * viewer, no path within reach, or a path that runs through someone this
-     * member may not see.
+     * viewer, no path within reach, no numbers to compare, or a path that runs
+     * through someone this member may not see.
      */
     public function name(Individual|null $viewer, Individual $target, int $access_level): string|null
     {
@@ -91,27 +104,71 @@ class RelationshipNamer
             return null;
         }
 
+        $names = [];
+
         $path = $this->reach($viewer, $access_level)[$target->xref()] ?? [];
 
         if ($path !== []) {
             $name = $this->relationships->nameFromPath($path, I18N::language());
 
             if ($name !== '') {
-                return $name;
+                $names[] = $name;
             }
         }
 
-        return $this->fromNumbers($viewer, $target, $access_level);
+        foreach ($this->fromNumbers($viewer, $target, $access_level) as $name) {
+            if (!in_array($name, $names, true)) {
+                $names[] = $name;
+            }
+        }
+
+        if ($names === []) {
+            return null;
+        }
+
+        return $this->phrase($names);
     }
 
     /**
-     * The answer the walk could not give, from the two archive numbers.
+     * One line naming every way the two are related, nearest first.
      *
-     * **Why the walk goes first.** The tree knows things the numbering system
-     * cannot: a wife, a stepfather, an adopted child. An SB number describes
-     * one thing — descent — and describes it perfectly. So the tree answers
-     * wherever it can, and this fills in what is left, which is nearly always
-     * the same case: two people too far apart for four steps to reach.
+     * Joined here rather than handed over as a list, because the names
+     * themselves are already made and translated on this side — webtrees'
+     * `nameFromPath()` and the family's own calculator both answer in the
+     * request's language — and a client that had to assemble the sentence
+     * would be the only place the wording lived in two languages twice. It
+     * also means a portal that predates this reads the longer line without
+     * knowing anything changed.
+     *
+     * @param array<int,string> $names At least one.
+     */
+    private function phrase(array $names): string
+    {
+        $first = array_shift($names);
+
+        if ($names === []) {
+            return $first;
+        }
+
+        /* I18N: A person related in more than one way — "your cousin · also your second cousin" */
+        return $first . ' · ' . I18N::translate('also %s', implode(', ', $names));
+    }
+
+    /**
+     * Every way the two archive numbers say these people are related.
+     *
+     * **This used to run only where the walk had failed, and now runs
+     * always.** The reason is the case it was written blind to: a record
+     * carrying several numbers is a record that descends from the family by
+     * several lines, and the near relationship the tree found says nothing
+     * about the far one the numbers know. Stopping at the tree's answer
+     * dropped it. The cost is a handful of string comparisons per card on a
+     * record that is already loaded and being read.
+     *
+     * **The walk still goes first.** The tree knows things the numbering
+     * system cannot: a wife, a stepfather, an adopted child. An SB number
+     * describes one thing — descent — and describes it perfectly. So the
+     * tree's answer leads and these follow it.
      *
      * **And why this is allowed to cross what the walk refuses to.** §2.25
      * will not name a relationship through somebody the reader may not see,
@@ -125,34 +182,88 @@ class RelationshipNamer
      * settles it — a confidential `REFN` is not in the list, so it cannot be
      * used, and the answer is silence.
      */
-    private function fromNumbers(Individual $viewer, Individual $target, int $access_level): string|null
+    private function fromNumbers(Individual $viewer, Individual $target, int $access_level): array
     {
-        $mine = $this->ownNumber($viewer, $access_level);
+        $found = [];
 
-        if ($mine === null) {
-            return null;
-        }
+        foreach ($this->ownNumbers($viewer, $access_level) as $mine) {
+            foreach ($this->trusted($this->numbersOf($target, $access_level)) as $theirs) {
+                $relation = $this->sack->between($mine, $theirs);
 
-        foreach ($this->numbersOf($target, $access_level) as $theirs) {
-            $name = $this->sack->name($mine, $theirs, $target->sex());
+                if ($relation === null || $relation['kind'] === 'self') {
+                    continue;
+                }
 
-            if ($name !== null) {
-                return $name;
+                $name = $this->sack->describe($relation, $target->sex());
+
+                // Distinct *answers*, not distinct pairs of numbers. Two
+                // numbers on one record often descend from the same ancestor
+                // by two routes of equal length and name the same cousin
+                // twice; what a member wants to read is the ways they are
+                // related, and there is one of those here, not two.
+                if ($name === '' || array_key_exists($name, $found)) {
+                    continue;
+                }
+
+                // Both halves of the walk between them: up to the shared
+                // ancestor, then down again. `distance` counts the way up and
+                // `generations` the difference in depth, so the way down is
+                // `distance - generations` — see `SackRelationship::between()`.
+                $found[$name] = 2 * $relation['distance'] - $relation['generations'];
             }
         }
 
-        return null;
+        // Nearest first. A member who is both a brother-in-law and a fourth
+        // cousin is read as the first of those; the rest is the footnote.
+        asort($found);
+
+        return array_keys($found);
     }
 
-    private function ownNumber(Individual $viewer, int $access_level): string|null
+    /**
+     * Every archive number the reader's own record carries, looked up once.
+     *
+     * **All of them, and this is the whole of the change.** A person with two
+     * numbers is a person who descends from the family twice, which is exactly
+     * the case this exists to name — taking only the first (which is what this
+     * did) answered one of the two questions and silently dropped the other.
+     *
+     * @return array<int,string>
+     */
+    private function ownNumbers(Individual $viewer, int $access_level): array
     {
         $key = $viewer->xref() . '@' . $access_level;
 
-        if (!array_key_exists($key, $this->own_numbers)) {
-            $this->own_numbers[$key] = $this->numbersOf($viewer, $access_level)[0] ?? null;
-        }
+        return $this->own_numbers[$key] ??= $this->trusted($this->numbersOf($viewer, $access_level));
+    }
 
-        return $this->own_numbers[$key];
+    /**
+     * The numbers on a record that may be crossed with another record's.
+     *
+     * **A bare number is read, but never as a second opinion.** Two digits
+     * with no oblique are the head of a line — and are also what the archive's
+     * older, unrelated numbering looks like once it reaches two digits (§2.57).
+     * Taking only one number per record made that harmless: the sort put the
+     * explicit ones first and the ambiguous one was never reached. Crossing
+     * every number with every number takes that protection away, and the first
+     * thing it produced was a confident "also their great-grand-nephew" out of
+     * a bare `9` that may not be a path at all.
+     *
+     * So where a record carries an explicit number, only those are compared. A
+     * record carrying nothing else is still read, exactly as before — one
+     * doubtful answer is better than none, and it was the only answer then
+     * too. What is refused is a doubtful answer standing *beside* a sound one,
+     * where it reads as corroboration.
+     *
+     * @param array<int,string> $numbers
+     *
+     * @return array<int,string>
+     */
+    private function trusted(array $numbers): array
+    {
+        $explicit = array_values(array_filter($numbers, static fn (string $n): bool => str_contains($n, '/')));
+
+        return $explicit === [] ? $numbers : $explicit;
     }
 
     /**

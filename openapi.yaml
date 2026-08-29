@@ -3664,6 +3664,23 @@ components:
             is otherwise names and years, and this is the line that turns one
             of them into the person the reader was looking for.
 
+            **Every way they are related, not only the nearest.** In a family
+            that has married within itself for centuries two people are
+            routinely related twice over, so this can read
+            `Ihr Cousin · auch Ihr Cousin 3. Grades`: the closest answer, then
+            the others after a separator, nearest first. One string rather than
+            a list because the names and the word joining them are made and
+            translated on the server, and a portal that predates this reads the
+            longer line without knowing anything changed.
+
+            The first answer is the tree's where the tree has one — it knows
+            wives, stepfathers and adopted children, which a descent number
+            cannot — and the rest come from the archive numbers on the two
+            records. A record carrying an explicit number is compared only on
+            those: a bare two-digit number is also what the archive's older,
+            unrelated numbering looks like, and a doubtful answer must not
+            stand beside a sound one as though it corroborated it.
+
             `null` whenever there is nothing safe or useful to say: the
             member's account is not linked to a record, this *is* their
             record, no relationship was found within four steps, or — the one
@@ -3685,6 +3702,11 @@ components:
             privacy: it is the foundation's statement about one of its
             officers, not the archive's account of a person. See `Offices` and
             NOTES §2.82. Nothing else about the person becomes visible with it.
+
+            Answered in the language of the request, like fact labels, dates
+            and branch names (§2.17): the foundation writes the office and its
+            translations, and a language nobody wrote a wording for reads the
+            office in the words it was typed in rather than reading nothing.
           example: Vorsitzende des Vorstands
 
     Reference:

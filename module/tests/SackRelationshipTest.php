@@ -376,6 +376,10 @@ class SackRelationshipTest extends PortalTestCase
      *
      * Otto's is a `GS/` number, because he belongs to no line — which is also
      * how a record carrying one is proved to be read at all.
+     *
+     * Dieter descends from the family by more than one line, so since §2.87
+     * the card names the other way they are related too. What is pinned here
+     * is the answer this test was written for, and that it leads.
      */
     public function testACardNamesWhatTheTreeWalkCannotReach(): void
     {
@@ -384,7 +388,7 @@ class SackRelationshipTest extends PortalTestCase
         $response = $this->api(IndividualRead::class, attributes: ['xref' => 'X12']);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertSame('great-grandfather', $this->json($response)['relationship']);
+        self::assertStringStartsWith('great-grandfather', $this->json($response)['relationship']);
     }
 
     /**
@@ -420,7 +424,15 @@ class SackRelationshipTest extends PortalTestCase
         // Dieter's record carries a bare "9" *before* his "10/1335.21" — the
         // fixture is written that way on purpose. Reading them in document
         // order would make Otto a grand-nephew of the head of line 9.
-        self::assertSame('great-grandfather', $this->json($response)['relationship']);
+        //
+        // Since §2.87 a card names every way two people are related, so this
+        // asserts what it always meant rather than what it could get away with
+        // while only one number was ever read: the explicit number leads, and
+        // the doubtful one is not heard from at all.
+        $relationship = $this->json($response)['relationship'];
+
+        self::assertStringStartsWith('great-grandfather', $relationship);
+        self::assertStringNotContainsString('nephew', $relationship);
     }
 
     /** A reader with no number of their own gets the silence they had before. */
