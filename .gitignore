@@ -17,6 +17,10 @@ portal/playwright-report/
 portal/blob-report/
 portal/.playwright/
 
+# Pictures of the portal, taken by e2e/screenshots.spec.ts. The spec is kept;
+# what it produces is a build artefact and belongs wherever it is being used.
+portal/screenshots/
+
 .DS_Store
 *.log
 .env
