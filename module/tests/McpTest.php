@@ -26,6 +26,8 @@ use Psr\Http\Message\ResponseInterface;
 use stdClass;
 
 use function array_column;
+use function array_filter;
+use function array_values;
 use function json_decode;
 use function str_contains;
 use function time;
@@ -295,6 +297,28 @@ class McpTest extends PortalTestCase
         self::assertContains('get_relationship', $names);
         self::assertContains('search_notes', $names);
         self::assertContains('list_index', $names);
+    }
+
+    /**
+     * TEMPORARY — goes when `debug_test_image` goes.
+     *
+     * Two things, and the second is the one a decoded-to-arrays assertion
+     * would miss: the tool answers with an image block, and its argument
+     * schema says `"properties":{}` rather than `"properties":[]`. The schema
+     * has no arguments in it, which is exactly the shape PHP encodes wrong.
+     */
+    public function testTheImageProbeAnswersWithAnImage(): void
+    {
+        $result = $this->rawTool('debug_test_image', []);
+
+        self::assertSame('image', $result['content'][0]['type']);
+        self::assertSame('image/png', $result['content'][0]['mimeType']);
+        self::assertStringStartsWith('iVBORw0KGgo', $result['content'][0]['data']);
+
+        $listed = $this->decodeAsObjects($this->rpc('tools/list', []))->result->tools;
+        $probe  = array_values(array_filter($listed, static fn (object $tool): bool => $tool->name === 'debug_test_image'));
+
+        self::assertInstanceOf(stdClass::class, $probe[0]->inputSchema->properties);
     }
 
     public function testEveryToolSaysItOnlyReads(): void
