@@ -124,6 +124,54 @@ async function ensureCsrfToken(): Promise<string> {
   return csrfToken
 }
 
+/**
+ * The first request of a page load goes out on its own.
+ *
+ * webtrees starts a session for *every* request that arrives without one, and
+ * gives each a fresh id to head off session fixation (`Session::start`). Two
+ * requests that leave the browser before any cookie exists therefore come back
+ * with two different `Set-Cookie` headers, and the browser keeps whichever
+ * landed last. The one that lost is still the session the other answer was
+ * built for — and `GET /csrf` is exactly such an answer: its token lives in
+ * *its* session, so a token from the losing session is refused by the winning
+ * one.
+ *
+ * That is not hypothetical. The screen that redeems an invitation opens with
+ * `GET /csrf` and `GET /me` thirteen milliseconds apart, and the `POST` that
+ * follows them is the one that pays: webtrees' own CheckCsrf answers a token
+ * that does not match the session with a 302 to the webtrees host, which is a
+ * different origin, which a browser will not follow for us. The member sees
+ * "the portal could not reach the server" on a perfectly good invitation, and
+ * only a full page load — by then there is a cookie, so there is one session —
+ * puts it right.
+ *
+ * So: whoever asks first goes alone, and everybody else waits for them. It
+ * costs one round trip on a cold start and nothing at all afterwards, because
+ * the gate opens once and stays open for the life of the page. It is
+ * deliberately not re-armed on sign-out: `DELETE /session` answers with a
+ * session and a token of its own, so nothing after it is cold.
+ */
+let sessionEstablished: Promise<unknown> | null = null
+
+async function afterTheFirstRequest<T>(run: () => Promise<T>): Promise<T> {
+  const waiting = sessionEstablished
+
+  if (waiting === null) {
+    const first = run()
+
+    // Never a rejection: a first request that failed still tells us nothing
+    // about cookies, and it must not leave every later request waiting on a
+    // promise nobody handles.
+    sessionEstablished = first.catch(() => undefined)
+
+    return first
+  }
+
+  await waiting
+
+  return run()
+}
+
 function buildUrl(path: string, query?: RequestOptions['query']): string {
   const url = new URL(BASE + path, window.location.origin)
 
@@ -158,23 +206,47 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
   let response: Response
 
   try {
-    response = await fetch(buildUrl(path, options.query), {
-      method,
-      headers,
-      // Same origin: the Cloudflare Worker proxies /api onto the webtrees
-      // host, so the session cookie is a first-party cookie.
-      credentials: 'same-origin',
-      cache: 'no-store',
-      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
-      ...(options.form === undefined ? {} : { body: options.form }),
-      ...(options.signal === undefined ? {} : { signal: options.signal }),
-    })
+    response = await afterTheFirstRequest(() =>
+      fetch(buildUrl(path, options.query), {
+        method,
+        headers,
+        // Same origin: the Cloudflare Worker proxies /api onto the webtrees
+        // host, so the session cookie is a first-party cookie.
+        credentials: 'same-origin',
+        cache: 'no-store',
+        // Nothing here ever redirects on purpose, and the one redirect that does
+        // turn up is fatal if followed: webtrees answers a stale CSRF token with
+        // a 302 to its own host, and a cross-origin hop the browser refuses
+        // reaches this code as a transport failure — "no internet", on a request
+        // that got a perfectly clear answer. Kept as a redirect, it can be read
+        // for what it is (see below).
+        redirect: 'manual',
+        ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+        ...(options.form === undefined ? {} : { body: options.form }),
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    )
   } catch (cause) {
     if (cause instanceof DOMException && cause.name === 'AbortError') {
       throw cause
     }
 
     throw new ApiError('network_error', 0, 'The portal could not reach the server.')
+  }
+
+  // `redirect: 'manual'` turns a redirect into this: no status, no body,
+  // nothing to read but the fact that it happened.
+  if (response.type === 'opaqueredirect') {
+    throw new ApiError(
+      // On a write it means one thing, because only one thing redirects here:
+      // webtrees' CheckCsrf, on a token that does not match the session. Said
+      // in these words it reaches the retry in `request()`, which fetches a
+      // fresh token and tries again — so the race above heals itself even
+      // where it is not prevented.
+      SAFE_METHODS.has(method) ? 'server_error' : 'csrf_token_invalid',
+      0,
+      'The family server answered with a redirect.',
+    )
   }
 
   if (response.status === 401) {

@@ -135,4 +135,113 @@ describe('api client', () => {
     expect(window.localStorage.length).toBe(0)
     expect(window.sessionStorage.length).toBe(0)
   })
+  /**
+   * The invitation screen's own failure, in the small.
+   *
+   * webtrees starts a session — and a new session id — for every request that
+   * arrives without one, so two requests that leave before any cookie exists
+   * come back with two different cookies and the browser keeps one of them.
+   * The token from the other session is then refused, and the member is told
+   * the server is unreachable on a link that is perfectly good.
+   *
+   * What is pinned here is the remedy and not the mechanism, because the
+   * mechanism is the browser's: the first request goes out alone.
+   */
+  it('lets the first request of a page load settle before sending another', async () => {
+    vi.resetModules()
+
+    const fresh = await import('./client')
+
+    let inFlight = 0
+    let together = 0
+    let release = (): void => {}
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      inFlight += 1
+      together = Math.max(together, inFlight)
+
+      if (String(input).endsWith('/csrf')) {
+        await held
+      }
+
+      inFlight -= 1
+
+      return jsonResponse(String(input).endsWith('/csrf') ? { csrf_token: 'token-1' } : {})
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    // What the screen does: asks for a token and for the member at the same
+    // moment, with nothing in between.
+    const first = fresh.api.csrf()
+    const second = fresh.api.me()
+
+    // Nothing may have gone out beside the first one while it is still open.
+    await Promise.resolve()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    release()
+    await Promise.all([first, second])
+
+    expect(together).toBe(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  /**
+   * And where it happens anyway — a session that expired mid-visit, a second
+   * tab — the answer is legible rather than fatal. webtrees' own CheckCsrf
+   * redirects a mismatched token to the webtrees host, which is a different
+   * origin: followed, it fails as "no internet"; read as what it is, it is a
+   * stale token, which this client already knows how to fix.
+   */
+  it('reads a redirect as a stale token and retries with a fresh one', async () => {
+    const redirect = (): Response => {
+      const response = new Response(null, { status: 200 })
+
+      Object.defineProperty(response, 'type', { value: 'opaqueredirect' })
+
+      return response
+    }
+
+    const fetchMock = vi.fn<typeof fetch>()
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ csrf_token: 'from-the-other-session' }))
+      .mockResolvedValueOnce(redirect())
+      .mockResolvedValueOnce(jsonResponse({ csrf_token: 'the-one-that-fits' }))
+      .mockResolvedValueOnce(jsonResponse({ tree: { name: 'portal', title: 'Familie Beispiel' } }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const preview = await api.previewInvitation('einladung-fuer-anna')
+
+    expect(preview.tree.title).toBe('Familie Beispiel')
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+
+    const retry = calls(fetchMock)[3]
+    expect((retry?.[1]?.headers as Record<string, string>)['X-CSRF-TOKEN']).toBe('the-one-that-fits')
+  })
+
+  /** A redirect on a read is not a token problem, and must not be called one. */
+  it('does not call a redirected read a stale token', async () => {
+    const response = new Response(null, { status: 200 })
+
+    Object.defineProperty(response, 'type', { value: 'opaqueredirect' })
+
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response)
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(api.me()).rejects.toMatchObject({ code: 'server_error' })
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('never follows a redirect itself', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({}))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.me()
+
+    const [call] = calls(fetchMock)
+    expect(call?.[1]?.redirect).toBe('manual')
+  })
 })
