@@ -35,8 +35,6 @@ use function base64_decode;
 use function file_get_contents;
 use function getimagesizefromstring;
 use function str_repeat;
-use function array_filter;
-use function array_values;
 use function json_decode;
 use function str_contains;
 use function time;
