@@ -5322,6 +5322,75 @@ least one assertion has to be on the bytes.
 
 ---
 
+### 2.86 Ein Aufruf in der Familienzeitschrift ist keine Rundmail
+
+§2.71's campaign invites a mailing list without putting a credential in a
+round-robin letter, and it can be automatic for one reason: **being on the list
+is the asking, and it happened years ago.** An address on it belongs to the
+family, so the software may act on it.
+
+A notice in the family magazine breaks that. The magazine goes further than any
+list — to people this portal has never had an address for — and for them the
+campaign page is a dead end *by design*: an address on no list gets the same
+silence as one that was never family, because the page must not become a way of
+asking who is. Right for a letter, wrong for a notice in print, and the reader
+is left with a page that appears not to work.
+
+**So the other half is a queue, and the queue decides nothing.**
+`POST /access-request` writes down a name, an address, an archive number if
+they know one, and two sentences of "how I belong". It creates no account,
+issues no invitation and sends no mail. An administrator reads it and decides —
+the same decision they already make on the invitations screen, only now it
+starts with somebody saying who they are instead of with an address out of the
+blue. §1.3 is intact: nobody gets in who a person did not decide on.
+
+Four things are worth keeping about how it is built.
+
+**The answer is the same, always.** Written down, ignored for want of an
+address, rate-limited, database unreachable: one body, one status. This
+matters more here than on the claim page, because the form *asks for the
+archive number* — which the magazine prints beside every name. A form that
+said "that number is not one of ours" would let anybody holding a copy read
+the family's index by typing numbers into it.
+
+**The number does the linking, and nothing else does.** Where it names exactly
+one record — `TreeSearch::individualByNumber()`, the same rule the campaign
+uses — the administrator's screen offers to issue the invitation against that
+record, so the account arrives linked. A name alone never resolves to
+anybody: the tree holds more than one Anna Beispiel, and guessing is how the
+wrong person ends up reading a family's living relatives. A number typed into
+the *name* field is still read as the number, because somebody copying a line
+out of the magazine has given the same information in one field instead of two.
+
+**The address is stored in the clear, unlike a claim.** `portal_invitation_claim`
+hashes it, because all that table needs is "this one, again?" and a roster of
+who ignored a letter is nobody's business. A request is the opposite: it is a
+message deliberately sent to the family, and the address *is* the point — it is
+where the invitation would go, and nobody can read a hash and decide. Handled
+rows are kept ninety days, the same as invitations, for the same question:
+who let this person in, and on what grounds.
+
+**"Put aside" tells nobody anything.** There is no refusal to send, because
+nothing was promised — and a refusal would confirm that the address reached the
+family, which is exactly what the form is careful not to say.
+
+#### And two things for the print shop
+
+The campaign link is sixty-four characters of hex on the end of a URL, and the
+magazine is read on paper. So both administration screens now draw the address
+**as a QR code** beside the text — from TCPDF, which webtrees already carries
+for its own reports, so nothing is vendored and nothing is fetched from a CDN
+(an admin page that asked an image service to draw a link to this family's
+portal would be handing that address to a stranger for no reason). Guarded by
+`class_exists()`, §2.70's lesson applied: if that dependency ever goes the way
+of `oscarotero/middleland`, the screen shows the link and no picture.
+
+And the claim page no longer says *"Sie haben diesen Link über eine Rundmail
+bekommen"*. It says a Rundschreiben — a round-robin letter **or** the family
+magazine — because from now on it is reached from both.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

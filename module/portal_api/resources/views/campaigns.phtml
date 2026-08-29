@@ -14,6 +14,8 @@ use Fisharebest\Webtrees\Registry;
  * @var array<string,array<string,string>>   $lists
  * @var PortalApiModule                      $module
  * @var string                               $new_link
+ * @var string                               $new_qr
+ * @var string                               $requests_url
  * @var string                               $letter
  * @var string                               $portal_url
  * @var string                               $settings_url
@@ -32,6 +34,10 @@ use Fisharebest\Webtrees\Registry;
 
 <p>
     <?= I18N::translate('So the letter carries the link below, which grants nothing. It opens a page with one field on it: the reader’s own address. If that address is on one of the lists this campaign covers, the personal invitation is made there and then and sent to that address — so what proves who somebody is, is the one thing a forwarded letter cannot carry.') ?>
+</p>
+
+<p>
+    <?= I18N::translate('An address on none of the lists gets nothing and is told nothing, which is right for a letter to a list and wrong for a notice in the family magazine: that reaches people this portal has never had an address for. They can write instead — see <a href="%s">requests for access</a>, which is where that arrives.', e($requests_url)) ?>
 </p>
 
 <?php if ($portal_url === '') : ?>
@@ -54,7 +60,19 @@ use Fisharebest\Webtrees\Registry;
             <?= I18N::translate('This link is shown once. It is not a credential — it may safely go in a letter to hundreds of people, which is what it is for — but it cannot be recovered here, so copy it now.') ?>
         </p>
 
-        <input class="form-control mb-3" type="text" readonly value="<?= e($new_link) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Campaign link') ?>">
+        <div class="row align-items-center mb-3">
+            <div class="col-md-8">
+                <input class="form-control" type="text" readonly value="<?= e($new_link) ?>" onclick="this.select()" aria-label="<?= I18N::translate('Campaign link') ?>">
+            </div>
+            <?php if ($new_qr !== '') : ?>
+                <div class="col-md-4 text-center mt-3 mt-md-0">
+                    <?= $new_qr /* Drawn here from the link above; see Services/QrCode.php. */ ?>
+                    <div class="small text-muted">
+                        <?= I18N::translate('The same link, for print. Nobody types sixty-four characters out of a magazine.') ?>
+                    </div>
+                </div>
+            <?php endif ?>
+        </div>
 
         <p>
             <?= I18N::translate('A letter to send to the list, if it is useful. Send it from your own mailbox: a family list usually refuses anything posted by an application, and a letter from a person reads better than one from a portal.') ?>
