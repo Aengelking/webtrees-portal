@@ -174,7 +174,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const string CUSTOM_VERSION = '1.4.0';
 
     /** Bumped when src/Schema/MigrationN.php classes are added. */
-    private const int SCHEMA_VERSION = 21;
+    private const int SCHEMA_VERSION = 22;
 
     private const string SCHEMA_SETTING_NAME = 'PORTAL_API_SCHEMA_VERSION';
 

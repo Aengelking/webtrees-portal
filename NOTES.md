@@ -5999,7 +5999,7 @@ leicht übersieht: ein `requested` auf dieser Seite würde eine Zeile später
 genau das sagen, was der Endpunkt eine Zeile vorher verschweigt — dass da
 jemand war, der sie empfangen konnte.
 
-**Nachtrag: „und wenn ich schon angefragt habe?"** Gefragt, und die Antwort
+**Nachtrag 1: „und wenn ich schon angefragt habe?"** Gefragt, und die Antwort
 stand schon im Code — an anderer Stelle. `overview()` nimmt eine offene
 Anfrage nur dann in die eigene Liste auf, wenn der Empfänger im Verzeichnis
 steht (`elseif ($this->listed(...))`), aus genau diesem Grund. Dieselbe Linie
@@ -6009,7 +6009,43 @@ anderen bleibt es `open`. Verschwiegen wird also nicht die Anfrage, sondern
 nur die Auskunft darüber, ob sie irgendwo angekommen ist. Eine Anfrage *an*
 den Leser bleibt draußen: die steht mit Namen in seiner eigenen Liste, wo sie
 beantwortet werden kann, und diese Seite sagt, was der Leser als Nächstes tun
-kann. `connected` ist die einzige Ausnahme und
+kann.
+
+**Nachtrag 2: „und die, die nicht gelistet sind? Also nahe Verwandte."** Damit
+fiel die Lösung von Nachtrag 1 in sich zusammen, und zwar zu Recht: sie
+funktionierte ausgerechnet dort nicht, wo die Funktion gebraucht wird. Nahe
+Verwandte stehen typischerweise *nicht* im Verzeichnis — man kennt sie ja —,
+und für sie sah die Seite am nächsten Tag wieder aus wie beim ersten Mal.
+
+Der Denkfehler war, den Zustand aus der **Anfrage** lesen zu wollen. Eine
+Anfrage gibt es nur, wo jemand ist, der sie empfangen kann; alles, was daraus
+abgeleitet wird, erbt diese Auskunft. Was die Seite eigentlich beantworten
+soll, ist aber eine andere Frage — *habe ich hier schon gedrückt?* —, und die
+gehört dem Leser selbst.
+
+Also `portal_connection_attempt` (Migration21): eine Zeile je Mitglied und
+Datensatz, geschrieben bei **jedem** Druck auf den Knopf, auch wenn hinter dem
+Datensatz niemand steht. Damit sagt die Seite bei einem nicht gelisteten
+Mitglied, bei einem Verwandten ohne Konto und bei einem gelisteten Mitglied
+dasselbe — was die Regel verlangt —, und sie sagt es dem Einzigen, der es
+ohnehin weiß, weil er es getan hat.
+
+Drei Dinge, die dazugehören:
+
+**Der Text darf nicht mehr behaupten, als er weiß.** „Deine Anfrage wartet auf
+eine Antwort" wäre bei einem Datensatz ohne Konto schlicht falsch. Es heißt
+jetzt: *„Du hast hier bereits angefragt. Wenn … ein Konto im Portal hat und
+die Anfrage annimmt, erscheint der Kontakt unter Kontakte."*
+
+**Es darf keine Sackgasse sein.** Eine abgelehnte Anfrage hinterlässt keine
+Zeile (die Ablehnung wird gelöscht, nicht vermerkt — §2.7 will keinen Beleg
+darüber, dass jemand nein gesagt hat), und bei einem Datensatz ohne Konto
+entsteht gar nichts. Ohne „Nochmal anfragen" säße das Mitglied drei Monate
+vor einem Hinweis, an dem es nicht vorbeikommt.
+
+**Und es wird wieder vergessen.** Neunzig Tage, wie alles andere hier, damit
+aus „habe ich gedrückt?" keine stehende Liste wird, wer sich einmal für wen
+interessiert hat. `connected` ist die einzige Ausnahme und
 gibt nichts preis: Verbundensein ist beidseitig und beiden bekannt. `null`
 heißt „geht hier gar nicht" — eigener Datensatz, verstorben, Verbindungen
 abgeschaltet.

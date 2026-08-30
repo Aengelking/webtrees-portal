@@ -1971,10 +1971,15 @@ paths:
                   description: |
                     The XREF of a record the asking member can see, from the
                     person's own page. Where an account belongs to that record
-                    the request is made; where none does, nothing is written —
-                    and the answer is the same either way, because whether a
-                    relative has an account is exactly what a member who
-                    stayed out of the directory decided not to disclose.
+                    the request is made; where none does, no request is
+                    written — and the answer is the same either way, because
+                    whether a relative has an account is exactly what a member
+                    who stayed out of the directory decided not to disclose.
+
+                    What *is* written either way is that this member asked
+                    here, which is what `connection: requested` on the record
+                    reports back to them afterwards. Asking again is allowed
+                    and leaves one such row.
       responses:
         '201':
           description: |
@@ -4130,18 +4135,22 @@ components:
                 person, and nothing more.
 
                 `connected` means the two are already contacts, which is
-                mutual and known to both. `requested` is an unanswered request
-                the reader sent, and appears **only where the other person is
-                listed in the directory** — the same line `GET /connections`
-                draws for its `outgoing` list, and for the same reason.
+                mutual and known to both.
 
-                `open` is everything else: a member who stayed out of the
-                directory, a relative with no account at all, and an
-                unanswered request to somebody unlisted. Those three are
-                indistinguishable on purpose — an offer that appeared only for
-                account holders, or a request reported only where one really
-                landed, would tell every reader of the record which relatives
-                are in the portal.
+                `requested` means **this reader has asked here** — read from
+                their own act rather than from whether a request exists, which
+                is what makes it sayable at all: a state read off the request
+                table could only appear where there was somebody to receive
+                one, and that is precisely what a member who stayed out of the
+                directory decided not to disclose. Read this way it says the
+                same thing for the unlisted member and for the relative with
+                no account, and it says it only to the person who pressed the
+                button. It is forgotten again after ninety days.
+
+                `open` is everything else: nobody has asked here yet, or the
+                asking has been forgotten. An offer that appeared only for
+                account holders would tell every reader of the record which
+                relatives are in the portal.
 
                 `null` where connecting cannot happen at all: the reader's own
                 record, somebody who has died, or a family that has switched

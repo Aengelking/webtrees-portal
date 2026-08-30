@@ -30,6 +30,7 @@ use function mb_substr;
 use function min;
 use function preg_replace;
 use function random_bytes;
+use function random_int;
 use function rawurlencode;
 use function rtrim;
 use function str_replace;
@@ -79,6 +80,15 @@ class Connections
     public const string TABLE      = 'portal_connection';
     public const string CODE_TABLE = 'portal_connection_code';
     public const string LINK_TABLE = 'portal_connection_link';
+
+    /**
+     * That *this member* pressed connect on *this record* — see Migration21.
+     *
+     * Not a request: requests live in `TABLE` and only exist where there is
+     * somebody to receive one. This is what lets a person's page say "you
+     * have asked" without saying whether anybody was there.
+     */
+    public const string ATTEMPT_TABLE = 'portal_connection_attempt';
 
     public const string STATUS_PENDING  = 'pending';
     public const string STATUS_ACCEPTED = 'accepted';
@@ -134,6 +144,19 @@ class Connections
     private const string ALREADY = 'already';
 
     private const int MAX_REFERENCE_LENGTH = 40;
+
+    /**
+     * How long a person's page remembers that this member asked.
+     *
+     * Long enough to answer "did I already do this?" — which is the whole
+     * question — and short enough that it does not become a standing list of
+     * whom somebody was once curious about. Ninety days, the same as the
+     * other things this module keeps for a while and then does not.
+     */
+    public const int RETAIN_ATTEMPT_DAYS = 90;
+
+    /** Roughly one in this many recorded attempts also prunes the old ones. */
+    private const int PRUNE_ODDS = 20;
 
     /** @var array<int,Individual|null> Readers' own records, per request. */
     private array $viewer_records = [];
@@ -499,6 +522,14 @@ class Connections
 
         $other = $this->accountLinkedTo($individual->xref());
 
+        // Written down before anything else is decided, and written down the
+        // same way whichever branch below is taken: the row says that this
+        // member pressed the button here, which is true for a record with an
+        // account behind it and for one without. It is what lets the page say
+        // "you have asked" tomorrow without saying whether anybody was there
+        // to be asked. See Migration21.
+        $this->rememberAttempt($user, $individual->xref());
+
         // Already a contact: say so, by name. Their name is in this member's
         // own contacts already, so there is nothing here to give away — and
         // the quiet answer would claim a request went off when none did. The
@@ -534,19 +565,21 @@ class Connections
     /**
      * What a person's page may say about connecting with them.
      *
-     * `connected` is mutual and already known to both. `requested` is an
-     * unanswered request this member sent — **and only where the other person
-     * is in the directory**, which is the same line `overview()` draws for
-     * the same reason: a request that showed up only when there was really
-     * somebody to receive it would answer, one screen along, the question
-     * `requestByIndividual` refuses to answer. Where they are listed, that
-     * question is already answered by the directory itself, and hiding the
-     * request only leaves the member wondering whether they ever pressed the
-     * button.
+     * `connected` is mutual and already known to both. `requested` means
+     * **this member has asked here** — read from their own act
+     * (`ATTEMPT_TABLE`) rather than from whether a request exists, which is
+     * the difference that makes it sayable at all: a state read off
+     * `portal_connection` could only appear where there was somebody to
+     * receive one, and would answer, one screen along, the question
+     * `requestByIndividual` refuses to answer.
      *
-     * `open` is everything else, and it is the answer for a member who is not
-     * listed, for a relative with no account at all, and for an unanswered
-     * request to somebody unlisted — three situations, one word.
+     * Read this way it says the same thing for the member who stayed out of
+     * the directory and for the relative with no account, which is what the
+     * rule needs — and it says it to the one person who already knows it,
+     * because they are the one who pressed the button.
+     *
+     * `open` is everything else: nobody has asked here yet, or the asking has
+     * been forgotten again (`RETAIN_ATTEMPT_DAYS`).
      *
      * Null where connecting is not a thing that can happen — the family
      * switched it off, the record is the member's own, the person is dead —
@@ -566,25 +599,44 @@ class Connections
 
         $other = $this->accountLinkedTo($individual->xref());
 
-        if (!$other instanceof User) {
-            return 'open';
-        }
-
-        $state = $this->stateWith($user, $other);
-
-        if ($state['status'] === 'connected') {
+        // A request *they* sent this member is deliberately not reported
+        // here. It is in the member's own list under their name, where it can
+        // be answered; this page says what the reader may do next, and
+        // answering somebody is a different act in a different place.
+        if ($other instanceof User && $this->stateWith($user, $other)['status'] === 'connected') {
             return 'connected';
         }
 
-        // A request *they* sent this member is not reported here. It is in
-        // the member's own list under their name, where it can be answered;
-        // this page is about what the reader may do next, and answering
-        // somebody is a different act in a different place.
-        if ($state['status'] === 'requested' && $this->listed($other->id())) {
-            return 'requested';
+        return $this->hasAsked($user, $individual->xref()) ? 'requested' : 'open';
+    }
+
+    /** @see Migration21 — the member's own act, not a request. */
+    private function rememberAttempt(UserInterface $user, string $xref): void
+    {
+        if ($this->hasAsked($user, $xref)) {
+            return;
         }
 
-        return 'open';
+        DB::table(self::ATTEMPT_TABLE)->insert([
+            'wt_user_id' => $user->id(),
+            'xref'       => $xref,
+            'created_at' => time(),
+        ]);
+
+        if (random_int(1, self::PRUNE_ODDS) === 1) {
+            DB::table(self::ATTEMPT_TABLE)
+                ->where('created_at', '<', time() - self::RETAIN_ATTEMPT_DAYS * 86400)
+                ->delete();
+        }
+    }
+
+    private function hasAsked(UserInterface $user, string $xref): bool
+    {
+        return DB::table(self::ATTEMPT_TABLE)
+            ->where('wt_user_id', '=', $user->id())
+            ->where('xref', '=', $xref)
+            ->where('created_at', '>=', time() - self::RETAIN_ATTEMPT_DAYS * 86400)
+            ->exists();
     }
 
     /**

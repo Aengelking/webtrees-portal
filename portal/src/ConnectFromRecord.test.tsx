@@ -185,17 +185,31 @@ describe('connecting from a person’s page', () => {
   })
 
   /**
-   * The state the member asked for. Said only about somebody the directory
-   * already names, so it discloses nothing the directory does not — and
-   * without it, a member who pressed the button yesterday has no way of
-   * telling whether they did.
+   * "You have asked here" — the member's own act, so it can be said about
+   * anybody, and the wording may not go further than that: for a record with
+   * nobody behind it, nothing arrived anywhere.
    */
-  it('says a request is waiting, where the server reports one', async () => {
+  it('says the member has already asked, without claiming it arrived', async () => {
     stub({ ...DIETER, connection: 'requested' })
     renderPerson()
 
-    expect(await screen.findByText(/Deine Anfrage ist gesendet und wartet/)).toBeDefined()
+    expect(await screen.findByText(/Du hast hier bereits angefragt/)).toBeDefined()
     expect(screen.queryByRole('button', { name: 'Verbinden' })).toBeNull()
+  })
+
+  /**
+   * And it is never a dead end: a declined request leaves no row behind, and
+   * asking a record with no account writes nothing, so the member has to be
+   * able to try again rather than look at a note for three months.
+   */
+  it('lets the member ask again', async () => {
+    stub({ ...DIETER, connection: 'requested' })
+    renderPerson()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Nochmal anfragen' }))
+
+    expect(posted).toEqual([{ xref: 'X4' }])
+    expect(await screen.findByText(/Wenn Dieter Beispiel ein Konto im Portal hat/)).toBeDefined()
   })
 
   /**

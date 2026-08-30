@@ -680,7 +680,9 @@ export const en: Translations = {
       action: 'Connect',
       quiet:
         'If {{name}} has an account in the portal, your request is on its way. You will hear about it only if it is accepted — the contact then appears under "Contacts".',
-      waiting: 'Your request has been sent and is waiting for an answer. Once it is accepted, the contact appears under "Contacts".',
+      waiting:
+        'You have already asked here. If {{name}} has an account in the portal and accepts, the contact appears under "Contacts".',
+      again: 'Ask again',
       connected: 'You are connected.',
     },
     invite: {
