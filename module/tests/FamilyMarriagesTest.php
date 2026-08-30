@@ -29,6 +29,11 @@ use function array_combine;
  * The fixture carries three couples for this and nothing else uses them:
  * *Doppelt* (`24/313` × `24/b6`, child `24/3133`), *Zweifach* (`24/511` ×
  * `24/c2`, child `24/5113`) and *Stumm*, who have no children at all.
+ *
+ * Two more for the missing `!` (§2.101), where both partners carry one
+ * number: *Angeheiratet*, where Gerhard has a father in the tree and Ida has
+ * nobody, so the mark is hers; and *Unklar*, where neither has parents and
+ * the records do not say.
  */
 #[CoversNothing]
 class FamilyMarriagesTest extends PortalTestCase
@@ -44,6 +49,18 @@ class FamilyMarriagesTest extends PortalTestCase
         $rows = $this->scan()->scan()['rows'];
 
         return array_combine(array_column($rows, 'xref'), array_column($rows, 'state'));
+    }
+
+    /** @return array<string,mixed> */
+    private function rowFor(string $xref): array
+    {
+        foreach ($this->scan()->scan()['rows'] as $row) {
+            if ($row['xref'] === $xref) {
+                return $row;
+            }
+        }
+
+        self::fail('The scan has no ' . $xref . '.');
     }
 
     private function table(string $text): void
@@ -139,6 +156,51 @@ class FamilyMarriagesTest extends PortalTestCase
     }
 
     // -----------------------------------------------------------------
+    // A couple sharing one number
+    // -----------------------------------------------------------------
+
+    /**
+     * The finding that matters most, because it is not a marriage at all.
+     *
+     * Both partners carry `24/911`. That is one person's number written on
+     * two people, and until the `!` goes back on, Ida is read as a descendant
+     * of a line she married into.
+     */
+    public function testACoupleSharingOneNumberIsNotReadAsAMarriage(): void
+    {
+        self::assertSame('unmarked', $this->states()['F9']);
+    }
+
+    /** Ida has no parents in the archive, so the mark is hers. */
+    public function testTheMarkGoesOnTheOneWithNoParents(): void
+    {
+        $marks = $this->rowFor('F9')['marks'];
+
+        self::assertSame('Ida Angeheiratet', $marks['name']);
+        self::assertSame('24/911', $marks['number']);
+    }
+
+    /**
+     * Rudolf and Berta share a number and neither has parents recorded, so
+     * which of them married in is not something the records say. Guessing
+     * would not fail — it would quietly make each of them the other.
+     */
+    public function testWhereTheRecordsDoNotSayNobodyIsMarked(): void
+    {
+        self::assertSame('unmarked_stuck', $this->states()['F11']);
+        self::assertNull($this->rowFor('F11')['marks']);
+    }
+
+    /**
+     * A properly marked spouse is not a finding. `10/1335.21!` is not a path
+     * — the `!` is the whole point — so the couple never reaches this scan.
+     */
+    public function testACoupleAlreadyMarkedIsNotListed(): void
+    {
+        self::assertArrayNotHasKey('F2', $this->states());
+    }
+
+    // -----------------------------------------------------------------
     // The screen
     // -----------------------------------------------------------------
 
@@ -150,16 +212,24 @@ class FamilyMarriagesTest extends PortalTestCase
         $scan = $this->scan()->scan();
 
         $html = view('_portal_api_::marriages', [
-            'title'        => 'Marriages inside the family',
-            'module'       => $this->module(),
-            'tree'         => $this->tree,
-            'rows'         => $scan['rows'],
-            'truncated'    => $scan['truncated'],
-            'counts'       => ['recorded' => 1, 'wrong_way' => 0, 'missing' => 1, 'unclear' => 1],
-            'settings_url' => '/settings',
+            'title'         => 'Marriages inside the family',
+            'module'        => $this->module(),
+            'tree'          => $this->tree,
+            'rows'          => $scan['rows'],
+            'truncated'     => $scan['truncated'],
+            'counts'        => ['unmarked' => 1, 'unmarked_stuck' => 1, 'recorded' => 1, 'wrong_way' => 0, 'missing' => 1, 'unclear' => 1],
+            'may_mark'      => true,
+            'settings_url'  => '/settings',
         ]);
 
         self::assertStringContainsString('24/c2 = 24/511', $html);
         self::assertStringContainsString('Doppelt', $html);
+
+        // The correction, and the number it would be written against.
+        self::assertStringContainsString('Ida Angeheiratet', $html);
+        self::assertStringContainsString('24/911!', $html);
+
+        // The pair the records cannot decide gets no button at all.
+        self::assertStringContainsString('Rudolf Unklar', $html);
     }
 }

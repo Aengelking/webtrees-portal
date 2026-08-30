@@ -124,6 +124,14 @@ about who is asking.
 
 ## 2. Decisions taken
 
+> **Numbering.** These are numbered in the order they were written and the
+> numbers are cited from the code, so a number belongs to one section for
+> good. Where two sessions reached for the same one, the section written
+> *later* carries a letter — §2.82a — and stays where it belongs
+> chronologically; renumbering the tail instead would break every reference in
+> the file to buy tidiness. `NotesReferenceTest` holds both halves of this
+> down: no number used twice, and no `§` pointing at nothing. See §2.100.
+
 ### 2.0 Phase 2: editing goes through the queue, and loses nothing
 
 Three things about `Services/GedcomEditor.php` are load-bearing, and all three
@@ -1609,7 +1617,7 @@ forgotten.
 
 ---
 
-### 2.30 Getting from the portal into webtrees, in both directions of the door
+### 2.30a Getting from the portal into webtrees, in both directions of the door
 
 The link out was landing people in the wrong place, and it turned out neither
 of the two obvious links can get this right on its own.
@@ -1956,7 +1964,7 @@ that.
 
 ---
 
-### 2.32 Kontakte takes the tab, and the directory moves inside it
+### 2.32a Kontakte takes the tab, and the directory moves inside it
 
 Phase 11 put *Meine Kontakte* behind a link at the top of *Mitglieder*, on the
 reasoning that the directory is where somebody looking for a person already
@@ -2905,7 +2913,7 @@ log to write.
 The middleware sits on the module's own route map and nowhere else, so a
 remember cookie opens the portal API and cannot become a way into webtrees'
 control panel. The Worker rewriting it host-only to the portal's origin
-(§2.30) makes the same point from the other end: the webtrees host never sees
+(§2.30a) makes the same point from the other end: the webtrees host never sees
 it.
 
 **Off by default, and the switch says what it costs.** This is a key left on a
@@ -3054,7 +3062,7 @@ operand wins a duplicate key. The reference shape had just grown a
 
 #### There is no fifth tab
 
-§2.32's rule — four destinations, and a fifth does not fit a 320px phone —
+§2.32a's rule — four destinations, and a fifth does not fit a 320px phone —
 still holds, so the way in is on the record: beside *Vorfahren anzeigen*, which
 is the other way of going further from a person. It is on Mein Profil too,
 because Mein Profil renders the same component. Putting a second, identical
@@ -4102,7 +4110,7 @@ administrator presses send from their own mailbox.
 
 ---
 
-### 2.72 A card said "no record" and meant "not yours to see"
+### 2.72a A card said "no record" and meant "not yours to see"
 
 A member opened a connection request and read *Kein verknüpfter Eintrag im
 Stammbaum* under a name. The archive had a record for that person. The line
@@ -4149,7 +4157,7 @@ proving the opposite of the truth.
 
 ---
 
-### 2.73 A name and white space is not an address book
+### 2.73a A name and white space is not an address book
 
 §2.66 fixed what the card *said*. What it showed was still a name and nothing
 else, and for a member whose record is closed to the reader that is the
@@ -4743,14 +4751,14 @@ casual look at the screen.
 
 ---
 
-### 2.79 A door out of an app with no way back in
+### 2.79a A door out of an app with no way back in
 
 Both links into webtrees — the member's *Stammbaum und Diagramme öffnen* and
 the editor's *In webtrees öffnen und bearbeiten* — opened in place. In a
 browser tab that is merely inconvenient: Back returns. **In the installed app
 it is a trap.** A standalone PWA has no address bar and no Back button, so
 following the link puts a member inside webtrees with no way home but closing
-and reopening the app. §2.30 went to some trouble to make that door land in the
+and reopening the app. §2.30a went to some trouble to make that door land in the
 right place; it was still a door with no handle on the other side.
 
 So both open in a window of their own. `rel="noopener noreferrer"` was already
@@ -5078,7 +5086,7 @@ and three of the five fail without the fix.
 A footnote on the badge: colour and a box say "this is a different kind of
 thing" to a reader who can see them and nothing at all to a reader who cannot,
 so the words *Amt in der Stiftung* are in the accessible name. The same
-argument as §2.79's window hint, one screen over.
+argument as §2.79a's window hint, one screen over.
 
 **What went wrong while building it**, kept because the mechanism is general.
 I created `Migration16` — and `Migration16` already existed on `main`, added by
@@ -5097,7 +5105,7 @@ looking is, during development, an error-shaped hole.
 
 ---
 
-### 2.82 Anmelden ist mehr, als den Benutzer zu merken
+### 2.82a Anmelden ist mehr, als den Benutzer zu merken
 
 The MCP endpoint answered a valid token with a webtrees **error page**:
 
@@ -5270,7 +5278,7 @@ logic these tests cover — they were in what surrounds a request: a header the
 webserver eats, a transaction webtrees opens, a middleware webtrees injects.
 The suite is thorough about what the module *decides* and was blind to what it
 *runs inside*. `CheckCsrf` closes one of those gaps for good. The transaction
-and the session — §2.82, *Anmelden ist mehr, als den Benutzer zu merken*; there
+and the session — §2.82a, *Anmelden ist mehr, als den Benutzer zu merken*; there
 are two entries numbered 2.82 — are still outside, and still only findable on
 the host.
 
@@ -5737,7 +5745,7 @@ compound id costs nothing and reaches everything.
 
 ---
 
-### 2.93 Niemand hat je gefragt
+### 2.93a Niemand hat je gefragt
 
 `visible_in_directory` steht auf aus, und nur das Mitglied selbst kann es
 umlegen — die richtige Voreinstellung, §1.3, und sie hatte einen Fehler in der
@@ -6133,6 +6141,143 @@ Unterschied der beiden Sprachen an einem Beispielpaar — `Neffe 2. Grades` nebe
 Arithmetik erzeugt. Richtig ist jetzt `Neffe 3. Grades`. Eine Erklärung, die
 mit der Rechnung mitgewachsen ist, aber ihr Beispiel behält, ist die Sorte
 Dokumentation, die man später für die Wahrheit hält.
+
+### 2.100 Eine Nummer, die zweimal vergeben ist, zeigt auf nichts
+
+`NOTES.md` wird aus dem Code heraus zitiert — an rund zweihundert Stellen steht
+„siehe §2.82" — und damit ist die Nummerierung eine Schnittstelle und keine
+Kosmetik. Sie war an acht Stellen kaputt, und keine davon war laut.
+
+**Sieben Nummern waren doppelt vergeben.** Jede Sitzung hängt einen Abschnitt
+an und nimmt die nächste Nummer; wo zwei Arbeiten parallel liefen, bekamen
+beide dieselbe. Ein Verweis benennt dann zwei Abschnitte, und das ist schlimmer
+als keiner: er *sieht aus*, als löse er auf. Man merkt es erst, wenn man ihm
+folgt und im falschen Text landet.
+
+**Und eine Nummer gab es nie.** `RecognitionTest` zitierte seit Monaten
+Abschnitt 2.67 — die Datei springt an der Stelle von 2.66 auf 2.68. Gemeint war
+§2.71, wo tatsächlich steht, dass eine Nummer ohne Schrägstrich keinen Zweig
+bekommt. (Ohne Zeichen geschrieben, sonst fiele dieser Absatz über den Test,
+den er beschreibt — was der Test richtig macht.)
+
+**Warum Buchstaben und nicht durchnummerieren.** Jede Dublette ist ein
+*eingeschobener* Abschnitt: die Zählung läuft dahinter ungebrochen weiter. Sauber
+durchzunummerieren hieße, alles hinter sieben Stellen zu verschieben — am Ende
+um sieben — und damit jeden vorhandenen Verweis zu brechen, um Ordnung zu
+kaufen, die niemand sieht. `2.82a` steht dort, wo er geschrieben wurde,
+verschiebt nichts und macht den Verweis eindeutig. Welcher der beiden den
+Buchstaben bekommt, war nicht Geschmack: für jedes Paar musste nachgelesen
+werden, welchen Abschnitt die vorhandenen Verweise tatsächlich meinen. Bei
+§2.30 und §2.82 zeigten sie auf *beide*.
+
+**Der Test, der das Ganze überflüssig macht.** Zwei Behauptungen: keine Nummer
+zweimal, und kein `§` ins Leere. Er hat beim ersten Lauf sofort etwas gefunden,
+das ich nicht gesucht hatte — `§4 of the handoff` in `InvitationAccept`, ein
+Verweis auf ein *anderes* Dokument, und NOTES.md hat zufällig auch einen
+Abschnitt 4. Den aufzulösen wäre stillschweigend falsch gewesen, also zählen
+nur punktierte Nummern als Verweis hierher. Beim zweiten Lauf fing er seinen
+eigenen Docblock, der dieselbe tote Nummer als Beispiel nannte; auch das war
+er im Recht.
+
+Eine Einschränkung, die dazugehört: CI teilt nach dem, was sich geändert hat,
+und diese Suite läuft für `module/**`. Ein Commit, der *nur* NOTES.md anfasst,
+erreicht sie nicht. Der Normalfall ist, dass Notizen und Code zusammen wandern,
+und dafür greift sie.
+
+### 2.101 Zwei Menschen mit einer Nummer
+
+Beim Durchsehen des Heirats-Scans fiel auf, dass manche Paare *dieselbe*
+Nummer tragen. Das ist keine Heirat, die in der Tabelle fehlt — das ist die
+Nummer eines Menschen, die auf zwei geschrieben wurde.
+
+**Was das `!` tut.** Wer in die Familie einheiratet, bekommt die Nummer des
+Ehepartners mit einem `!` am Ende. Das Zeichen ist der ganze Unterschied:
+`10/1335.21` ist ein Abkömmling dieser Linie, `10/1335.21!` ist die Person,
+die ihn geheiratet hat. Fehlt es, liest der Rechner die eingeheiratete Person
+als Abkömmling einer Linie, in der sie nicht steht — und *jede* Verwandtschaft,
+die sie hat, wird daraus berechnet. Der alte Scan machte daraus obendrein
+Unfug: bei gleichen Nummern ist `filedUnder()` willkürlich und die
+vorgeschlagene Zeile lautete `X = X`.
+
+**Wer das `!` bekommt, wird gelesen, nicht geraten.** Wer eingeheiratet hat,
+hat im Archiv keine Eltern — die eigene Linie führt das Archiv nicht. Genau
+einer der beiden ohne eingetragene Eltern ist also die Antwort. Beide ohne
+oder beide mit Eltern ist *keine* Antwort, sondern eine Aussage darüber, wie
+vollständig die Aufzeichnungen hier sind, und bekommt eine eigene Zeile ohne
+Knopf. Ein `!` auf der falschen Seite schlägt nicht fehl; es macht still aus
+jedem der beiden den anderen.
+
+**Und die Stelle, an der ich mich beinahe selbst belogen hätte.** Der Dienst
+schreibt über `updateRecord()`, und ich hatte im Docblock, auf dem Bildschirm
+und in der Meldung stehen: *wird vorgeschlagen und wartet auf Freigabe*. Beim
+Lesen des webtrees-Codes stellte sich heraus, dass `updateRecord()` die
+Änderung zwar immer in die Warteschlange legt, sie aber **sofort annimmt**,
+wenn der angemeldete Benutzer „Änderungen automatisch übernehmen" gesetzt hat
+— was Manager oft haben. Für die hätte auf dem Bildschirm etwas gestanden, das
+über ihr eigenes Konto nicht stimmt.
+
+Der Weg bleibt, wie er ist: es geht durch den normalen Bearbeitungsweg von
+webtrees, protokolliert, mit Namen versehen und über die Änderungsliste
+rücknehmbar — das Konto des Administrators entscheidet, ob gewartet wird, und
+nicht dieses Modul. Geändert hat sich, was gesagt wird: `mark()` fragt
+hinterher nach, welcher der beiden Fälle eingetreten ist, und die Meldung sagt
+den zutreffenden. Zwei Tests halten beide Enden fest, weil im Alltag nur eines
+davon zufällig durchlaufen worden wäre.
+
+**Ein Test, der gegen den kaputten Code bestanden hätte.** Die erste Fassung
+prüfte „der Datensatz selbst ist unverändert" über `gedcom()` — und für
+jemanden, der Änderungen freigeben darf, zeigt webtrees dort bereits die
+ausstehende Fassung. Der Test hätte also auch dann bestanden, wenn das Modul
+direkt durchgeschrieben hätte. Er liest jetzt die gespeicherte Zeile aus der
+Tabelle.
+
+### 2.102 Eine Seite ist keine Antwort, egal welcher Status draufsteht
+
+Gemeldet als „manchmal geht das Login nicht". In der Konsole trug der
+Sitzungsaufruf Apaches Standardseite *503 Service Unavailable* — unter einem
+**200**.
+
+**Was das Mitglied gesehen hat.** `readJson()` fing den gescheiterten
+`JSON.parse` ab und gab `null` zurück. Das ging als `Me` an den Aufrufer, der
+gleich darauf `me.csrf_token` las — ein `TypeError`, also kein `ApiError`, also
+fiel er im Login-Bildschirm in den `else`-Zweig: **„Benutzername oder Passwort
+ist falsch."** Der Server war überlastet, und das Mitglied wurde losgeschickt,
+sein Passwort zu prüfen. Es hatte keine Möglichkeit, das herauszufinden.
+
+**Wo es nicht lag.** Die ganze Kette wurde durchgesehen, bevor etwas geändert
+wurde: der Service Worker lässt `/api/*` vollständig aus (`strategy.ts`),
+`proxy.ts` und `security.ts` reichen `status` und `statusText` beide durch. Die
+200 kam von oben. Was davor sitzt und eine Fehlerseite mit Erfolgsstatus
+ausliefert, ist von hier aus nicht einzusehen, und wird hier deshalb auch nicht
+behauptet.
+
+**Und wo ich mich unterwegs geirrt habe.** Ich hatte zunächst geschrieben, der
+Kommentar über der CSRF-Wiederholung beschreibe eine Wiederholung, die es im
+Code nicht gebe. Das war falsch: `redirect: 'manual'` plus
+`response.type === 'opaqueredirect'` wirft bereits `csrf_token_invalid` und
+erreicht die Wiederholung. Ich hatte den Block über der `stale`-Prüfung
+überlesen. Weiterleitungen sind behandelt; unbehandelt war allein die 200 mit
+unlesbarem Körper.
+
+**Zwei Stellen, zwei verschiedene Aufgaben.**
+
+Im Client wird jetzt unterschieden statt eingeebnet: `empty` ist eine echte
+Antwort (ein `204` sagt das), `unreadable` ist keine. Eine erfolgreiche
+Antwort, die kein JSON ist, wird zu `unreadable_answer` — und der
+Login-Bildschirm sagt dann, dass es nicht an den Zugangsdaten liegt. Die eine
+Meldung für jede *Ablehnung* bleibt, wie sie war; ein Server, der nicht
+geantwortet hat, ist keine Ablehnung.
+
+Im Worker wird eine HTML-Antwort unter `/api` zu dem Fehler, der sie ist. Zwei
+Dinge daran mit Absicht: **Weiterleitungen bleiben unangetastet** — genau davon
+lebt die CSRF-Wiederholung — und **eine 2xx-Seite wird zur 502, nicht zur 200**.
+Ein Erfolgsstatus auf einer Fehlerseite ist die Lüge, die den Fall so schwer
+auffindbar gemacht hat; sie weiterzureichen hieße, ihn versteckt zu halten. Der
+tatsächliche Status geht als `X-Portal-Upstream-Status` mit und ins Log des
+Workers, weil das Nicht-sehen-Können hier die eigentliche Schwierigkeit war.
+
+Alle drei neuen Tests fallen gegen den alten Code um; das ist der einzige
+Grund, ihnen zu trauen.
 
 ---
 

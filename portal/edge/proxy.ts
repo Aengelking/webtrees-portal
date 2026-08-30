@@ -233,6 +233,12 @@ async function answer(request: Request, env: ProxyEnv): Promise<Response> {
     return json({ error: 'server_error', message: 'The family server did not respond.' }, 502)
   }
 
+  const impostor = notAnAnswer(upstream)
+
+  if (impostor !== null) {
+    return impostor
+  }
+
   const responseHeaders = new Headers(upstream.headers)
 
   for (const name of STRIPPED_RESPONSE_HEADERS) {
@@ -248,6 +254,56 @@ async function answer(request: Request, env: ProxyEnv): Promise<Response> {
     statusText: upstream.statusText,
     headers: responseHeaders,
   })
+}
+
+/**
+ * A web page arriving where an API answer was asked for.
+ *
+ * Something in front of webtrees answers for it sometimes — an Apache with no
+ * worker free, a hosting maintenance page — and the reported case carried
+ * Apache's *503 Service Unavailable* body under a **200**. Passed through, the
+ * portal got a page where it asked for a record, and the member was told their
+ * password was wrong. See §2.102.
+ *
+ * So an HTML reply under `/api` is turned into the error it actually is,
+ * before it reaches anybody. Two things are deliberate:
+ *
+ * - **Redirects are left completely alone.** webtrees answers a stale CSRF
+ *   token with a 302, the client reads that as exactly that and retries, and
+ *   an HTML body on a redirect is only the browser's courtesy page.
+ * - **A `2xx` page becomes a `502`, not a `200`.** A success status on an
+ *   error page is the lie that made this hard to see; repeating it would keep
+ *   it hidden. Anything already an error keeps its own status.
+ *
+ * The real status goes out on a header and into the Worker's log, because the
+ * whole difficulty here was that nobody could tell what the origin had said.
+ */
+function notAnAnswer(upstream: Response): Response | null {
+  if (upstream.status >= 300 && upstream.status < 400) {
+    return null
+  }
+
+  const type = upstream.headers.get('content-type') ?? ''
+
+  if (!type.toLowerCase().includes('text/html')) {
+    return null
+  }
+
+  console.warn(
+    `portal proxy: the family server answered /api with ${type} and status ${upstream.status}`,
+  )
+
+  const answer = json(
+    {
+      error: 'unreadable_answer',
+      message: 'The family server answered with a page instead of data.',
+    },
+    upstream.status >= 400 ? upstream.status : 502,
+  )
+
+  answer.headers.set('X-Portal-Upstream-Status', String(upstream.status))
+
+  return answer
 }
 
 /**

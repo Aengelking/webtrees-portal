@@ -46,6 +46,16 @@ use function usort;
  * different opinion, it is a row that will never match anybody — which is why
  * `wrong_way` is reported apart from `missing`.
  *
+ * **And one thing that is not a marriage at all.** A partner who married into
+ * the family carries their spouse's number with a `!` on the end — that mark
+ * is what says "this person is here by marriage, not by descent". Where it is
+ * missing, both partners carry the *same* number and the calculator reads the
+ * incomer as a blood descendant of a line they are not in. The tell for who
+ * the mark belongs to is that a person who married in has no parents in the
+ * archive; where that does not decide it, this says so rather than guessing,
+ * because a `!` on the wrong one of the two quietly makes each of them the
+ * other. See §2.101.
+ *
  * Read at `PRIV_HIDE`, like the offices screen and for the same reason: this
  * runs in the control panel, which webtrees has already decided the reader may
  * open, and a list of xrefs with the living silently absent would be a scan
@@ -78,7 +88,8 @@ class FamilyMarriages
      *         filed_under:string|null,
      *         other:string|null,
      *         state:string,
-     *         suggestion:string|null
+     *         suggestion:string|null,
+     *         marks:array{xref:string,name:string,number:string}|null
      *     }>,
      *     truncated:bool
      * }
@@ -109,9 +120,19 @@ class FamilyMarriages
             }
         }
 
-        // What needs doing first: the rows that will never match anybody, then
-        // the ones that are not there at all, then everything already right.
-        $rank = ['wrong_way' => 0, 'missing' => 1, 'unclear' => 2, 'recorded' => 3];
+        // What needs doing first. A missing `!` leads: it is the only one of
+        // these that makes two people share an identity, and every
+        // relationship either of them has is computed from it. Then the rows
+        // that will never match anybody, then the ones that are not there at
+        // all, then everything already right.
+        $rank = [
+            'unmarked'       => 0,
+            'unmarked_stuck' => 1,
+            'wrong_way'      => 2,
+            'missing'        => 3,
+            'unclear'        => 4,
+            'recorded'       => 5,
+        ];
 
         usort(
             $rows,
@@ -144,6 +165,15 @@ class FamilyMarriages
             return null;
         }
 
+        // The same number on both partners is not a marriage this table can
+        // record — it is one partner's number written on two people, with the
+        // `!` that separates them left off. Compared as *paths*, because that
+        // is what the calculator reads: `24/313` and `24/313.` are one line of
+        // descent written twice.
+        if ($this->numbers->path($his) === $this->numbers->path($hers)) {
+            return $this->unmarked($family, $husband, $wife, $his, $hers);
+        }
+
         $filed = $this->filedUnder($family, $his, $hers);
 
         return [
@@ -154,7 +184,61 @@ class FamilyMarriages
             'other'       => $filed === null ? null : ($filed === $his ? $hers : $his),
             'state'       => $this->state($his, $hers, $filed),
             'suggestion'  => $filed === null ? null : ($filed === $his ? $hers : $his) . ' = ' . $filed,
+            'marks'       => null,
         ];
+    }
+
+    /**
+     * A couple sharing one number, and which of them the `!` belongs on.
+     *
+     * @return array<string,mixed>
+     */
+    private function unmarked(
+        Family $family,
+        Individual $husband,
+        Individual $wife,
+        string $his,
+        string $hers,
+    ): array {
+        $incomer = $this->marriedIn($husband, $wife);
+
+        return [
+            'xref'        => $family->xref(),
+            'husband'     => $this->person($husband, $his),
+            'wife'        => $this->person($wife, $hers),
+            'filed_under' => null,
+            'other'       => null,
+            'state'       => $incomer === null ? 'unmarked_stuck' : 'unmarked',
+            'suggestion'  => null,
+            'marks'       => $incomer === null ? null : [
+                'xref'   => $incomer->xref(),
+                'name'   => strip_tags($incomer->fullName()),
+                'number' => $incomer === $husband ? $his : $hers,
+            ],
+        ];
+    }
+
+    /**
+     * Which of the two married in, read rather than guessed.
+     *
+     * Somebody who married into the family has no parents in the archive —
+     * their own line is not one the archive keeps. So exactly one of the two
+     * having no recorded parents is the answer, and anything else is not an
+     * answer: both without parents says only that the archive is thin here,
+     * and both with parents is a couple whose shared number means something
+     * this cannot see. A `!` put on the wrong one does not fail; it silently
+     * makes each of them the other.
+     */
+    private function marriedIn(Individual $husband, Individual $wife): Individual|null
+    {
+        $his_parents  = $husband->childFamilies(Auth::PRIV_HIDE)->isEmpty();
+        $hers_parents = $wife->childFamilies(Auth::PRIV_HIDE)->isEmpty();
+
+        if ($his_parents === $hers_parents) {
+            return null;
+        }
+
+        return $his_parents ? $husband : $wife;
     }
 
     /**

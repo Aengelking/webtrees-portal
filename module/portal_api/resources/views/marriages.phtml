@@ -15,6 +15,7 @@ use Fisharebest\Webtrees\Tree;
  * @var bool                           $truncated
  * @var PortalApiModule                $module
  * @var Tree                           $tree
+ * @var bool                           $may_mark
  * @var string                         $settings_url
  * @var string                         $title
  */
@@ -46,6 +47,16 @@ foreach ($rows as $row) {
     <?= I18N::translate('Nothing here is written to the table — it stays what the family wrote. What is offered is the text to paste.') ?>
 </p>
 
+<?php
+$unmarked = [];
+
+foreach ($rows as $row) {
+    if ($row['state'] === 'unmarked' || $row['state'] === 'unmarked_stuck') {
+        $unmarked[] = $row;
+    }
+}
+?>
+
 <?php if ($truncated) : ?>
     <div class="alert alert-warning">
         <?= I18N::translate('The family tree is larger than this screen reads in one go, so the list below is not complete.') ?>
@@ -53,15 +64,81 @@ foreach ($rows as $row) {
 <?php endif ?>
 
 <div class="row mb-3">
-    <?php foreach (['missing' => I18N::translate('Not in the table'), 'wrong_way' => I18N::translate('Written the wrong way round'), 'unclear' => I18N::translate('Cannot be read'), 'recorded' => I18N::translate('Already right')] as $state => $label) : ?>
+    <?php foreach (['unmarked' => I18N::translate('Missing the “!”'), 'missing' => I18N::translate('Not in the table'), 'wrong_way' => I18N::translate('Written the wrong way round'), 'unclear' => I18N::translate('Cannot be read'), 'recorded' => I18N::translate('Already right')] as $state => $label) : ?>
+        <?php $count = $state === 'unmarked' ? ($counts['unmarked'] ?? 0) + ($counts['unmarked_stuck'] ?? 0) : ($counts[$state] ?? 0) ?>
         <div class="col-6 col-md-3">
             <div class="border rounded p-3 text-center">
-                <div class="fs-4"><?= e((string) ($counts[$state] ?? 0)) ?></div>
+                <div class="fs-4"><?= e((string) $count) ?></div>
                 <small class="text-muted"><?= e($label) ?></small>
             </div>
         </div>
     <?php endforeach ?>
 </div>
+
+<?php if ($unmarked !== []) : ?>
+    <h2><?= I18N::translate('A couple sharing one number') ?></h2>
+
+    <p>
+        <?= I18N::translate('A partner who married into the family carries their spouse’s number with a “!” on the end. That mark is what keeps the two of them apart. Where it is missing both carry the same number, and every relationship either of them has is worked out as though the incomer descended from a line they are not in.') ?>
+    </p>
+
+    <p>
+        <?= I18N::translate('Who the mark belongs to is read from the records: somebody who married in has no parents in the archive. Where that does not decide it, this says so and leaves it to a person — a “!” on the wrong one of the two does not fail, it quietly makes each of them the other.') ?>
+    </p>
+
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Family') ?></th>
+                    <th scope="col"><?= I18N::translate('Husband') ?></th>
+                    <th scope="col"><?= I18N::translate('Wife') ?></th>
+                    <th scope="col"><?= I18N::translate('Married in') ?></th>
+                    <th scope="col"><span class="visually-hidden"><?= I18N::translate('Correction') ?></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($unmarked as $row) : ?>
+                    <tr class="table-danger">
+                        <td><?= e($row['xref']) ?></td>
+                        <?php foreach (['husband', 'wife'] as $side) : ?>
+                            <td>
+                                <?= e($row[$side]['name']) ?>
+                                <br>
+                                <small class="text-muted font-monospace"><?= e((string) $row[$side]['number']) ?></small>
+                            </td>
+                        <?php endforeach ?>
+                        <td>
+                            <?php if ($row['marks'] === null) : ?>
+                                <span class="text-muted"><?= I18N::translate('Cannot be read from the records') ?></span>
+                            <?php else : ?>
+                                <?= e($row['marks']['name']) ?>
+                                <br>
+                                <small class="font-monospace"><?= e($row['marks']['number'] . '!') ?></small>
+                            <?php endif ?>
+                        </td>
+                        <td class="text-end">
+                            <?php if ($row['marks'] !== null && $may_mark) : ?>
+                                <form method="post">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="xref" value="<?= e($row['marks']['xref']) ?>">
+                                    <input type="hidden" name="number" value="<?= e($row['marks']['number']) ?>">
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        <?= I18N::translate('Propose the mark') ?>
+                                    </button>
+                                </form>
+                            <?php endif ?>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+
+    <p class="text-muted">
+        <?= I18N::translate('The correction is made the way any edit in webtrees is made: it is written to the list of changes, waiting to be approved — or applied at once, if your own account is set to accept your changes without asking. Either way it is logged, and webtrees’ list of changes can undo it.') ?>
+    </p>
+<?php endif ?>
 
 <?php if ($suggestions !== []) : ?>
     <h2><?= I18N::translate('Rows to add') ?></h2>

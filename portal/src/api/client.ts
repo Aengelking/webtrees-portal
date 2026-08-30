@@ -254,10 +254,10 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
     onUnauthenticated?.()
   }
 
-  const payload = await readJson(response)
+  const payload = await readBody(response)
 
   if (!response.ok) {
-    const body = payload as Partial<ApiErrorBody> | null
+    const body = payload.kind === 'json' ? (payload.value as Partial<ApiErrorBody> | null) : null
 
     throw new ApiError(
       body?.error ?? 'server_error',
@@ -267,20 +267,45 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
     )
   }
 
-  return payload as T
+  // **A page is not an answer, whatever status came with it.** Something in
+  // front of webtrees — an overloaded Apache, a hosting maintenance page —
+  // can reply for it with HTML, and has been seen doing so carrying a 200.
+  // This used to become `null` and be handed back as though it were the
+  // record that was asked for, so the next line of the caller read a field
+  // off nothing. On the login screen that surfaced as *username or password
+  // wrong*: the member was sent to check their password while the server was
+  // the one at fault. See §2.102.
+  if (payload.kind === 'unreadable') {
+    throw new ApiError(
+      'unreadable_answer',
+      response.status,
+      'The family server answered with a page instead of data.',
+    )
+  }
+
+  return (payload.kind === 'json' ? payload.value : null) as T
 }
 
-async function readJson(response: Response): Promise<unknown> {
+/**
+ * What came back, told apart rather than flattened.
+ *
+ * `empty` is a real answer — a `204` says so — and `unreadable` is not one.
+ * Collapsing the two into `null` is what let a server error be mistaken for a
+ * successful reply.
+ */
+type Body = { kind: 'json'; value: unknown } | { kind: 'empty' } | { kind: 'unreadable' }
+
+async function readBody(response: Response): Promise<Body> {
   const text = await response.text()
 
   if (text === '') {
-    return null
+    return { kind: 'empty' }
   }
 
   try {
-    return JSON.parse(text) as unknown
+    return { kind: 'json', value: JSON.parse(text) as unknown }
   } catch {
-    return null
+    return { kind: 'unreadable' }
   }
 }
 

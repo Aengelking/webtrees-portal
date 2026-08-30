@@ -307,6 +307,40 @@ describe('App', () => {
     expect((screen.getByLabelText('Passwort') as HTMLInputElement).value).toBe('')
   })
 
+  /**
+   * **And says something different when the fault is not the member's.**
+   *
+   * A server in front of webtrees that answers with its own page — the
+   * reported case carried an Apache "503 Service Unavailable" body under a
+   * `200` — used to reach the screen as *username or password wrong*, sending
+   * a member off to check a password that was never the problem. The one
+   * message for every *refusal* is deliberate (see above); a server that did
+   * not answer is not a refusal. See §2.102.
+   */
+  it('does not blame the password when the server answered with a page', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+      String(input).endsWith('/csrf')
+        ? jsonResponse({ csrf_token: 'token-1' })
+        : new Response('<html><head><title>503 Service Unavailable</title></head></html>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+          }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderApp('/login')
+
+    const user = userEvent.setup()
+    await user.type(await screen.findByLabelText('Benutzername oder E-Mail-Adresse'), 'anna')
+    await user.type(screen.getByLabelText('Passwort'), 'pw')
+    await user.click(screen.getByRole('button', { name: 'Anmelden' }))
+
+    const alert = await screen.findByRole('alert')
+
+    expect(alert.textContent).toContain('nicht an deinen Zugangsdaten')
+    expect(alert.textContent).not.toContain('Passwort ist falsch')
+  })
+
   it('drops back to the login screen when a later request returns 401', async () => {
     let sessionValid = true
 

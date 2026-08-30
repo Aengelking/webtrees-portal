@@ -1961,9 +1961,35 @@ number begins with the number of the parent they were filed under, so the
 records answer it themselves. A row is written *other parent* `=` *the parent
 they are filed under*.
 
-**The screen only reads.** Nothing is written into the table; what is offered is
-the text to paste into the module's preferences. Read it once before saving — a
-marriage the archive deliberately left out is not a mistake this screen can see.
+**The screen only reads the table.** Nothing is written into it; what is offered
+is the text to paste into the module's preferences. Read it once before saving —
+a marriage the archive deliberately left out is not a mistake this screen can
+see.
+
+#### A couple sharing one number
+
+The same screen reports one thing that is not a marriage at all. A partner who
+married into the family carries their spouse's number with a `!` on the end, and
+that mark is the whole difference: `10/1335.21` is a descendant of that line,
+`10/1335.21!` is the person who married one. Where the mark is missing both
+partners carry the same number, and every relationship the incomer has is worked
+out as though they descended from a line they are not in.
+
+**Who the mark belongs to is read, not guessed.** Somebody who married in has no
+parents in the archive, so exactly one of the two having none is the answer.
+Both without parents, or both with, is not an answer — it is a statement about
+how complete the records are — and those couples are listed with no button, for
+a person to decide. A `!` on the wrong one of the two does not fail; it quietly
+makes each of them the other.
+
+For the couples it can read, there is a button per row, and no "correct them
+all": each of these decides whether a person is a descendant of a line or
+married into it. The correction is made the way any edit in webtrees is made —
+written to the list of changes, waiting to be approved, or applied at once if
+your own account is set to accept your changes without asking. Either way it is
+logged, attributed, and can be undone from webtrees' list of changes. Only a
+manager of the family tree may do it, and a record locked against editing is
+refused.
 
 ### Letting an assistant read the archive
 

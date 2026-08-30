@@ -223,7 +223,7 @@ class RecognitionTest extends PortalTestCase
      * Two services build this list now — `RecordPresenter::references()` and
      * this one — and the card that reads it does not know which. One of them
      * being a field short is how one shape quietly becomes two. Clara's number
-     * carries no oblique, so its branch is null (§2.67); what is asserted here
+     * carries no oblique, so its branch is null (§2.71); what is asserted here
      * is that the field is *there*.
      */
     public function testTheNumberCarriesItsBranchLikeEverywhereElse(): void

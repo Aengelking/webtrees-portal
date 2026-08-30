@@ -62,12 +62,22 @@ export function Login() {
     try {
       await signIn({ username: username.trim(), password, remember })
     } catch (cause) {
-      // The API returns one message for every kind of failure, on purpose.
-      // The portal says the same thing back, so it cannot become a way to
-      // find out which usernames exist.
+      // The API returns one message for every kind of *refusal*, on purpose.
+      // The portal says the same thing back, so it cannot become a way to find
+      // out which usernames exist.
+      //
+      // A server that could not be reached, or that answered with a page
+      // instead of data, is not a refusal and must not be dressed as one:
+      // saying "username or password wrong" there sends a member off checking
+      // their password while the fault is at the other end, and they have no
+      // way of finding that out. See §2.102.
+      const unreachable =
+        cause instanceof ApiError &&
+        (cause.code === 'network_error' || cause.code === 'unreadable_answer')
+
       setError(
-        cause instanceof ApiError && cause.code === 'network_error'
-          ? t('error.network')
+        unreachable
+          ? t(cause.code === 'network_error' ? 'error.network' : 'error.unreadable_answer')
           : t('login.failed'),
       )
       setPassword('')

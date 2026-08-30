@@ -447,7 +447,7 @@ abstract class PortalTestCase extends TestCase
         // This is still not the whole of production. Everything webtrees wraps
         // *around* routing — the transaction, the session, the theme — is
         // outside `$route->extras` and outside this harness; see NOTES.md
-        // §2.82 for what that has already hidden.
+        // §2.82a for what that has already hidden.
         $middleware = [...$route->extras['middleware'], CheckCsrf::class, RequestHandler::class];
 
         // Whichever dispatcher this webtrees runs its own middleware through.
