@@ -695,6 +695,26 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
       })
     }
 
+    // Karla: alive, and nobody this member could invite — too far out in the
+    // tree for that. So her page carries the offer to connect and no
+    // invitation, which is the pair the person screen has to get right.
+    if (path === '/individuals/X7') {
+      return json(route, {
+        ...ANNA,
+        xref: 'X7',
+        name: 'Karla Beispiel',
+        sex: 'F',
+        lifespan: '1978–',
+        is_deceased: false,
+        relationship: null,
+        references: [],
+        parents: [],
+        siblings: [],
+        invitable: false,
+        connection: 'open',
+      })
+    }
+
     if (path === '/individuals/X2') {
       return json(route, {
         ...ANNA,

@@ -468,6 +468,10 @@ test.describe('inviting from a person’s page', () => {
     await page.goto('/individuals/X4')
     await expect(page.getByText('Noch nicht im Portal')).toBeVisible()
 
+    // And the offer to connect stands aside for it: the invitation has
+    // already said there is no account behind this record.
+    await expect(page.getByRole('button', { name: 'Verbinden' })).toBeHidden()
+
     await page.getByRole('link', { name: 'Einladen' }).click()
 
     // Arrived with him chosen, so the next tap is the last one.
@@ -499,10 +503,15 @@ test.describe('inviting from a person’s page', () => {
     await page.getByRole('button', { name: 'Anmelden' }).click()
     await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
 
-    await page.goto('/individuals/X4')
+    // Karla rather than Dieter: he can be invited, and where an invitation is
+    // possible the page makes that offer instead — it has already said he has
+    // no account, so asking to connect with him would be nonsense.
+    await page.goto('/individuals/X7')
+    await expect(page.getByText('Noch nicht im Portal')).toBeHidden()
+
     await page.getByRole('button', { name: 'Verbinden' }).click()
 
-    await expect(page.getByText(/Wenn Dieter Beispiel ein Konto im Portal hat/)).toBeVisible()
+    await expect(page.getByText(/Wenn Karla Beispiel ein Konto im Portal hat/)).toBeVisible()
     await expect(page.getByRole('button', { name: 'Verbinden' })).toBeHidden()
   })
 })
