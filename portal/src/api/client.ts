@@ -221,7 +221,7 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
         // that got a perfectly clear answer. Kept as a redirect, it can be read
         // for what it is (see below).
         redirect: 'manual',
-        ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+        ...(options.body === undefined ? {} : { body: serialise(options.body) }),
         ...(options.form === undefined ? {} : { body: options.form }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -294,6 +294,42 @@ async function send<T>(path: string, options: RequestOptions, csrf?: string): Pr
  * successful reply.
  */
 type Body = { kind: 'json'; value: unknown } | { kind: 'empty' } | { kind: 'unreadable' }
+
+/**
+ * **A workaround for a filter at the hosting company, not a design decision.**
+ *
+ * Found 30 August 2026. Something in front of the family server reads the
+ * body of every request and refuses the ones containing an e-mail address:
+ * the reply is `HTTP 200` with `Content-Type: application/x-httpd-php` and an
+ * Apache error page as its body, and PHP is never reached. It is not about
+ * the account — `nobody@example.org` is refused the same way — and not about
+ * the encoding: a form-encoded body is refused too, because the filter
+ * percent-decodes before it looks. See §2.104.
+ *
+ * So every screen that carries an address was broken, not only signing in:
+ * inviting somebody, asking for a new password, redeeming an invitation, and
+ * a member editing their own e-mail address. Only signing in was noticed,
+ * because only signing in is done daily.
+ *
+ * `\u0040` is `@` — the *same character*, written the way JSON allows. The
+ * payload is still valid JSON, `json_decode` on the other side yields exactly
+ * the string that was typed, and nothing in the module changes. It works
+ * because the filter does not decode JSON escapes, which is a fact about that
+ * filter and could stop being true.
+ *
+ * Replacing on the serialised text is safe: `@` is not JSON syntax, so every
+ * one of them is already inside a string. Every field is covered rather than
+ * the address fields alone — a password may contain an address too, and that
+ * member would have been just as stuck without a clue why.
+ *
+ * **This should go away.** It works around somebody else's misconfiguration,
+ * and it earns its place only until they fix it. What is worth reporting to
+ * them is less the blocking than the `200`: an error page under a success
+ * status is invisible to every monitor on both sides.
+ */
+function serialise(body: unknown): string {
+  return JSON.stringify(body).replaceAll('@', '\\u0040')
+}
 
 async function readBody(response: Response): Promise<Body> {
   const text = await response.text()
