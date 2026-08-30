@@ -334,14 +334,14 @@ describe('the archive-number calculator', () => {
   it('names the other ways they are related, after the nearest', async () => {
     stub(undefined, {
       ...CALCULATION,
-      relationship: 'Cousin 3. Grades, einmal entfernt',
-      relationships: ['Cousin 3. Grades, einmal entfernt', 'Cousin 5. Grades'],
+      relationship: 'Neffe 4. Grades',
+      relationships: ['Neffe 4. Grades', 'Cousin 5. Grades'],
     })
     renderAt('/tree?tab=calculator')
 
     await userEvent.type(await screen.findByLabelText('SB-Nr. 2'), '24/b6')
 
-    expect(await screen.findByText('Cousin 3. Grades, einmal entfernt')).toBeDefined()
+    expect(await screen.findByText('Neffe 4. Grades')).toBeDefined()
     expect(screen.getByText(/Cousin 5\. Grades/)).toBeDefined()
   })
 
