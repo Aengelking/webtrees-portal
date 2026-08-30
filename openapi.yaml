@@ -3609,7 +3609,7 @@ components:
             that is not a plain nephew or a plain uncle becomes a cousin,
             counted by the shared ancestor and removed by the generations
             between — *second cousin once removed*. So the same pair of numbers
-            can come back as `Neffe 2. Grades` in German and
+            can come back as `Neffe 3. Grades` in German and
             `second cousin once removed` in English, and both are right.
           example: Cousin/Cousine 2. Grades
         relationships:
@@ -3630,7 +3630,7 @@ components:
             has to survive a server that predates this field.
           items:
             type: string
-          example: ['Cousin 3. Grades, einmal entfernt', 'Cousin 5. Grades']
+          example: ['Neffe 4. Grades', 'Cousin 5. Grades']
         detail:
           description: |
             The working behind the **nearest** answer, for anybody who wants to
@@ -3661,9 +3661,15 @@ components:
             How far out a collateral relative sits — "2. Grades". `null` for
             the near ones, which the family names without a degree.
 
+            Counted from the **elder** of the two rather than from whoever
+            asked, so one pair of people carries one degree whichever card it
+            is read from. Each shape counts from its own plain word, so a
+            `cousin` degree and an `uncle` degree of the same number do not
+            stand at the same distance.
+
             A measurement rather than a word: German spends it as a degree,
-            English as the ordinal in front of "cousin" and the removal after
-            it. A client that renders this itself should not assume the German
+            English as an ordinal in front of "cousin" and a removal after it.
+            A client that renders this itself should not assume the German
             shape.
 
     SearchPage:

@@ -588,6 +588,108 @@ class SackRelationshipTest extends PortalTestCase
     }
 
     /**
+     * **The one place the module deliberately differs from the calculator.**
+     *
+     * `24/1211` stands three steps from the ancestor the two share, `24/131`
+     * two. That is one relationship, and `rechner.php` gives it two names:
+     * counting its ordinal from whoever is asking, it is a *cousin once
+     * removed* read from the nearer card and a *second cousin once removed*
+     * read from the further one. A member reading their own card and then a
+     * relative's would find the family tree disagreeing with itself.
+     *
+     * The correction is not a matter of taste. The calculator's own two
+     * `$removed` lines work out the elder's distance in *both* branches, and
+     * only the ordinal one line later reaches for the raw `$distance` — right
+     * where the reader happens to be the elder, wrong where they are not. So
+     * this keeps the original arithmetic, shows what it answers, and pins
+     * what the module answers instead: the same thing from either end.
+     */
+    public function testTheOrdinalIsCountedFromTheElderAndNotFromWhoeverAsks(): void
+    {
+        $this->signIn();
+
+        $near = '24/131';
+        $far  = '24/1211';
+
+        // What the original answers, asked from each end in turn.
+        self::assertSame('cousin once removed', $this->originalOrdinal(-1, 2));
+        self::assertSame('second cousin once removed', $this->originalOrdinal(1, 3));
+
+        // What the module answers, which is one relationship with one name.
+        self::assertSame('cousin once removed', $this->named($near, $far));
+        self::assertSame('cousin once removed', $this->named($far, $near));
+
+        I18N::init('de');
+
+        try {
+            self::assertSame('Neffe/Nichte 2. Grades', $this->named($near, $far));
+            self::assertSame('Onkel/Tante 2. Grades', $this->named($far, $near));
+        } finally {
+            I18N::init('en-US');
+        }
+    }
+
+    /**
+     * **One pair of people is one relationship, whichever card it is read
+     * from.** The invariant the bug above broke, over every shape.
+     *
+     * The two ends legitimately use different *words* — one is the nephew and
+     * the other the uncle — so what has to agree is how far out they sit. In
+     * German that is the degree, printed on both. In English there are no two
+     * words at all: a removed collateral is a cousin from either end, so the
+     * phrase itself has to come out identical, character for character.
+     */
+    public function testTheSameTwoPeopleAreTheSameRelationshipFromEitherEnd(): void
+    {
+        $this->signIn();
+
+        $sack    = Registry::container()->get(SackRelationship::class);
+        $checked = 0;
+
+        // Two people standing $mine and $theirs steps below the ancestor they
+        // share, down different children of it.
+        for ($mine = 0; $mine <= 5; $mine++) {
+            for ($theirs = $mine; $theirs <= 5; $theirs++) {
+                $a = '24/1' . ($mine >= 1 ? '2' . str_repeat('1', $mine - 1) : '');
+                $b = '24/1' . ($theirs >= 1 ? '3' . str_repeat('1', $theirs - 1) : '');
+
+                $there = $sack->between($a, $b);
+                $back  = $sack->between($b, $a);
+
+                if ($there === null || $back === null || $there['kind'] === 'self') {
+                    continue;
+                }
+
+                $where = $a . ' / ' . $b;
+
+                self::assertSame($there['degree'], $back['degree'], 'the degree of ' . $where);
+
+                if ($there['degree'] !== null) {
+                    self::assertSame(
+                        $sack->describe($there, 'M'),
+                        $sack->describe($back, 'M'),
+                        'the English name of ' . $where
+                    );
+                }
+
+                $checked++;
+            }
+        }
+
+        self::assertGreaterThan(15, $checked, 'The grid produced almost nothing to compare.');
+    }
+
+    /**
+     * `rechner.php`'s ordinal for a removed collateral, exactly as it stands:
+     * counted from `$distance`, the distance of whoever is asking.
+     */
+    private function originalOrdinal(int $generations, int $distance): string
+    {
+        return ($distance > 2 ? $this->countName($distance - 1) . ' ' : '') . 'cousin'
+            . ' ' . $this->multiName(abs($generations)) . ' removed';
+    }
+
+    /**
      * `rechner.php`, `$relation_en`, in the male form.
      *
      * Transcribed rather than imported: the calculator is one PHP file with a
@@ -619,7 +721,19 @@ class SackRelationshipTest extends PortalTestCase
         }
 
         if ($removed) {
-            $name = ($distance > 2 ? $this->countName($distance - 1) . ' ' : '') . 'cousin';
+            // **The one line that is a correction and not a transcription.**
+            // The original counts the ordinal from `$distance`, the distance
+            // of whoever is asking. That is the right person in the nephew
+            // branch above and the wrong one in the uncle branch, which is
+            // why the same two people came out as a cousin once removed read
+            // from one card and a second cousin once removed read from the
+            // other. Both `$removed` lines above measure the *elder's*
+            // distance, in both branches — that is what says this is a slip
+            // rather than a convention. The test below keeps the original
+            // arithmetic and pins the disagreement. See §2.99.
+            $nearest = min($distance, $distance - $generations);
+
+            $name = ($nearest > 2 ? $this->countName($nearest - 1) . ' ' : '') . 'cousin';
 
             if (abs($generations) > 0) {
                 $name .= ' ' . $this->multiName(abs($generations)) . ' removed';

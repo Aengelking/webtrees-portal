@@ -5163,7 +5163,7 @@ collateral relative by degree and keeps the near word: *Großneffe 2. Grades*,
 degree". Anything that is not a plain nephew or a plain uncle becomes a
 **cousin**, named by how far back the shared ancestor is and how many
 generations the two people stand apart: *second cousin once removed*. The same
-pair of numbers is therefore `Neffe 2. Grades` in one language and
+pair of numbers is therefore `Neffe 3. Grades` in one language and
 `second cousin once removed` in the other, and both are right.
 
 `describe()` had been building one shape and swapping the words, with the
@@ -5843,6 +5843,7 @@ the other. That is faithful — `rechner.php` computes the cousin degree from
 whichever person the question starts at, and the test grid transcribed from it
 passes — so it predates all of this and is not mine to change quietly. It is
 more visible now, because the nearest answer is more often the removed kind.
+*Decided since, and corrected: §2.99.*
 
 ---
 
@@ -5974,8 +5975,6 @@ in dem CI ohnehin ist: die ganze Testklasse statt eines Tests, vier parallele
 Läufe statt eines. Vorher waren beide „nicht reproduzierbar“, und das war eine
 Aussage über den Versuch, nicht über den Fehler.
 
----
-
 ### 2.98 Der Knopf, der nicht verraten darf, wen er erreicht
 
 Verbinden ging bisher über die SB-Nummer: Nummer auf der einen Seite ablesen,
@@ -6045,6 +6044,59 @@ Aufbau scheitern — und was danach kam, war nicht etwa „falsches Argument",
 sondern `RouteNotFound` für jede Route, die nach dieser Zeile registriert
 wird. Der Fehler sah aus wie ein Router-Problem und war ein
 Konstruktor-Problem.
+
+---
+
+### 2.99 Eine Verwandtschaft, zwei Namen, je nachdem wer fragt
+
+Offen seit §2.94 und jetzt entschieden. `24/311` und `24/3221` waren *cousin
+once removed*, wenn man von der einen Karte aus fragte, und *second cousin once
+removed* von der anderen. Zwei Menschen, eine Verwandtschaft, zwei Namen — und
+welchen man bekam, hing daran, wessen Karte gerade offen war.
+
+**Wo es herkommt.** Wie weit draußen ein Seitenverwandter sitzt, misst man am
+Abstand zum gemeinsamen Vorfahren. Zwei Menschen haben zwei solche Abstände,
+und maßgeblich ist der des **Älteren** — Cousins ersten Grades stehen beide
+zwei Schritte darunter, und bleiben es auch, wenn eines ihrer Kinder mitfragt.
+`rechner.php` nimmt stattdessen `$distance`, den Abstand des Fragenden. Im
+Neffen-Zweig ist der Fragende der Ältere, also stimmt es. Im Onkel-Zweig ist er
+der Jüngere, also stimmt es nicht.
+
+**Warum das ein Ausrutscher ist und keine Konvention.** Das war die Frage, an
+der es hing, und die Vorlage beantwortet sie selbst. Beide Zweige entscheiden
+zwei Zeilen vorher *korrekt* am Abstand des Älteren, ob überhaupt eine
+Ordnungszahl fällig ist — `$distance > 1` beim Neffen, `$distance - $generations
+> 1` beim Onkel. Der Autor hat die richtige Größe also in beiden Zweigen
+ausgerechnet und sie eine Zeile später nicht benutzt. Das ist keine Meinung
+über Verwandtschaftsgrade, das ist eine vergessene Variable.
+
+Auf Deutsch war derselbe Fehler um eins verschoben statt seitenverkehrt: der
+Neffe zählte den Abstand des Älteren *minus eins*, der Onkel ihn selbst. Ein
+Paar hieß „Neffe" und „Onkel 2. Grades". Jetzt beide `min` der zwei Abstände,
+und ein Paar heißt „Neffe 2. Grades" und „Onkel 2. Grades".
+
+**Was das an der Vorlage kostet.** Die transkribierte Vergleichstabelle ist
+Beweisstück, kein Vorbild, und genau eine Zeile darin ist jetzt eine Korrektur
+statt einer Abschrift — als solche gekennzeichnet. Daneben steht ein Test, der
+die Arithmetik des Originals behält und die Meinungsverschiedenheit festhält:
+was `rechner.php` sagt, und was das Modul stattdessen sagt. Eine Abweichung,
+die man wegräumt, indem man die Erwartung anpasst, ist keine Entscheidung
+mehr, sondern nur noch grün.
+
+**Und der Test, den es vorher nicht gab.** Über das ganze Gitter: dieselben
+zwei Menschen von beiden Enden gelesen. Auf Deutsch muss der Grad
+übereinstimmen — die Wörter dürfen verschieden sein, Neffe und Onkel sind ja
+verschiedene Wörter. Auf Englisch gibt es die zwei Wörter gar nicht, dort ist
+beides ein Cousin, also muss der Satz Zeichen für Zeichen derselbe sein. Gegen
+den alten Code fallen beide neuen Tests um; das ist der einzige Grund, ihnen zu
+trauen.
+
+**Zwei Dokumentationsstellen mussten mit.** NOTES und README erklärten den
+Unterschied der beiden Sprachen an einem Beispielpaar — `Neffe 2. Grades` neben
+`second cousin once removed` —, und das war ein Paar, das nur die alte
+Arithmetik erzeugt. Richtig ist jetzt `Neffe 3. Grades`. Eine Erklärung, die
+mit der Rechnung mitgewachsen ist, aber ihr Beispiel behält, ist die Sorte
+Dokumentation, die man später für die Wahrheit hält.
 
 ---
 

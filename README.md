@@ -1176,12 +1176,20 @@ German counts a collateral relative by degree and keeps the near word —
 that is not a plain nephew or a plain uncle becomes a **cousin**, counted by
 how far back the shared ancestor is and removed by the generations between —
 *second cousin once removed*. The same pair of archive numbers therefore comes
-back as `Neffe 2. Grades` in German and `second cousin once removed` in
+back as `Neffe 3. Grades` in German and `second cousin once removed` in
 English, and both are right.
 
 The rules are the family's own calculator's, and `SackRelationshipTest` runs
 that calculator's English branch beside the module's over every shape the
 classifier can produce, so the two cannot drift apart.
+
+**With one deliberate exception.** The calculator counts how far out a
+collateral relative sits from the distance of whoever is *asking*, which made
+one pair of people two different relationships depending on whose card was
+open — a *cousin once removed* read from the nearer end and a *second cousin
+once removed* read from the further one. The module counts from the elder of
+the two instead, so both ends agree. The calculator's own arithmetic and the
+disagreement it produces are both kept in the tests.
 
 #### How deep the pedigree goes, and how it reads
 
