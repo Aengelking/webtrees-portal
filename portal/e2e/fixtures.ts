@@ -574,6 +574,13 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
         code?: string
         reference?: string
         member_id?: number
+        xref?: string
+      }
+
+      // From a person's page. The quiet answer, which is the only one the
+      // server gives for a record it will not talk about.
+      if (body.xref !== undefined) {
+        return json(route, { ...connectionOverview(), status: 'requested', name: null }, 201)
       }
 
       if (body.code === 'code-fuer-anna') {
@@ -681,6 +688,10 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
         parents: [],
         siblings: [],
         invitable: !invitedDieter,
+        // "The offer is worth making" — and deliberately not "he has an
+        // account": the server says the same word for a member who stayed out
+        // of the directory and for a relative with no account at all.
+        connection: 'open',
       })
     }
 

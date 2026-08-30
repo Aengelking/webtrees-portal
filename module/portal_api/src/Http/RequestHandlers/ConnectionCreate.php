@@ -17,12 +17,16 @@ use function is_string;
 use function trim;
 
 /**
- * POST /api/v1/connections — connect with somebody, one of three ways.
+ * POST /api/v1/connections — connect with somebody, one of four ways.
  *
  * `code` is the one that was scanned off somebody's screen, and it connects
- * at once: showing it was the consent. `reference` and `member_id` both only
- * *ask* — the other member answers. Exactly one of the three, because "which
- * did you mean" is not a question this endpoint should have to answer.
+ * at once: showing it was the consent. `reference`, `member_id` and `xref`
+ * all only *ask* — the other member answers. Exactly one of the four, because
+ * "which did you mean" is not a question this endpoint should have to answer.
+ *
+ * `xref` is the person's own page in the family tree, and it answers the same
+ * way `reference` does — one sentence whether or not there is an account
+ * behind the record. See `Connections::requestByIndividual`.
  *
  * The token arrives in the body rather than in the path for the same reason
  * an invitation's does: a webserver log, a proxy and every outgoing `Referer`
@@ -41,9 +45,13 @@ class ConnectionCreate implements RequestHandlerInterface
 
         $code      = $this->string($body['code'] ?? null);
         $reference = $this->string($body['reference'] ?? null);
+        $xref      = $this->string($body['xref'] ?? null);
         $member_id = (int) ($body['member_id'] ?? 0);
 
-        $given = ($code === '' ? 0 : 1) + ($reference === '' ? 0 : 1) + ($member_id === 0 ? 0 : 1);
+        $given = ($code === '' ? 0 : 1)
+            + ($reference === '' ? 0 : 1)
+            + ($xref === '' ? 0 : 1)
+            + ($member_id === 0 ? 0 : 1);
 
         if ($given !== 1) {
             throw ApiException::badRequest();
@@ -52,6 +60,7 @@ class ConnectionCreate implements RequestHandlerInterface
         $result = match (true) {
             $code !== ''      => $this->connections->connectWithCode($user, $code),
             $reference !== '' => $this->connections->requestByReference($user, $reference),
+            $xref !== ''      => $this->connections->requestByIndividual($user, $xref),
             default           => $this->connections->requestByMember($user, $member_id),
         };
 

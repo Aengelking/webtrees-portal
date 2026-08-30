@@ -674,6 +674,15 @@ export const de = {
   person: {
     title: 'Person',
     backToProfile: 'Zurück zu meinem Profil',
+    connect: {
+      title: 'Verbinden',
+      body:
+        'Wenn {{name}} ein Konto im Portal hat, bekommt sie oder er deine Anfrage und entscheidet selbst. Verbunden könnt ihr euch schreiben und die Kontaktdaten sehen, die ihr für eure Kontakte freigegeben habt.',
+      action: 'Verbinden',
+      quiet:
+        'Wenn {{name}} ein Konto im Portal hat, ist deine Anfrage unterwegs. Du erfährst erst davon, wenn sie angenommen wird — dann steht der Kontakt unter „Kontakte".',
+      connected: 'Ihr seid verbunden.',
+    },
     invite: {
       title: 'Noch nicht im Portal',
       body: '{{name}} hat noch keinen Zugang. Du kannst eine Einladung erstellen und den Link selbst weitergeben.',
