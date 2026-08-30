@@ -285,8 +285,12 @@ class SackRelationship
      */
     private function cousin(array $relation): string
     {
-        $name = $relation['distance'] > 2
-            ? $this->ordinal($relation['distance'] - 1) . ' cousin'
+        // The nearer of the two, for the reason in `classify()`: an ordinal
+        // counted from the reader makes one pair two relationships.
+        $nearest = min($relation['distance'], $relation['distance'] - $relation['generations']);
+
+        $name = $nearest > 2
+            ? $this->ordinal($nearest - 1) . ' cousin'
             : 'cousin';
 
         $steps = abs($relation['generations']);
@@ -352,21 +356,32 @@ class SackRelationship
             return $shape('descendant', null);
         }
 
+        // **How far out a collateral relative sits is the *elder's* distance,
+        // not the reader's.** `$distance` is measured from the reader, so the
+        // other person stands `$distance - $generations` away and the elder of
+        // the two is whichever is nearer the common ancestor. Counting from
+        // the reader instead makes the same pair two different relationships
+        // depending on who is asking. See §2.99.
+        $nearest = min($distance, $distance - $generations);
+
         if ($generations < 0) {
             // Their line branched off below the reader's: nephews and nieces,
             // and further out, nephews of some degree.
-            return $shape('nephew', $distance > 1 ? $distance - 1 : null);
+            return $shape('nephew', $nearest > 1 ? $nearest : null);
         }
 
         if ($generations === 0) {
             // Cousins. Distance two is a first cousin and carries no degree —
-            // the family says "Cousine", not "Cousine 1. Grades".
+            // the family says "Cousine", not "Cousine 1. Grades". Every one of
+            // these scales starts its counting at the plain word, and the
+            // plain cousin stands two steps from the shared ancestor where the
+            // plain uncle stands one. That is why this one subtracts and the
+            // two around it do not; they are not the same scale.
             return $shape('cousin', $distance > 2 ? $distance - 1 : null);
         }
 
-        // Uncles and aunts, and further out, uncles of some degree. Here the
-        // degree is measured from *their* side of the common ancestor.
-        return $shape('uncle', $distance - $generations > 1 ? $distance - $generations : null);
+        // Uncles and aunts, and further out, uncles of some degree.
+        return $shape('uncle', $nearest > 1 ? $nearest : null);
     }
 
     /**
