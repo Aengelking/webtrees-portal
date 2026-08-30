@@ -5997,7 +5997,19 @@ lebenden Verwandten ganz ohne Konto und für eine Anfrage, die gestern
 rausging und noch niemand beantwortet hat. Der dritte Fall ist der, den man
 leicht übersieht: ein `requested` auf dieser Seite würde eine Zeile später
 genau das sagen, was der Endpunkt eine Zeile vorher verschweigt — dass da
-jemand war, der sie empfangen konnte. `connected` ist die einzige Ausnahme und
+jemand war, der sie empfangen konnte.
+
+**Nachtrag: „und wenn ich schon angefragt habe?"** Gefragt, und die Antwort
+stand schon im Code — an anderer Stelle. `overview()` nimmt eine offene
+Anfrage nur dann in die eigene Liste auf, wenn der Empfänger im Verzeichnis
+steht (`elseif ($this->listed(...))`), aus genau diesem Grund. Dieselbe Linie
+gilt jetzt auf der Personenseite: bei einem gelisteten Mitglied wird
+`requested` gemeldet — das Verzeichnis nennt die Person ohnehin —, bei allen
+anderen bleibt es `open`. Verschwiegen wird also nicht die Anfrage, sondern
+nur die Auskunft darüber, ob sie irgendwo angekommen ist. Eine Anfrage *an*
+den Leser bleibt draußen: die steht mit Namen in seiner eigenen Liste, wo sie
+beantwortet werden kann, und diese Seite sagt, was der Leser als Nächstes tun
+kann. `connected` ist die einzige Ausnahme und
 gibt nichts preis: Verbundensein ist beidseitig und beiden bekannt. `null`
 heißt „geht hier gar nicht" — eigener Datensatz, verstorben, Verbindungen
 abgeschaltet.

@@ -22,6 +22,11 @@ import { Button, ErrorNotice, Notice, SuccessNote } from './ui'
  * that *if* there is somebody there, they have been asked. Where the server
  * does name them — a member of the directory, or a contact already — it is
  * saying nothing that screen was not already showing.
+ *
+ * A request still waiting for an answer is reported for the same reason and
+ * under the same limit: the server says `requested` only about somebody the
+ * directory already names. For everybody else it stays `open`, and pressing
+ * again is harmless — the request that exists is not duplicated.
  */
 export function ConnectFromRecord({
   xref,
@@ -30,13 +35,19 @@ export function ConnectFromRecord({
 }: {
   xref: string
   name: string
-  state: 'connected' | 'open'
+  state: 'connected' | 'requested' | 'open'
 }) {
   const { t } = useTranslation()
   const connect = useConnect()
 
   if (state === 'connected') {
     return <Notice title={t('person.connect.title')} body={t('person.connect.connected')} />
+  }
+
+  // Only ever said about somebody the directory already names, so it says
+  // nothing the directory does not — see `Connections::recordState`.
+  if (state === 'requested') {
+    return <Notice title={t('person.connect.title')} body={t('person.connect.waiting')} />
   }
 
   if (connect.isSuccess) {

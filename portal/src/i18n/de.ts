@@ -682,6 +682,7 @@ export const de = {
       action: 'Verbinden',
       quiet:
         'Wenn {{name}} ein Konto im Portal hat, ist deine Anfrage unterwegs. Du erfährst erst davon, wenn sie angenommen wird — dann steht der Kontakt unter „Kontakte".',
+      waiting: 'Deine Anfrage ist gesendet und wartet auf eine Antwort. Sobald sie angenommen wird, steht der Kontakt unter „Kontakte".',
       connected: 'Ihr seid verbunden.',
     },
     invite: {

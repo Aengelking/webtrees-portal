@@ -185,6 +185,20 @@ describe('connecting from a person’s page', () => {
   })
 
   /**
+   * The state the member asked for. Said only about somebody the directory
+   * already names, so it discloses nothing the directory does not — and
+   * without it, a member who pressed the button yesterday has no way of
+   * telling whether they did.
+   */
+  it('says a request is waiting, where the server reports one', async () => {
+    stub({ ...DIETER, connection: 'requested' })
+    renderPerson()
+
+    expect(await screen.findByText(/Deine Anfrage ist gesendet und wartet/)).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Verbinden' })).toBeNull()
+  })
+
+  /**
    * Null is "connecting cannot happen here" — the reader's own record, the
    * dead, a family that switched connections off — and a page that guessed
    * would offer something the server refuses.
