@@ -1,0 +1,143 @@
+<?php
+
+declare(strict_types=1);
+
+use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
+use Fisharebest\Webtrees\Tree;
+
+/**
+ * @var array<int,array<string,mixed>> $rows
+ * @var array<string,int>              $counts
+ * @var bool                           $truncated
+ * @var PortalApiModule                $module
+ * @var Tree                           $tree
+ * @var string                         $settings_url
+ * @var string                         $title
+ */
+
+$suggestions = [];
+
+foreach ($rows as $row) {
+    if (($row['state'] === 'missing' || $row['state'] === 'wrong_way') && $row['suggestion'] !== null) {
+        $suggestions[] = $row['suggestion'];
+    }
+}
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), route(ModulesAllPage::class) => I18N::translate('Modules'), $settings_url => $module->title(), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+
+<p>
+    <?= I18N::translate('Every couple in the family tree where both partners carry an archive number. Their children can only be filed under one of the two, so the other parent’s descent is invisible in the children’s numbers — and the relationship table below the module’s preferences is what makes it visible again.') ?>
+</p>
+
+<p>
+    <?= I18N::translate('This matters more than it used to. A marriage the table does not know gives no warning: it makes the portal name a relationship that is too distant, confidently. A row that is there but written the wrong way round matches nobody and does the same.') ?>
+</p>
+
+<p>
+    <strong><?= I18N::translate('This screen only reads.') ?></strong>
+    <?= I18N::translate('Nothing here is written to the table — it stays what the family wrote. What is offered is the text to paste.') ?>
+</p>
+
+<?php if ($truncated) : ?>
+    <div class="alert alert-warning">
+        <?= I18N::translate('The family tree is larger than this screen reads in one go, so the list below is not complete.') ?>
+    </div>
+<?php endif ?>
+
+<div class="row mb-3">
+    <?php foreach (['missing' => I18N::translate('Not in the table'), 'wrong_way' => I18N::translate('Written the wrong way round'), 'unclear' => I18N::translate('Cannot be read'), 'recorded' => I18N::translate('Already right')] as $state => $label) : ?>
+        <div class="col-6 col-md-3">
+            <div class="border rounded p-3 text-center">
+                <div class="fs-4"><?= e((string) ($counts[$state] ?? 0)) ?></div>
+                <small class="text-muted"><?= e($label) ?></small>
+            </div>
+        </div>
+    <?php endforeach ?>
+</div>
+
+<?php if ($suggestions !== []) : ?>
+    <h2><?= I18N::translate('Rows to add') ?></h2>
+
+    <p>
+        <?= I18N::translate('Paste these into “%s” in the module’s preferences, then read them once before saving: a marriage the archive deliberately left out of the table is not a mistake this screen can see.', I18N::translate('Marriages inside the family')) ?>
+    </p>
+
+    <textarea class="form-control font-monospace" rows="<?= e((string) min(12, count($suggestions))) ?>" readonly><?= e(implode("\n", $suggestions)) ?></textarea>
+<?php endif ?>
+
+<h2 class="mt-4"><?= I18N::translate('What the family tree has') ?></h2>
+
+<?php if ($rows === []) : ?>
+    <div class="alert alert-info">
+        <?= I18N::translate('No couple in this family tree has an archive number on both partners.') ?>
+    </div>
+<?php else : ?>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><?= I18N::translate('Family') ?></th>
+                    <th scope="col"><?= I18N::translate('Husband') ?></th>
+                    <th scope="col"><?= I18N::translate('Wife') ?></th>
+                    <th scope="col"><?= I18N::translate('Children filed under') ?></th>
+                    <th scope="col"><?= I18N::translate('In the table') ?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($rows as $row) : ?>
+                    <tr<?= $row['state'] === 'missing' || $row['state'] === 'wrong_way' ? ' class="table-warning"' : '' ?>>
+                        <td>
+                            <?php $family = Registry::familyFactory()->make($row['xref'], $tree) ?>
+                            <?php if ($family === null) : ?>
+                                <?= e($row['xref']) ?>
+                            <?php else : ?>
+                                <a href="<?= e($family->url()) ?>"><?= e($row['xref']) ?></a>
+                            <?php endif ?>
+                        </td>
+                        <?php foreach (['husband', 'wife'] as $side) : ?>
+                            <td>
+                                <?= e($row[$side]['name']) ?>
+                                <br>
+                                <small class="text-muted font-monospace"><?= e((string) $row[$side]['number']) ?></small>
+                            </td>
+                        <?php endforeach ?>
+                        <td class="font-monospace">
+                            <?= $row['filed_under'] === null
+                                ? '<span class="text-muted">' . e(I18N::translate('No child carries a number')) . '</span>'
+                                : e((string) $row['filed_under']) ?>
+                        </td>
+                        <td>
+                            <?php if ($row['state'] === 'recorded') : ?>
+                                <?= I18N::translate('Yes') ?>
+                            <?php elseif ($row['state'] === 'wrong_way') : ?>
+                                <strong><?= I18N::translate('The wrong way round') ?></strong>
+                                <br>
+                                <small class="font-monospace"><?= e((string) $row['suggestion']) ?></small>
+                            <?php elseif ($row['state'] === 'missing') : ?>
+                                <strong><?= I18N::translate('No') ?></strong>
+                                <br>
+                                <small class="font-monospace"><?= e((string) $row['suggestion']) ?></small>
+                            <?php else : ?>
+                                <span class="text-muted"><?= I18N::translate('Cannot be read') ?></span>
+                            <?php endif ?>
+                        </td>
+                    </tr>
+                <?php endforeach ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif ?>
+
+<p class="mt-4">
+    <a class="btn btn-outline-secondary" href="<?= e($settings_url) ?>">
+        <?= I18N::translate('back') ?>
+    </a>
+</p>

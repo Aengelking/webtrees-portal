@@ -7,6 +7,12 @@ namespace Engelking\Webtrees\PortalApi\Services;
 use Fisharebest\Webtrees\I18N;
 
 use function abs;
+use function array_key_exists;
+use function array_keys;
+use function array_map;
+use function array_values;
+use function asort;
+use function implode;
 use function min;
 use function str_repeat;
 use function str_starts_with;
@@ -83,26 +89,106 @@ class SackRelationship
      */
     public function between(string $first, string $second): array|null
     {
+        return $this->relations($first, $second)[0] ?? null;
+    }
+
+    /**
+     * Every way these two are related, nearest first.
+     *
+     * **A number is one line of descent, and a person can have several.** The
+     * archive files the children of an in-family marriage under one parent, so
+     * somebody whose ancestors married within the family has more than one
+     * true number — and each one measures a different distance to anybody
+     * else. `SackNumbers::writings()` enumerates them; this crosses the two
+     * sets and keeps the distinct answers.
+     *
+     * Until §2.94 only the stored writing was measured, which meant the
+     * calculator named the relationship of whichever number the archive
+     * happened to file the person under. Not a second answer missing: often
+     * the *wrong* answer, because the other writing is frequently the nearer
+     * one — `24/3133.42` and `24/B521.12` read as fifth cousins one way and
+     * third cousins once removed the other, and the second is the truth a
+     * family would tell you.
+     *
+     * Nearest first, measured as the walk up to the shared ancestor plus the
+     * walk back down.
+     *
+     * @return array<int,array{kind:string,generations:int,distance:int,degree:int|null}>
+     */
+    public function relations(string $first, string $second): array
+    {
         $a = $this->numbers->path($first);
         $b = $this->numbers->path($second);
 
         if ($a === null || $b === null) {
-            return null;
+            return [];
         }
 
-        // Marriages inside the family are folded in before anything is
-        // measured — see SackNumbers::merge(). Both paths may change.
-        $this->numbers->merge($a, $b);
+        $found = [];
+        $steps = [];
 
-        if ($a === $b) {
-            return ['kind' => 'self', 'generations' => 0, 'distance' => 0, 'degree' => null];
+        foreach ($this->pairs($a, $b) as [$one, $other]) {
+            // Marriages inside the family are folded in before anything is
+            // measured — see SackNumbers::merge(). Both paths may change.
+            $this->numbers->merge($one, $other);
+
+            if ($one === $other) {
+                // The same person, by whichever pair of writings got here.
+                // Nothing else these two numbers could say is worth more.
+                return [['kind' => 'self', 'generations' => 0, 'distance' => 0, 'degree' => null]];
+            }
+
+            $common      = $this->commonPrefix($one, $other);
+            $generations = strlen($one) - strlen($other);
+            $distance    = strlen($one) - strlen($common);
+
+            $relation = $this->classify($generations, $distance);
+            $key      = implode('/', [$relation['kind'], $generations, $distance]);
+
+            if (array_key_exists($key, $found)) {
+                continue;
+            }
+
+            $found[$key] = $relation;
+            $steps[$key] = 2 * $distance - $generations;
         }
 
-        $common      = $this->commonPrefix($a, $b);
-        $generations = strlen($a) - strlen($b);
-        $distance    = strlen($a) - strlen($common);
+        asort($steps);
 
-        return $this->classify($generations, $distance);
+        return array_values(array_map(static fn (string $key): array => $found[$key], array_keys($steps)));
+    }
+
+    /**
+     * The pairs of paths worth measuring — **never two alternatives at once.**
+     *
+     * An alternative writing is one person re-rooted into the other parent's
+     * branch, and the join character `-` replaces the child index to keep the
+     * join from lining up with one of that parent's own children (see
+     * `SackNumbers::merge()`). Re-rooting *both* sides at the same marriage
+     * therefore erases what told the two people apart, and they arrive at the
+     * identical string: two siblings measured that way come out as one person.
+     * That is not a hypothetical — it is what the shipped table does to
+     * `24/b61` and `24/3132`, who are siblings.
+     *
+     * So one side is always the number as the archive stores it, and `merge()`
+     * does its own aligning on top. Every genuine second descent is still
+     * reached, because it takes only one side to be re-rooted to measure it.
+     *
+     * @return array<int,array{0:string,1:string}>
+     */
+    private function pairs(string $a, string $b): array
+    {
+        $pairs = [];
+
+        foreach ($this->numbers->writings($a) as $one) {
+            $pairs[] = [$one, $b];
+        }
+
+        foreach ($this->numbers->writings($b) as $other) {
+            $pairs[] = [$a, $other];
+        }
+
+        return $pairs;
     }
 
     /**

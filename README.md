@@ -1333,14 +1333,23 @@ The portal uses this in two places:
   ancestors the reader is not allowed to see.
 
   **A person can be related to you more than once**, and in this family that is
-  ordinary rather than exotic. The card says so: *Ihr Cousin · auch Ihr Cousin
-  3. Grades*, closest first. The tree finds the nearest way — its walk is
-  breadth-first, so the path it keeps is the shortest — and each further way
-  comes from a second line of descent, which is what a record carrying more
-  than one archive number *is*. Where there is only one answer the card reads
-  exactly as it always did.
+  ordinary rather than exotic. The card says so: *Cousin 3. Grades, einmal
+  entfernt · auch Cousin 5. Grades*, closest first. The tree finds the nearest
+  way through the records; the further ways come from the numbers.
+
+  **Where the second line of descent comes from.** Not from a record carrying
+  two numbers — from the marriage table. When two people who both have a number
+  marry, the archive files their children under one of them, so a descendant
+  has more than one true number even though only one is written down:
+  `24/313` and `24/b6` married, which makes `24/3133.42` equally `24/b63.42`.
+  Every such writing is worked out and measured, and the **nearest** answer
+  leads. That matters beyond the extra line: against `24/B521.12` the stored
+  writing reads as fifth cousins and the derived one as third cousins once
+  removed, and until this was built the portal named the first.
 * **On the calculator** (*Stammbaum → Rechner*), which is the family's own tool
-  from 2009 brought inside. Two numbers in, a relationship out. It reads no
+  from 2009 brought inside. Two numbers in, a relationship out — and, where a
+  marriage inside the family gives one of them a second writing, the other ways
+  they are related underneath it. It reads no
   records at all, so it answers about people who are not in the tree — the
   number written on the back of a photograph, or read off a cousin's card. The
   member's own number is filled in already.
@@ -1916,6 +1925,38 @@ anybody into a list they were absent from. A person whose record was later
 deleted in webtrees leaves their row behind harmlessly: it names nobody, and the
 screen says so.
 
+### Checking the table of marriages inside the family
+
+*Control panel → Modules → Member portal API → Marriages inside the family.*
+
+The relationship calculator needs a table of marriages between two people who
+both have an archive number — see *The archive numbers* below — and that table
+is kept by hand. It used to decide whether one calculation came out right. It
+now decides whether every descendant of a couple has a second number at all,
+and therefore whether the portal names the near relationship or a more distant
+one. **A missing row gives no warning:** it produces a confident answer that is
+simply too far.
+
+So this screen reads the family tree and reports every couple where both
+partners carry a readable number, in four states:
+
+* **Already right** — the table has the couple, pointing the way the records do.
+* **Written the wrong way round** — the table has the pair with the sides
+  swapped. The row matches nobody and does nothing, while looking exactly like
+  a row that works. This is the one worth finding.
+* **Not in the table** — the tree has the marriage and the table does not.
+* **Cannot be read** — no child of the couple carries a number, so which parent
+  they were filed under cannot be worked out. Left for a person to decide.
+
+Which side the children sit under is read rather than guessed: a child's own
+number begins with the number of the parent they were filed under, so the
+records answer it themselves. A row is written *other parent* `=` *the parent
+they are filed under*.
+
+**The screen only reads.** Nothing is written into the table; what is offered is
+the text to paste into the module's preferences. Read it once before saving — a
+marriage the archive deliberately left out is not a mistake this screen can see.
+
 ### Letting an assistant read the archive
 
 *Control panel → Modules → Member portal API → Assistant access.*
@@ -2081,6 +2122,13 @@ consent a living person gave or did not give for a photograph of themselves.
 Pictures are scaled to 1200 pixels on the longest edge before they are sent,
 and carry whatever watermark webtrees would put on them for the account the
 token reads as.
+
+**A picture that cannot be produced is refused rather than drawn.** webtrees
+answers a failed resize with a placeholder image — the word "500" on a square —
+and reports it only in a response header, so handing the bytes straight on
+would give an assistant a picture of an error message captioned with a real
+person's name. The header is checked, and a failure comes back as "no such
+photograph".
 
 The endpoint speaks JSON-RPC over `POST` and nothing else: it is stateless,
 issues no session id, and opens no event stream, so `GET` and `DELETE` answer
@@ -2867,6 +2915,22 @@ replaces it rather than joining it, an emptied title takes it away, saving the
 same office twice reports that nothing changed, titles are tidied and capped,
 and an office on a record that is gone names nobody without disturbing the
 directory.
+
+**The scan over the marriage table** has seven of its own: that a couple is
+only listed where *both* partners carry a number, that a row pointing the way
+the records do is right and the same pair written backwards is not, that a
+marriage the table does not know is reported with the row to paste in the order
+the table is written, and that a couple whose children carry no numbers is
+reported as unreadable rather than guessed at. The fixture carries three
+couples used for nothing else.
+
+**Every way two people are related** is pinned from the numbers up: a path
+expands into its equivalent writings through the marriage table, the nearest
+answer leads, and a pair with no marriage above either of them still has
+exactly one. Two of those tests exist for failures the building actually hit —
+that two descendants of one couple must not collapse into one person when both
+are re-rooted at the same marriage, and that the expansion stays small (two to
+six writings) against the family's own table of sixty marriages.
 
 The translations have their own six: the office is read in the language of the
 request, `en-GB` falls back to the `en:` wording where the family wrote no

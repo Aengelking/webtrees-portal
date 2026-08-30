@@ -188,28 +188,33 @@ class RelationshipNamer
 
         foreach ($this->ownNumbers($viewer, $access_level) as $mine) {
             foreach ($this->trusted($this->numbersOf($target, $access_level)) as $theirs) {
-                $relation = $this->sack->between($mine, $theirs);
+                // Every way these two numbers say they are related, not only
+                // the one the archive happened to file them under. A person
+                // whose ancestors married within the family has more than one
+                // true number, and each measures a different distance — see
+                // `SackNumbers::writings()`.
+                foreach ($this->sack->relations($mine, $theirs) as $relation) {
+                    if ($relation['kind'] === 'self') {
+                        continue;
+                    }
 
-                if ($relation === null || $relation['kind'] === 'self') {
-                    continue;
+                    $name = $this->sack->describe($relation, $target->sex());
+
+                    // Distinct *answers*, not distinct pairs of paths. Two
+                    // writings often reach the same ancestor by routes of
+                    // equal length and name the same cousin twice; what a
+                    // member wants to read is the ways they are related, and
+                    // there is one of those here, not two.
+                    if ($name === '' || array_key_exists($name, $found)) {
+                        continue;
+                    }
+
+                    // Both halves of the walk between them: up to the shared
+                    // ancestor, then down again. `distance` counts the way up
+                    // and `generations` the difference in depth, so the way
+                    // down is `distance - generations`.
+                    $found[$name] = 2 * $relation['distance'] - $relation['generations'];
                 }
-
-                $name = $this->sack->describe($relation, $target->sex());
-
-                // Distinct *answers*, not distinct pairs of numbers. Two
-                // numbers on one record often descend from the same ancestor
-                // by two routes of equal length and name the same cousin
-                // twice; what a member wants to read is the ways they are
-                // related, and there is one of those here, not two.
-                if ($name === '' || array_key_exists($name, $found)) {
-                    continue;
-                }
-
-                // Both halves of the walk between them: up to the shared
-                // ancestor, then down again. `distance` counts the way up and
-                // `generations` the difference in depth, so the way down is
-                // `distance - generations` — see `SackRelationship::between()`.
-                $found[$name] = 2 * $relation['distance'] - $relation['generations'];
             }
         }
 

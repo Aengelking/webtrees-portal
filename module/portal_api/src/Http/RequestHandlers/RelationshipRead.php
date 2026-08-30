@@ -11,6 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
+use function array_map;
 use function mb_substr;
 use function trim;
 
@@ -46,7 +47,8 @@ class RelationshipRead implements RequestHandlerInterface
         $first  = $this->number($request, 'a');
         $second = $this->number($request, 'b');
 
-        $relation = $first === '' || $second === '' ? null : $this->sack->between($first, $second);
+        $all      = $first === '' || $second === '' ? [] : $this->sack->relations($first, $second);
+        $relation = $all[0] ?? null;
 
         return Json::response([
             'a' => $first,
@@ -64,6 +66,14 @@ class RelationshipRead implements RequestHandlerInterface
             'relationship' => $relation === null || $relation['kind'] === 'self'
                 ? null
                 : $this->sack->describe($relation),
+            // Every way these two are related, nearest first — a person whose
+            // ancestors married within the family has more than one number,
+            // and each measures a different distance. `relationship` is the
+            // first of these; it stays because it is the answer to the
+            // question as it is usually asked.
+            'relationships' => $relation === null || $relation['kind'] === 'self'
+                ? []
+                : array_map(fn (array $one): string => $this->sack->describe($one), $all),
             // The working, for anybody who wants to check it: which shape it
             // is, how many generations apart, and how far from the ancestor
             // they share.

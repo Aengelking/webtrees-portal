@@ -327,6 +327,48 @@ describe('the archive-number calculator', () => {
   })
 
   /**
+   * A person whose ancestors married within the family has more than one
+   * archive number, and each measures a different distance. The nearest
+   * leads; the rest are equally true and belong on the screen.
+   */
+  it('names the other ways they are related, after the nearest', async () => {
+    stub(undefined, {
+      ...CALCULATION,
+      relationship: 'Cousin 3. Grades, einmal entfernt',
+      relationships: ['Cousin 3. Grades, einmal entfernt', 'Cousin 5. Grades'],
+    })
+    renderAt('/tree?tab=calculator')
+
+    await userEvent.type(await screen.findByLabelText('SB-Nr. 2'), '24/b6')
+
+    expect(await screen.findByText('Cousin 3. Grades, einmal entfernt')).toBeDefined()
+    expect(screen.getByText(/Cousin 5\. Grades/)).toBeDefined()
+  })
+
+  /** One answer stays one line: no "außerdem" where there is nothing else. */
+  it('says nothing extra where there is only one way', async () => {
+    stub(undefined, { ...CALCULATION, relationships: ['Cousin/Cousine 3. Grades'] })
+    renderAt('/tree?tab=calculator')
+
+    await userEvent.type(await screen.findByLabelText('SB-Nr. 2'), '24/b6')
+
+    await screen.findByText('Cousin/Cousine 3. Grades')
+
+    expect(screen.queryByText(/außerdem/)).toBeNull()
+  })
+
+  /** And a server that predates the field sends none, which is not a crash. */
+  it('survives a server that does not send the list yet', async () => {
+    stub()
+    renderAt('/tree?tab=calculator')
+
+    await userEvent.type(await screen.findByLabelText('SB-Nr. 2'), '24/b6')
+
+    expect(await screen.findByText('Cousin/Cousine 3. Grades')).toBeDefined()
+    expect(screen.queryByText(/außerdem/)).toBeNull()
+  })
+
+  /**
    * A number somebody mistyped should say which field to fix, not report a
    * failure — the request succeeded, the number is the problem.
    */

@@ -103,6 +103,30 @@ function renderApp() {
   )
 }
 
+/**
+ * Render, and wait until the gesture is actually listening.
+ *
+ * Waiting for the heading is not enough, and the difference is invisible
+ * until the machine is busy. `findBy…` resolves the moment the element is in
+ * the document — and Testing Library turns React's act environment *off*
+ * while it polls, so the `useEffect` in `usePullToRefresh` is left on the
+ * real scheduler and runs in a later task. On an idle machine that task has
+ * always already run by the time the assertion follows. On a loaded one it
+ * has not, and the touch is dispatched at a window with no listener on it.
+ *
+ * That is worse than one flaky test. Four of the tests below assert that a
+ * gesture does *nothing* — and a gesture nobody is listening for does
+ * nothing very convincingly. So every test goes through here, and the empty
+ * `act` drains the effects that commit only scheduled. See §2.97.
+ */
+async function startedApp(): Promise<void> {
+  renderApp()
+
+  await screen.findByRole('heading', { name: 'Mein Profil' })
+
+  await act(async () => undefined)
+}
+
 function asInstalledApp(): void {
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query.includes('standalone'),
@@ -125,8 +149,7 @@ describe('pull to refresh', () => {
    * In a tab the browser already does this. Ours on top would be two.
    */
   it('does nothing in a browser tab', async () => {
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     const before = meRequests()
     pull(10, 300)
@@ -137,8 +160,7 @@ describe('pull to refresh', () => {
 
   it('shows the indicator once the pull starts, in the installed app', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     pull(10, 40, false)
 
@@ -148,8 +170,7 @@ describe('pull to refresh', () => {
   /** Far enough, and it says so before the finger comes off. */
   it('says when the pull is far enough', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     pull(10, 400, false)
 
@@ -162,8 +183,7 @@ describe('pull to refresh', () => {
    */
   it('lets go of a pull that did not go far enough', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     const before = meRequests()
     pull(10, 40)
@@ -174,8 +194,7 @@ describe('pull to refresh', () => {
 
   it('loads the screen again when the pull is far enough', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     const before = meRequests()
 
@@ -196,8 +215,7 @@ describe('pull to refresh', () => {
   /** A drag upwards is a scroll, whatever it started as. */
   it('ignores a pull in the other direction', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     const before = meRequests()
     pull(300, 10)
@@ -211,8 +229,7 @@ describe('pull to refresh', () => {
    */
   it('only starts at the very top of the page', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     window.scrollY = 200
 
@@ -229,8 +246,7 @@ describe('pull to refresh', () => {
    */
   it('holds the page still while the pull is happening', async () => {
     asInstalledApp()
-    renderApp()
-    await screen.findByRole('heading', { name: 'Mein Profil' })
+    await startedApp()
 
     const moving = touch('touchmove', 200)
     const prevented = vi.spyOn(moving, 'preventDefault')

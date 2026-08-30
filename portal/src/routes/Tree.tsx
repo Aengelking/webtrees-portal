@@ -499,6 +499,19 @@ function Calculator() {
             ) : (
               <>
                 <p className="text-lg font-semibold text-slate-900">{data.relationship}</p>
+                {/*
+                  A person whose ancestors married within the family has more
+                  than one number, and each measures a different distance. The
+                  nearest leads; the rest belong here rather than nowhere,
+                  because they are equally true. See NOTES §2.94.
+                */}
+                {(data.relationships ?? []).length > 1 && (
+                  <p className="mt-1 text-base text-slate-700">
+                    {t('tree.calc.also', {
+                      others: (data.relationships ?? []).slice(1).join(', '),
+                    })}
+                  </p>
+                )}
                 <p className="mt-2 text-base text-slate-700">
                   {t('tree.calc.result', { second: data.b, first: data.a })}
                 </p>
