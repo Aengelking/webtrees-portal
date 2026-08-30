@@ -5886,6 +5886,50 @@ would produce exactly the silent nothing that `wrong_way` describes.
 
 ---
 
+### 2.96 A method that was never there, hidden by the catch around it
+
+`main` was red, in two tests that had nothing to do with the work in front of
+me, so I went looking.
+
+`ArchivePhotos::encode()` called `ImageFactory::mediaFileThumbnail()`. There is
+no such method. webtrees has `mediaFileThumbnailResponse()`, which hands back a
+*response* — there is no method anywhere that hands back bytes.
+
+**A `Call to undefined method` is a `Throwable`, and `encode()` catches
+`Throwable`.** So it logged to the server log and returned null, and `get_photo`
+answered with the sentence it has for a picture that does not exist or may not
+be handed over:
+
+    No such photograph in this archive, or not one it may hand over.
+
+Which is what a member would have read for *every* photograph, forever, in a
+feature that had shipped. The two red tests were the only thing saying
+otherwise, and they were red on `main` for a day.
+
+This is the second time in this file a catch-all has turned a broken call into
+a plausible answer (§2.94's boot, and the same shape again here). The catch is
+right — an assistant should not receive a stack trace — but it swallowed a
+*programming* error along with the runtime ones it was written for, and the
+message it substituted was a lie that read like a policy.
+
+**And the fix had a trap of its own, which is the part worth keeping.**
+`mediaFileThumbnailResponse()` does not throw when it fails either. It answers
+with a *placeholder image* — the word "500" drawn on a square — and says what
+went wrong only in an `x-thumbnail-exception` header. Reading the body without
+looking at that header would hand an assistant a picture of an error message,
+captioned with a real person's name, as though it were their photograph. That
+is worse than the bug it replaces: a refusal is honest, a wrong picture with a
+right caption is not.
+
+So the header is checked and a failure is a refusal. The test for it had to be
+built with care as well: a *missing* file fails earlier, at the read, and never
+reaches the placeholder at all. It takes bytes that are readable and
+undecodable — a PNG header, which is all `getimagesizefromstring()` looks at,
+followed by zeroes — and without the header check that test fails, which is the
+only reason to trust it.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

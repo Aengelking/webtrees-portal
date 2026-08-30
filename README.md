@@ -2123,6 +2123,13 @@ Pictures are scaled to 1200 pixels on the longest edge before they are sent,
 and carry whatever watermark webtrees would put on them for the account the
 token reads as.
 
+**A picture that cannot be produced is refused rather than drawn.** webtrees
+answers a failed resize with a placeholder image — the word "500" on a square —
+and reports it only in a response header, so handing the bytes straight on
+would give an assistant a picture of an error message captioned with a real
+person's name. The header is checked, and a failure comes back as "no such
+photograph".
+
 The endpoint speaks JSON-RPC over `POST` and nothing else: it is stateless,
 issues no session id, and opens no event stream, so `GET` and `DELETE` answer
 `405, Allow: POST`. It is deliberately **not** in `openapi.yaml` — that file is

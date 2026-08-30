@@ -245,13 +245,34 @@ final class ArchivePhotos
             // The same watermark webtrees would put on this picture for this
             // account on its own pages. A token reads as somebody, and that
             // somebody's watermark is theirs.
-            $bytes = $factory->mediaFileThumbnail(
+            //
+            // webtrees hands back a *response*, and there is no method that
+            // hands back bytes — see §2.96, where calling one that does not
+            // exist made every photograph answer "no such photograph".
+            $response = $factory->mediaFileThumbnailResponse(
                 $file,
                 min($width, self::MAX_EDGE),
                 min($height, self::MAX_EDGE),
                 'contain',
                 $factory->fileNeedsWatermark($file, Auth::user()),
             );
+
+            // **A failure here is a picture, not an exception.** When webtrees
+            // cannot read or resize a file it answers with a placeholder — the
+            // word "500" drawn on a square — and says so only in this header.
+            // Reading the body without looking would hand an assistant that
+            // placeholder as if it were somebody's photograph, captioned with
+            // their name.
+            if ($response->hasHeader('x-thumbnail-exception')) {
+                error_log(
+                    'portal_api: mcp: photo ' . $media->xref() . ': '
+                    . $response->getHeaderLine('x-thumbnail-exception')
+                );
+
+                return null;
+            }
+
+            $bytes = (string) $response->getBody();
         } catch (Throwable $exception) {
             error_log('portal_api: mcp: photo ' . $media->xref() . ': ' . $exception::class . ': ' . $exception->getMessage());
 
