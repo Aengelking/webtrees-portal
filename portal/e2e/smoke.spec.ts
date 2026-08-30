@@ -515,10 +515,11 @@ test.describe('inviting from a person’s page', () => {
     await expect(page.getByRole('button', { name: 'Verbinden' })).toBeHidden()
 
     // And it is still there tomorrow, because it is a fact about the member
-    // and not about this telephone: she is in the directory, so an unanswered
-    // request to her may be reported back.
+    // and not about this telephone — their own act, recorded whether or not
+    // anybody was there to receive the request.
     await page.reload()
-    await expect(page.getByText(/Deine Anfrage ist gesendet und wartet/)).toBeVisible()
+    await expect(page.getByText(/Du hast hier bereits angefragt/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Nochmal anfragen' })).toBeVisible()
   })
 })
 

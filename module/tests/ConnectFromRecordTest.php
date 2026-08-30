@@ -114,31 +114,89 @@ class ConnectFromRecordTest extends PortalTestCase
     }
 
     /**
-     * A request to somebody who is **not** listed is not shown. That is the
-     * same disclosure one step later: a request that appeared only where
-     * there was really an account behind the record would answer the question
-     * the endpoint had just refused to answer.
+     * Having asked is shown, and it is shown for everybody — because it is
+     * read from the member's own act rather than from whether a request
+     * exists (`Migration21`). A state read off `portal_connection` could only
+     * ever appear where there was somebody to receive one, which is the
+     * disclosure this whole screen is built to avoid.
      */
-    public function testARequestToSomebodyUnlistedIsNotReportedBack(): void
-    {
-        $this->dieter(false);
-        $this->connectTo('X4');
-
-        self::assertSame('open', $this->record('X4')['connection']);
-    }
-
-    /**
-     * Where they *are* listed it is shown, because the directory has already
-     * said they are here — the same line `overview()` draws for the same
-     * reason. Hiding it there only leaves the member wondering whether they
-     * ever pressed the button.
-     */
-    public function testARequestToAListedMemberIsShown(): void
+    public function testHavingAskedIsShownForAListedMember(): void
     {
         $this->dieter(true);
         $this->connectTo('X4');
 
         self::assertSame('requested', $this->record('X4')['connection']);
+    }
+
+    /** The case the feature is actually for: close family, unlisted. */
+    public function testHavingAskedIsShownForAMemberWhoStayedOutOfTheDirectory(): void
+    {
+        $this->dieter(false);
+        $this->connectTo('X4');
+
+        self::assertSame('requested', $this->record('X4')['connection']);
+    }
+
+    /**
+     * And for a record with nobody behind it at all, in the same words. This
+     * is the assertion the disclosure rule stands on: after asking, the three
+     * situations still look alike.
+     */
+    public function testHavingAskedLooksTheSameWhereThereWasNobodyToAsk(): void
+    {
+        $this->dieter(false);
+
+        $this->connectTo('X4');
+        $this->connectTo('X6');
+
+        self::assertSame('requested', $this->record('X6')['connection']);
+        self::assertSame($this->record('X4')['connection'], $this->record('X6')['connection']);
+    }
+
+    /** Asking twice is one row, because "have I asked?" has no plural. */
+    public function testAskingTwiceIsRememberedOnce(): void
+    {
+        $this->dieter(false);
+
+        $this->connectTo('X4');
+        $this->connectTo('X4');
+
+        self::assertSame(1, DB::table(Connections::ATTEMPT_TABLE)->count());
+    }
+
+    /** Nobody else's act, and nobody else's business. */
+    public function testAnotherMembersAskingIsNotShown(): void
+    {
+        $dieter = $this->dieter(true);
+
+        DB::table(Connections::ATTEMPT_TABLE)->insert([
+            'wt_user_id' => $dieter->id(),
+            'xref'       => 'X6',
+            'created_at' => time(),
+        ]);
+
+        self::assertSame('open', $this->record('X6')['connection']);
+    }
+
+    /** It is forgotten again, so it does not become a standing list. */
+    public function testAnOldAskingIsForgotten(): void
+    {
+        $this->dieter(false);
+        $this->connectTo('X4');
+
+        DB::table(Connections::ATTEMPT_TABLE)->update([
+            'created_at' => time() - (Connections::RETAIN_ATTEMPT_DAYS + 1) * 86400,
+        ]);
+
+        self::assertSame('open', $this->record('X4')['connection']);
+    }
+
+    /** Nothing is written for a record this member may not see. */
+    public function testARecordThatCannotBeSeenIsNotEvenRemembered(): void
+    {
+        $this->connectTo('X999');
+
+        self::assertSame(0, DB::table(Connections::ATTEMPT_TABLE)->count());
     }
 
     /**

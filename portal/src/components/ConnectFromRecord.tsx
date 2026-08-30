@@ -44,10 +44,32 @@ export function ConnectFromRecord({
     return <Notice title={t('person.connect.title')} body={t('person.connect.connected')} />
   }
 
-  // Only ever said about somebody the directory already names, so it says
-  // nothing the directory does not — see `Connections::recordState`.
-  if (state === 'requested') {
-    return <Notice title={t('person.connect.title')} body={t('person.connect.waiting')} />
+  // "You have asked here" — the member's own act, which is why it can be said
+  // about anybody (`Migration21`). The wording has to stay inside that: it may
+  // not claim the request arrived somewhere, because for a record with nobody
+  // behind it, it did not.
+  //
+  // And it is never a dead end. A request can be declined — the row is
+  // deleted rather than marked, so that nobody keeps a record of having said
+  // no — and asking a record with no account behind it writes nothing at all.
+  // Either way the member must be able to try again rather than look at a
+  // note for three months.
+  if (state === 'requested' && !connect.isSuccess) {
+    return (
+      <Notice
+        title={t('person.connect.title')}
+        body={t('person.connect.waiting', { name })}
+        action={
+          <Button
+            variant="secondary"
+            disabled={connect.isPending}
+            onClick={() => connect.mutate({ xref })}
+          >
+            {connect.isPending ? t('contacts.asking') : t('person.connect.again')}
+          </Button>
+        }
+      />
+    )
   }
 
   if (connect.isSuccess) {
