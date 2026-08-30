@@ -120,11 +120,11 @@ class PhotoTest extends PortalTestCase
 
         $response = $this->api(MeRead::class);
 
-        // Without the token: it is 32 random characters, and one run in a
-        // hundred or so contains "M2" by chance — which is the hazard
-        // `rawWithoutCsrfToken()` was written for. Seen in the wild here,
-        // with a token beginning "PN5iTM2QXkr".
-        $body = $this->rawWithoutCsrfToken($response);
+        // `raw()` drops the CSRF token, which is what makes this safe: it is
+        // 32 random characters, and one run in a hundred or so contains "M2"
+        // by chance. Seen in the wild here, with a token beginning
+        // "PN5iTM2QXkr". See §2.105.
+        $body = $this->raw($response);
 
         self::assertStringNotContainsString('M2', $body);
         self::assertStringNotContainsString('vertraulich', $body);

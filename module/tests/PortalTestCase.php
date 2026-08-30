@@ -472,31 +472,35 @@ abstract class PortalTestCase extends TestCase
     }
 
     /**
-     * The whole response as a string — used to assert that an XREF appears
-     * nowhere at all, including in places a structured assertion would miss.
+     * The whole response as a string, **minus the CSRF token**.
+     *
+     * Used to assert that an XREF appears nowhere at all, including in places
+     * a structured assertion would miss.
+     *
+     * The token is thirty-odd random alphanumeric characters sitting in the
+     * middle of that string, so roughly one run in a hundred contains "X3" —
+     * or any other two-character needle — purely by chance, and the test that
+     * goes red is never the one that is broken. It has now happened twice in
+     * one day: `M2` inside `PN5iTM2QXkr…`, and `X3` inside `uXIqb8LsnyX3XSi…`.
+     *
+     * **The stripping belongs here rather than in a second helper.** There
+     * was one, and it was applied at three call sites out of forty; the two
+     * failures above were both at call sites that had not been converted. A
+     * helper that has to be remembered is a helper that will be forgotten, and
+     * the next person writing an assertion has no way of knowing this is a
+     * trap. The token is a credential rather than payload, so removing it
+     * takes nothing away from what any of these assertions are for — it can
+     * only ever hide a leak that is not there. See §2.105.
      */
     protected function raw(ResponseInterface $response): string
     {
         $response->getBody()->rewind();
 
-        return $response->getBody()->getContents();
-    }
-
-    /**
-     * The whole response as a string, minus the CSRF token.
-     *
-     * `raw()` exists so that a test can assert an XREF appears *nowhere* —
-     * including places a structured assertion would miss. The token is thirty
-     * random characters in the middle of that string, so roughly one run in a
-     * hundred contains "X3" or any other two-character needle by chance, and
-     * the test that fails is never the one that is broken.
-     *
-     * It is a credential rather than payload, so removing it takes nothing
-     * away from what these assertions are for.
-     */
-    protected function rawWithoutCsrfToken(ResponseInterface $response): string
-    {
-        return (string) preg_replace('/"csrf_token":"[^"]*"/', '"csrf_token":""', $this->raw($response));
+        return (string) preg_replace(
+            '/"csrf_token":"[^"]*"/',
+            '"csrf_token":""',
+            $response->getBody()->getContents()
+        );
     }
 
     protected function csrfHeader(): array

@@ -6394,6 +6394,45 @@ ein existierender gegen einen nicht existierenden Benutzernamen, beide mit
 `@`. Der eine Vergleich hat mehr geklärt als alles, was ich mir vorher
 ausgedacht hatte.
 
+### 2.105 Ein Helfer, den man sich merken muss, wird vergessen
+
+Zweimal an einem Tag ging ein Lauf rot, ohne dass am Code etwas falsch war:
+einmal `M2` in einem Token, der `PN5iTM2QXkr…` lautete, einmal `X3` in
+`uXIqb8LsnyX3XSi…`.
+
+Die betroffenen Tests behaupten, dass eine Kennung **nirgends** in der Antwort
+steht, und prüfen das am Rohtext — genau richtig, denn eine strukturierte
+Prüfung übersieht die Stellen, an denen so etwas durchrutscht. Nur steht
+mitten in diesem Rohtext ein CSRF-Token aus zweiunddreißig zufälligen
+alphanumerischen Zeichen. Für eine zweistellige Nadel wie `X3` sind das rund
+0,8 % je Antwort; bei einem Dutzend solcher Prüfungen pro Lauf ist rot kein
+seltenes Ereignis mehr, sondern ein regelmäßiges.
+
+**Es gab bereits eine Lösung, und das ist der eigentliche Befund.**
+`rawWithoutCsrfToken()` war für genau diesen Fall geschrieben — samt Docblock,
+der `X3` als Beispiel nennt. Angewendet war er an drei von vierzig
+Aufrufstellen. Beide Fehlschläge von heute lagen an nicht umgestellten
+Stellen, einer davon zehn Zeilen unter einer umgestellten in derselben Datei.
+
+Ein Helfer, an den man denken muss, ist ein Helfer, der vergessen wird. Wer
+die nächste Prüfung schreibt, kann nicht wissen, dass hier eine Falle liegt.
+Also entfernt **`raw()` selbst** den Token, und den zweiten Helfer gibt es
+nicht mehr. Das Entfernen kann nur ein Leck verbergen, das gar nicht da ist —
+ein Token ist ein Zugangsmerkmal und kein Inhalt —, es nimmt den Prüfungen
+also nichts, wofür sie da sind.
+
+**Ein Fehler mit einer Wahrscheinlichkeit von eins zu hundert lässt sich nicht
+erwischen, indem man die Suite noch einmal laufen lässt.** Er muss gebaut
+werden. Der neue Test übergibt `raw()` eine Antwort, deren Token jede Nadel
+buchstabiert, nach der diese Prüfungen suchen, und verlangt, dass keine davon
+überlebt — und dass der Rest der Antwort unangetastet bleibt. Gegen die vorige
+Fassung fällt er um.
+
+Ein Nachtrag zum Auffinden: der Lauf war beim PR grün und beim Push rot,
+derselbe Commit. Zwei Läufe, ein Würfel. Das ist die Sorte Unterschied, die
+man als „Flackern" abtut — und dahinter lag ein Fehler, der jederzeit
+wiedergekommen wäre.
+
 ---
 
 ## 3. Things that were guessed

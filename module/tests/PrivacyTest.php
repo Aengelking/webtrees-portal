@@ -15,6 +15,7 @@ use Fig\Http\Message\RequestMethodInterface;
 use Fig\Http\Message\StatusCodeInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
@@ -129,10 +130,11 @@ class PrivacyTest extends PortalTestCase
 
         self::assertSame(StatusCodeInterface::STATUS_OK, $response->getStatusCode());
         self::assertSame(['X4'], array_column($body['siblings'], 'xref'), 'Clara (X3) must not appear as a sibling.');
-        // Without the CSRF token: it is thirty random characters, and about
-        // one run in a hundred contains "X3" by chance.
-        self::assertStringNotContainsString('X3', $this->rawWithoutCsrfToken($response));
-        self::assertStringNotContainsString('Clara', $this->rawWithoutCsrfToken($response));
+        // `raw()` drops the CSRF token, which is what makes this safe — see
+        // §2.105 and the twin assertion below, which went red on a token
+        // reading "uXIqb8LsnyX3XSi" before the stripping moved into `raw()`.
+        self::assertStringNotContainsString('X3', $this->raw($response));
+        self::assertStringNotContainsString('Clara', $this->raw($response));
     }
 
     public function testAManagerSeesTheHiddenSibling(): void
@@ -142,6 +144,34 @@ class PrivacyTest extends PortalTestCase
         $body = $this->json($this->api(IndividualRead::class, attributes: ['xref' => 'X1']));
 
         self::assertEqualsCanonicalizing(['X3', 'X4'], array_column($body['siblings'], 'xref'));
+    }
+
+    /**
+     * **The trap itself, reproduced rather than waited for.**
+     *
+     * Twice in one day a run went red because the random CSRF token happened
+     * to contain the needle — `M2` inside `PN5iTM2QXkr…`, `X3` inside
+     * `uXIqb8LsnyX3XSi…`. Both times the code was fine and the test was not.
+     *
+     * A one-in-a-hundred failure cannot be caught by running the suite again;
+     * it has to be built. So this hands `raw()` a response whose token spells
+     * out every needle these assertions look for, and asserts that none of
+     * them survives. See §2.105.
+     */
+    public function testARandomTokenCannotMakeALeakAppearWhereThereIsNone(): void
+    {
+        $token    = 'aX1bX2cX3dX4eM2fIda';
+        $response = Registry::responseFactory()->response(['csrf_token' => $token, 'items' => []]);
+
+        $raw = $this->raw($response);
+
+        foreach (['X1', 'X2', 'X3', 'X4', 'M2', 'Ida'] as $needle) {
+            self::assertStringNotContainsString($needle, $raw, 'The token still spells ' . $needle . '.');
+        }
+
+        // And the rest of the answer is untouched — this removes a credential,
+        // not content, or it would hide the very leaks it is here to find.
+        self::assertStringContainsString('"items":[]', $raw);
     }
 
     public function testTheHiddenIndividualIsAbsentFromTheMembersOwnRecord(): void
