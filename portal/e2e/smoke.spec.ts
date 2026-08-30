@@ -513,6 +513,12 @@ test.describe('inviting from a person’s page', () => {
 
     await expect(page.getByText(/Wenn Karla Beispiel ein Konto im Portal hat/)).toBeVisible()
     await expect(page.getByRole('button', { name: 'Verbinden' })).toBeHidden()
+
+    // And it is still there tomorrow, because it is a fact about the member
+    // and not about this telephone: she is in the directory, so an unanswered
+    // request to her may be reported back.
+    await page.reload()
+    await expect(page.getByText(/Deine Anfrage ist gesendet und wartet/)).toBeVisible()
   })
 })
 

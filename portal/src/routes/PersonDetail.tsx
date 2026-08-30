@@ -63,7 +63,8 @@ export function PersonDetail() {
    * removes is a nonsense: asking to connect with somebody the same screen
    * has just said is not in the portal.
    */
-  const offerConnection = connection === 'connected' || (connection === 'open' && !invitable)
+  const offerConnection =
+    connection === 'connected' || connection === 'requested' || (connection === 'open' && !invitable)
 
   return (
     <>

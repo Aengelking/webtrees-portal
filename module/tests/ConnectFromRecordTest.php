@@ -114,16 +114,65 @@ class ConnectFromRecordTest extends PortalTestCase
     }
 
     /**
-     * A request already sent is not shown either — that is the same
-     * disclosure one step later. Only the other member accepting it changes
-     * what this page says.
+     * A request to somebody who is **not** listed is not shown. That is the
+     * same disclosure one step later: a request that appeared only where
+     * there was really an account behind the record would answer the question
+     * the endpoint had just refused to answer.
      */
-    public function testARequestAlreadySentIsNotReportedBack(): void
+    public function testARequestToSomebodyUnlistedIsNotReportedBack(): void
     {
         $this->dieter(false);
         $this->connectTo('X4');
 
         self::assertSame('open', $this->record('X4')['connection']);
+    }
+
+    /**
+     * Where they *are* listed it is shown, because the directory has already
+     * said they are here — the same line `overview()` draws for the same
+     * reason. Hiding it there only leaves the member wondering whether they
+     * ever pressed the button.
+     */
+    public function testARequestToAListedMemberIsShown(): void
+    {
+        $this->dieter(true);
+        $this->connectTo('X4');
+
+        self::assertSame('requested', $this->record('X4')['connection']);
+    }
+
+    /**
+     * And a request coming the other way is not this page's business: it is
+     * in the member's own list under the sender's name, where it can be
+     * answered. This screen says what the reader may do next.
+     */
+    public function testARequestFromTheOtherSideIsNotReportedHere(): void
+    {
+        $dieter = $this->dieter(true);
+
+        DB::table(Connections::TABLE)->insert([
+            'requested_by' => $dieter->id(),
+            'requested_of' => $this->anna->id(),
+            'status'       => Connections::STATUS_PENDING,
+            'source'       => Connections::SOURCE_REFERENCE,
+            'created_at'   => time(),
+        ]);
+
+        self::assertSame('open', $this->record('X4')['connection']);
+    }
+
+    /** Answered, and the page says the answer rather than the question. */
+    public function testAnAcceptedRequestIsShownAsAConnection(): void
+    {
+        $dieter = $this->dieter(true);
+        $this->connectTo('X4');
+
+        DB::table(Connections::TABLE)->update([
+            'status'     => Connections::STATUS_ACCEPTED,
+            'decided_at' => time(),
+        ]);
+
+        self::assertSame('connected', $this->record('X4')['connection']);
     }
 
     public function testAContactIsShownAsOne(): void

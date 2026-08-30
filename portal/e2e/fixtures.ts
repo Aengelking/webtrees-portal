@@ -188,6 +188,9 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
   let pendingChange = false
   let visibleInDirectory = true
   let invitedDieter = false
+  // Karla is listed in the directory, so an unanswered request to her is
+  // reported back on her page — see `Connections::recordState`.
+  let askedKarla = false
   let inbox = [
     {
       id: 9,
@@ -580,6 +583,8 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
       // From a person's page. The quiet answer, which is the only one the
       // server gives for a record it will not talk about.
       if (body.xref !== undefined) {
+        askedKarla = true
+
         return json(route, { ...connectionOverview(), status: 'requested', name: null }, 201)
       }
 
@@ -711,7 +716,7 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
         parents: [],
         siblings: [],
         invitable: false,
-        connection: 'open',
+        connection: askedKarla ? 'requested' : 'open',
       })
     }
 

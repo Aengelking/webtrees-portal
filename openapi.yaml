@@ -4118,19 +4118,24 @@ components:
                 can from the control panel.
             connection:
               type: [string, 'null']
-              enum: [connected, open, null]
+              enum: [connected, requested, open, null]
               description: |
                 Whether this record's page may offer to connect with the
                 person, and nothing more.
 
                 `connected` means the two are already contacts, which is
-                mutual and known to both. `open` means the offer is worth
-                making — and it is the answer for a member who stayed out of
-                the directory, for a relative with no account at all, and for
-                a request already sent and not yet answered. Those three are
-                indistinguishable on purpose: an offer that appeared only for
-                account holders would tell every reader of the record which
-                relatives are in the portal.
+                mutual and known to both. `requested` is an unanswered request
+                the reader sent, and appears **only where the other person is
+                listed in the directory** — the same line `GET /connections`
+                draws for its `outgoing` list, and for the same reason.
+
+                `open` is everything else: a member who stayed out of the
+                directory, a relative with no account at all, and an
+                unanswered request to somebody unlisted. Those three are
+                indistinguishable on purpose — an offer that appeared only for
+                account holders, or a request reported only where one really
+                landed, would tell every reader of the record which relatives
+                are in the portal.
 
                 `null` where connecting cannot happen at all: the reader's own
                 record, somebody who has died, or a family that has switched

@@ -439,16 +439,18 @@ export interface Individual extends IndividualRef {
   /**
    * Whether this page may offer to connect with them, and nothing more.
    *
-   * `connected` is mutual and already known to both. `open` means the offer
-   * is worth making — and it is the answer for a member who stayed out of the
-   * directory, for a relative with no account at all, and for a request
-   * already sent and not yet answered, which are indistinguishable here on
+   * `connected` is mutual and already known to both. `requested` is an
+   * unanswered request this member sent, and only where the other person is
+   * listed in the directory — the same line the contacts screen draws, for
+   * the same reason. `open` is everything else: a member who stayed out of
+   * the directory, a relative with no account at all, and an unanswered
+   * request to somebody unlisted, which are indistinguishable here on
    * purpose. `null` where connecting cannot happen: the member's own record,
    * somebody who has died, or a family that switched connections off.
    *
    * Optional: the module and the portal deploy separately.
    */
-  connection?: 'connected' | 'open' | null
+  connection?: 'connected' | 'requested' | 'open' | null
   /** True while an edit of the member's own record awaits approval. */
   pending_change: boolean
   webtrees_url: string

@@ -534,13 +534,19 @@ class Connections
     /**
      * What a person's page may say about connecting with them.
      *
-     * Two answers and no third, and the missing third is the point.
-     * `connected` is mutual and already known to both. `open` means the
-     * button is worth offering — and it is the answer for a member who is not
-     * listed, for a relative with no account at all, and for a request this
-     * member sent yesterday that has not been answered. A `requested` state
-     * would say precisely what `requestByIndividual` refuses to say, one
-     * screen along: that there is somebody there to have received it.
+     * `connected` is mutual and already known to both. `requested` is an
+     * unanswered request this member sent — **and only where the other person
+     * is in the directory**, which is the same line `overview()` draws for
+     * the same reason: a request that showed up only when there was really
+     * somebody to receive it would answer, one screen along, the question
+     * `requestByIndividual` refuses to answer. Where they are listed, that
+     * question is already answered by the directory itself, and hiding the
+     * request only leaves the member wondering whether they ever pressed the
+     * button.
+     *
+     * `open` is everything else, and it is the answer for a member who is not
+     * listed, for a relative with no account at all, and for an unanswered
+     * request to somebody unlisted — three situations, one word.
      *
      * Null where connecting is not a thing that can happen — the family
      * switched it off, the record is the member's own, the person is dead —
@@ -560,8 +566,22 @@ class Connections
 
         $other = $this->accountLinkedTo($individual->xref());
 
-        if ($other instanceof User && $this->stateWith($user, $other)['status'] === 'connected') {
+        if (!$other instanceof User) {
+            return 'open';
+        }
+
+        $state = $this->stateWith($user, $other);
+
+        if ($state['status'] === 'connected') {
             return 'connected';
+        }
+
+        // A request *they* sent this member is not reported here. It is in
+        // the member's own list under their name, where it can be answered;
+        // this page is about what the reader may do next, and answering
+        // somebody is a different act in a different place.
+        if ($state['status'] === 'requested' && $this->listed($other->id())) {
+            return 'requested';
         }
 
         return 'open';
