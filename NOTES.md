@@ -5846,6 +5846,46 @@ more visible now, because the nearest answer is more often the removed kind.
 
 ---
 
+### 2.95 A hand-kept table that quietly became load-bearing
+
+Asked, after §2.94: do we need both directions in the marriage table, and can
+we find these marriages in the database?
+
+**The first question has a measured answer.** Of the sixty rows the family
+maintains, only *two couples* are written both ways; fifty-six rows point one
+way only. And the row's meaning is directional — `A = B` says "descendants
+under B also descend from A" — so the expansion fires for people filed under
+the **right**-hand side. One row per couple is therefore enough, *provided it
+is written the right way round*, and nothing in the table itself says whether
+it is. A row with the sides swapped is not a different opinion: it matches
+nobody, does nothing, and looks exactly like a row that is working.
+
+Making the expansion bidirectional would make orientation stop mattering. It
+would also let somebody who descends from the left-hand parent by a *different*
+marriage inherit a line of descent they do not have. That risk exists in the
+recorded direction already; doubling it to avoid checking the data would be
+the same move that produced §2.94 — assuming rather than looking.
+
+**So the second question is the answer to the first.** `FamilyMarriages` reads
+the tree for every couple where *both* partners carry a readable archive
+number, works out which parent the children were actually filed under — a
+child's own number begins with it, so the records say so themselves — and
+reports each couple as `recorded`, `wrong_way`, `missing` or `unclear`. Then
+the orientation question can be settled from what is there rather than argued
+about.
+
+**It only reads.** No button writes into the table; the screen offers the text
+to paste and says once that a marriage the archive deliberately left out is not
+a mistake it can see. The table stays what the family wrote, which matters more
+now than it did: since §2.94 a missing row does not produce a wrong answer with
+a warning on it, it produces a confident answer that is too distant.
+
+`unclear` is a state of its own rather than a guess. A couple whose children
+carry no numbers cannot be read, and writing a row for them from a coin-toss
+would produce exactly the silent nothing that `wrong_way` describes.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

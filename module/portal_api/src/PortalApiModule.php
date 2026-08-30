@@ -103,6 +103,7 @@ use Engelking\Webtrees\PortalApi\Services\Photos;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\QrCode;
 use Engelking\Webtrees\PortalApi\Services\Recognition;
+use Engelking\Webtrees\PortalApi\Services\FamilyMarriages;
 use Engelking\Webtrees\PortalApi\Services\Offices;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
@@ -401,6 +402,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $photo_store    = new Photos($portal_trees, $pending);
         $photos         = new PhotoPresenter($photo_store);
         $offices        = new Offices($portal_trees);
+        $family_weddings = new FamilyMarriages($portal_trees, $sack_numbers, $sack);
         $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers, $offices);
         $members        = new MemberService($user_service);
         $ancestors      = new AncestorTree($presenter, $members);
@@ -473,6 +475,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(PortalTreeService::class, $portal_trees);
         $container->set(RecordPresenter::class, $presenter);
         $container->set(Offices::class, $offices);
+        $container->set(FamilyMarriages::class, $family_weddings);
         $container->set(RelationshipNamer::class, $relationships);
         $container->set(PhotoPresenter::class, $photos);
         $container->set(AncestorTree::class, $ancestors);
@@ -958,6 +961,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             'diagnosis_url'     => $this->diagnosisUrl(),
             'accounts_url'      => $this->accountsUrl(),
             'offices_url'       => $this->officesUrl(),
+            'marriages_url'     => $this->marriagesUrl(),
         ]);
     }
 
@@ -1767,6 +1771,39 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
             $xref,
             Registry::container()->get(PortalTreeService::class)->tree()
         );
+    }
+
+    // -----------------------------------------------------------------
+    // Marriages inside the family (administrators only)
+    // -----------------------------------------------------------------
+
+    /** What the tree has, and what the relationship table makes of it. */
+    public function getAdminMarriagesAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $this->layout = 'layouts/administration';
+
+        $container = Registry::container();
+        $scan      = $container->get(FamilyMarriages::class)->scan();
+        $counts    = ['recorded' => 0, 'wrong_way' => 0, 'missing' => 0, 'unclear' => 0];
+
+        foreach ($scan['rows'] as $row) {
+            ++$counts[$row['state']];
+        }
+
+        return $this->viewResponse($this->name() . '::marriages', [
+            'title'        => I18N::translate('Marriages inside the family'),
+            'module'       => $this,
+            'tree'         => $container->get(PortalTreeService::class)->tree(),
+            'rows'         => $scan['rows'],
+            'truncated'    => $scan['truncated'],
+            'counts'       => $counts,
+            'settings_url' => $this->getConfigLink(),
+        ]);
+    }
+
+    private function marriagesUrl(): string
+    {
+        return route('module', ['module' => $this->name(), 'action' => 'AdminMarriages']);
     }
 
     private function officesUrl(): string

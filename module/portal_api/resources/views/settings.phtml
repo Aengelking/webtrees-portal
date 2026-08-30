@@ -29,6 +29,7 @@ use Illuminate\Support\Collection;
  * @var string               $diagnosis_url
  * @var string               $accounts_url
  * @var string               $offices_url
+ * @var string               $marriages_url
  * @var string               $member_invites
  * @var string               $member_invite_steps
  * @var string               $member_invite_quota
@@ -94,6 +95,9 @@ foreach ($trees as $a_tree) {
     </a>
     <a class="btn btn-outline-primary" href="<?= e($offices_url) ?>">
         <?= I18N::translate('Offices') ?>
+    </a>
+    <a class="btn btn-outline-primary" href="<?= e($marriages_url) ?>">
+        <?= I18N::translate('Marriages inside the family') ?>
     </a>
     <a class="btn btn-outline-primary" href="<?= e($diagnosis_url) ?>">
         <?= I18N::translate('Diagnosis') ?>

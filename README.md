@@ -1925,6 +1925,38 @@ anybody into a list they were absent from. A person whose record was later
 deleted in webtrees leaves their row behind harmlessly: it names nobody, and the
 screen says so.
 
+### Checking the table of marriages inside the family
+
+*Control panel → Modules → Member portal API → Marriages inside the family.*
+
+The relationship calculator needs a table of marriages between two people who
+both have an archive number — see *The archive numbers* below — and that table
+is kept by hand. It used to decide whether one calculation came out right. It
+now decides whether every descendant of a couple has a second number at all,
+and therefore whether the portal names the near relationship or a more distant
+one. **A missing row gives no warning:** it produces a confident answer that is
+simply too far.
+
+So this screen reads the family tree and reports every couple where both
+partners carry a readable number, in four states:
+
+* **Already right** — the table has the couple, pointing the way the records do.
+* **Written the wrong way round** — the table has the pair with the sides
+  swapped. The row matches nobody and does nothing, while looking exactly like
+  a row that works. This is the one worth finding.
+* **Not in the table** — the tree has the marriage and the table does not.
+* **Cannot be read** — no child of the couple carries a number, so which parent
+  they were filed under cannot be worked out. Left for a person to decide.
+
+Which side the children sit under is read rather than guessed: a child's own
+number begins with the number of the parent they were filed under, so the
+records answer it themselves. A row is written *other parent* `=` *the parent
+they are filed under*.
+
+**The screen only reads.** Nothing is written into the table; what is offered is
+the text to paste into the module's preferences. Read it once before saving — a
+marriage the archive deliberately left out is not a mistake this screen can see.
+
 ### Letting an assistant read the archive
 
 *Control panel → Modules → Member portal API → Assistant access.*
@@ -2876,6 +2908,14 @@ replaces it rather than joining it, an emptied title takes it away, saving the
 same office twice reports that nothing changed, titles are tidied and capped,
 and an office on a record that is gone names nobody without disturbing the
 directory.
+
+**The scan over the marriage table** has seven of its own: that a couple is
+only listed where *both* partners carry a number, that a row pointing the way
+the records do is right and the same pair written backwards is not, that a
+marriage the table does not know is reported with the row to paste in the order
+the table is written, and that a couple whose children carry no numbers is
+reported as unreadable rather than guessed at. The fixture carries three
+couples used for nothing else.
 
 **Every way two people are related** is pinned from the numbers up: a path
 expands into its equivalent writings through the marriage table, the nearest
