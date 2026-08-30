@@ -673,6 +673,15 @@ export const en: Translations = {
   person: {
     title: 'Person',
     backToProfile: 'Back to my profile',
+    connect: {
+      title: 'Connect',
+      body:
+        'If {{name}} has an account in the portal, they receive your request and decide for themselves. Once connected you can write to each other and see the contact details you have each released to your contacts.',
+      action: 'Connect',
+      quiet:
+        'If {{name}} has an account in the portal, your request is on its way. You will hear about it only if it is accepted — the contact then appears under "Contacts".',
+      connected: 'You are connected.',
+    },
     invite: {
       title: 'Not in the portal yet',
       body: '{{name}} does not have access yet. You can create an invitation and pass the link on yourself.',

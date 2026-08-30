@@ -1909,8 +1909,8 @@ paths:
       tags: [members]
       summary: Connect with another member
       description: |
-        Exactly one of `code`, `reference` or `member_id`, and they are not
-        the same thing:
+        Exactly one of `code`, `reference`, `member_id` or `xref`, and they
+        are not the same thing:
 
         * **`code`** is a connection code scanned off the other member's
           screen. It connects both of them at once — showing the code is the
@@ -1925,6 +1925,11 @@ paths:
           asking member may see — a `RESN` under a `REFN` hides it.
         * **`member_id`** is the same request, from the other member's page in
           the directory, where there is nothing to mistype.
+        * **`xref`** is the same request again, from the person's own page in
+          the family tree — and it answers like `reference` rather than like
+          `member_id`: one sentence whether or not there is an account behind
+          the record. A record the asking member may not see is a `404`, the
+          same answer `GET /individuals/{xref}` gives.
 
         A request that crosses one coming the other way is treated as the
         answer to it: both people have asked, and there is nothing left to
@@ -1961,6 +1966,15 @@ paths:
                   type: integer
                   minimum: 1
                   description: A portal member id, from the directory.
+                xref:
+                  type: string
+                  description: |
+                    The XREF of a record the asking member can see, from the
+                    person's own page. Where an account belongs to that record
+                    the request is made; where none does, nothing is written —
+                    and the answer is the same either way, because whether a
+                    relative has an account is exactly what a member who
+                    stayed out of the directory decided not to disclose.
       responses:
         '201':
           description: |
@@ -4102,6 +4116,25 @@ components:
                 A member may invite their close family; somebody who can edit
                 the tree may invite anybody they can see, because they already
                 can from the control panel.
+            connection:
+              type: [string, 'null']
+              enum: [connected, open, null]
+              description: |
+                Whether this record's page may offer to connect with the
+                person, and nothing more.
+
+                `connected` means the two are already contacts, which is
+                mutual and known to both. `open` means the offer is worth
+                making — and it is the answer for a member who stayed out of
+                the directory, for a relative with no account at all, and for
+                a request already sent and not yet answered. Those three are
+                indistinguishable on purpose: an offer that appeared only for
+                account holders would tell every reader of the record which
+                relatives are in the portal.
+
+                `null` where connecting cannot happen at all: the reader's own
+                record, somebody who has died, or a family that has switched
+                member connections off.
             pending_change:
               type: boolean
               description: |

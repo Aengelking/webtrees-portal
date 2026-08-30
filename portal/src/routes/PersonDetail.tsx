@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useIndividual } from '../api/queries'
+import { ConnectFromRecord } from '../components/ConnectFromRecord'
 import { IndividualView } from '../components/IndividualView'
 import { ErrorNotice, Loading, Notice, PageHeading } from '../components/ui'
 
@@ -42,6 +43,13 @@ export function PersonDetail() {
   // server that predates this field simply makes no offer.
   const invitable = data?.invitable === true
 
+  // The same, for the offer to connect. Both may be on the page at once and
+  // that is right: they are different acts — one creates a way in for
+  // somebody with no account, the other asks a person to be a contact — and
+  // showing only one of them would be a statement about which of the two
+  // this person needs. See `ConnectFromRecord`.
+  const connection = data?.connection ?? null
+
   return (
     <>
       <PageHeading>{t('person.title')}</PageHeading>
@@ -72,6 +80,12 @@ export function PersonDetail() {
                   </Link>
                 }
               />
+            </div>
+          )}
+
+          {connection !== null && xref !== undefined && (
+            <div className="mt-8">
+              <ConnectFromRecord xref={xref} name={data.name} state={connection} />
             </div>
           )}
 

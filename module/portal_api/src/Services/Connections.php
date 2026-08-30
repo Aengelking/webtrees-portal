@@ -13,6 +13,7 @@ use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Fact;
 use Fisharebest\Webtrees\I18N;
 use Fisharebest\Webtrees\Individual;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Services\UserService;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
@@ -457,6 +458,133 @@ class Connections
         }
 
         return $this->result($user, self::STATUS_PENDING, null);
+    }
+
+    /**
+     * Ask to connect from a person's page in the family tree.
+     *
+     * The same request as by reference number, and deliberately the same
+     * *answer*: a member walking the tree is in exactly the position the
+     * number search is careful about. Whether the person on the screen has an
+     * account is not this endpoint's to disclose — it is the thing somebody
+     * stays out of the directory in order not to disclose — so a record with
+     * an account behind it and one without produce one sentence between them.
+     *
+     * What it saves is the part that was actually in the way: finding the
+     * number, reading it off the screen and typing it into another one. The
+     * person is already on the page.
+     *
+     * @return array<string,mixed>
+     */
+    public function requestByIndividual(UserInterface $user, string $xref): array
+    {
+        $this->refuseIfDisabled();
+
+        $tree         = $this->trees->tree();
+        $access_level = $this->trees->accessLevel($tree);
+        $individual   = Registry::individualFactory()->make($xref, $tree);
+
+        // A record this member cannot see is a record that does not exist, the
+        // same 404 `IndividualRead` gives — asking about it must not become a
+        // way of finding out that it is there.
+        if (!$individual instanceof Individual || !$individual->canShow($access_level)) {
+            throw ApiException::notFound();
+        }
+
+        $viewer = $this->trees->linkedIndividual($tree, $user);
+
+        if ($viewer instanceof Individual && $viewer->xref() === $individual->xref()) {
+            throw ApiException::badRequest(I18N::translate('You cannot connect with yourself.'));
+        }
+
+        $other = $this->accountLinkedTo($individual->xref());
+
+        // Already a contact: say so, by name. Their name is in this member's
+        // own contacts already, so there is nothing here to give away — and
+        // the quiet answer would claim a request went off when none did. The
+        // reasoning is `requestByReference`'s, in full.
+        if ($other instanceof User && $this->stateWith($user, $other)['status'] === 'connected') {
+            return $this->result($user, self::ALREADY, $this->nameOf($other));
+        }
+
+        if ($other instanceof User && $this->listed($other->id())) {
+            $status = $this->link($user, $other, self::SOURCE_REFERENCE, false);
+
+            return $this->result($user, $status, $this->nameOf($other));
+        }
+
+        if ($other instanceof User) {
+            $status = $this->link($user, $other, self::SOURCE_REFERENCE, false);
+
+            // Accepted on the spot can only mean they had already asked, and
+            // this was the answer. They are a contact now, so naming them
+            // discloses nothing and silence would report a settled request as
+            // pending.
+            if ($status === self::STATUS_ACCEPTED) {
+                return $this->result($user, $status, $this->nameOf($other));
+            }
+        }
+
+        // And the one answer everybody else gets — the living relative with no
+        // account, and the member who stayed out of the directory, in the same
+        // words.
+        return $this->result($user, self::STATUS_PENDING, null);
+    }
+
+    /**
+     * What a person's page may say about connecting with them.
+     *
+     * Two answers and no third, and the missing third is the point.
+     * `connected` is mutual and already known to both. `open` means the
+     * button is worth offering — and it is the answer for a member who is not
+     * listed, for a relative with no account at all, and for a request this
+     * member sent yesterday that has not been answered. A `requested` state
+     * would say precisely what `requestByIndividual` refuses to say, one
+     * screen along: that there is somebody there to have received it.
+     *
+     * Null where connecting is not a thing that can happen — the family
+     * switched it off, the record is the member's own, the person is dead —
+     * none of which says anything about accounts.
+     */
+    public function recordState(UserInterface $user, Individual $individual): string|null
+    {
+        if (!$this->enabled() || $individual->isDead()) {
+            return null;
+        }
+
+        $viewer = $this->trees->linkedIndividual($this->trees->tree(), $user);
+
+        if ($viewer instanceof Individual && $viewer->xref() === $individual->xref()) {
+            return null;
+        }
+
+        $other = $this->accountLinkedTo($individual->xref());
+
+        if ($other instanceof User && $this->stateWith($user, $other)['status'] === 'connected') {
+            return 'connected';
+        }
+
+        return 'open';
+    }
+
+    /**
+     * The account whose own record is this one, if there is such an account.
+     *
+     * Walks the accounts rather than the tree, like `memberByReference` — and
+     * like it, this only *finds*. Who may be told is the caller's decision,
+     * and in both callers above the answer is mostly "nobody".
+     */
+    private function accountLinkedTo(string $xref): User|null
+    {
+        $tree = $this->trees->tree();
+
+        foreach ($this->members->linkedAccounts($tree) as $account) {
+            if ($tree->getUserPreference($account, UserInterface::PREF_TREE_ACCOUNT_XREF) === $xref) {
+                return $account;
+            }
+        }
+
+        return null;
     }
 
     /** Whether this account chose to appear in the member directory. */

@@ -5976,6 +5976,57 @@ Aussage über den Versuch, nicht über den Fehler.
 
 ---
 
+### 2.98 Der Knopf, der nicht verraten darf, wen er erreicht
+
+Verbinden ging bisher über die SB-Nummer: Nummer auf der einen Seite ablesen,
+unter „Kontakte" in ein Feld tippen. Der Umweg führt an genau dem Teil vorbei,
+der schwierig war — die Person steht ja schon auf dem Bildschirm. Also ein
+Knopf auf ihrer Seite.
+
+**Und damit sofort ein Datenschutzproblem, das größer ist als der Knopf.** Ein
+Angebot, das nur bei Kontoinhabern erscheint, *ist* die Antwort auf „wer aus
+der Familie ist im Portal?" — und zwar für jeden, der den Datensatz sehen darf,
+also auf einem Stammbaum für fast alle. Genau dagegen hat sich jemand
+entschieden, der nicht im Mitgliederverzeichnis steht. §2.7 und
+`requestByReference` halten diese Stille schon: eine Nummer, die zu niemandem
+gehört, und eine, die zu einem nicht gelisteten Mitglied gehört, bekommen
+denselben Satz.
+
+Also bekommt der Datensatz **ein Wort für drei Fälle**. `open` heißt „das
+Angebot lohnt sich" und steht für das nicht gelistete Mitglied, für den
+lebenden Verwandten ganz ohne Konto und für eine Anfrage, die gestern
+rausging und noch niemand beantwortet hat. Der dritte Fall ist der, den man
+leicht übersieht: ein `requested` auf dieser Seite würde eine Zeile später
+genau das sagen, was der Endpunkt eine Zeile vorher verschweigt — dass da
+jemand war, der sie empfangen konnte. `connected` ist die einzige Ausnahme und
+gibt nichts preis: Verbundensein ist beidseitig und beiden bekannt. `null`
+heißt „geht hier gar nicht" — eigener Datensatz, verstorben, Verbindungen
+abgeschaltet.
+
+Die Antwort auf den Knopf ist `requestByReference` Zeile für Zeile
+nachgebaut, und das ist Absicht: gelistetes Mitglied oder bereits Kontakt →
+mit Namen; alles andere → derselbe Satz, ob dahinter ein Konto steckt oder
+nicht. Für einen Datensatz ohne Konto wird nichts geschrieben, für einen
+unsichtbaren gibt es dieselbe 404 wie beim Lesen.
+
+**Beide Angebote dürfen nebeneinander stehen.** „Einladen" erscheint nur, wenn
+jemand *kein* Konto hat (`invitable`), „Verbinden" immer — und genau deshalb
+darf man sie nicht gegeneinander ausspielen: würde „Verbinden" das „Einladen"
+verdrängen, sobald ein Konto existiert, wäre die Auswahl zwischen den beiden
+Knöpfen wieder die verräterische Information. Zwei Angebote auf einer Seite
+sind der Preis dafür, dass keines von beiden etwas ausplaudert.
+
+Ein Fehler auf dem Weg dahin ist erwähnenswert, weil er lehrreich ist: die
+Handler werden im Container **von Hand** verdrahtet
+(`PortalApiModule::boot()`), nicht per Autowiring. Ein vierter
+Konstruktor-Parameter an `IndividualRead` ließ die Registrierung mitten im
+Aufbau scheitern — und was danach kam, war nicht etwa „falsches Argument",
+sondern `RouteNotFound` für jede Route, die nach dieser Zeile registriert
+wird. Der Fehler sah aus wie ein Router-Problem und war ein
+Konstruktor-Problem.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

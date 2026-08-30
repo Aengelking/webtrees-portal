@@ -436,6 +436,19 @@ export interface Individual extends IndividualRef {
    * Optional: the module and the portal deploy separately.
    */
   invitable?: boolean
+  /**
+   * Whether this page may offer to connect with them, and nothing more.
+   *
+   * `connected` is mutual and already known to both. `open` means the offer
+   * is worth making — and it is the answer for a member who stayed out of the
+   * directory, for a relative with no account at all, and for a request
+   * already sent and not yet answered, which are indistinguishable here on
+   * purpose. `null` where connecting cannot happen: the member's own record,
+   * somebody who has died, or a family that switched connections off.
+   *
+   * Optional: the module and the portal deploy separately.
+   */
+  connection?: 'connected' | 'open' | null
   /** True while an edit of the member's own record awaits approval. */
   pending_change: boolean
   webtrees_url: string
@@ -713,6 +726,8 @@ export type ConnectionRequest =
   | { code: string }
   | { reference: string }
   | { member_id: number }
+  /** From the person's own page in the family tree. */
+  | { xref: string }
 
 export interface MemberDetail extends MemberSummary {
   individual_detail: Individual | null

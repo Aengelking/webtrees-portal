@@ -6,6 +6,7 @@ namespace Engelking\Webtrees\PortalApi\Http\RequestHandlers;
 
 use Engelking\Webtrees\PortalApi\Http\ApiException;
 use Engelking\Webtrees\PortalApi\Http\Json;
+use Engelking\Webtrees\PortalApi\Services\Connections;
 use Engelking\Webtrees\PortalApi\Services\MemberInvitations;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
@@ -30,6 +31,7 @@ class IndividualRead implements RequestHandlerInterface
         private readonly PortalTreeService $trees,
         private readonly RecordPresenter $presenter,
         private readonly MemberInvitations $invitations,
+        private readonly Connections $connections,
     ) {
     }
 
@@ -69,6 +71,15 @@ class IndividualRead implements RequestHandlerInterface
         // account holder, already invited and too distant are all `false`,
         // exactly so that nobody can learn which by looking.
         $payload['invitable'] = $this->invitations->invitable(Auth::user(), $xref) instanceof Individual;
+
+        // And whether this page may offer to connect with them — which is a
+        // question about this reader and this record, and deliberately not a
+        // question about whether the person has an account. `open` is the
+        // answer for a member who stayed out of the directory, for a relative
+        // with no account at all, and for a request already sent and not yet
+        // answered; the three are indistinguishable here on purpose. See
+        // `Connections::recordState`.
+        $payload['connection'] = $this->connections->recordState(Auth::user(), $individual);
 
         return Json::response($payload);
     }

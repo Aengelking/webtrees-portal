@@ -432,6 +432,9 @@ function useConnectionMutation<TVariables, TResult extends ConnectionOverview>(
       // one changes.
       void queryClient.invalidateQueries({ queryKey: ['member'] })
       void queryClient.invalidateQueries({ queryKey: ['members'] })
+      // And a person's own page, which now offers to connect from the record
+      // and has to stop offering once the two of them are contacts.
+      void queryClient.invalidateQueries({ queryKey: ['individual'] })
     },
   })
 }

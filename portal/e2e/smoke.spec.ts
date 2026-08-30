@@ -477,6 +477,34 @@ test.describe('inviting from a person’s page', () => {
     await page.getByRole('button', { name: 'Einladung erstellen' }).click()
     await expect(page.getByLabel('Einladungslink')).toHaveValue(/token=einladung-fuer-dieter/)
   })
+
+  /**
+   * And the other offer on the same page, which is a different act: asking a
+   * person to be a contact rather than making them a way in.
+   *
+   * What the walk is really checking is the answer. No name comes back, so
+   * the screen may say only that a request *would* be on its way — the same
+   * silence the number search keeps, and for the same reason: whether a
+   * relative has an account is what staying out of the directory is a
+   * decision against (`Connections::requestByIndividual`).
+   */
+  test('a relative is asked to connect from their own page, and answered quietly', async ({
+    page,
+  }) => {
+    test.skip(REAL_BACKEND, 'Would send a real request.')
+
+    await page.goto('/login')
+    await page.getByLabel('Benutzername oder E-Mail-Adresse').fill(username)
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Anmelden' }).click()
+    await expect(page.getByRole('heading', { name: 'Mein Profil' })).toBeVisible()
+
+    await page.goto('/individuals/X4')
+    await page.getByRole('button', { name: 'Verbinden' }).click()
+
+    await expect(page.getByText(/Wenn Dieter Beispiel ein Konto im Portal hat/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Verbinden' })).toBeHidden()
+  })
 })
 
 test.describe('phase 9', () => {
