@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Engelking\Webtrees\PortalApi\PortalApiModule;
+use Engelking\Webtrees\PortalApi\Services\SpouseMarker;
 use Fisharebest\Webtrees\Http\RequestHandlers\ControlPanel;
 use Fisharebest\Webtrees\Http\RequestHandlers\ModulesAllPage;
 use Fisharebest\Webtrees\I18N;
@@ -50,9 +51,18 @@ foreach ($rows as $row) {
 <?php
 $unmarked = [];
 
+// How many of those the records themselves decide — the ones with a button.
+// Counted from the rows already on the screen so that the number on the
+// button is the number in the table below it, and not a second scan's answer.
+$decided = 0;
+
 foreach ($rows as $row) {
     if ($row['state'] === 'unmarked' || $row['state'] === 'unmarked_stuck') {
         $unmarked[] = $row;
+
+        if ($row['marks'] !== null) {
+            ++$decided;
+        }
     }
 }
 ?>
@@ -85,6 +95,28 @@ foreach ($rows as $row) {
     <p>
         <?= I18N::translate('Who the mark belongs to is read from the records: somebody who married in has no parents in the archive. Where that does not decide it, this says so and leaves it to a person — a “!” on the wrong one of the two does not fail, it quietly makes each of them the other.') ?>
     </p>
+
+    <?php if ($may_mark && $decided > 0) : ?>
+        <form method="post" class="mb-2">
+            <?= csrf_field() ?>
+            <input type="hidden" name="mark_all" value="1">
+            <button
+                type="submit"
+                class="btn btn-primary"
+                data-wt-confirm="<?= I18N::plural('Add the mark to one number?', 'Add the mark to %s numbers, in one go?', $decided, I18N::number($decided)) ?>"
+            >
+                <?= I18N::plural('Propose the mark for the one couple below that the records decide', 'Propose the mark for all %s couples below that the records decide', $decided, I18N::number($decided)) ?>
+            </button>
+        </form>
+
+        <p class="text-muted">
+            <?= I18N::translate('This leaves out the couples the records do not decide — those are still one at a time, and still yours to read.') ?>
+            <?php if ($decided > SpouseMarker::MAX_AT_ONCE) : ?>
+                <?= I18N::translate('There are more than one press can write, so it stops at %s and says how many are left.', I18N::number(SpouseMarker::MAX_AT_ONCE)) ?>
+            <?php endif ?>
+            <?= I18N::translate('If your account does not accept your own changes at once, this puts one entry per correction into the list of changes waiting for approval.') ?>
+        </p>
+    <?php endif ?>
 
     <div class="table-responsive">
         <table class="table table-sm">

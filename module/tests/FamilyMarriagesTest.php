@@ -200,6 +200,24 @@ class FamilyMarriagesTest extends PortalTestCase
         self::assertArrayNotHasKey('F2', $this->states());
     }
 
+    /**
+     * The list the "do them all" button is built from.
+     *
+     * The rule lives here rather than beside the button, because whether a
+     * mark may be written without a person having looked at that particular
+     * couple is a question about the records. Ida is in it; Rudolf and Berta,
+     * whom the records do not decide, are not — and the list holds nothing
+     * else, which is the half of this that a filter written the wrong way
+     * round would still pass.
+     */
+    public function testTheCorrectableListHoldsOnlyWhatTheRecordsDecide(): void
+    {
+        self::assertSame(
+            [['xref' => 'X30', 'number' => '24/911']],
+            $this->scan()->correctable()
+        );
+    }
+
     // -----------------------------------------------------------------
     // The screen
     // -----------------------------------------------------------------
@@ -231,5 +249,37 @@ class FamilyMarriagesTest extends PortalTestCase
 
         // The pair the records cannot decide gets no button at all.
         self::assertStringContainsString('Rudolf Unklar', $html);
+
+        // And the one press for all of them, counting only the couple the
+        // records decide — not the two rows in the table above it.
+        self::assertStringContainsString('mark_all', $html);
+        self::assertStringContainsString('the one couple below that the records decide', $html);
+    }
+
+    /**
+     * A reader who may not edit the family tree is offered nothing to press.
+     *
+     * The guard that matters is in the action, and `SpouseMarkerTest` holds
+     * that end. This is the other half: a button that does nothing when
+     * pressed is worse than no button, because it invites the press.
+     */
+    public function testSomebodyWhoMayNotMarkIsOfferedNoButton(): void
+    {
+        $scan = $this->scan()->scan();
+
+        $html = view('_portal_api_::marriages', [
+            'title'         => 'Marriages inside the family',
+            'module'        => $this->module(),
+            'tree'          => $this->tree,
+            'rows'          => $scan['rows'],
+            'truncated'     => $scan['truncated'],
+            'counts'        => ['unmarked' => 1, 'unmarked_stuck' => 1, 'recorded' => 1, 'wrong_way' => 0, 'missing' => 1, 'unclear' => 1],
+            'may_mark'      => false,
+            'settings_url'  => '/settings',
+        ]);
+
+        self::assertStringContainsString('Ida Angeheiratet', $html);
+        self::assertStringNotContainsString('mark_all', $html);
+        self::assertStringNotContainsString('<button', $html);
     }
 }

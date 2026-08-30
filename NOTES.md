@@ -6433,6 +6433,65 @@ derselbe Commit. Zwei Läufe, ein Würfel. Das ist die Sorte Unterschied, die
 man als „Flackern" abtut — und dahinter lag ein Fehler, der jederzeit
 wiedergekommen wäre.
 
+### 2.106 Hundertsechsundzwanzig Mal dasselbe ist keine Entscheidung mehr
+
+Als der Korrekturknopf für das fehlende `!` gebaut wurde (§2.101), stand die
+Frage im Raum, ob es zusätzlich ein „alle korrigieren" geben soll. Die Antwort
+war nein, mit einer Begründung, die richtig klang: jede dieser Korrekturen
+entscheidet, ob ein Mensch als Abkömmling einer Linie gelesen wird oder als
+jemand, der eingeheiratet hat, und das sollte man sehen.
+
+Dann lief der Scan über das echte Archiv: **126 Fälle.** Damit kippt die
+Begründung, und zwar nicht ein bisschen. Ein Bildschirm, der 126 identische
+Entscheidungen einzeln verlangt, wird nicht sorgfältiger durchgesehen als
+einer mit einem Knopf — er wird gar nicht durchgesehen, weil niemand ihn zu
+Ende bringt. Die Sorgfalt, die man sich vom einzelnen Klick erhofft hatte,
+existiert bei dieser Anzahl nicht; es bleibt nur die Ermüdung. Also gibt es
+den Knopf.
+
+**Was sich dabei nicht geändert hat, ist das Entscheidende.** Der Knopf
+verschiebt nur, wie oft man drückt, nicht, *welche* Paare korrigiert werden
+dürfen. Wo die Aufzeichnungen nicht sagen, wer eingeheiratet hat — beide ohne
+Eltern oder beide mit —, gibt es weiterhin keinen Knopf, weder einen einzelnen
+noch einen gemeinsamen. Das war die andere Hälfte der ursprünglichen
+Entscheidung („melden, nicht raten"), und die hält, weil sie eine Aussage über
+die Aufzeichnungen ist und nicht über die Geduld des Lesers.
+
+**Die Liste wird gelesen, nicht geschickt.** Das Formular sendet ein einziges
+Feld: „alle". Welche Datensätze das sind, ermittelt der Server mit einem
+frischen Scan. Zwei Gründe, und beide sind im Test festgehalten: ein Formular,
+das die Kennungen selbst mitbringt, lässt jeden, der den Bildschirm öffnen
+kann, seine eigenen Datensätze benennen — der Test schickt Rudolf mit, den die
+Aufzeichnungen gerade nicht entscheiden, und verlangt, dass ihm nichts
+passiert. Gegen die vorige Fassung des Codes fällt er um, und zwar mit einem
+`24/922!` auf Rudolfs Datensatz. Der zweite Grund ist banaler: eine Liste, die
+beim Zeichnen der Seite stimmte, stimmt beim Drücken vielleicht nicht mehr.
+
+**Eine Absage hält den Lauf nicht an.** Gesperrter Datensatz, bereits wartende
+Änderung, seit dem Scan geänderte Nummer — jeder Fall wird gezählt und der
+Lauf geht weiter. Ein Lauf, der 125 Korrekturen fallen lässt, weil der dritte
+Datensatz gesperrt war, wäre genau in dem Archiv nutzlos, für das der Knopf
+gebaut wurde.
+
+**Und die Meldung zählt nach Ausgang, nicht als eine Zahl.** „126 korrigiert"
+und „124 korrigiert, 2 Datensätze gesperrt" sind verschiedene Dinge, die man
+erfahren hat, und nur das zweite schickt jemanden zum Nachsehen. Die Zuordnung
+Ausgang → Satz ist ein `match` **ohne `default`**: ein `default` gäbe einem
+neuen Ausgang einen alten Satz und klänge dabei genauso sicher. Ohne ihn
+weigert sich PHP — und ein Test läuft über die Konstanten von `SpouseMarker`
+und verlangt, dass jede einen Satz hat, damit diese Weigerung beim Commit
+passiert und nicht vor einem Administrator, dem gerade zweihundert Datensätze
+geschrieben wurden.
+
+**Eine Obergrenze pro Druck (200).** Kein Urteil darüber, wie viele
+Korrekturen unbedenklich sind — jede wird einzeln geprüft —, sondern darüber,
+wie lange eine Anfrage dauern darf. Jede Marke ist ein geschriebener
+Datensatz, eine eingereihte Änderung und eine Logzeile; bei einigen tausend
+liefe die Anfrage in die Zeitgrenze des Webservers, und zurück bliebe eine
+Seite, die nie kam, ohne jede Auskunft darüber, wie weit sie gekommen ist. Der
+Lauf hält also bei einer Zahl an, über die er noch berichten kann, und sagt,
+wie viele übrig sind.
+
 ---
 
 ## 3. Things that were guessed

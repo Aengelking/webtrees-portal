@@ -272,6 +272,26 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     public const int DEFAULT_RATE_LIMIT_USER   = 5;
     public const int DEFAULT_RATE_LIMIT_WINDOW = 900;
 
+    /**
+     * Every outcome a bulk run can produce, in the order it is reported.
+     *
+     * Written out rather than derived so that `tally()` can match on all
+     * of them with no `default` arm. A `default` would give a new outcome an
+     * old sentence and sound just as sure about it; without one, PHP refuses
+     * to describe what it has not been told about. `SpouseMarkerTest` walks
+     * the constants and fails if this list falls behind them, so the refusal
+     * happens at a commit rather than in front of an administrator.
+     */
+    private const array MARK_OUTCOMES = [
+        SpouseMarker::MARKED,
+        SpouseMarker::APPLIED,
+        SpouseMarker::ALREADY_MARKED,
+        SpouseMarker::PENDING,
+        SpouseMarker::LOCKED,
+        SpouseMarker::NO_NUMBER,
+        SpouseMarker::NO_PERSON,
+    ];
+
     /** The API is mounted here. The portal's Cloudflare Worker proxies /api/* onto it. */
     private const string ROUTE_PREFIX = '/api/v1';
 
@@ -1813,22 +1833,34 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
     }
 
     /**
-     * Put the `!` on one partner's number, as a change awaiting approval.
+     * Put the `!` on a partner's number, as a change awaiting approval.
      *
-     * One row at a time and no "do them all": each of these decides whether a
-     * person is read as a descendant of a line or as somebody who married into
-     * it, and the reading it comes from — no parents in the archive — is a
-     * fact about how complete the records are. A person should see each one.
+     * Two ways in: one row, or every row the records decide. It began as one
+     * row and nothing else, on the reasoning that each of these settles
+     * whether a person is read as a descendant of a line or as somebody who
+     * married into it, and that a person should see each one. Then the archive
+     * turned out to hold a hundred and twenty-six of them, and a screen that
+     * only offers them singly is a screen nobody gets to the end of — so the
+     * ones that were going to be waved through are waved through in one press.
+     *
+     * What did not change is *which* couples may be corrected at all. The
+     * couples the records do not settle have no button and are not in the
+     * bulk list either; they still wait for a person. See §2.106.
      */
     public function postAdminMarriagesAction(ServerRequestInterface $request): ResponseInterface
     {
-        $body   = Validator::parsedBody($request);
-        $marker = Registry::container()->get(SpouseMarker::class);
+        $body      = Validator::parsedBody($request);
+        $container = Registry::container();
+        $marker    = $container->get(SpouseMarker::class);
 
         if (!$marker->permitted()) {
             FlashMessages::addMessage(I18N::translate('Only a manager of this family tree may change a record.'), 'danger');
 
             return redirect($this->marriagesUrl());
+        }
+
+        if ($body->string('mark_all', '') !== '') {
+            return $this->markEveryUnmarkedSpouse($marker, $container->get(FamilyMarriages::class));
         }
 
         $outcome = $marker->mark($body->string('xref', ''), $body->string('number', ''));
@@ -1848,6 +1880,111 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         FlashMessages::addMessage($message, $level);
 
         return redirect($this->marriagesUrl());
+    }
+
+    /**
+     * Every mark the records decide, in one press.
+     *
+     * **The list is read here, not posted.** The form sends one field saying
+     * "all of them"; which couples that means is worked out from a fresh scan
+     * on this side. A form that posted the xrefs would let anything that could
+     * open this screen name its own records — and would also act on a list
+     * that was true when the page was drawn.
+     *
+     * The tally is reported per outcome rather than as one number, because
+     * "126 corrected" and "124 corrected, 2 records locked" are different
+     * things to have been told, and the second one is the one that needs a
+     * person. The screen redraws afterwards, so whatever was refused is still
+     * standing in the table underneath with its own button.
+     */
+    private function markEveryUnmarkedSpouse(SpouseMarker $marker, FamilyMarriages $marriages): ResponseInterface
+    {
+        $marks = $marriages->correctable();
+
+        if ($marks === []) {
+            FlashMessages::addMessage(I18N::translate('There is no couple left whose missing mark the records decide.'), 'info');
+
+            return redirect($this->marriagesUrl());
+        }
+
+        $run = $marker->markEvery($marks);
+
+        // A fixed order rather than the order they happened in, so that what
+        // was written is read before what was refused.
+        foreach (self::MARK_OUTCOMES as $outcome) {
+            $count = $run['done'][$outcome] ?? 0;
+
+            if ($count === 0) {
+                continue;
+            }
+
+            [$message, $level] = $this->tally($outcome, $count);
+
+            FlashMessages::addMessage($message, $level);
+        }
+
+        if ($run['left'] > 0) {
+            FlashMessages::addMessage(
+                I18N::plural(
+                    '%s couple was not reached this time. Press the button again to carry on.',
+                    '%s couples were not reached this time. Press the button again to carry on.',
+                    $run['left'],
+                    I18N::number($run['left'])
+                ),
+                'info'
+            );
+        }
+
+        return redirect($this->marriagesUrl());
+    }
+
+    /**
+     * One line about one kind of outcome, counted rather than listed.
+     *
+     * @return array{0:string,1:string} the sentence, and how loudly to say it
+     */
+    private function tally(string $outcome, int $count): array
+    {
+        $number = I18N::number($count);
+
+        return match ($outcome) {
+            SpouseMarker::MARKED => [I18N::plural(
+                '%s mark has been proposed. It is waiting to be approved in the family tree.',
+                '%s marks have been proposed. They are waiting to be approved in the family tree.',
+                $count,
+                $number
+            ), 'success'],
+            SpouseMarker::APPLIED => [I18N::plural(
+                '%s mark has been added to the family tree. Your account accepts your own changes at once, so there is nothing to approve — webtrees’ list of changes has them if you want to undo them.',
+                '%s marks have been added to the family tree. Your account accepts your own changes at once, so there is nothing to approve — webtrees’ list of changes has them if you want to undo them.',
+                $count,
+                $number
+            ), 'success'],
+            SpouseMarker::ALREADY_MARKED => [I18N::plural(
+                '%s number already carried the mark and was left alone.',
+                '%s numbers already carried the mark and were left alone.',
+                $count,
+                $number
+            ), 'info'],
+            SpouseMarker::PENDING => [I18N::plural(
+                '%s record was passed over: it already has a change waiting to be approved.',
+                '%s records were passed over: they already have a change waiting to be approved.',
+                $count,
+                $number
+            ), 'warning'],
+            SpouseMarker::LOCKED => [I18N::plural(
+                '%s record was passed over: it is locked against editing.',
+                '%s records were passed over: they are locked against editing.',
+                $count,
+                $number
+            ), 'warning'],
+            SpouseMarker::NO_NUMBER, SpouseMarker::NO_PERSON => [I18N::plural(
+                '%s record was passed over: it has changed since the list was read.',
+                '%s records were passed over: they have changed since the list was read.',
+                $count,
+                $number
+            ), 'warning'],
+        };
     }
 
     private function marriagesUrl(): string

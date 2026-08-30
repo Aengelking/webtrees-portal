@@ -9,6 +9,7 @@ use Fisharebest\Webtrees\Elements\RestrictionNotice;
 use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 
+use function array_values;
 use function explode;
 use function implode;
 use function preg_match;
@@ -45,6 +46,11 @@ use function trim;
  * scan that may be minutes old, and the record may have been edited since. A
  * mark written against a number that is no longer there would be a `!` on
  * whatever happens to be in that slot now.
+ *
+ * `markEvery()` walks a list of these and nothing more: the same check on each
+ * record, the same refusals, counted rather than shouted about one at a time.
+ * See §2.106 for why a hundred and twenty-six of them stopped being a
+ * decision anybody was going to make individually.
  */
 class SpouseMarker
 {
@@ -56,6 +62,19 @@ class SpouseMarker
     public const string ALREADY_MARKED = 'already_marked';
     public const string LOCKED = 'locked';
     public const string PENDING = 'pending';
+
+    /**
+     * How many marks one press may write.
+     *
+     * Not a judgement about how many are safe — they are written one at a
+     * time and each one is checked on its own — but about how long a single
+     * request may take. Every mark is a record rewritten, a change queued and
+     * a line logged; a tree with thousands of these would run past the time
+     * the webserver allows, and the person would be left with a page that
+     * never came back and no way of knowing how far it got. So it stops at a
+     * number it can still report on, and says how many are left over.
+     */
+    public const int MAX_AT_ONCE = 200;
 
     public function __construct(
         private readonly PortalTreeService $trees,
@@ -127,6 +146,50 @@ class SpouseMarker
         $individual->updateRecord(implode("\n", $lines), true);
 
         return $this->pending_changes->existsFor($individual) ? self::MARKED : self::APPLIED;
+    }
+
+    /**
+     * Mark a whole list, and say what became of each one.
+     *
+     * **This widens nothing.** The list comes from
+     * `FamilyMarriages::correctable()`, which leaves out every couple the
+     * records do not settle; this walks it and calls `mark()`, which checks
+     * each record and each number exactly as it does for one press of one
+     * button. What the bulk form saves is the reading of a hundred identical
+     * screens, not the reading of the rule.
+     *
+     * **A refusal stops that one and nothing else.** A locked record, a change
+     * already waiting, a number edited since the scan — each is counted and
+     * the run goes on. Abandoning a hundred and twenty-five corrections
+     * because the third record was locked would make the button useless
+     * precisely in the archive it was asked for.
+     *
+     * The same person can legitimately appear twice, having married twice into
+     * the family: the second attempt finds the mark already there, or the
+     * first still queued, and says so. Neither writes a second `!`.
+     *
+     * @param array<int,array{xref:string,number:string}> $marks
+     *
+     * @return array{done:array<string,int>,left:int} how many of each outcome, and how many were not reached
+     */
+    public function markEvery(array $marks): array
+    {
+        $done = [];
+        $left = 0;
+
+        foreach (array_values($marks) as $index => $mark) {
+            if ($index >= self::MAX_AT_ONCE) {
+                ++$left;
+
+                continue;
+            }
+
+            $outcome = $this->mark($mark['xref'], $mark['number']);
+
+            $done[$outcome] = ($done[$outcome] ?? 0) + 1;
+        }
+
+        return ['done' => $done, 'left' => $left];
     }
 
     /**
