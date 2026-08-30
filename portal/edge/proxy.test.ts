@@ -146,6 +146,43 @@ describe('a page where an answer was asked for', () => {
     expect(cookies[0]).not.toContain('Domain=')
   })
 
+  /**
+   * **The shape it actually arrived in, which the first version walked past.**
+   *
+   * Caught in the act at last: Apache had stopped handing `.php` to PHP and
+   * was serving the file, so the reply carried `application/x-httpd-php` — a
+   * 200, with the 503 page as its body. The first version of this asked
+   * whether the reply was `text/html`, which is the shape the failure had been
+   * *seen* in, and this went straight past it. See §2.103.
+   */
+  it('refuses a reply the webserver made about itself, whatever it calls it', async () => {
+    const served = new Response('<html><head><title>503 Service Unavailable</title></head></html>', {
+      status: 200,
+      headers: { 'Content-Type': 'application/x-httpd-php' },
+    })
+
+    const response = await through(served)
+
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toMatchObject({ error: 'unreadable_answer' })
+    expect(response.headers.get('x-portal-upstream-type')).toBe('application/x-httpd-php')
+  })
+
+  /** A photograph is an answer, and must not be caught by the rule above. */
+  it('lets a picture through', async () => {
+    const picture = new Response('\u0089PNG', {
+      status: 200,
+      headers: { 'Content-Type': 'image/png' },
+    })
+
+    expect((await through(picture)).status).toBe(200)
+  })
+
+  /** So must an answer with no body: a `204` carries no content type at all. */
+  it('lets an answer with no body through', async () => {
+    expect((await through(new Response(null, { status: 204 }))).status).toBe(204)
+  })
+
   it('lets a real answer past untouched', async () => {
     const response = await through(
       new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } }),

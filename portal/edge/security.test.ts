@@ -102,11 +102,19 @@ describe('what the portal says about its own origin', () => {
   })
 
   it('passes the body and the status through untouched', async () => {
+    // With the content type a real answer carries. webtrees' response factory
+    // sets `application/json` on every payload it builds, and the proxy now
+    // refuses a reply that claims to be anything else — see `notAnAnswer` in
+    // proxy.ts and §2.103. Without the header this fixture was a `text/plain`
+    // answer, which the API never sends.
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn<typeof fetch>()
-        .mockResolvedValue(new Response('{"error":"unauthenticated"}', { status: 401 })),
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response('{"error":"unauthenticated"}', {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
     )
 
     const response = await proxyToWebtrees(new Request('https://portal.example/api/v1/me'), env)

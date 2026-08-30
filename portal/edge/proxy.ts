@@ -257,35 +257,44 @@ async function answer(request: Request, env: ProxyEnv): Promise<Response> {
 }
 
 /**
- * A web page arriving where an API answer was asked for.
+ * Something arriving where an API answer was asked for.
  *
- * Something in front of webtrees answers for it sometimes — an Apache with no
- * worker free, a hosting maintenance page — and the reported case carried
- * Apache's *503 Service Unavailable* body under a **200**. Passed through, the
- * portal got a page where it asked for a record, and the member was told their
- * password was wrong. See §2.102.
+ * The family server does not always answer for itself. The reported case
+ * carried Apache's *503 Service Unavailable* body under a **200**; when it was
+ * finally caught in the act the content type was
+ * `application/x-httpd-php` — Apache had stopped handing `.php` to PHP and was
+ * serving a *file* instead of running one. See §2.103.
  *
- * So an HTML reply under `/api` is turned into the error it actually is,
- * before it reaches anybody. Two things are deliberate:
+ * **This is an allow-list, and the first version was not.** It asked whether
+ * the reply was `text/html`, which is the shape the failure had been *seen*
+ * in — and the shape it actually arrived in went straight past. Naming what
+ * may pass is the only version of this that cannot be surprised: an API answer
+ * is JSON or a picture, and anything else is the webserver talking about
+ * itself, whatever it calls itself while doing it.
+ *
+ * Two things are deliberate:
  *
  * - **Redirects are left completely alone.** webtrees answers a stale CSRF
- *   token with a 302, the client reads that as exactly that and retries, and
- *   an HTML body on a redirect is only the browser's courtesy page.
- * - **A `2xx` page becomes a `502`, not a `200`.** A success status on an
- *   error page is the lie that made this hard to see; repeating it would keep
- *   it hidden. Anything already an error keeps its own status.
+ *   token with a 302, the client reads that as exactly that and retries.
+ * - **A `2xx` becomes a `502`, not a `200`.** A success status on an error
+ *   page is the lie that made this hard to see; repeating it would keep it
+ *   hidden. Anything already an error keeps its own status.
  *
  * The real status goes out on a header and into the Worker's log, because the
  * whole difficulty here was that nobody could tell what the origin had said.
  */
+const API_CONTENT_TYPES = ['application/json', 'image/']
+
 function notAnAnswer(upstream: Response): Response | null {
   if (upstream.status >= 300 && upstream.status < 400) {
     return null
   }
 
-  const type = upstream.headers.get('content-type') ?? ''
+  const type = (upstream.headers.get('content-type') ?? '').toLowerCase()
 
-  if (!type.toLowerCase().includes('text/html')) {
+  // No content type at all is what a `204` looks like, and a body-less answer
+  // is not the failure this is about.
+  if (type === '' || API_CONTENT_TYPES.some((allowed) => type.includes(allowed))) {
     return null
   }
 
@@ -300,6 +309,8 @@ function notAnAnswer(upstream: Response): Response | null {
     },
     upstream.status >= 400 ? upstream.status : 502,
   )
+
+  answer.headers.set('X-Portal-Upstream-Type', type)
 
   // **The body is refused; the session is not.** The first version of this
   // built a fresh response and carried nothing across, `Set-Cookie` included

@@ -6279,6 +6279,57 @@ Workers, weil das Nicht-sehen-Können hier die eigentliche Schwierigkeit war.
 Alle drei neuen Tests fallen gegen den alten Code um; das ist der einzige
 Grund, ihnen zu trauen.
 
+### 2.103 Der Webserver, der über sich selbst spricht
+
+§2.102 hat den Fall behandelt, ohne ihn je gesehen zu haben. Beim Nachmessen
+kam er endlich in voller Gestalt:
+
+    HTTP/1.1 200 OK
+    Content-Type: application/x-httpd-php
+
+`application/x-httpd-php` heißt: Apache reicht `.php` nicht mehr an PHP weiter
+und liefert stattdessen eine *Datei* aus. Der Rumpf war Apaches
+503-Fehlerseite, der Status 200. Das ist die ganze Erklärung für alles, was
+seit heute früh im Raum stand: die 200 zu einem 503-Body, das Sporadische, und
+warum mal `/me` ging und mal nicht. Es folgt keinem Muster nach Methode oder
+Route — der PHP-Handler flappt.
+
+**Und mein Schutz aus §2.102 hat danebengegriffen.** Er fragte, ob die Antwort
+`text/html` ist — die Gestalt, in der der Fehler *beobachtet* worden war. Die
+Gestalt, in der er tatsächlich ankam, ging daran vorbei. Eine Sperrliste kann
+nur das aufhalten, woran jemand schon gedacht hat; deshalb steht dort jetzt
+eine **Erlaubnisliste**: eine API-Antwort ist JSON oder ein Bild, und alles
+andere ist der Webserver, der über sich selbst spricht — unter welchem Namen
+auch immer. Der tatsächliche Typ geht als `X-Portal-Upstream-Type` mit hinaus,
+damit die nächste Gestalt nicht wieder erraten werden muss.
+
+**Ein zweiter Fehler in derselben Änderung**, gefunden während der Login schon
+kaputt war: `notAnAnswer()` baute eine frische Antwort und übernahm keinen
+Header vom Origin, `Set-Cookie` eingeschlossen. webtrees gibt seine
+Sitzungs-Cookie ausgerechnet bei den Anfragen aus, die diese Prüfung am
+ehesten erwischt. Eine verworfene Sitzungs-Cookie ist nicht eine schlechtere
+Antwort auf eine Anfrage — sie hinterlässt einen Client, der gar keine Sitzung
+mehr aufbauen kann, und ein erneuter Versuch heilt das nicht. Aus einem
+sporadischen Ausfall wäre ein dauerhafter geworden.
+
+**Wie das gefunden wurde, ist der eigentliche Ertrag.** Vier Hypothesen, alle
+falsch, jede durch eine Messung erledigt statt durch Nachdenken: der
+Statuscode gehe in unserer Kette verloren (nein — Service Worker, Proxy und
+`harden()` reichen ihn alle durch); die CSRF-Wiederholung fehle (nein — sie
+war da, ich hatte den Block darüber überlesen); es liege an gechunkten
+Request-Bodies (nein — der Origin nimmt sie an); es liege daran, dass der
+Login tatsächlich ausgeführt wird (nein — es kippte auch ohne Token).
+
+Was jede Runde weitergebracht hat, war nicht die nächste Vermutung, sondern
+die nächste Zeile Messwert. Am Ende hat *ein* Header-Dump beantwortet, woran
+sich ein halber Tag Überlegen die Zähne ausgebissen hat. Der Grund, dass er so
+spät kam, ist, dass ich mit dem Erklären angefangen habe statt mit dem
+Hinsehen.
+
+**Was hier nicht behoben ist.** Der PHP-Handler auf dem Server. Das Portal
+kann eine Antwort, die keine ist, jetzt erkennen, ehrlich benennen und
+messbar machen — laufen muss PHP dort selbst.
+
 ---
 
 ## 3. Things that were guessed
