@@ -27,6 +27,12 @@ export type ApiErrorCode =
   | 'email_taken'
   | 'server_error'
   | 'network_error'
+  /**
+   * The server answered, and what it said was not an answer: a page where
+   * JSON was asked for. Never sent *by* the API — the client raises it when
+   * something in front of webtrees replies for it. See §2.102.
+   */
+  | 'unreadable_answer'
 
 export interface ApiErrorBody {
   error: ApiErrorCode

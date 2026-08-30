@@ -2837,6 +2837,13 @@ components:
             - username_taken
             - email_taken
             - server_error
+            # Never written by the module. The Cloudflare Worker in front of it
+            # sends this when the family server answers an /api path with a web
+            # page instead of data — an overloaded Apache, a hosting
+            # maintenance page — which it has been seen doing under a 200. The
+            # real upstream status is on `X-Portal-Upstream-Status`. See
+            # NOTES §2.102.
+            - unreadable_answer
         message:
           type: string
           description: |

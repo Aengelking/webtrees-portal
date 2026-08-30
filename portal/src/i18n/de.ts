@@ -742,6 +742,8 @@ export const de = {
     not_configured:
       'Das Portal ist noch nicht vollständig eingerichtet. Bitte wende dich an die Familienverwaltung.',
     server_error: 'Auf dem Server ist ein Fehler aufgetreten. Bitte versuche es später noch einmal.',
+    unreadable_answer:
+      'Der Familienserver ist gerade überlastet oder wird gewartet. Es liegt nicht an deinen Zugangsdaten — bitte versuche es in ein paar Minuten noch einmal.',
     record_locked:
       'Dieser Eintrag ist gesperrt und kann nicht geändert werden. Bitte wende dich an die Familienverwaltung.',
     change_pending:

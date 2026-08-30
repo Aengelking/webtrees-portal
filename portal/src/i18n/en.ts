@@ -743,6 +743,8 @@ export const en: Translations = {
     not_configured:
       'The portal is not fully set up yet. Please contact the family administrator.',
     server_error: 'The server ran into a problem. Please try again later.',
+    unreadable_answer:
+      'The family server is busy or being maintained right now. This is not about your sign-in details — please try again in a few minutes.',
     record_locked:
       'This record is locked and cannot be changed. Please contact the family administration.',
     change_pending:

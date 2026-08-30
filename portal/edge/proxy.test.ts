@@ -62,6 +62,75 @@ describe('what may keep a response', () => {
 
 
 /**
+ * A web page arriving where an API answer was asked for.
+ *
+ * A member reported that signing in sometimes failed. In the console the
+ * session call carried Apache's stock *503 Service Unavailable* page — under a
+ * **200**. Passed through, the portal got a page where it asked for a record,
+ * and told the member their password was wrong. See §2.102.
+ */
+describe('a page where an answer was asked for', () => {
+  async function through(upstream: Response): Promise<Response> {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(upstream))
+
+    return proxyToWebtrees(new Request('https://portal.example/api/v1/me'), env)
+  }
+
+  function page(status: number): Response {
+    return new Response('<html><head><title>503 Service Unavailable</title></head></html>', {
+      status,
+      headers: { 'Content-Type': 'text/html; charset=iso-8859-1' },
+    })
+  }
+
+  /**
+   * The status is *not* repeated. A success code on an error page is the lie
+   * that made this hard to find; sending it on would keep it hidden.
+   */
+  it('refuses to repeat a success status that came with an error page', async () => {
+    const response = await through(page(200))
+
+    expect(response.status).toBe(502)
+    expect(response.headers.get('content-type')).toContain('application/json')
+    await expect(response.json()).resolves.toMatchObject({ error: 'unreadable_answer' })
+  })
+
+  /** What the origin really said, because that was the thing nobody could see. */
+  it('says what the family server actually answered', async () => {
+    expect((await through(page(200))).headers.get('x-portal-upstream-status')).toBe('200')
+  })
+
+  /** A page that already admits to being an error keeps its own status. */
+  it('keeps a status that was honest to begin with', async () => {
+    expect((await through(page(503))).status).toBe(503)
+  })
+
+  /**
+   * Redirects are left entirely alone: webtrees answers a stale CSRF token
+   * with one, the client reads it as exactly that and retries, and the HTML
+   * body on it is only the browser's courtesy page.
+   */
+  it('leaves a redirect alone, HTML body and all', async () => {
+    const redirect = new Response('<html>Moved</html>', {
+      status: 302,
+      headers: { 'Content-Type': 'text/html', Location: 'https://webtrees.example/login' },
+    })
+
+    expect((await through(redirect)).status).toBe(302)
+  })
+
+  it('lets a real answer past untouched', async () => {
+    const response = await through(
+      new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ ok: true })
+  })
+})
+
+
+/**
  * The MCP server's bearer token, which does not survive the trip under its own
  * name: Apache does not pass `Authorization` to PHP under CGI or FastCGI
  * unless `CGIPassAuth On` is set. Everything else in this portal authenticates

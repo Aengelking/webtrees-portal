@@ -6231,6 +6231,54 @@ ausstehende Fassung. Der Test hätte also auch dann bestanden, wenn das Modul
 direkt durchgeschrieben hätte. Er liest jetzt die gespeicherte Zeile aus der
 Tabelle.
 
+### 2.102 Eine Seite ist keine Antwort, egal welcher Status draufsteht
+
+Gemeldet als „manchmal geht das Login nicht". In der Konsole trug der
+Sitzungsaufruf Apaches Standardseite *503 Service Unavailable* — unter einem
+**200**.
+
+**Was das Mitglied gesehen hat.** `readJson()` fing den gescheiterten
+`JSON.parse` ab und gab `null` zurück. Das ging als `Me` an den Aufrufer, der
+gleich darauf `me.csrf_token` las — ein `TypeError`, also kein `ApiError`, also
+fiel er im Login-Bildschirm in den `else`-Zweig: **„Benutzername oder Passwort
+ist falsch."** Der Server war überlastet, und das Mitglied wurde losgeschickt,
+sein Passwort zu prüfen. Es hatte keine Möglichkeit, das herauszufinden.
+
+**Wo es nicht lag.** Die ganze Kette wurde durchgesehen, bevor etwas geändert
+wurde: der Service Worker lässt `/api/*` vollständig aus (`strategy.ts`),
+`proxy.ts` und `security.ts` reichen `status` und `statusText` beide durch. Die
+200 kam von oben. Was davor sitzt und eine Fehlerseite mit Erfolgsstatus
+ausliefert, ist von hier aus nicht einzusehen, und wird hier deshalb auch nicht
+behauptet.
+
+**Und wo ich mich unterwegs geirrt habe.** Ich hatte zunächst geschrieben, der
+Kommentar über der CSRF-Wiederholung beschreibe eine Wiederholung, die es im
+Code nicht gebe. Das war falsch: `redirect: 'manual'` plus
+`response.type === 'opaqueredirect'` wirft bereits `csrf_token_invalid` und
+erreicht die Wiederholung. Ich hatte den Block über der `stale`-Prüfung
+überlesen. Weiterleitungen sind behandelt; unbehandelt war allein die 200 mit
+unlesbarem Körper.
+
+**Zwei Stellen, zwei verschiedene Aufgaben.**
+
+Im Client wird jetzt unterschieden statt eingeebnet: `empty` ist eine echte
+Antwort (ein `204` sagt das), `unreadable` ist keine. Eine erfolgreiche
+Antwort, die kein JSON ist, wird zu `unreadable_answer` — und der
+Login-Bildschirm sagt dann, dass es nicht an den Zugangsdaten liegt. Die eine
+Meldung für jede *Ablehnung* bleibt, wie sie war; ein Server, der nicht
+geantwortet hat, ist keine Ablehnung.
+
+Im Worker wird eine HTML-Antwort unter `/api` zu dem Fehler, der sie ist. Zwei
+Dinge daran mit Absicht: **Weiterleitungen bleiben unangetastet** — genau davon
+lebt die CSRF-Wiederholung — und **eine 2xx-Seite wird zur 502, nicht zur 200**.
+Ein Erfolgsstatus auf einer Fehlerseite ist die Lüge, die den Fall so schwer
+auffindbar gemacht hat; sie weiterzureichen hieße, ihn versteckt zu halten. Der
+tatsächliche Status geht als `X-Portal-Upstream-Status` mit und ins Log des
+Workers, weil das Nicht-sehen-Können hier die eigentliche Schwierigkeit war.
+
+Alle drei neuen Tests fallen gegen den alten Code um; das ist der einzige
+Grund, ihnen zu trauen.
+
 ---
 
 ## 3. Things that were guessed

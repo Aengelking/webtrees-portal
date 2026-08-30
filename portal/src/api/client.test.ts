@@ -89,6 +89,53 @@ describe('api client', () => {
     })
   })
 
+  /**
+   * The failure a member reported as "sometimes the login does not work".
+   *
+   * Something in front of webtrees — an overloaded Apache, a hosting
+   * maintenance page — answers for it with HTML, and has been seen doing so
+   * carrying a `200`. This used to parse to `null` and be handed back as the
+   * record that was asked for, so the caller read a field off nothing. See
+   * §2.102.
+   */
+  it('refuses a page where an answer was asked for, whatever status it carries', async () => {
+    const page = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">\n<html><head>\n<title>503 Service Unavailable</title>\n</head><body><h1>Service Unavailable</h1></body></html>'
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(page, { status: 200, headers: { 'Content-Type': 'text/html' } }),
+      ),
+    )
+
+    await expect(api.me()).rejects.toMatchObject({ code: 'unreadable_answer', status: 200 })
+  })
+
+  /** The same on a write, where it used to take the caller down with it. */
+  it('refuses a page on a sign-in rather than answering with nothing', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(jsonResponse({ csrf_token: 'token-1' }))
+        .mockResolvedValue(new Response('<html>503</html>', { status: 200 })),
+    )
+
+    await expect(api.login({ username: 'anna', password: 'x', remember: false })).rejects.toBeInstanceOf(
+      ApiError,
+    )
+  })
+
+  /**
+   * And the answer that *is* nothing stays nothing. `204` says so, and
+   * telling the two apart is the whole of the fix above.
+   */
+  it('still reads an empty body as an empty answer', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response('', { status: 200 })))
+
+    await expect(api.me()).resolves.toBeNull()
+  })
+
   it('turns a transport failure into a network_error rather than an unhandled rejection', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')))
 
