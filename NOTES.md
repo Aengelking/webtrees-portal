@@ -5976,7 +5976,7 @@ Aussage über den Versuch, nicht über den Fehler.
 
 ---
 
-### 2.95 Der Knopf, der nicht verraten darf, wen er erreicht
+### 2.98 Der Knopf, der nicht verraten darf, wen er erreicht
 
 Verbinden ging bisher über die SB-Nummer: Nummer auf der einen Seite ablesen,
 unter „Kontakte" in ein Feld tippen. Der Umweg führt an genau dem Teil vorbei,
