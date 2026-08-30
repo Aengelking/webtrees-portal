@@ -590,6 +590,14 @@ export const de = {
     noAddress:
       'Zu deinem Zugang ist keine E-Mail-Adresse hinterlegt, deshalb gibt es keine Adresse, an die die Post der Familie gehen könnte. Wende dich an die Person, die den Familienstammbaum betreut.',
   },
+  directoryPrompt: {
+    title: 'Im Mitgliederverzeichnis erscheinen?',
+    body:
+      'Andere angemeldete Familienmitglieder sehen dann deinen Namen im Verzeichnis und können dir schreiben, ohne dass jemand deine Adresse erfährt. Aus dem Stammbaum wird dadurch nichts zusätzlich sichtbar.',
+    hint: 'Du kannst das jederzeit in den Einstellungen wieder ändern.',
+    yes: 'Ja, anzeigen',
+    no: 'Nein, nicht anzeigen',
+  },
   settings: {
     contacts: 'Meine Kontakte',
     contactsBody:

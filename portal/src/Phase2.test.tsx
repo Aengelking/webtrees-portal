@@ -53,6 +53,7 @@ function me(overrides: Record<string, unknown> = {}) {
       visible_in_directory: false,
       display_name_override: null,
       consent_recorded_at: null,
+      directory_decided: true,
     },
     individual: INDIVIDUAL,
     tree: { name: 'portal', title: 'Familie Beispiel' },
@@ -304,6 +305,7 @@ describe('directory settings', () => {
             visible_in_directory: true,
             display_name_override: null,
             consent_recorded_at: '2026-08-17 12:00:00',
+            directory_decided: true,
           })
         }
 

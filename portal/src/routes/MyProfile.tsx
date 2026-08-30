@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useMe } from '../api/queries'
+import { DirectoryPrompt } from '../components/DirectoryPrompt'
 import { IndividualView } from '../components/IndividualView'
 import { InviteCard } from '../components/InviteCard'
 import { MyPhotos } from '../components/MyPhotos'
@@ -16,6 +17,15 @@ export function MyProfile() {
   return (
     <>
       <PageHeading>{t('profile.title')}</PageHeading>
+
+      {/*
+        Above everything, and above the record itself: it is a question waiting
+        for an answer, and a question below a screenful of family data is one
+        nobody scrolls to. It removes itself the moment it is answered — see
+        `DirectoryPrompt` for why "answered" is a fact about the member rather
+        than about this telephone.
+      */}
+      <DirectoryPrompt />
 
       {isPending && <Loading />}
 

@@ -29,7 +29,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 function me(unread: number, conversations = 0) {
   return {
     user: { id: 1, username: 'anna', real_name: 'Anna Beispiel', email: 'a@b.test', language: 'de', role: 'member' },
-    profile: { id: 1, visible_in_directory: true, display_name_override: null, consent_recorded_at: null },
+    profile: { id: 1, visible_in_directory: true, display_name_override: null, consent_recorded_at: null, directory_decided: true },
     individual: null,
     tree: { name: 'portal', title: 'Familie Beispiel' },
     unread_messages: unread,

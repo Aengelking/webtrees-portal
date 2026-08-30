@@ -228,6 +228,11 @@ paths:
         Setting `visible_in_directory` to true records the moment of consent in
         `consent_recorded_at`. Setting it to false clears that timestamp:
         withdrawn consent should not leave a record saying consent was given.
+
+        Sending `visible_in_directory` at all — true or false, changed or not —
+        marks the member as having answered the directory question, which is
+        what `directory_decided` reports and what stops the portal asking
+        again.
       operationId: updateMyProfile
       parameters:
         - $ref: '#/components/parameters/CsrfHeader'
@@ -3337,7 +3342,8 @@ components:
       description: The portal's own record for a member, from `portal_member_profile`.
       type: object
       additionalProperties: false
-      required: [id, visible_in_directory, display_name_override, consent_recorded_at]
+      required:
+        [id, visible_in_directory, display_name_override, consent_recorded_at, directory_decided]
       properties:
         id:
           type: integer
@@ -3349,6 +3355,14 @@ components:
         consent_recorded_at:
           type: [string, 'null']
           format: date-time
+        directory_decided:
+          type: boolean
+          description: |
+            Whether this member has ever answered the directory question —
+            not what they answered. False means nobody has asked yet, and the
+            portal shows the question on the member's own profile until it is
+            true. Answering either way sets it, and nothing clears it: leaving
+            the directory changes the answer, it does not un-ask the question.
 
     Accepted:
       type: object
