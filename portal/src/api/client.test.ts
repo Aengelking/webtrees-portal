@@ -136,6 +136,62 @@ describe('api client', () => {
     await expect(api.me()).resolves.toBeNull()
   })
 
+  /**
+   * **A workaround for a filter at the hosting company.** See `serialise` in
+   * client.ts and §2.104: something in front of the family server refuses any
+   * request whose body contains an e-mail address, answering `200` with an
+   * Apache error page. `\u0040` is the same character written the way JSON
+   * allows, so the body carries the address without spelling it.
+   */
+  it('never puts a literal @ in a request body', async () => {
+    // A fresh Response each time: a POST fetches a CSRF token first, and one
+    // Response object cannot have its body read twice.
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => jsonResponse({ csrf_token: 'token-1', status: 'sent' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.requestPasswordReset('amos@engelking.de')
+
+    const sent = String(calls(fetchMock)[1]?.[1]?.body)
+
+    expect(sent).not.toContain('@')
+    expect(sent).toContain('\\u0040')
+  })
+
+  /** And what arrives is the address that was typed, character for character. */
+  it('carries the address unchanged despite the escaping', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => jsonResponse({ csrf_token: 'token-1', status: 'sent' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.requestPasswordReset('amos@engelking.de')
+
+    const sent = JSON.parse(String(calls(fetchMock)[1]?.[1]?.body)) as { email: string }
+
+    expect(sent.email).toBe('amos@engelking.de')
+  })
+
+  /**
+   * Every field, not the address fields alone: a password may contain an
+   * address too, and that member would have been just as stuck with no clue
+   * why. The CSRF token is fetched first, so the login body is the second call.
+   */
+  it('escapes an address in a password as well', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => jsonResponse({ csrf_token: 'token-1' }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api.login({ username: 'anna', password: 'ich@hause2026', remember: false })
+
+    const sent = String(calls(fetchMock)[1]?.[1]?.body)
+
+    expect(sent).not.toContain('@')
+    expect((JSON.parse(sent) as { password: string }).password).toBe('ich@hause2026')
+  })
+
   it('turns a transport failure into a network_error rather than an unhandled rejection', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('Failed to fetch')))
 

@@ -116,7 +116,7 @@ class EditTest extends PortalTestCase
     {
         // Anna cannot read this fact at member access level.
         $me = $this->json($this->api(MeRead::class));
-        self::assertStringNotContainsString('Vertraulich', $this->rawWithoutCsrfToken($this->api(MeRead::class)));
+        self::assertStringNotContainsString('Vertraulich', $this->raw($this->api(MeRead::class)));
         self::assertNotContains('Vertrauliche Notiz zur Person', array_column($me['individual']['events'], 'value'));
 
         $this->put(['occupation' => 'Möbelrestauratorin']);

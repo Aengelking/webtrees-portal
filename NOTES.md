@@ -6330,6 +6330,109 @@ Hinsehen.
 kann eine Antwort, die keine ist, jetzt erkennen, ehrlich benennen und
 messbar machen — laufen muss PHP dort selbst.
 
+### 2.104 Eine E-Mail-Adresse im Body, und ein Filter, der sie nicht mag
+
+Gemeldet als „manchmal geht das Login nicht", und die Ursache stand am Ende in
+einer einzigen Zeile: **ein Filter beim Hoster liest den Rumpf jeder Anfrage
+und weist die zurück, die eine E-Mail-Adresse enthalten.** Die Antwort ist
+`HTTP 200` mit `Content-Type: application/x-httpd-php` und einer
+Apache-Fehlerseite als Inhalt, in 0,3 Sekunden, ohne dass PHP je anläuft.
+
+**Wie es eingekreist wurde**, denn das ist der Teil, der übertragbar ist. Jede
+Runde war eine Messung, die genau eine Variable änderte:
+
+| Frage | Antwort |
+| --- | --- |
+| Liegt es an der Route? | Nein — `/me` und `/session` verhalten sich gleich, wenn der Rumpf gleich ist |
+| An der Herkunft? | Nein — 60 Läufe über den Proxy und 60 direkt, beide sauber |
+| Am Cookie? | Nein — mit Jar genauso grün |
+| Am Konto? | **Nein** — `gibtesnicht@engelking.de` existiert nicht und wird genauso geblockt |
+| Am Klammeraffen allein? | Nein — `gibtesnicht@` geht durch |
+| Am Feld? | Nein — dieselbe Adresse im Passwortfeld blockt genauso |
+| An der Kodierung? | Nein — formular-kodiert blockt auch; der Filter dekodiert Prozentzeichen, bevor er sucht |
+
+Es ist also das vollständige Adressmuster, irgendwo im Rumpf, unabhängig von
+Feld und Kodierung.
+
+**Der Radius war größer als das gemeldete Symptom.** Vier Endpunkte tragen
+eine Adresse im Rumpf — anmelden, einladen, Passwort zurücksetzen, Einladung
+einlösen — dazu die Profilbearbeitung, in der ein Mitglied seine eigene
+Adresse ändert. Alle waren blockiert. Aufgefallen ist nur der Login, weil nur
+der täglich benutzt wird. Deshalb sitzt der Umweg zentral in `send()` und
+nicht im Login.
+
+**Der Umweg.** `\u0040` ist `@` — dasselbe Zeichen, so geschrieben, wie JSON
+es erlaubt. Der Rumpf bleibt gültiges JSON, `json_decode` liefert auf der
+anderen Seite exakt den getippten String, und **am Modul ändert sich keine
+Zeile**. Ersetzt wird auf dem serialisierten Text, was gefahrlos ist, weil `@`
+keine JSON-Syntax ist und jedes Vorkommen folglich schon in einer
+Zeichenkette steht. Es funktioniert, weil der Filter JSON-Escapes nicht
+auflöst — eine Eigenschaft dieses Filters, die aufhören kann zu gelten.
+
+**Das ist ein Umweg um eine fremde Fehlkonfiguration und keine Verbesserung.**
+So steht es auch im Code, mit Datum und Anlass, damit es niemand später für
+eine Design-Entscheidung hält und darauf aufbaut. Es darf verschwinden, sobald
+die Regel korrigiert ist. Ein Test auf jeder Seite hält die Abmachung fest;
+die zwei Hälften sind in verschiedenen Sprachen geschrieben, und sonst bringt
+sie nichts zusammen.
+
+**Was dem Hoster zu melden ist, ist weniger das Blocken als die 200.** Über
+eine Filterregel kann man streiten. Eine Fehlerseite unter einem Erfolgsstatus
+macht den Ausfall für jedes Monitoring unsichtbar — für den Betreiber, für uns
+und für den Hoster selbst. Ohne §2.102 und §2.103, die aus so einer Antwort
+einen ehrlichen Fehler mit `X-Portal-Upstream-Status` und
+`X-Portal-Upstream-Type` machen, wäre die Ursache heute nicht zu finden
+gewesen: der entscheidende Beleg war ein Header, den wir am selben Tag erst
+eingebaut hatten.
+
+**Und die Bilanz des Tages, weil sie mehr wert ist als das Ergebnis.** Sieben
+Hypothesen, sechs davon falsch: Statusverlust in unserer Kette, fehlende
+CSRF-Wiederholung, gechunkte Rümpfe, ein teurer Passwort-Hash, der Begrenzer,
+das Cookie. Jede wurde durch eine Messung erledigt, keine durch Nachdenken.
+Erledigt hat es am Ende ein Vergleich, den der Betreiber selbst gemacht hat —
+ein existierender gegen einen nicht existierenden Benutzernamen, beide mit
+`@`. Der eine Vergleich hat mehr geklärt als alles, was ich mir vorher
+ausgedacht hatte.
+
+### 2.105 Ein Helfer, den man sich merken muss, wird vergessen
+
+Zweimal an einem Tag ging ein Lauf rot, ohne dass am Code etwas falsch war:
+einmal `M2` in einem Token, der `PN5iTM2QXkr…` lautete, einmal `X3` in
+`uXIqb8LsnyX3XSi…`.
+
+Die betroffenen Tests behaupten, dass eine Kennung **nirgends** in der Antwort
+steht, und prüfen das am Rohtext — genau richtig, denn eine strukturierte
+Prüfung übersieht die Stellen, an denen so etwas durchrutscht. Nur steht
+mitten in diesem Rohtext ein CSRF-Token aus zweiunddreißig zufälligen
+alphanumerischen Zeichen. Für eine zweistellige Nadel wie `X3` sind das rund
+0,8 % je Antwort; bei einem Dutzend solcher Prüfungen pro Lauf ist rot kein
+seltenes Ereignis mehr, sondern ein regelmäßiges.
+
+**Es gab bereits eine Lösung, und das ist der eigentliche Befund.**
+`rawWithoutCsrfToken()` war für genau diesen Fall geschrieben — samt Docblock,
+der `X3` als Beispiel nennt. Angewendet war er an drei von vierzig
+Aufrufstellen. Beide Fehlschläge von heute lagen an nicht umgestellten
+Stellen, einer davon zehn Zeilen unter einer umgestellten in derselben Datei.
+
+Ein Helfer, an den man denken muss, ist ein Helfer, der vergessen wird. Wer
+die nächste Prüfung schreibt, kann nicht wissen, dass hier eine Falle liegt.
+Also entfernt **`raw()` selbst** den Token, und den zweiten Helfer gibt es
+nicht mehr. Das Entfernen kann nur ein Leck verbergen, das gar nicht da ist —
+ein Token ist ein Zugangsmerkmal und kein Inhalt —, es nimmt den Prüfungen
+also nichts, wofür sie da sind.
+
+**Ein Fehler mit einer Wahrscheinlichkeit von eins zu hundert lässt sich nicht
+erwischen, indem man die Suite noch einmal laufen lässt.** Er muss gebaut
+werden. Der neue Test übergibt `raw()` eine Antwort, deren Token jede Nadel
+buchstabiert, nach der diese Prüfungen suchen, und verlangt, dass keine davon
+überlebt — und dass der Rest der Antwort unangetastet bleibt. Gegen die vorige
+Fassung fällt er um.
+
+Ein Nachtrag zum Auffinden: der Lauf war beim PR grün und beim Push rot,
+derselbe Commit. Zwei Läufe, ein Würfel. Das ist die Sorte Unterschied, die
+man als „Flackern" abtut — und dahinter lag ein Fehler, der jederzeit
+wiedergekommen wäre.
+
 ---
 
 ## 3. Things that were guessed
