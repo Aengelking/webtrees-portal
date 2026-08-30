@@ -5928,6 +5928,52 @@ undecodable — a PNG header, which is all `getimagesizefromstring()` looks at,
 followed by zeroes — and without the header check that test fails, which is the
 only reason to trust it.
 
+### 2.97 Zwei Tests, die auf der eigenen Maschine nichts beweisen
+
+Der Branch war lokal grün und in CI rot — einmal im Modul, einmal im Portal.
+Zwei verschiedene Ursachen, dieselbe Form: ein Test, der auf einer schnellen
+und unbelasteten Maschine bestanden hat, ohne das zu prüfen, was er behauptet.
+
+**Der Thumbnail-Cache liegt auf der Platte.** `ImageFactory` merkt sich
+Vorschaubilder in `data/cache/`, also in einem echten Verzeichnis, das den
+Prozess überlebt — und der Schlüssel enthält die letzte Änderung der Bilddatei
+*auf die Sekunde genau*. Die Tests schreiben ihre Bild-Fixtures in `setUp()`
+immer neu. Zwei Tests, die im selben Sekundentakt laufen, schreiben damit
+denselben Schlüssel.
+
+Der neue Test aus §2.96 zerstört eine Bilddatei absichtlich und erwartet eine
+Absage. In CI bekam er stattdessen das gute Vorschaubild des vorigen Tests
+zurück, ohne dass webtrees ein einziges Byte gelesen hätte. Allein lief er
+grün, in seiner eigenen Klasse rot — und das ließ sich lokal sofort
+nachstellen, sobald man die ganze Klasse laufen ließ statt nur den Test.
+`PortalTestCase::setUp()` leert den Cache jetzt vor jedem Test. Die Laufzeit
+ändert sich nicht messbar.
+
+**Und `findBy…` wartet nicht auf Effekte.** Im Portal kippte
+`PullToRefresh.test.tsx` in CI um. Die Vermutung „flackernder Test“ war
+falsch; eine Sonde hat es beantwortet: `installStore.state()` war korrekt
+`standalone`, und trotzdem war **kein einziger Touch-Listener angemeldet**.
+
+Testing Library schaltet Reacts act-Umgebung ab, solange `findBy…` pollt. Das
+`useEffect` in `usePullToRefresh` landet dadurch beim echten Scheduler und
+läuft in einer späteren Task. Auf einer unbelasteten Maschine ist die längst
+gelaufen, wenn die nächste Zeile kommt. Auf einer belasteten nicht — und dann
+geht die Geste an ein Fenster, an dem niemand horcht.
+
+Das Ärgerliche daran ist nicht der eine rote Test. **Vier der Tests in dieser
+Datei behaupten, dass eine Geste *nichts* tut** — und eine Geste, der niemand
+zuhört, tut sehr überzeugend nichts. Die hätten also aus dem falschen Grund
+bestanden, und zwar dauerhaft und still. Jetzt geht jeder Test durch einen
+Helfer, der nach dem Warten ein leeres `act` fährt und damit die Effekte
+nachzieht, die das Commit nur eingeplant hatte.
+
+**Was beide Fälle gemeinsam haben:** die eigene Maschine ist keine Instanz,
+auf der ein Test besteht — sie ist eine, auf der er zufällig besteht. Beide
+ließen sich hier nachstellen, sobald man den Rechner in den Zustand brachte,
+in dem CI ohnehin ist: die ganze Testklasse statt eines Tests, vier parallele
+Läufe statt eines. Vorher waren beide „nicht reproduzierbar“, und das war eine
+Aussage über den Versuch, nicht über den Fehler.
+
 ---
 
 ## 3. Things that were guessed
