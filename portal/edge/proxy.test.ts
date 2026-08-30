@@ -119,6 +119,33 @@ describe('a page where an answer was asked for', () => {
     expect((await through(redirect)).status).toBe(302)
   })
 
+  /**
+   * **The session survives the refusal.**
+   *
+   * The first version of this built a fresh response and carried nothing
+   * across — `Set-Cookie` included. webtrees hands out its session cookie on
+   * exactly the requests this is most likely to catch, so dropping it did not
+   * make one answer worse: it left a client that could no longer establish a
+   * session at all, and every CSRF check after it failed. An intermittent
+   * fault became a permanent one. See §2.103.
+   */
+  it('keeps the session cookie the family server set', async () => {
+    const withCookie = new Response('<html>503</html>', {
+      status: 503,
+      headers: {
+        'Content-Type': 'text/html',
+        'Set-Cookie': 'WT_SESSION=abc; Path=/; Domain=webtrees.example; HttpOnly; SameSite=Lax',
+      },
+    })
+
+    const cookies = (await through(withCookie)).headers.getSetCookie()
+
+    expect(cookies).toHaveLength(1)
+    expect(cookies[0]).toContain('WT_SESSION=abc')
+    // Rescoped for the portal's own origin, exactly as a real answer is.
+    expect(cookies[0]).not.toContain('Domain=')
+  })
+
   it('lets a real answer past untouched', async () => {
     const response = await through(
       new Response('{"ok":true}', { status: 200, headers: { 'Content-Type': 'application/json' } }),

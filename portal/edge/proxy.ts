@@ -301,6 +301,15 @@ function notAnAnswer(upstream: Response): Response | null {
     upstream.status >= 400 ? upstream.status : 502,
   )
 
+  // **The body is refused; the session is not.** The first version of this
+  // built a fresh response and carried nothing across, `Set-Cookie` included
+  // — and webtrees hands out its session cookie on the very requests this is
+  // most likely to catch. A dropped session cookie is not a worse answer to
+  // one request, it is a client that can no longer establish a session at
+  // all: every CSRF check after it fails, and retrying cannot heal it. That
+  // turned an intermittent fault into a permanent one. See §2.103.
+  rewriteSetCookies(upstream.headers, answer.headers)
+
   answer.headers.set('X-Portal-Upstream-Status', String(upstream.status))
 
   return answer
