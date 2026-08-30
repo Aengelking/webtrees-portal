@@ -109,6 +109,7 @@ use Engelking\Webtrees\PortalApi\Services\RecordPresenter;
 use Engelking\Webtrees\PortalApi\Services\RememberedDevices;
 use Engelking\Webtrees\PortalApi\Services\SackNumbers;
 use Engelking\Webtrees\PortalApi\Services\SackRelationship;
+use Engelking\Webtrees\PortalApi\Services\SpouseMarker;
 use Engelking\Webtrees\PortalApi\Services\SearchConsent;
 use Engelking\Webtrees\PortalApi\Services\TreeSearch;
 use Engelking\Webtrees\PortalApi\Services\RelationshipNamer;
@@ -403,6 +404,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $photos         = new PhotoPresenter($photo_store);
         $offices        = new Offices($portal_trees);
         $family_weddings = new FamilyMarriages($portal_trees, $sack_numbers, $sack);
+        $spouse_marker  = new SpouseMarker($portal_trees, $pending);
         $presenter      = new RecordPresenter($pending, $relationships, $photos, $sack_numbers, $offices);
         $members        = new MemberService($user_service);
         $ancestors      = new AncestorTree($presenter, $members);
@@ -476,6 +478,7 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
         $container->set(RecordPresenter::class, $presenter);
         $container->set(Offices::class, $offices);
         $container->set(FamilyMarriages::class, $family_weddings);
+        $container->set(SpouseMarker::class, $spouse_marker);
         $container->set(RelationshipNamer::class, $relationships);
         $container->set(PhotoPresenter::class, $photos);
         $container->set(AncestorTree::class, $ancestors);
@@ -1784,21 +1787,67 @@ class PortalApiModule extends AbstractModule implements ModuleCustomInterface, M
 
         $container = Registry::container();
         $scan      = $container->get(FamilyMarriages::class)->scan();
-        $counts    = ['recorded' => 0, 'wrong_way' => 0, 'missing' => 0, 'unclear' => 0];
+        $counts    = [
+            'unmarked'       => 0,
+            'unmarked_stuck' => 0,
+            'recorded'       => 0,
+            'wrong_way'      => 0,
+            'missing'        => 0,
+            'unclear'        => 0,
+        ];
 
         foreach ($scan['rows'] as $row) {
             ++$counts[$row['state']];
         }
 
         return $this->viewResponse($this->name() . '::marriages', [
-            'title'        => I18N::translate('Marriages inside the family'),
-            'module'       => $this,
-            'tree'         => $container->get(PortalTreeService::class)->tree(),
-            'rows'         => $scan['rows'],
-            'truncated'    => $scan['truncated'],
-            'counts'       => $counts,
-            'settings_url' => $this->getConfigLink(),
+            'title'         => I18N::translate('Marriages inside the family'),
+            'module'        => $this,
+            'tree'          => $container->get(PortalTreeService::class)->tree(),
+            'rows'          => $scan['rows'],
+            'truncated'     => $scan['truncated'],
+            'counts'        => $counts,
+            'may_mark'      => $container->get(SpouseMarker::class)->permitted(),
+            'settings_url'  => $this->getConfigLink(),
         ]);
+    }
+
+    /**
+     * Put the `!` on one partner's number, as a change awaiting approval.
+     *
+     * One row at a time and no "do them all": each of these decides whether a
+     * person is read as a descendant of a line or as somebody who married into
+     * it, and the reading it comes from — no parents in the archive — is a
+     * fact about how complete the records are. A person should see each one.
+     */
+    public function postAdminMarriagesAction(ServerRequestInterface $request): ResponseInterface
+    {
+        $body   = Validator::parsedBody($request);
+        $marker = Registry::container()->get(SpouseMarker::class);
+
+        if (!$marker->permitted()) {
+            FlashMessages::addMessage(I18N::translate('Only a manager of this family tree may change a record.'), 'danger');
+
+            return redirect($this->marriagesUrl());
+        }
+
+        $outcome = $marker->mark($body->string('xref', ''), $body->string('number', ''));
+
+        $said = [
+            SpouseMarker::MARKED         => [I18N::translate('The mark has been proposed. It is waiting to be approved in the family tree.'), 'success'],
+            SpouseMarker::APPLIED        => [I18N::translate('The mark has been added to the family tree. Your account accepts your own changes at once, so there is nothing left to approve — webtrees’ list of changes has it if you want to undo it.'), 'success'],
+            SpouseMarker::ALREADY_MARKED => [I18N::translate('That number already carries the mark.'), 'info'],
+            SpouseMarker::PENDING        => [I18N::translate('This record already has a change waiting to be approved. Deal with that one first.'), 'warning'],
+            SpouseMarker::LOCKED         => [I18N::translate('This record is locked against editing.'), 'danger'],
+            SpouseMarker::NO_PERSON      => [I18N::translate('There is nobody in the family tree with that reference.'), 'danger'],
+            SpouseMarker::NO_NUMBER      => [I18N::translate('That record no longer carries that number. Read the list again.'), 'danger'],
+        ];
+
+        [$message, $level] = $said[$outcome];
+
+        FlashMessages::addMessage($message, $level);
+
+        return redirect($this->marriagesUrl());
     }
 
     private function marriagesUrl(): string
