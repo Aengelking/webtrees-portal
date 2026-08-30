@@ -209,6 +209,12 @@ abstract class PortalTestCase extends TestCase
             'visible_in_directory'  => $visible ? 1 : 0,
             'display_name_override' => $display_name,
             'consent_recorded_at'   => $visible ? '2026-01-01 00:00:00' : null,
+            // A member who is in the directory said so, which is also an
+            // answer to "have you been asked?" — the same reading
+            // `Migration20` applies to the rows that existed before the
+            // question did. An invisible fixture member has answered nothing,
+            // which is what makes it the fixture for the prompt.
+            'directory_decided_at'  => $visible ? '2026-01-01 00:00:00' : null,
             'created_at'            => '2026-01-01 00:00:00',
             'updated_at'            => '2026-01-01 00:00:00',
         ]);

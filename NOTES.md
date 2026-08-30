@@ -5737,6 +5737,53 @@ compound id costs nothing and reaches everything.
 
 ---
 
+### 2.93 Niemand hat je gefragt
+
+`visible_in_directory` steht auf aus, und nur das Mitglied selbst kann es
+umlegen — die richtige Voreinstellung, §1.3, und sie hatte einen Fehler in der
+Praxis: **es hat nie jemand gefragt.** Der Schalter steht in den Einstellungen,
+in die kaum jemand geht, also bleibt das Verzeichnis leer, und die
+Kontakte-Seite ist für alle nutzlos — auch für die, die gern zugestimmt
+hätten. Schweigen wurde als „nein" gelesen, obwohl es nur „nicht gefragt"
+hieß.
+
+Das Portal fragt jetzt, auf „Mein Profil", **solange keine Antwort vorliegt**.
+Und dieses „solange" ist der ganze Entwurf: eine Markierung im Browser hätte
+dieselbe Person auf dem nächsten Telefon noch einmal gefragt und hätte genau
+die Mitglieder nie erreicht, die sich vor Monaten angemeldet haben — also die,
+für die das Ganze da ist. Der Zustand gehört zum Mitglied, nicht zum Gerät,
+und liegt deshalb in der Datenbank.
+
+**Warum eine eigene Spalte.** Die Frage lautet „hat diese Person entschieden?",
+und keine vorhandene Spalte beantwortet sie. `visible_in_directory = 0` heißt
+sowohl „nein danke" als auch „nie gefragt". Und `consent_recorded_at` wird beim
+Verlassen des Verzeichnisses *absichtlich gelöscht* — eine zurückgezogene
+Einwilligung darf keinen Beleg hinterlassen, dass sie erteilt wurde. Also
+`directory_decided_at`: einmal gesetzt, sobald das Mitglied antwortet, und nie
+wieder gelöscht. Sie hält fest, dass eine Frage beantwortet wurde, nicht wie —
+das Wie ist der Schalter, den man beliebig oft umlegen darf, ohne erneut
+gefragt zu werden.
+
+**Auch „nein" muss gesendet werden**, und das ist die Stelle, an der es ohne
+Spalte scheitern würde: eine Ablehnung lässt die Zeile genau so, wie sie war —
+nicht gelistet, keine Einwilligung. Ohne einen Ort, an dem sie steht, wäre sie
+von „nie gefragt" nicht zu unterscheiden, und die Karte käme morgen wieder.
+Deshalb schickt die Karte *beide* Antworten an den Server.
+
+**Der Backfill ist der Grund, das im Schema zu tun.** Wer im Verzeichnis steht
+oder einen Einwilligungs-Zeitpunkt hat, hat offensichtlich entschieden und
+wird als entschieden markiert. Alle anderen werden einmal gefragt — auch die
+Handvoll, die den Schalter von Hand wieder ausgeschaltet hat, deren Zeile von
+einer nie gefragten nicht zu unterscheiden ist. Einmal zu viel gefragt ist der
+Preis dafür, sie nicht auseinanderhalten zu können; die Alternative war,
+niemanden zu fragen.
+
+Zwei Buttons und kein dritter. Kein „später": eine Karte, die sich aufschieben
+lässt, wird aufgeschoben, und das Mitglied träfe sie beim nächsten Besuch
+wieder, ohne dass irgendjemand etwas gewonnen hätte.
+
+---
+
 ## 3. Things that were guessed
 
 Flagging these so they get a second look rather than being inherited as fact.

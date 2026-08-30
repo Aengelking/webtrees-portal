@@ -74,6 +74,7 @@ function meFor(language: string | null) {
       visible_in_directory: true,
       display_name_override: null,
       consent_recorded_at: '2026-01-01 00:00:00',
+      directory_decided: true,
     },
     individual: german
       ? individual({ birth: 'Geburt', occupation: 'Beruf' })

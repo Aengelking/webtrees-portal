@@ -64,6 +64,7 @@ const ME = {
     visible_in_directory: true,
     display_name_override: null,
     consent_recorded_at: '2026-01-01 00:00:00',
+    directory_decided: true,
   },
   individual: ANNA,
   tree: { name: 'portal', title: 'Familie Beispiel' },
@@ -627,6 +628,7 @@ export async function stubApi(page: Page, options: { language?: 'de' | 'en' } = 
         visible_in_directory: visibleInDirectory,
         display_name_override: body.display_name_override ?? null,
         consent_recorded_at: visibleInDirectory ? '2026-08-17 12:00:00' : null,
+        directory_decided: true,
       })
     }
 

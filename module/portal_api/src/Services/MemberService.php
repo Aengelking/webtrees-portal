@@ -253,6 +253,10 @@ class MemberService
      * the column answers "since when is this person listed", and the answer
      * for an unlisted person is "they are not".
      *
+     * `directory_decided_at` is the other question — *was this person ever
+     * asked?* — and it is exactly because the column above is cleared that it
+     * cannot be answered from it. It is set once and kept.
+     *
      * @param array<string,mixed> $changes
      *
      * @return array<string,mixed>
@@ -273,6 +277,14 @@ class MemberService
             if ($visible !== $was_visible) {
                 $update['consent_recorded_at'] = $visible ? $now : null;
             }
+
+            // Answered — whichever way, and even where the answer is the same
+            // as the default. "No thank you" is a decision and has to be
+            // recorded as one, or the portal would go on asking somebody who
+            // has already said no. Never cleared afterwards: switching the
+            // directory back off is changing an answer, not un-asking the
+            // question. See Migration20.
+            $update['directory_decided_at'] = $existing?->directory_decided_at ?? $now;
         }
 
         if (array_key_exists('display_name_override', $changes)) {
@@ -440,6 +452,10 @@ class MemberService
             'visible_in_directory'  => (bool) $row->visible_in_directory,
             'display_name_override' => $this->nullableString($row->display_name_override ?? null),
             'consent_recorded_at'   => $this->nullableString($row->consent_recorded_at ?? null),
+            // Whether this member has ever answered the directory question —
+            // not what they answered. The portal asks on the profile screen
+            // until this is true; see Migration20.
+            'directory_decided'     => ($row->directory_decided_at ?? null) !== null,
         ];
     }
 

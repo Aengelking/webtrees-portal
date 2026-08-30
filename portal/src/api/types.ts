@@ -179,6 +179,12 @@ export interface MemberProfile {
   visible_in_directory: boolean
   display_name_override: string | null
   consent_recorded_at: string | null
+  /**
+   * Whether this member has ever answered the directory question — not what
+   * they answered. False means nobody has asked, and `DirectoryPrompt` asks;
+   * sending `visible_in_directory` either way sets it, and nothing clears it.
+   */
+  directory_decided: boolean
 }
 
 export interface DateValue {

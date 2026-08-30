@@ -588,6 +588,14 @@ export const en: Translations = {
     noAddress:
       'Your account has no email address, so there is nowhere for the family’s post to go. Please ask whoever looks after the family tree.',
   },
+  directoryPrompt: {
+    title: 'Appear in the member directory?',
+    body:
+      'Other signed-in family members would then see your name in the directory and could write to you, without anybody learning your address. Nothing more from the family tree becomes visible.',
+    hint: 'You can change this again at any time in the settings.',
+    yes: 'Yes, list me',
+    no: 'No, do not list me',
+  },
   settings: {
     contacts: 'My contacts',
     contactsBody:
