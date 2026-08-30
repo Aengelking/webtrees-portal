@@ -1982,14 +1982,30 @@ how complete the records are — and those couples are listed with no button, fo
 a person to decide. A `!` on the wrong one of the two does not fail; it quietly
 makes each of them the other.
 
-For the couples it can read, there is a button per row, and no "correct them
-all": each of these decides whether a person is a descendant of a line or
-married into it. The correction is made the way any edit in webtrees is made —
-written to the list of changes, waiting to be approved, or applied at once if
-your own account is set to accept your changes without asking. Either way it is
-logged, attributed, and can be undone from webtrees' list of changes. Only a
-manager of the family tree may do it, and a record locked against editing is
-refused.
+For the couples it can read there is a button per row, and above the table one
+that does all of them at once. That second button was deliberately left out at
+first, on the reasoning that each of these corrections decides whether a person
+is a descendant of a line or married into it and ought to be seen — and then the
+archive turned out to hold a hundred and twenty-six of them. A screen that
+demands a hundred and twenty-six identical decisions singly does not get read
+more carefully than one with a button; it does not get read to the end at all.
+
+What the button does not do is widen what may be corrected. The couples the
+records do not decide have no button of their own and are not in the bulk list
+either. The list is worked out on the server from a fresh scan rather than sent
+by the form, so nothing that can open the screen can name its own records. A
+refusal — a locked record, a change already waiting, a number edited since the
+scan — counts and the run carries on, and the report says how many of each
+happened rather than one triumphant number. At most two hundred are written per
+press, so that a run cannot outlast the webserver's patience and leave a page
+that never comes back; whatever is left over is reported and the button can be
+pressed again.
+
+The correction is made the way any edit in webtrees is made — written to the
+list of changes, waiting to be approved, or applied at once if your own account
+is set to accept your changes without asking. Either way it is logged,
+attributed, and can be undone from webtrees' list of changes. Only a manager of
+the family tree may do it, and a record locked against editing is refused.
 
 ### Letting an assistant read the archive
 
@@ -2950,13 +2966,35 @@ same office twice reports that nothing changed, titles are tidied and capped,
 and an office on a record that is gone names nobody without disturbing the
 directory.
 
-**The scan over the marriage table** has seven of its own: that a couple is
-only listed where *both* partners carry a number, that a row pointing the way
-the records do is right and the same pair written backwards is not, that a
-marriage the table does not know is reported with the row to paste in the order
-the table is written, and that a couple whose children carry no numbers is
-reported as unreadable rather than guessed at. The fixture carries three
-couples used for nothing else.
+**The scan over the marriage table** holds that a couple is only listed where
+*both* partners carry a number, that a row pointing the way the records do is
+right and the same pair written backwards is not, that a marriage the table
+does not know is reported with the row to paste in the order the table is
+written, and that a couple whose children carry no numbers is reported as
+unreadable rather than guessed at. The fixture carries three couples used for
+nothing else.
+
+**The missing `!`** is pinned from both ends. On the reading side: a couple
+sharing one number is not read as a marriage at all, the mark goes on the
+partner with no parents in the archive, and where neither has parents nobody is
+marked and the row carries no button. On the writing side: the mark lands on
+the number it was asked about and the `TYPE` line under it survives, the stored
+record is unchanged while the change waits — read from the table rather than
+through `gedcom()`, which shows an approver the pending version and would have
+passed against a tool that wrote straight through — and a manager whose account
+accepts their own changes gets it at once instead, which is the other end of
+webtrees' edit path and the one that is never reached by accident. It refuses a
+locked record, a record with a change already waiting, a number the record no
+longer carries, and a person who is not there.
+
+The button that does all of them at once has five more, and two of them are the
+point of it: that the couples the records do not decide are still not touched,
+and that a form naming its own records changes nothing — against the previous
+code that second one writes `24/922!` onto a man the records say nothing about.
+The rest hold that one refusal does not abandon the run, that a run stops at its
+limit and says how many are left, and that every outcome the marker can report
+has a sentence waiting for it, so that a new one fails at a commit rather than
+in front of an administrator who has just had two hundred records written.
 
 **Every way two people are related** is pinned from the numbers up: a path
 expands into its equivalent writings through the marriage table, the nearest

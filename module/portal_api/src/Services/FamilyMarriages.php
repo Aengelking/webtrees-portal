@@ -143,6 +143,39 @@ class FamilyMarriages
     }
 
     /**
+     * The couples whose missing `!` the records themselves decide.
+     *
+     * The same rule the per-row buttons are drawn from, kept here rather than
+     * beside them. Whether a mark may be written without a person having
+     * looked at that particular couple is a question about the records, and a
+     * screen that answered it separately from the scan would eventually answer
+     * it differently. `unmarked_stuck` — neither partner with parents, or both
+     * — never appears in this list, which is the whole reason it is a state of
+     * its own rather than a row without a button.
+     *
+     * Scanned afresh: a list built for a screen minutes ago is a list of
+     * numbers that may since have been edited. `SpouseMarker` checks each
+     * number again anyway, so this is belt and braces — but the braces are
+     * what keep the tally honest.
+     *
+     * @return array<int,array{xref:string,number:string}>
+     */
+    public function correctable(): array
+    {
+        $marks = [];
+
+        foreach ($this->scan()['rows'] as $row) {
+            if ($row['state'] !== 'unmarked' || $row['marks'] === null) {
+                continue;
+            }
+
+            $marks[] = ['xref' => $row['marks']['xref'], 'number' => $row['marks']['number']];
+        }
+
+        return $marks;
+    }
+
+    /**
      * One family, or null where it is not one of these marriages at all.
      *
      * @return array<string,mixed>|null

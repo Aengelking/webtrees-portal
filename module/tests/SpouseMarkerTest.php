@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Engelking\Webtrees\PortalApi\Tests;
 
+use Engelking\Webtrees\PortalApi\PortalApiModule;
 use Engelking\Webtrees\PortalApi\Services\PortalTreeService;
 use Engelking\Webtrees\PortalApi\Services\SpouseMarker;
+use Fig\Http\Message\RequestMethodInterface;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Contracts\UserInterface;
 use Fisharebest\Webtrees\DB;
@@ -13,8 +15,12 @@ use Fisharebest\Webtrees\Individual;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\User;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use ReflectionClass;
 
+use function array_fill;
+use function array_filter;
 use function file_get_contents;
+use function is_string;
 use function str_contains;
 
 /**
@@ -29,6 +35,10 @@ use function str_contains;
 class SpouseMarkerTest extends PortalTestCase
 {
     private const string IDA = 'X30';
+
+    /** Rudolf and Berta, who share `24/922` and whom the records do not decide. */
+    private const string RUDOLF = 'X31';
+    private const string BERTA = 'X32';
 
     private function marker(): SpouseMarker
     {
@@ -210,6 +220,152 @@ class SpouseMarkerTest extends PortalTestCase
         $ida->updateRecord($ida->gedcom() . "\n1 RESN locked", false);
 
         self::assertSame(SpouseMarker::LOCKED, $this->marker()->mark(self::IDA, '24/911'));
+    }
+
+    // -----------------------------------------------------------------
+    // All of them at once
+    // -----------------------------------------------------------------
+
+    /**
+     * **A refusal stops that one and nothing else.**
+     *
+     * The archive holds a hundred and twenty-six of these. A run that gave up
+     * because the third record was locked would be useless in exactly the
+     * archive the button was asked for — so the first entry here is a person
+     * who is not in the tree, and the second still has to be written.
+     */
+    public function testARefusalDoesNotStopTheRestOfTheRun(): void
+    {
+        $this->signInAsManager(true);
+
+        $this->marker()->markEvery([
+            ['xref' => 'X999', 'number' => '24/911'],
+            ['xref' => self::IDA, 'number' => '24/911'],
+        ]);
+
+        self::assertStringContainsString('24/911!', $this->stored(self::IDA));
+    }
+
+    /**
+     * The tally is what the screen says out loud, so it has to be true.
+     *
+     * "126 corrected" and "125 corrected, one record locked" are different
+     * things to have been told, and only the second sends anybody to look.
+     */
+    public function testTheTallySaysWhatBecameOfEachOne(): void
+    {
+        $this->signInAsManager(true);
+
+        self::assertSame(
+            [
+                'done' => [SpouseMarker::NO_PERSON => 1, SpouseMarker::APPLIED => 1],
+                'left' => 0,
+            ],
+            $this->marker()->markEvery([
+                ['xref' => 'X999', 'number' => '24/911'],
+                ['xref' => self::IDA, 'number' => '24/911'],
+            ])
+        );
+    }
+
+    /**
+     * One press writes at most a fixed number, and says how many are left.
+     *
+     * Not because more would be wrong — each is checked on its own — but
+     * because a request that runs past the webserver's patience leaves a
+     * person with a page that never came back and no idea how far it got.
+     * Built from a reference nobody has, so this counts rather than writes.
+     */
+    public function testARunStopsAtTheLimitAndSaysHowManyAreLeft(): void
+    {
+        $this->signInAsManager(true);
+
+        $marks = array_fill(0, SpouseMarker::MAX_AT_ONCE + 3, ['xref' => 'X999', 'number' => '24/911']);
+
+        self::assertSame(
+            [
+                'done' => [SpouseMarker::NO_PERSON => SpouseMarker::MAX_AT_ONCE],
+                'left' => 3,
+            ],
+            $this->marker()->markEvery($marks)
+        );
+    }
+
+    /**
+     * **The couples the records do not decide are not in the bulk run either.**
+     *
+     * This is the whole reason the button is allowed to exist. Rudolf and
+     * Berta both carry `24/922` and neither has parents in the archive, so
+     * which of them married in is not something the records say — and a `!` on
+     * the wrong one does not fail, it quietly makes each of them the other.
+     * Pressing "do them all" must not decide that by volume.
+     */
+    public function testThePressThatDoesThemAllLeavesTheUndecidedAlone(): void
+    {
+        $this->signInAsManager(true);
+
+        $this->markAll();
+
+        self::assertStringContainsString('24/911!', $this->stored(self::IDA));
+        self::assertStringNotContainsString('!', $this->stored(self::RUDOLF));
+        self::assertStringNotContainsString('!', $this->stored(self::BERTA));
+    }
+
+    /**
+     * **Which records are written is read here, not posted.**
+     *
+     * The form sends one field saying "all of them"; the list it means is
+     * worked out from a fresh scan on this side. If the xrefs came from the
+     * form, anything that could open this screen could name its own records —
+     * and the run would act on a list that was true when the page was drawn.
+     * So a body naming Rudolf, whom the records do not decide, changes nothing
+     * about him.
+     */
+    public function testTheFormCannotNameTheRecordsToWrite(): void
+    {
+        $this->signInAsManager(true);
+
+        $this->markAll(['xref' => self::RUDOLF, 'number' => '24/922']);
+
+        self::assertStringNotContainsString('!', $this->stored(self::RUDOLF));
+    }
+
+    /**
+     * Every outcome the marker can report has a sentence waiting for it.
+     *
+     * The screen matches on the outcomes with no `default` arm, on purpose: a
+     * `default` would give a new outcome an old sentence and sound just as
+     * sure about it. Without one PHP refuses, loudly — and this is what makes
+     * that refusal happen at a commit rather than in front of an
+     * administrator who has just had two hundred records written.
+     */
+    public function testEveryOutcomeHasSomethingToSay(): void
+    {
+        $outcomes = array_filter(
+            (new ReflectionClass(SpouseMarker::class))->getConstants(),
+            static fn (mixed $value): bool => is_string($value)
+        );
+
+        $said = (new ReflectionClass(PortalApiModule::class))->getConstant('MARK_OUTCOMES');
+
+        self::assertIsArray($said);
+
+        foreach ($outcomes as $name => $value) {
+            self::assertContains(
+                $value,
+                $said,
+                'SpouseMarker::' . $name . ' has no sentence in PortalApiModule::MARK_OUTCOMES, '
+                    . 'so a bulk run that produced it would end in an unhandled match.'
+            );
+        }
+    }
+
+    /** Press the button that does them all, as the screen posts it. */
+    private function markAll(array $extra = []): void
+    {
+        $this->module()->postAdminMarriagesAction(
+            self::createRequest(RequestMethodInterface::METHOD_POST, [], ['mark_all' => '1'] + $extra)
+        );
     }
 
     // -----------------------------------------------------------------
