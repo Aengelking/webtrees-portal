@@ -2519,6 +2519,13 @@ paths:
         number only, and the table of those marriages is maintained in the
         module's preferences alongside the table of line prefixes.
 
+        **A person can therefore have more than one true number**, and each
+        measures a different distance. `24/3133.42` is equally `24/b63.42`,
+        because `24/313` and `24/b6` married; against `24/B521.12` the first
+        writing reads as fifth cousins and the second as third cousins once
+        removed. Every writing is measured, `relationship` is the **nearest**,
+        and `relationships` lists them all in that order. See NOTES §2.94.
+
         `GS/` needs no entry in either table — it stands for nothing, because
         the number after it is already the whole path. `GS/` on its own is the
         root of everything and names nobody.
@@ -3605,10 +3612,29 @@ components:
             can come back as `Neffe 2. Grades` in German and
             `second cousin once removed` in English, and both are right.
           example: Cousin/Cousine 2. Grades
+        relationships:
+          type: array
+          description: |
+            **Every way the two are related, nearest first.** `relationship` is
+            the first entry, and where there is one answer this holds only that
+            one; empty where there is none.
+
+            A person whose ancestors married within the family has more than
+            one true number — the archive files the children of such a couple
+            under one parent — and each writing measures a different distance.
+            Reading only the stored one named the relationship of whichever
+            number the person happened to be filed under, which is often the
+            more distant of the two.
+
+            Optional: the module and the portal deploy separately, so a screen
+            has to survive a server that predates this field.
+          items:
+            type: string
+          example: ['Cousin 3. Grades, einmal entfernt', 'Cousin 5. Grades']
         detail:
           description: |
-            The working, for anybody who wants to check it. `null` when there
-            is no answer.
+            The working behind the **nearest** answer, for anybody who wants to
+            check it. `null` when there is no answer.
           oneOf:
             - $ref: '#/components/schemas/RelationshipDetail'
             - type: 'null'

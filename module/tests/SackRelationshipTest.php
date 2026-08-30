@@ -52,6 +52,12 @@ class SackRelationshipTest extends PortalTestCase
         return $this->ask($a, $b)['relationship'];
     }
 
+    /** @return array<int,string> */
+    private function allNamed(string $a, string $b): array
+    {
+        return $this->ask($a, $b)['relationships'];
+    }
+
     // -----------------------------------------------------------------
     // The six shapes
     // -----------------------------------------------------------------
@@ -148,6 +154,83 @@ class SackRelationshipTest extends PortalTestCase
         $this->signIn();
 
         self::assertSame('brother/sister', $this->named('24/b61', '24/3132'));
+    }
+
+    /**
+     * **A number is one line of descent, and a person can have several.**
+     *
+     * `24/313` and `24/b6` married, so a person filed under his number is
+     * filed under hers too: `24/3133.42` is equally `24/b63.42`. Measured the
+     * stored way against `24/B521.12` they are fifth cousins; measured the
+     * other way they are third cousins once removed — and the second is not a
+     * missing extra, it is the *nearer* and truer answer. The calculator has
+     * been naming the relationship of whichever writing the archive happened
+     * to file, which for this pair is the wrong one.
+     */
+    public function testEveryWritingOfANumberIsMeasured(): void
+    {
+        $this->signIn();
+
+        self::assertSame(
+            ['third cousin once removed', 'fifth cousin'],
+            $this->allNamed('24/3133.42', '24/B521.12'),
+        );
+    }
+
+    /** And the nearest of them is the one answer a caller asking for one gets. */
+    public function testTheNearestWritingIsTheAnswer(): void
+    {
+        $this->signIn();
+
+        self::assertSame('third cousin once removed', $this->named('24/3133.42', '24/B521.12'));
+    }
+
+    /**
+     * A pair with no marriage above either of them has exactly one answer, and
+     * it is the one it always had.
+     */
+    public function testAPairUntouchedByAnyMarriageIsUnchanged(): void
+    {
+        $this->signIn();
+
+        self::assertSame(['nephew/niece'], $this->allNamed('24/312', '24/3111'));
+    }
+
+    /**
+     * The trap this walked into once, kept because it is the whole reason the
+     * pairing rule exists.
+     *
+     * An alternative writing replaces the child index with the join character
+     * `-`, so re-rooting *both* people at the same marriage erases exactly
+     * what told them apart and they arrive at the same string. `24/b61` and
+     * `24/3132` are siblings; crossed alternative-against-alternative they
+     * came out as one person. One side is therefore always the stored number.
+     */
+    public function testTwoDescendantsOfOneCoupleAreNotOnePerson(): void
+    {
+        $this->signIn();
+
+        self::assertSame('brother/sister', $this->named('24/b61', '24/3132'));
+    }
+
+    /**
+     * How far the expansion can run. Measured against the family's own table
+     * of sixty marriages the worst case is six writings, so the cap is a guard
+     * against a table edited into a cycle rather than a limit anybody meets.
+     */
+    public function testTheExpansionStaysSmallOnTheFamilysOwnTable(): void
+    {
+        $numbers = new SackNumbers($this->module());
+        $worst   = 0;
+
+        foreach ($numbers->marriages() as ['right' => $right]) {
+            foreach (['1', '21', '321'] as $tail) {
+                $worst = max($worst, count($numbers->writings($right . $tail)));
+            }
+        }
+
+        self::assertGreaterThan(1, $worst, 'The table should produce alternatives at all.');
+        self::assertLessThanOrEqual(8, $worst);
     }
 
     public function testWithoutTheTableTheSamePairLooksLikeSomethingElse(): void

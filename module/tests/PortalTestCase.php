@@ -26,13 +26,18 @@ use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\TestCase;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\User;
+use Fisharebest\Webtrees\Webtrees;
 use Fisharebest\Webtrees\Http\Dispatcher as WebtreesDispatcher;
 use Middleland\Dispatcher as MiddlelandDispatcher;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use FilesystemIterator;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use ReflectionProperty;
 
+use function is_dir;
 use function json_decode;
 use function json_encode;
 use function preg_replace;
@@ -40,7 +45,9 @@ use function class_exists;
 use function ini_set;
 use function sys_get_temp_dir;
 use function property_exists;
+use function rmdir;
 use function time;
+use function unlink;
 
 use const JSON_THROW_ON_ERROR;
 
@@ -71,6 +78,7 @@ abstract class PortalTestCase extends TestCase
         ini_set('error_log', sys_get_temp_dir() . '/portal_api-tests.log');
 
         $this->correctTheRouterBasePath();
+        $this->emptyTheFileCache();
 
         $this->tree = $this->importPortalTree();
 
@@ -85,6 +93,44 @@ abstract class PortalTestCase extends TestCase
         $this->tree->setPreference('SHOW_LIVING_NAMES', '1');
         $this->tree->setPreference('KEEP_ALIVE_YEARS_BIRTH', '0');
         $this->tree->setPreference('KEEP_ALIVE_YEARS_DEATH', '0');
+    }
+
+    /**
+     * Throw away webtrees' on-disk cache before every test.
+     *
+     * It is a real directory under the checkout, so it outlives the process
+     * and carries answers from one test — and from one whole run — into the
+     * next. Thumbnails are where that bites: `ImageFactory` keys them on the
+     * media file's last-modified *second*, and these tests rewrite the same
+     * fixture images in `setUp()`. Two tests a fraction of a second apart
+     * therefore write the same key, and the second one is handed the first
+     * one's picture.
+     *
+     * That is how a test asserting that a broken image is refused came to
+     * pass alone and fail in CI: it broke the file, asked for it, and got the
+     * previous test's good thumbnail back without webtrees ever reading a
+     * byte. See §2.97.
+     */
+    private function emptyTheFileCache(): void
+    {
+        $directory = Webtrees::DATA_DIR . 'cache';
+
+        if (!is_dir($directory)) {
+            return;
+        }
+
+        $entries = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($entries as $entry) {
+            if ($entry->isDir()) {
+                rmdir($entry->getPathname());
+            } else {
+                unlink($entry->getPathname());
+            }
+        }
     }
 
     protected function module(): PortalApiModule

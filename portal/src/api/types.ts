@@ -284,6 +284,16 @@ export interface RelationshipResult {
   /** Null when there is an answer — see openapi.yaml for the four reasons. */
   problem: 'incomplete' | 'invalid_a' | 'invalid_b' | 'identical' | null
   relationship: string | null
+  /**
+   * Every way the two are related, nearest first — `relationship` is the
+   * first of them. A person whose ancestors married within the family has
+   * more than one archive number, and each measures a different distance;
+   * see NOTES §2.94.
+   *
+   * Optional for the usual reason: the module and the portal deploy
+   * separately, so a screen has to survive a server that predates the field.
+   */
+  relationships?: string[]
   detail: RelationshipDetail | null
 }
 

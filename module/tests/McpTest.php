@@ -361,6 +361,35 @@ class McpTest extends PortalTestCase
     }
 
     /**
+     * **A picture webtrees cannot decode is refused, not drawn.**
+     *
+     * `mediaFileThumbnailResponse()` does not throw when it fails: it answers
+     * with a placeholder — the word "500" on a square — and says so only in an
+     * `x-thumbnail-exception` header. Reading the body without looking at that
+     * header hands an assistant a picture of an error message, captioned with
+     * a real person's name, as though it were their photograph. See §2.96.
+     *
+     * The file has to be *readable but undecodable* for this to bite: bytes
+     * that are simply missing fail earlier, at the read, and never reach the
+     * placeholder at all. So this keeps the PNG header — which is all
+     * `getimagesizefromstring()` looks at, and it still reports 448x88 — and
+     * replaces the image data with zeroes.
+     */
+    public function testAPictureThatCannotBeDecodedIsRefusedRatherThanDrawn(): void
+    {
+        $this->publishPhotos();
+
+        $png = (string) file_get_contents(__DIR__ . '/data/probe.png');
+
+        $this->archiveTree()->mediaFilesystem()->write('bertha.png', substr($png, 0, 33) . str_repeat("\x00", 200));
+
+        $result = $this->rawTool('get_photo', ['id' => $this->photoId('M3')]);
+
+        self::assertTrue($result['isError']);
+        self::assertStringContainsString('No such photograph', $result['content'][0]['text']);
+    }
+
+    /**
      * The caption names the dead the picture hangs on, and nobody else.
      *
      * Anna is alive and is linked to M1 and M2, not to M3 — but this asserts

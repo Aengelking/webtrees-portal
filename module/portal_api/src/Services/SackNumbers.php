@@ -9,11 +9,12 @@ use Fisharebest\Webtrees\I18N;
 
 use function array_shift;
 use function explode;
+use function in_array;
 use function preg_match;
 use function str_contains;
 use function str_replace;
-use function strlen;
 use function count;
+use function strlen;
 use function str_starts_with;
 use function strtolower;
 use function strpos;
@@ -186,6 +187,17 @@ TEXT;
      * position — see `merge()`, which then leaves the pair alone rather than
      * folding one into the other.
      */
+    /**
+     * How many equivalent writings of one number are ever enumerated.
+     *
+     * Marriages compound: two on a path give four writings, three give eight.
+     * Measured against the family's own table the deepest number reaches a
+     * handful, so this is a guard against a table edited into a cycle rather
+     * than a limit anybody should meet. Reaching it means the nearest
+     * relationship *might* be missed — never that a wrong one is named.
+     */
+    private const int MAX_WRITINGS = 64;
+
     public const string DEFAULT_MARRIAGES = <<<'TEXT'
 01/3215.1 = 01/3213.2
 01/3233.62 = 01/3234.21
@@ -310,6 +322,83 @@ TEXT;
         }
 
         return $this->lines()[(int) $head] ?? null;
+    }
+
+    /**
+     * Every equivalent way of writing one path.
+     *
+     * A number is one line of descent, and the archive files the children of
+     * an in-family marriage under **one** parent. So a person whose ancestors
+     * married within the family has more than one true number: `24/3133.42`
+     * is also `24/b63.42`, because `24/313` and `24/b6` married and the
+     * children went under his number. Both writings name the same person and
+     * each measures a *different* distance to somebody else — which is what
+     * being related twice over means.
+     *
+     * `merge()` solves the same problem for one *pair* of numbers: it re-roots
+     * one side when the other happens to descend from the partner. That is the
+     * right answer where there is one answer to give, and it is why the
+     * calculator has been quietly naming the relationship of whichever writing
+     * happened to be stored. This enumerates instead, so the nearest can be
+     * found and the rest named beside it.
+     *
+     * Re-rooted with `merge()`'s own `reroot()`, join character and all: the
+     * result is for measuring, not for writing on a card, and the `-` is what
+     * stops the join from lining up with one of the other parent's own
+     * children (see `merge()`).
+     *
+     * @return array<int,string> The path itself first, then its alternatives.
+     */
+    public function writings(string $path): array
+    {
+        // **A list, not a set keyed by the path.** A path that is all digits —
+        // "7243215" is one — becomes an *integer* array key in PHP, and the
+        // caller then hands an int to `merge()`, whose parameters are strings
+        // by reference and cannot be coerced. `marriages()` carries the same
+        // warning for the same reason; these sets hold a handful of entries,
+        // so scanning one costs nothing.
+        $writings = [$path];
+        $queue    = [$path];
+
+        // A marriage can sit above a marriage, so an alternative writing can
+        // have alternatives of its own — hence the queue rather than one pass.
+        while ($queue !== [] && count($writings) < self::MAX_WRITINGS) {
+            $current = (string) array_shift($queue);
+
+            foreach ($this->marriages() as ['left' => $left, 'right' => $right]) {
+                $length = strlen($right);
+
+                // Strictly below the couple: at or above them there is no
+                // second descent to name, only the marriage itself.
+                if ($length === 0 || strlen($current) <= $length || !$this->startsWith($current, $right)) {
+                    continue;
+                }
+
+                // Never back the way we came. The family writes these
+                // marriages in both directions, so re-rooting an alternative
+                // at the join we just made walks straight back — and arrives
+                // at the original path with its child index replaced by the
+                // join character. That is not a second descent; it is the
+                // first one with a digit missing, and being *shorter* on a
+                // shared prefix it would read as a nearer relationship than
+                // the truth. The join is the marker: a `-` where the next
+                // character should be means this is our own footprint.
+                if ($current[$length] === '-') {
+                    continue;
+                }
+
+                $other = $this->reroot($current, $left, $length);
+
+                if (in_array($other, $writings, true)) {
+                    continue;
+                }
+
+                $writings[] = $other;
+                $queue[]    = $other;
+            }
+        }
+
+        return $writings;
     }
 
     /**

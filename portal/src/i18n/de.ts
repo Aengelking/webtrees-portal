@@ -421,6 +421,7 @@ export const de = {
       first: 'SB-Nr. 1',
       firstHint: 'Deine eigene Nummer ist schon eingetragen. Du kannst sie überschreiben.',
       second: 'SB-Nr. 2',
+      also: 'Über eine zweite Linie außerdem: {{others}}',
       result: '{{second}} zu {{first}}',
       note: 'Es wird nichts nachgeschlagen und niemand genannt — gerechnet wird nur mit den beiden Nummern.',
       problem: {

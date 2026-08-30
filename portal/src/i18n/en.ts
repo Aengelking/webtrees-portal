@@ -419,6 +419,7 @@ export const en: Translations = {
       first: 'Archive number 1',
       firstHint: 'Your own number is filled in. You can overwrite it.',
       second: 'Archive number 2',
+      also: 'Along a second line, also: {{others}}',
       result: '{{second}} to {{first}}',
       note: 'Nothing is looked up and nobody is named — only the two numbers are used.',
       problem: {

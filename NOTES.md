@@ -5784,7 +5784,199 @@ wieder, ohne dass irgendjemand etwas gewonnen hätte.
 
 ---
 
-### 2.94 Der Knopf, der nicht verraten darf, wen er erreicht
+### 2.94 A number is one line of descent, and a person has several
+
+Reported: the double relationships do not work. They did not, and the reason
+was that §2.87 solved the wrong problem — carefully, with tests, in the wrong
+place.
+
+**Where I looked.** I assumed multiple descent was recorded as several `REFN`
+lines on one record, crossed those, and pinned it down. The assumption came
+from the test fixture, where one person carries four numbers. I never checked
+it against the archive, and it is not how this family works.
+
+**Where it actually lives.** In the marriage table. When two people who both
+have a number marry, the archive files their children under **one** of the two.
+So a descendant has more than one true number: `24/313` and `24/b6` married,
+which makes `24/3133.42` equally `24/b63.42`. Nothing on the record says so —
+the second writing is *derived*, and the table is what derives it.
+
+**And the bug was worse than a missing line.** Against `24/B521.12` the stored
+writing reads as fifth cousins and the derived one as third cousins once
+removed. The nearer answer is the one a family would give, and the portal — and
+the calculator, since 2009 — had been naming whichever writing the archive
+happened to file. Not one answer short: frequently the *wrong* answer.
+
+`merge()` already understood the problem, but pairwise: it re-roots one side
+when the other happens to descend from the partner, which is the right move
+when one answer is wanted and there is no enumeration. So `SackNumbers` now has
+`writings()`, which expands a path into every equivalent form, and
+`SackRelationship::relations()` crosses them and keeps the distinct answers,
+nearest first. `between()` returns the first of those, so every existing caller
+silently gets the *better* answer rather than a different one.
+
+**Two things the building taught, both the hard way.**
+
+*A path that is all digits becomes an integer array key.* `marriages()` carries
+a comment saying exactly this, and I keyed the expansion set by the path
+anyway. `writings('7243215')` handed back an `int`, which cannot be passed to
+`merge()`'s string-by-reference parameters, and ten tests went red at once. The
+lesson is not about PHP: a warning written down in the file you are editing is
+worth reading before you repeat the mistake it describes.
+
+*Never re-root both sides.* The join character `-` replaces the child index, so
+re-rooting two different people at the same marriage erases the very thing that
+told them apart — and they arrive at the identical string. `24/b61` and
+`24/3132` are siblings; crossed alternative-against-alternative they came out
+as **one person**. One side is therefore always the number as stored, which is
+also what `merge()` had been doing all along and the reason it does it. A test
+now holds that down, because a silent "these are the same person" is the worst
+shape this failure can take.
+
+Measured against the family's own sixty marriages, a number affected at all has
+two to six writings. The cap of 64 is a guard against a table edited into a
+cycle, not a limit anybody meets.
+
+**Left alone, and worth a decision.** The naming is asymmetric: `24/311` and
+`24/3221` are *cousin once removed* one way and *second cousin once removed*
+the other. That is faithful — `rechner.php` computes the cousin degree from
+whichever person the question starts at, and the test grid transcribed from it
+passes — so it predates all of this and is not mine to change quietly. It is
+more visible now, because the nearest answer is more often the removed kind.
+
+---
+
+### 2.95 A hand-kept table that quietly became load-bearing
+
+Asked, after §2.94: do we need both directions in the marriage table, and can
+we find these marriages in the database?
+
+**The first question has a measured answer.** Of the sixty rows the family
+maintains, only *two couples* are written both ways; fifty-six rows point one
+way only. And the row's meaning is directional — `A = B` says "descendants
+under B also descend from A" — so the expansion fires for people filed under
+the **right**-hand side. One row per couple is therefore enough, *provided it
+is written the right way round*, and nothing in the table itself says whether
+it is. A row with the sides swapped is not a different opinion: it matches
+nobody, does nothing, and looks exactly like a row that is working.
+
+Making the expansion bidirectional would make orientation stop mattering. It
+would also let somebody who descends from the left-hand parent by a *different*
+marriage inherit a line of descent they do not have. That risk exists in the
+recorded direction already; doubling it to avoid checking the data would be
+the same move that produced §2.94 — assuming rather than looking.
+
+**So the second question is the answer to the first.** `FamilyMarriages` reads
+the tree for every couple where *both* partners carry a readable archive
+number, works out which parent the children were actually filed under — a
+child's own number begins with it, so the records say so themselves — and
+reports each couple as `recorded`, `wrong_way`, `missing` or `unclear`. Then
+the orientation question can be settled from what is there rather than argued
+about.
+
+**It only reads.** No button writes into the table; the screen offers the text
+to paste and says once that a marriage the archive deliberately left out is not
+a mistake it can see. The table stays what the family wrote, which matters more
+now than it did: since §2.94 a missing row does not produce a wrong answer with
+a warning on it, it produces a confident answer that is too distant.
+
+`unclear` is a state of its own rather than a guess. A couple whose children
+carry no numbers cannot be read, and writing a row for them from a coin-toss
+would produce exactly the silent nothing that `wrong_way` describes.
+
+---
+
+### 2.96 A method that was never there, hidden by the catch around it
+
+`main` was red, in two tests that had nothing to do with the work in front of
+me, so I went looking.
+
+`ArchivePhotos::encode()` called `ImageFactory::mediaFileThumbnail()`. There is
+no such method. webtrees has `mediaFileThumbnailResponse()`, which hands back a
+*response* — there is no method anywhere that hands back bytes.
+
+**A `Call to undefined method` is a `Throwable`, and `encode()` catches
+`Throwable`.** So it logged to the server log and returned null, and `get_photo`
+answered with the sentence it has for a picture that does not exist or may not
+be handed over:
+
+    No such photograph in this archive, or not one it may hand over.
+
+Which is what a member would have read for *every* photograph, forever, in a
+feature that had shipped. The two red tests were the only thing saying
+otherwise, and they were red on `main` for a day.
+
+This is the second time in this file a catch-all has turned a broken call into
+a plausible answer (§2.94's boot, and the same shape again here). The catch is
+right — an assistant should not receive a stack trace — but it swallowed a
+*programming* error along with the runtime ones it was written for, and the
+message it substituted was a lie that read like a policy.
+
+**And the fix had a trap of its own, which is the part worth keeping.**
+`mediaFileThumbnailResponse()` does not throw when it fails either. It answers
+with a *placeholder image* — the word "500" drawn on a square — and says what
+went wrong only in an `x-thumbnail-exception` header. Reading the body without
+looking at that header would hand an assistant a picture of an error message,
+captioned with a real person's name, as though it were their photograph. That
+is worse than the bug it replaces: a refusal is honest, a wrong picture with a
+right caption is not.
+
+So the header is checked and a failure is a refusal. The test for it had to be
+built with care as well: a *missing* file fails earlier, at the read, and never
+reaches the placeholder at all. It takes bytes that are readable and
+undecodable — a PNG header, which is all `getimagesizefromstring()` looks at,
+followed by zeroes — and without the header check that test fails, which is the
+only reason to trust it.
+
+### 2.97 Zwei Tests, die auf der eigenen Maschine nichts beweisen
+
+Der Branch war lokal grün und in CI rot — einmal im Modul, einmal im Portal.
+Zwei verschiedene Ursachen, dieselbe Form: ein Test, der auf einer schnellen
+und unbelasteten Maschine bestanden hat, ohne das zu prüfen, was er behauptet.
+
+**Der Thumbnail-Cache liegt auf der Platte.** `ImageFactory` merkt sich
+Vorschaubilder in `data/cache/`, also in einem echten Verzeichnis, das den
+Prozess überlebt — und der Schlüssel enthält die letzte Änderung der Bilddatei
+*auf die Sekunde genau*. Die Tests schreiben ihre Bild-Fixtures in `setUp()`
+immer neu. Zwei Tests, die im selben Sekundentakt laufen, schreiben damit
+denselben Schlüssel.
+
+Der neue Test aus §2.96 zerstört eine Bilddatei absichtlich und erwartet eine
+Absage. In CI bekam er stattdessen das gute Vorschaubild des vorigen Tests
+zurück, ohne dass webtrees ein einziges Byte gelesen hätte. Allein lief er
+grün, in seiner eigenen Klasse rot — und das ließ sich lokal sofort
+nachstellen, sobald man die ganze Klasse laufen ließ statt nur den Test.
+`PortalTestCase::setUp()` leert den Cache jetzt vor jedem Test. Die Laufzeit
+ändert sich nicht messbar.
+
+**Und `findBy…` wartet nicht auf Effekte.** Im Portal kippte
+`PullToRefresh.test.tsx` in CI um. Die Vermutung „flackernder Test“ war
+falsch; eine Sonde hat es beantwortet: `installStore.state()` war korrekt
+`standalone`, und trotzdem war **kein einziger Touch-Listener angemeldet**.
+
+Testing Library schaltet Reacts act-Umgebung ab, solange `findBy…` pollt. Das
+`useEffect` in `usePullToRefresh` landet dadurch beim echten Scheduler und
+läuft in einer späteren Task. Auf einer unbelasteten Maschine ist die längst
+gelaufen, wenn die nächste Zeile kommt. Auf einer belasteten nicht — und dann
+geht die Geste an ein Fenster, an dem niemand horcht.
+
+Das Ärgerliche daran ist nicht der eine rote Test. **Vier der Tests in dieser
+Datei behaupten, dass eine Geste *nichts* tut** — und eine Geste, der niemand
+zuhört, tut sehr überzeugend nichts. Die hätten also aus dem falschen Grund
+bestanden, und zwar dauerhaft und still. Jetzt geht jeder Test durch einen
+Helfer, der nach dem Warten ein leeres `act` fährt und damit die Effekte
+nachzieht, die das Commit nur eingeplant hatte.
+
+**Was beide Fälle gemeinsam haben:** die eigene Maschine ist keine Instanz,
+auf der ein Test besteht — sie ist eine, auf der er zufällig besteht. Beide
+ließen sich hier nachstellen, sobald man den Rechner in den Zustand brachte,
+in dem CI ohnehin ist: die ganze Testklasse statt eines Tests, vier parallele
+Läufe statt eines. Vorher waren beide „nicht reproduzierbar“, und das war eine
+Aussage über den Versuch, nicht über den Fehler.
+
+---
+
+### 2.95 Der Knopf, der nicht verraten darf, wen er erreicht
 
 Verbinden ging bisher über die SB-Nummer: Nummer auf der einen Seite ablesen,
 unter „Kontakte" in ein Feld tippen. Der Umweg führt an genau dem Teil vorbei,
