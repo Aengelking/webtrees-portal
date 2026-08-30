@@ -6008,12 +6008,21 @@ mit Namen; alles andere → derselbe Satz, ob dahinter ein Konto steckt oder
 nicht. Für einen Datensatz ohne Konto wird nichts geschrieben, für einen
 unsichtbaren gibt es dieselbe 404 wie beim Lesen.
 
-**Beide Angebote dürfen nebeneinander stehen.** „Einladen" erscheint nur, wenn
-jemand *kein* Konto hat (`invitable`), „Verbinden" immer — und genau deshalb
-darf man sie nicht gegeneinander ausspielen: würde „Verbinden" das „Einladen"
-verdrängen, sobald ein Konto existiert, wäre die Auswahl zwischen den beiden
-Knöpfen wieder die verräterische Information. Zwei Angebote auf einer Seite
-sind der Preis dafür, dass keines von beiden etwas ausplaudert.
+**Ein Angebot je Seite, und die Einladung hat Vorrang.** Zuerst standen beide
+nebeneinander, mit dem Argument, die Auswahl zwischen ihnen wäre selbst die
+verräterische Information. Beim ersten Blick auf die eigene Familie fiel auf,
+dass das Argument hier nicht greift — und es war der Nutzer, der es gesehen
+hat: *„Da weiß ich ja, dass die nicht im Portal sind."* Genau so ist es.
+`invitable` ist nur bei Leuten wahr, die **kein** Konto haben, und ist selbst
+Teil der Antwort; die Auskunft steht also längst auf dem Bildschirm, und
+dieselbe Schlussfolgerung war schon immer aus dem *Fehlen* von „Einladen" zu
+ziehen. Das Angebot zu verbergen, wo eingeladen werden kann, verrät deshalb
+nichts Neues — und erspart die Sinnlosigkeit, jemanden verbinden zu wollen,
+den dieselbe Seite gerade „noch nicht im Portal" genannt hat.
+
+Der Server sagt weiterhin `open`, ohne Rücksicht darauf: die Regel gehört auf
+den Bildschirm, wo beide Tatsachen zusammenkommen, nicht in ein Feld, das für
+sich genommen nichts verraten darf.
 
 Ein Fehler auf dem Weg dahin ist erwähnenswert, weil er lehrreich ist: die
 Handler werden im Container **von Hand** verdrahtet

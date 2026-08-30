@@ -4141,6 +4141,13 @@ components:
                 `null` where connecting cannot happen at all: the reader's own
                 record, somebody who has died, or a family that has switched
                 member connections off.
+
+                The portal shows no offer where `invitable` is also true, and
+                that hides nothing: an invitation can only be offered for
+                somebody with **no** account, so that offer has already said
+                out loud what this field is careful not to imply. What it
+                avoids is asking to connect with somebody the same screen has
+                just called "not in the portal yet".
             pending_change:
               type: boolean
               description: |

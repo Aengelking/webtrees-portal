@@ -43,12 +43,27 @@ export function PersonDetail() {
   // server that predates this field simply makes no offer.
   const invitable = data?.invitable === true
 
-  // The same, for the offer to connect. Both may be on the page at once and
-  // that is right: they are different acts — one creates a way in for
-  // somebody with no account, the other asks a person to be a contact — and
-  // showing only one of them would be a statement about which of the two
-  // this person needs. See `ConnectFromRecord`.
+  // The same, for the offer to connect.
   const connection = data?.connection ?? null
+
+  /**
+   * One offer at a time, and the invitation wins where it applies.
+   *
+   * The server says `open` without regard to whether anybody is behind the
+   * record — deliberately, because a button that appeared only for account
+   * holders would tell every reader which relatives are in the portal
+   * (`Connections::recordState`). On this screen, though, there is a second
+   * fact already on display: `invitable` is only ever true for somebody with
+   * **no** account, so an invitation offer has said that out loud before the
+   * connect offer could imply it.
+   *
+   * So suppressing the connect offer beside an invitation discloses nothing
+   * that is not already disclosed — the same inference is available from the
+   * *absence* of "Einladen", and has been since that offer existed. What it
+   * removes is a nonsense: asking to connect with somebody the same screen
+   * has just said is not in the portal.
+   */
+  const offerConnection = connection === 'connected' || (connection === 'open' && !invitable)
 
   return (
     <>
@@ -83,7 +98,7 @@ export function PersonDetail() {
             </div>
           )}
 
-          {connection !== null && xref !== undefined && (
+          {offerConnection && connection !== null && xref !== undefined && (
             <div className="mt-8">
               <ConnectFromRecord xref={xref} name={data.name} state={connection} />
             </div>

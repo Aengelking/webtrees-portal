@@ -207,15 +207,26 @@ describe('connecting from a person’s page', () => {
   })
 
   /**
-   * Both offers may stand on one page: inviting creates a way in for somebody
-   * with no account, connecting asks a person to be a contact. Showing only
-   * one of them would itself be a statement about which this person needs.
+   * And it steps aside where the invitation applies. `invitable` is only ever
+   * true for somebody with **no** account, so that offer has already said out
+   * loud what the connect offer is careful not to imply — and asking to
+   * connect with somebody the same screen calls "noch nicht im Portal" is
+   * nonsense rather than discretion.
    */
-  it('stands beside the invitation where both are possible', async () => {
+  it('gives way to the invitation, which has already said there is no account', async () => {
     stub({ ...DIETER, connection: 'open', invitable: true })
     renderPerson()
 
+    expect(await screen.findByRole('link', { name: 'Einladen' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Verbinden' })).toBeNull()
+  })
+
+  /** Where nobody can be invited, the offer to connect is the only one. */
+  it('is offered where there is no invitation to make', async () => {
+    stub({ ...DIETER, connection: 'open', invitable: false })
+    renderPerson()
+
     expect(await screen.findByRole('button', { name: 'Verbinden' })).toBeDefined()
-    expect(screen.getByRole('link', { name: 'Einladen' })).toBeDefined()
+    expect(screen.queryByRole('link', { name: 'Einladen' })).toBeNull()
   })
 })
