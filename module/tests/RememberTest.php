@@ -22,6 +22,7 @@ use PHPUnit\Framework\Attributes\CoversNothing;
 use Psr\Http\Message\ResponseInterface;
 
 use function explode;
+use function implode;
 use function str_contains;
 use function time;
 
@@ -403,6 +404,147 @@ class RememberTest extends PortalTestCase
         self::assertSame(
             StatusCodeInterface::STATUS_UNAUTHORIZED,
             $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie])->getStatusCode()
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // Saying why, which is what tells the two silences apart
+    // -----------------------------------------------------------------
+
+    /**
+     * **Why these exist at all.** A member was being signed out now and again
+     * on a telephone, and the authentication log had nothing in it at the
+     * times it happened. That reads like evidence and is not: of the seven
+     * ways out of `resume()`, only the stolen-cookie branch used to write a
+     * line. So "the cookie never arrived" and "the cookie arrived and was
+     * turned away" produced the same empty log, and those two have nothing to
+     * do with each other — one is this module's fault and one is not even on
+     * this machine. See §2.107.
+     */
+    public function testACookieForADeviceThePortalHasForgottenSaysSoInTheLog(): void
+    {
+        $cookie = (string) $this->cookie($this->signIn(remember: true));
+
+        $this->forgetTheSession();
+
+        // As if it had been signed out elsewhere, or gone with the member's
+        // other devices after a spent token.
+        DB::table(RememberedDevices::TABLE)->delete();
+
+        self::assertSame(
+            StatusCodeInterface::STATUS_UNAUTHORIZED,
+            $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie])->getStatusCode()
+        );
+
+        self::assertStringContainsString('no device is registered under that series', $this->authLog());
+    }
+
+    public function testARegistrationThatHasRunOutSaysSoInTheLog(): void
+    {
+        $cookie = (string) $this->cookie($this->signIn(remember: true));
+
+        $this->forgetTheSession();
+
+        DB::table(RememberedDevices::TABLE)->update(['expires_at' => time() - 1]);
+
+        $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie]);
+
+        self::assertStringContainsString('the registration had expired', $this->authLog());
+    }
+
+    public function testACookieTheModuleDidNotWriteSaysSoInTheLog(): void
+    {
+        $this->forgetTheSession();
+
+        $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => 'not-a-cookie']);
+
+        self::assertStringContainsString('not in the shape this module writes', $this->authLog());
+    }
+
+    /**
+     * **The half that gives the silence its meaning.**
+     *
+     * A line means a device asked and was turned away. For "no line" to mean
+     * "no device asked", nothing may be written for a request that offered no
+     * cookie — otherwise the log fills with one line per anonymous visitor and
+     * the two cases blur back together, which is the state this came from.
+     */
+    public function testARequestWithNoCookieAtAllSaysNothing(): void
+    {
+        $this->forgetTheSession();
+
+        $this->api(MeRead::class);
+
+        self::assertStringNotContainsString('a remembered device was not resumed', $this->authLog());
+    }
+
+    /** And a cookie that works is not a refusal either. */
+    public function testAResumeThatWorksIsNotLoggedAsARefusal(): void
+    {
+        $cookie = (string) $this->cookie($this->signIn(remember: true));
+
+        $this->forgetTheSession();
+
+        self::assertSame(
+            StatusCodeInterface::STATUS_OK,
+            $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie])->getStatusCode()
+        );
+
+        self::assertStringNotContainsString('a remembered device was not resumed', $this->authLog());
+        self::assertStringContainsString('resumed a remembered session', $this->authLog());
+    }
+
+    /**
+     * **The token is a credential, and a credential in a log is a credential
+     * in every backup of that log.**
+     *
+     * The series may be logged — it names a device and is what makes two lines
+     * belong to the same telephone — but the half that opens the account may
+     * not. Checked on the refusal path *and* on the theft path, because the
+     * second one is where somebody adding detail would most want to reach for
+     * the whole cookie.
+     */
+    public function testTheTokenItselfNeverReachesTheLog(): void
+    {
+        $cookie = (string) $this->cookie($this->signIn(remember: true));
+        [$series, $token] = explode(':', $cookie, 2);
+
+        $this->forgetTheSession();
+
+        // Spend it once, which rotates the token.
+        $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie]);
+
+        // Push the rotation out of the grace window, so that offering the old
+        // cookie again is read as theft rather than as a request that arrived
+        // late — the branch that has always logged, and the one where anybody
+        // adding detail would reach for the whole cookie.
+        DB::table(RememberedDevices::TABLE)->update(['rotated_at' => time() - 3600]);
+
+        $this->forgetTheSession();
+        $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie]);
+
+        // And the ordinary refusal: a cookie for a device that is gone.
+        DB::table(RememberedDevices::TABLE)->delete();
+
+        $this->forgetTheSession();
+        $this->api(MeRead::class, cookies: [RememberedDevices::COOKIE => $cookie]);
+
+        $log = $this->authLog();
+
+        self::assertStringContainsString($series, $log, 'The series is what makes the log readable.');
+        self::assertStringNotContainsString($token, $log);
+    }
+
+    /** Every authentication line written so far, as one block of text. */
+    private function authLog(): string
+    {
+        return implode(
+            "\n",
+            DB::table('log')
+                ->where('log_type', '=', 'auth')
+                ->orderBy('log_id')
+                ->pluck('log_message')
+                ->all()
         );
     }
 
