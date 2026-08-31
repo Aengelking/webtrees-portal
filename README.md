@@ -1888,6 +1888,18 @@ a line goes into webtrees' authentication log. Two requests that left one
 telephone together are not that: the token one step back stays usable for a
 minute, so a flaky connection is not mistaken for a theft.
 
+**Every refusal says why, in that same log.** A cookie can be turned away for
+five reasons besides theft — remembering switched off, a cookie the module did
+not write, a device the portal no longer has a record of, a registration that
+has run out, an account that is gone — and each of them writes one line naming
+which. Nothing at all is written for a request that offered no cookie, and
+that silence is the point of the arrangement: a line means a device asked and
+was refused, and no line means no device asked. Without both halves the two
+cases look identical from the outside, and they have nothing to do with each
+other — one is a fault on the server, the other never reached it. The line
+names the device's series, never its token; a credential in a log is a
+credential in every backup of that log.
+
 ### Naming the people who hold an office
 
 *Control panel → Modules → Member portal API → Offices.*

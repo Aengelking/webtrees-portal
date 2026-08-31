@@ -6492,6 +6492,54 @@ Seite, die nie kam, ohne jede Auskunft darüber, wie weit sie gekommen ist. Der
 Lauf hält also bei einer Zahl an, über die er noch berichten kann, und sagt,
 wie viele übrig sind.
 
+### 2.107 Sechs von sieben Ausgängen schwiegen
+
+Gemeldet wurde: „Angemeldet bleiben funktioniert nicht immer", App vom
+Startbildschirm. Ich hatte eine gute Hypothese — der Token wird bei jeder
+Benutzung verbraucht und ersetzt, der Vorgänger gilt nur 60 Sekunden, und eine
+Antwort, die auf dem Telefon nie ankommt, lässt Gerät und Server dauerhaft
+auseinanderlaufen. Prüfbar war das über das Authentifizierungsprotokoll, weil
+der Diebstahlfall dort eine Zeile schreibt.
+
+Antwort: **im Protokoll steht zu diesen Uhrzeiten gar nichts.** Auch kein
+erfolgreiches „resumed a remembered session".
+
+Das sieht nach einem Befund aus und ist keiner. `resume()` hatte sieben
+Ausgänge, und **genau einer** — der Diebstahlzweig — schrieb eine Zeile. Die
+übrigen sechs gaben `return null;` zurück und schwiegen: abgeschaltet,
+unpassend geformt, Serie unbekannt, abgelaufen, Konto weg. „Das Cookie kam nie
+an" und „das Cookie kam an und wurde wortlos abgewiesen" erzeugen damit
+dieselbe Leere — und diese beiden haben nichts miteinander zu tun. Das eine
+ist ein Fehler in diesem Modul, das andere passiert nicht einmal auf dieser
+Maschine.
+
+Dieselbe Form wie §2.102 und §2.103: ein Loch genau an der Stelle, an die man
+schaut. Man kann es nicht wegdenken, man muss es zumachen.
+
+**Also erst sichtbar machen, dann reparieren.** Jede Absage sagt jetzt, warum.
+Die Versuchung war groß, gleichzeitig die 60-Sekunden-Frist zu verlängern —
+der Konstruktionsfehler ist real, unabhängig davon, ob er dieses Symptom
+erklärt. Genau das wäre falsch gewesen: verschwindet das Symptom danach, weiß
+ich nicht wodurch; verschwindet es nicht, habe ich die Anmeldemechanik ohne
+Grund geändert. Eine Messung und eine Verhaltensänderung im selben Schritt
+ergeben eine Messung, die nichts misst.
+
+**Was nicht protokolliert wird, trägt die Aussage.** Für eine Anfrage *ohne*
+Cookie wird nichts geschrieben. Sonst stünde für jeden anonymen Besucher eine
+Zeile da und die beiden Fälle wären wieder ununterscheidbar — der Zustand, aus
+dem das hier kommt. Dadurch gilt jetzt: eine Zeile heißt, ein Gerät hat
+gefragt und wurde abgewiesen, samt Grund; keine Zeile heißt, es hat kein Gerät
+gefragt. Ein Test hält ausdrücklich fest, dass geschwiegen wird — er ist der
+Teil, der dem Schweigen seine Bedeutung gibt, und ohne ihn ist die ganze
+Auskunft wertlos.
+
+**Die Serie ja, der Token nie.** Die Serie benennt ein Gerät und ist das, was
+zwei Zeilen demselben Telefon zuordnet; der Token ist die Zugangsberechtigung,
+und eine Zugangsberechtigung im Protokoll steht in jeder Sicherung dieses
+Protokolls. Ein Test prüft das auf dem gewöhnlichen Absageweg *und* auf dem
+Diebstahlweg — dort, wo jemand beim Anreichern von Details am ehesten nach dem
+ganzen Cookie greifen würde.
+
 ---
 
 ## 3. Things that were guessed

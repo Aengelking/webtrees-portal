@@ -152,32 +152,50 @@ class RememberedDevices
      *
      * Returns null for everything that is not a live, unspent token on a live
      * account: nonsense, unknown, expired, spent, or belonging to somebody who
-     * has since been deleted. The caller has no way to tell those apart and
-     * nothing to say about them — a member whose cookie does not work sees the
-     * login screen, which is what they would have seen anyway.
+     * has since been deleted. The member sees the login screen either way,
+     * which is what they would have seen anyway.
+     *
+     * **Every one of those refusals says so in the log, and that was not true
+     * before.** A member reported being signed out now and again on a
+     * telephone, and the authentication log had nothing in it at the times it
+     * happened. That looked like an answer and was not one: of the seven ways
+     * out of this method, exactly one — the stolen-cookie branch — wrote a
+     * line. "The cookie never arrived" and "the cookie arrived and was turned
+     * away without comment" were the same silence, and they are the two halves
+     * this has to be told apart into: one of them is a fault in this module,
+     * the other is not even on this machine. See §2.107.
+     *
+     * What is *not* logged is any refusal for a cookie nobody sent — the
+     * caller only reaches this when a cookie was offered, so a line here means
+     * a device asked and was turned away, and no line means no device asked.
+     * That is the whole diagnostic value, and it depends on the refusals being
+     * complete rather than on any of them being interesting.
      */
     public function resume(string $cookie): RememberedDevice|null
     {
         if (!$this->available()) {
-            return null;
+            return $this->refused('remembering is switched off for this family', null);
         }
 
         [$series, $token] = $this->split($cookie);
 
         if ($series === null || $token === null) {
-            return null;
+            return $this->refused('the cookie was not in the shape this module writes', null);
         }
 
         $row = DB::table(self::TABLE)->where('series', '=', $series)->first();
 
         if ($row === null) {
-            return null;
+            // The cookie names a device the portal has no record of: it was
+            // signed out elsewhere, the password was changed, or the record
+            // went with a member's other devices after a spent token.
+            return $this->refused('no device is registered under that series', $series);
         }
 
         if ((int) $row->expires_at <= time()) {
             DB::table(self::TABLE)->where('id', '=', (int) $row->id)->delete();
 
-            return null;
+            return $this->refused('the registration had expired', $series);
         }
 
         $offered = $this->hash($token);
@@ -196,10 +214,34 @@ class RememberedDevices
         if ($user === null) {
             DB::table(self::TABLE)->where('id', '=', (int) $row->id)->delete();
 
-            return null;
+            return $this->refused('the account it belongs to no longer exists', $series);
         }
 
         return new RememberedDevice($user, $this->rotate((int) $row->id, $series, $offered));
+    }
+
+    /**
+     * Say in the log why a cookie that was offered was not honoured.
+     *
+     * Returns null so that each refusal above stays one line — the point is
+     * that adding a way out of `resume()` and forgetting to account for it
+     * should be awkward, and a bare `return null;` beside seven of these
+     * reads as the oversight it would be.
+     *
+     * **The series, never the token.** The series names a device and is what
+     * makes two entries in the log belong to the same telephone; the token is
+     * the credential, and a credential in a log is a credential in every
+     * backup of that log. `betrayed()` has always logged the series for the
+     * same reason.
+     */
+    private function refused(string $why, string|null $series): null
+    {
+        Log::addAuthenticationLog(
+            'Portal: a remembered device was not resumed — ' . $why
+            . ($series === null ? '' : ' (series ' . $series . ')')
+        );
+
+        return null;
     }
 
     /**
